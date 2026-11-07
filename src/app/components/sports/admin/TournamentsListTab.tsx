@@ -166,6 +166,25 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
           />
 
           {/* Active Tournaments */}
@@ -223,10 +242,24 @@ export function TournamentsListTab({
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
             onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
             viewingEventId={viewingEventId}
             viewMode={viewMode || undefined}
             registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
             loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
           />
         </>
       )}

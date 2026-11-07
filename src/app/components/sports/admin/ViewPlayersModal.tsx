@@ -376,89 +376,83 @@ export function ViewPlayersModal({
 
           <div className="flex flex-wrap items-center gap-2">
             {/* Export Players */}
-            {registrations && registrations.length > 0 && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export Players</span>
-                  <ChevronDown className="w-3 h-3" />
-                </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Players</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
 
-                {exportDropdownOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-50"
-                      onClick={() => setExportDropdownOpen(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-left text-xs">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          exportPlayersToExcel(registrations, eventName);
-                          setExportDropdownOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                      >
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                        <span>Download Excel (.xls)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          exportPlayersToCSV(registrations, eventName);
-                          setExportDropdownOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                      >
-                        <FileText className="w-4 h-4 text-blue-600" />
-                        <span>Download CSV (.csv)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          exportPlayersToPDF(registrations, eventName);
-                          setExportDropdownOpen(false);
-                        }}
-                        className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                      >
-                        <Printer className="w-4 h-4 text-indigo-600" />
-                        <span>Print / Save PDF Roster</span>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+              {exportDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-50"
+                    onClick={() => setExportDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-left text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportPlayersToExcel(registrations || [], eventName);
+                        setExportDropdownOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                      <span>Download Excel (.xls)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportPlayersToCSV(registrations || [], eventName);
+                        setExportDropdownOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <span>Download CSV (.csv)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportPlayersToPDF(registrations || [], eventName);
+                        setExportDropdownOpen(false);
+                      }}
+                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Printer className="w-4 h-4 text-indigo-600" />
+                      <span>Print / Save PDF Roster</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Add Participant */}
-            {onAddParticipant && (
-              <button
-                type="button"
-                onClick={() => onAddParticipant(event.id)}
-                className="px-3 py-1.5 bg-[#f97316]/10 hover:bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 hover:border-[#f97316]/50 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                title="Add participants to this sports event"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Participant</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onAddParticipant?.(event.id)}
+              className="px-3 py-1.5 bg-[#f97316]/10 hover:bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 hover:border-[#f97316]/50 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Add participants to this sports event"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Participant</span>
+            </button>
 
             {/* Import */}
-            {onImportParticipants && (
-              <button
-                type="button"
-                onClick={() => onImportParticipants(event.id)}
-                className="px-3 py-1.5 bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 hover:border-[#10b981]/50 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                title="Import participants via CSV"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-                <span>Import</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onImportParticipants?.(event.id)}
+              className="px-3 py-1.5 bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 hover:border-[#10b981]/50 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Import participants via CSV"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>Import</span>
+            </button>
 
             {/* External Forms */}
             <button
