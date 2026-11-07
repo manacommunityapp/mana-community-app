@@ -1180,6 +1180,7 @@ export function SportsDashboard() {
         captainNomination: r.captainNomination,
         captainConfirmation: r.captainConfirmation,
         playerName: r.playerName || (r as any).user?.fullName,
+        flatNumber: r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber,
         relation: r.relation,
         familyMemberId: r.familyMemberId || (r as any).familyMember?.id,
         partnerUserId: r.partnerUserId || (r as any).partner?.id || (r as any).partnerUserId,
@@ -2683,6 +2684,8 @@ export function SportsDashboard() {
                               const isPool = Boolean((r as any).openPool || (r as any).isPoolPlayer || (r as any).needsPartner || (!pName && !r.partnerUserId));
 
                               if (isConfirmedPartner) {
+                                const primaryFlat = r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber;
+                                const cleanPrimaryFlat = primaryFlat ? String(primaryFlat).replace(/^Flat\s+/i, "").trim() : "";
                                 return (
                                   <div
                                     key={`partner-${r.id}`}
@@ -2690,7 +2693,9 @@ export function SportsDashboard() {
                                   >
                                     <Users className="w-3 h-3 text-emerald-600 shrink-0" />
                                     <span className="truncate">
-                                      Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong> (Confirmed Partner)
+                                      Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
+                                      {cleanPrimaryFlat ? <span className="font-medium text-emerald-800"> (Flat {cleanPrimaryFlat})</span> : null}{" "}
+                                      (Confirmed Partner)
                                     </span>
                                   </div>
                                 );
@@ -2711,6 +2716,8 @@ export function SportsDashboard() {
                               }
 
                               if (pName || isPool) {
+                                const partnerFlat = r.partnerFlatNumber || (r as any).partner?.flatNo || (r as any).partner?.flatNumber;
+                                const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
                                 return (
                                   <div
                                     key={`partner-${r.id}`}
@@ -2721,7 +2728,9 @@ export function SportsDashboard() {
                                       <span className="text-amber-800 font-semibold">Partner: Open Pairing Pool</span>
                                     ) : (
                                       <span className="truncate">
-                                        Partner: <strong className="font-semibold text-slate-900">{pName}</strong> ({statusLabel})
+                                        Partner: <strong className="font-semibold text-slate-900">{pName}</strong>
+                                        {cleanPartnerFlat ? <span className="font-medium text-slate-600"> (Flat {cleanPartnerFlat})</span> : null}{" "}
+                                        ({statusLabel})
                                       </span>
                                     )}
                                   </div>

@@ -1244,8 +1244,31 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       const inviteNoFlat = { playerName: "John Smith" };
       expect(formatInviteMessage(inviteNoFlat)).toBe("Invited by John Smith (Doubles)");
     });
+
+    it("verifies playing with confirmed partner message correctly formats primary player with flat details", () => {
+      const formatPlayingWithMessage = (reg: any) => {
+        const primaryPlayerName = reg?.playerName || "Primary Player";
+        const primaryFlat = reg?.flatNumber || reg?.flatNo || reg?.user?.flatNo || reg?.user?.flatNumber;
+        const cleanPrimaryFlat = primaryFlat ? String(primaryFlat).replace(/^Flat\s+/i, "").trim() : "";
+
+        return `Playing with ${primaryPlayerName}${cleanPrimaryFlat ? ` (Flat ${cleanPrimaryFlat})` : ""} (Confirmed Partner)`;
+      };
+
+      // Case 1: with direct flatNumber
+      expect(formatPlayingWithMessage({ playerName: "Test Resident", flatNumber: "A-204" }))
+        .toBe("Playing with Test Resident (Flat A-204) (Confirmed Partner)");
+
+      // Case 2: with nested user flatNo and 'Flat ' prefix to sanitize
+      expect(formatPlayingWithMessage({ playerName: "Test Resident", user: { flatNo: "Flat C-302" } }))
+        .toBe("Playing with Test Resident (Flat C-302) (Confirmed Partner)");
+
+      // Case 3: without flat info
+      expect(formatPlayingWithMessage({ playerName: "Test Resident" }))
+        .toBe("Playing with Test Resident (Confirmed Partner)");
+    });
   });
 });
+
 
 
 

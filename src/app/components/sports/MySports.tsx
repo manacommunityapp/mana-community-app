@@ -1124,17 +1124,23 @@ export function MySports() {
                                     (reg.categoryName && reg.categoryName.toLowerCase().includes("doubles"))) && (
                                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                                       {reg.partnerUserId || reg.partnerName ? (
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
-                                            <Users className="w-3 h-3" />
-                                            <span>
-                                              Partner: <strong>{reg.partnerName || "Partner"}</strong>
-                                            </span>
-                                            <span className="text-[10px] font-medium opacity-80">
-                                              ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
-                                            </span>
-                                          </span>
-                                        </div>
+                                        (() => {
+                                          const partnerFlat = (reg as any).partnerFlatNumber || (reg as any).partner?.flatNo || (reg as any).partner?.flatNumber;
+                                          const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+                                          return (
+                                            <div className="flex items-center gap-1.5">
+                                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
+                                                <Users className="w-3 h-3" />
+                                                <span>
+                                                  Partner: <strong>{reg.partnerName || "Partner"}</strong>{cleanPartnerFlat ? ` (Flat ${cleanPartnerFlat})` : ""}
+                                                </span>
+                                                <span className="text-[10px] font-medium opacity-80">
+                                                  ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
+                                                </span>
+                                              </span>
+                                            </div>
+                                          );
+                                        })()
                                       ) : (
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200">

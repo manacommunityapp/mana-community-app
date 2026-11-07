@@ -74,6 +74,8 @@ export interface DashboardMyRegistration {
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
   playerName?: string | null;
+  flatNumber?: string | null;
+  flatNo?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
   partnerUserId?: number | string | null;
