@@ -12,6 +12,8 @@ import { GenericLeaderboard } from "../GenericLeaderboard";
 import { RaceResultsView } from "../RaceResultsView";
 import { RaceScoringPanel } from "../RaceScoringPanel";
 import { TeamsHubShowcase } from "../teams";
+import { SportsLiveStream } from "../SportsLiveStream";
+import { SportsStreamControl } from "../SportsStreamControl";
 import { tournamentService, type GenericMatchState } from "../../../../services/sports/tournamentService";
 
 /**
@@ -288,7 +290,51 @@ export function RaceScorePage() {
 }
 
 /**
- * 9. Tournament Teams & Squads Hub Page
+ * 9. Live Stream Viewer Page
+ */
+export function MatchStreamPage() {
+  const { matchId } = useParams<{ matchId: string }>();
+  const navigate = useNavigate();
+  const id = Number(matchId);
+
+  if (!id) {
+    return (
+      <div className="p-6 text-center text-slate-500">
+        <p>Invalid Match ID</p>
+        <button onClick={() => navigate("/sports/schedule")} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
+          Back to Schedule
+        </button>
+      </div>
+    );
+  }
+
+  return <SportsLiveStream matchId={id} />;
+}
+
+/**
+ * 10. Stream Control Panel Page (organizers/scorers)
+ */
+export function MatchStreamControlPage() {
+  const { matchId } = useParams<{ matchId: string }>();
+  const navigate = useNavigate();
+  const id = Number(matchId);
+
+  if (!id) {
+    return (
+      <div className="p-6 text-center text-slate-500">
+        <p>Invalid Match ID</p>
+        <button onClick={() => navigate("/sports/schedule")} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold">
+          Back to Schedule
+        </button>
+      </div>
+    );
+  }
+
+  return <SportsStreamControl matchId={id} />;
+}
+
+/**
+ * 11. Tournament Teams & Squads Hub Page
  */
 export function TeamsHubPage() {
   const navigate = useNavigate();

@@ -138,6 +138,8 @@ import {
   LeaderboardPage,
   RaceResultsPage,
   RaceScorePage,
+  MatchStreamPage,
+  MatchStreamControlPage,
 } from "./components/sports/pages/SportsRoutePages";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
@@ -336,6 +338,7 @@ import FoodJournal from "./components/wellness/FoodJournal";
 import MealLogger from "./components/wellness/MealLogger";
 import WaterTracker from "./components/wellness/WaterTracker";
 import WellnessChallenges from "./components/wellness/WellnessChallenges";
+import CalorieTracker from "./components/wellness/CalorieTracker";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
 import WorkoutLogger from "./components/wellness/WorkoutLogger";
@@ -619,6 +622,14 @@ export const router = createBrowserRouter([
           {
             path: "race/:matchId/score",
             element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><RaceScorePage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/stream",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><MatchStreamPage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/stream/manage",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><MatchStreamControlPage /></PermissionGuard>,
           },
         ],
       },
@@ -1324,6 +1335,7 @@ export const router = createBrowserRouter([
           { path: "trainer-programs", element: <TrainerPrograms /> },
           { path: "trainer-programs/:id", element: <TrainerProgramDetail /> },
           { path: "log-sports", element: <LogSportsWorkout /> },
+          { path: "calories", element: <CalorieTracker /> },
         ],
       },
       {
