@@ -510,4 +510,45 @@ export const sportsSocialService = {
       saveJson(STORAGE_CONVERSATIONS, convs);
     }
   },
+
+  startDM(playerId: string, playerName: string): SportsConversation {
+    const convs = loadJson(STORAGE_CONVERSATIONS, SEED_CONVERSATIONS);
+    const existing = convs.find(
+      (c: SportsConversation) => c.type === "DM" && c.participantIds.includes(playerId) && c.participantIds.includes("me"),
+    );
+    if (existing) return existing;
+    const conv: SportsConversation = {
+      id: genId("conv"),
+      participantIds: ["me", playerId],
+      participants: [
+        { playerId: "me", playerName: "You", isOnline: true },
+        { playerId, playerName, isOnline: false },
+      ],
+      lastMessage: "",
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+      type: "DM",
+    };
+    convs.unshift(conv);
+    saveJson(STORAGE_CONVERSATIONS, convs);
+    return conv;
+  },
+
+  createGroup(groupName: string, members: { playerId: string; playerName: string }[]): SportsConversation {
+    const convs = loadJson(STORAGE_CONVERSATIONS, SEED_CONVERSATIONS);
+    const allMembers = [{ playerId: "me", playerName: "You" }, ...members];
+    const conv: SportsConversation = {
+      id: genId("conv"),
+      participantIds: allMembers.map(m => m.playerId),
+      participants: allMembers.map(m => ({ playerId: m.playerId, playerName: m.playerName, isOnline: m.playerId === "me" })),
+      lastMessage: "",
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+      type: "GROUP",
+      groupName,
+    };
+    convs.unshift(conv);
+    saveJson(STORAGE_CONVERSATIONS, convs);
+    return conv;
+  },
 };

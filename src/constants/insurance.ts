@@ -34,6 +34,109 @@ export function categoryFromParam(p?: string): InsuranceCategory | undefined {
   return CATEGORIES.find((c) => c.key === (p ?? '').toUpperCase())?.key;
 }
 
+// ───────────────────────── sports catalogue seeds ─────────────────────────
+// Shown when the API returns no results or is unreachable in development.
+
+export const SPORTS_CATALOGUE_SEEDS: CatalogueItem[] = [
+  // ── Player Personal Accident ──────────────────────────────────────────────
+  {
+    productVersionId: 9001, productId: 901, category: 'SPORTS_PA',
+    name: 'SportShield Personal Accident – Player Plan',
+    versionNo: 2, insurerName: 'Digit General Insurance', partnerType: 'INSURER',
+    irdaiRegistrationNo: '158', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ ageMin: 5, ageMax: 65, residency: 'India' }),
+    coverageJson: JSON.stringify({ fractures: '₹1L', ligamentTears: '₹75K', hospitalization: '₹2L', deathPA: '₹10L' }),
+    benefitsJson: JSON.stringify(['24h worldwide cover', 'Physio & rehab costs', 'Loss of income during recovery', 'Ambulance transport']),
+    waitingPeriodsJson: JSON.stringify({ accidentCover: 'Immediate' }),
+    exclusionsJson: JSON.stringify(['Pre-existing disabilities', 'Self-inflicted injuries', 'Professional athletes (separate plan available)']),
+    partnerDisclosure: 'Digit General Insurance Limited. IRDAI Reg No. 158.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+  {
+    productVersionId: 9002, productId: 902, category: 'SPORTS_PA',
+    name: 'ActiveGuard Sports PA – Monthly',
+    versionNo: 1, insurerName: 'Niva Bupa Health Insurance', partnerType: 'INSURER',
+    irdaiRegistrationNo: '145', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ ageMin: 10, ageMax: 60, residency: 'India' }),
+    coverageJson: JSON.stringify({ accidentalDeath: '₹5L', permanentDisability: '₹5L', medicalExpenses: '₹1.5L' }),
+    benefitsJson: JSON.stringify(['Monthly renewable plan', 'Covers 20+ listed sports', 'Direct cashless at network hospitals']),
+    waitingPeriodsJson: JSON.stringify({ accidentCover: 'Immediate' }),
+    exclusionsJson: JSON.stringify(['Adventure sports require add-on', 'Amateur cricket league cover only']),
+    partnerDisclosure: 'Niva Bupa Health Insurance Company Limited. IRDAI Reg No. 145.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+  // ── Event & Tournament Liability ─────────────────────────────────────────
+  {
+    productVersionId: 9011, productId: 911, category: 'SPORTS_EVENT_LIABILITY',
+    name: 'EventShield Tournament Liability',
+    versionNo: 1, insurerName: 'The New India Assurance Co. Ltd.', partnerType: 'INSURER',
+    irdaiRegistrationNo: '190', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ organiserType: 'Individual / Club / Association', maxParticipants: 10000 }),
+    coverageJson: JSON.stringify({ spectatorInjury: '₹25L/event', propertyDamage: '₹10L', legalDefence: '₹2L' }),
+    benefitsJson: JSON.stringify(['Single or multi-day events', 'Covers volunteers & officials', 'Third-party bodily injury & property damage', 'Legal costs included']),
+    waitingPeriodsJson: JSON.stringify({ cover: 'Effective from event start time' }),
+    exclusionsJson: JSON.stringify(['Professional leagues & IPL-scale events', 'Alcohol-related incidents', 'Events without proper permissions']),
+    partnerDisclosure: 'The New India Assurance Co. Ltd. IRDAI Reg No. 190.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+  {
+    productVersionId: 9012, productId: 912, category: 'SPORTS_EVENT_LIABILITY',
+    name: 'SpotOn Event & Venue Liability',
+    versionNo: 2, insurerName: 'IndiaFirst Life Insurance', partnerType: 'INSURER',
+    irdaiRegistrationNo: '143', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ organiserType: 'Club / School / RWA', maxParticipants: 5000 }),
+    coverageJson: JSON.stringify({ thirdPartyBodily: '₹20L/event', equipmentDamage: '₹5L', cancellationCosts: '₹1L' }),
+    benefitsJson: JSON.stringify(['Venue damage cover', 'Event cancellation partial refund', 'Up to 3 consecutive days', 'Digital policy in minutes']),
+    waitingPeriodsJson: JSON.stringify({ cover: 'Immediate on payment' }),
+    exclusionsJson: JSON.stringify(['Wilful negligence', 'High-adrenaline adventure (needs add-on)', 'Terrorism (separate cover available)']),
+    partnerDisclosure: 'IndiaFirst Life Insurance Company Limited. IRDAI Reg No. 143.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+  // ── Team / Club Group Cover ───────────────────────────────────────────────
+  {
+    productVersionId: 9021, productId: 921, category: 'SPORTS_TEAM_GROUP',
+    name: 'TeamShield Club Group Policy',
+    versionNo: 3, insurerName: 'Digit General Insurance', partnerType: 'INSURER',
+    irdaiRegistrationNo: '158', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ minMembers: 5, maxMembers: 300, ageMin: 10, ageMax: 65 }),
+    coverageJson: JSON.stringify({ accidentalDeathPerMember: '₹5L', medicalExpenses: '₹1L/member', disability: '₹3L/member' }),
+    benefitsJson: JSON.stringify(['Single policy covers all registered players', 'No individual declarations', 'Academy & coaching staff included', 'Tournament add-ons available']),
+    waitingPeriodsJson: JSON.stringify({ accidentCover: 'Immediate from inception date' }),
+    exclusionsJson: JSON.stringify(['Members below 10 or above 65', 'Unlisted / unapproved sports', 'Pre-existing physical disabilities']),
+    partnerDisclosure: 'Digit General Insurance Limited. IRDAI Reg No. 158.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+  {
+    productVersionId: 9022, productId: 922, category: 'SPORTS_TEAM_GROUP',
+    name: 'SquadSafe Annual Team Cover',
+    versionNo: 1, insurerName: 'Niva Bupa Health Insurance', partnerType: 'INSURER',
+    irdaiRegistrationNo: '145', dataSource: 'SANDBOX',
+    brochureUrl: null, policyWordingUrl: null,
+    eligibilityJson: JSON.stringify({ minMembers: 2, maxMembers: 50, ageMin: 5, ageMax: 60 }),
+    coverageJson: JSON.stringify({ fractures: '₹75K/member', hospitalization: '₹1.5L/member', physio: '₹25K/member' }),
+    benefitsJson: JSON.stringify(['Ideal for school & college teams', 'Per-player premium as low as ₹199/year', 'Cashless at 10,000+ hospitals', 'Includes overseas tournaments (SAARC)']),
+    waitingPeriodsJson: JSON.stringify({ accidentCover: '48h after policy inception' }),
+    exclusionsJson: JSON.stringify(['Professional or paid athletes', 'Events outside stated sport', 'Members added mid-year require endorsement']),
+    partnerDisclosure: 'Niva Bupa Health Insurance Company Limited. IRDAI Reg No. 145.',
+    commercialDisclosure: 'Mana Community receives referral fees from partner insurers.',
+    verifiedAt: '2026-10-01',
+  },
+];
+
+export function getSportsCatalogueSeeds(category: InsuranceCategory): CatalogueItem[] {
+  return SPORTS_CATALOGUE_SEEDS.filter((s) => s.category === category);
+}
+
 // ───────────────────────── masking ─────────────────────────
 
 export function maskPolicyNumber(value?: string | null): string {
