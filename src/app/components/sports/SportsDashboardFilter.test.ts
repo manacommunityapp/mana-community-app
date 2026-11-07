@@ -1100,6 +1100,117 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
     expect(computeSpots(0, 5)).toBeUndefined();
     expect(computeSpots(16, 4)).toBe("4/16 spots");
   });
+
+  describe("Captain Nominations Action & Display Logic for Logged-in User and Members", () => {
+    const user = { userId: 101, fullName: "Sandeep Kamarapu" };
+
+    function resolveNominationAction(reg: any, capNom?: any) {
+      const isNominated = Boolean(capNom?.captainNomination || reg.captainNomination);
+      const isCaptainConfirmed = Boolean(capNom?.captainConfirmation || reg.captainConfirmation);
+      const isSelf = isSelfRelationOrMember(reg.relation, reg.familyMemberId, reg.playerName, user.fullName);
+      const regPersonName = reg.playerName || (isSelf ? (user.fullName || "You") : "Member");
+      const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
+
+      return isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : actionLabel;
+    }
+
+    it("displays 'Nominate Me' for logged-in user when not nominated", () => {
+      const reg = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        familyMemberId: "self",
+        captainNomination: false,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(reg, null)).toBe("Nominate Me");
+    });
+
+    it("displays 'Nominate <MemberName>' for family member when not nominated", () => {
+      const reg = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        familyMemberId: 2,
+        captainNomination: false,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(reg, null)).toBe("Nominate Sunita Kamarapu");
+    });
+
+    it("displays 'Withdraw' when nomination is active for self or family member", () => {
+      const selfReg = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        captainNomination: true,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(selfReg, null)).toBe("Withdraw");
+
+      const memberReg = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        captainNomination: false,
+      };
+      const capNom = { eventId: 771, captainNomination: true, captainConfirmation: false };
+      expect(resolveNominationAction(memberReg, capNom)).toBe("Withdraw");
+    });
+
+    it("displays 'Confirmed' (disabled) when captaincy is confirmed", () => {
+      const confirmedSelf = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        captainNomination: true,
+        captainConfirmation: true,
+      };
+      expect(resolveNominationAction(confirmedSelf, null)).toBe("Confirmed");
+
+      const confirmedMember = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        captainNomination: true,
+        captainConfirmation: false,
+      };
+      const capNom = { eventId: 771, captainNomination: true, captainConfirmation: true };
+      expect(resolveNominationAction(confirmedMember, capNom)).toBe("Confirmed");
+    });
+
+    it("matches capNom with numeric coercion between number and string event IDs", () => {
+      const reg = { id: 901, eventId: "771", event: { id: "771" } };
+      const captainRegistrations = [{ eventId: 771, teamName: "Warriors", captainNomination: true }];
+
+      const targetEventId = Number(reg.eventId || reg.event?.id);
+      const capNom = captainRegistrations.find(c => Number(c.eventId) === targetEventId);
+
+      expect(capNom).toBeDefined();
+      expect(capNom?.teamName).toBe("Warriors");
+    });
+
+    it("includes both CONFIRMED and REGISTERED statuses in confirmedMyRegistrations", () => {
+      const registrations = [
+        { id: 1, status: "CONFIRMED", matchType: "TEAM" },
+        { id: 2, status: "REGISTERED", matchType: "TEAM" },
+        { id: 3, status: "WITHDRAWN", matchType: "TEAM" },
+        { id: 4, status: "PENDING", matchType: "TEAM" },
+      ];
+
+      const active = registrations.filter(r => isActiveRegistrationStatus(r.status));
+      const confirmedOrRegistered = active.filter(r => r.status === "CONFIRMED" || r.status === "REGISTERED");
+
+      expect(confirmedOrRegistered).toHaveLength(2);
+      expect(confirmedOrRegistered.map(r => r.id)).toEqual([1, 2]);
+    });
+  });
 });
 
 

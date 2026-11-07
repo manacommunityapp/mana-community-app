@@ -1033,7 +1033,9 @@ export function SportsDashboard() {
       isActiveRegistrationStatus(r.status) && !withdrawnRegistrationIds.has(Number(r.id))
     );
   }, [myRegistrations, withdrawnRegistrationIds]);
-  const confirmedMyRegistrations = activeMyRegistrations.filter(r => r.status === "CONFIRMED");
+  const confirmedMyRegistrations = useMemo(() => {
+    return activeMyRegistrations.filter(r => r.status === "CONFIRMED" || r.status === "REGISTERED");
+  }, [activeMyRegistrations]);
 
   const isItemTeamSport = useCallback((ev: any) => {
     return Boolean(
@@ -1103,10 +1105,17 @@ export function SportsDashboard() {
         r.event?.matchType === "TEAM" ||
         r.event?.teamSport ||
         r.event?.isTeamSport ||
-        isTeamSport(r.event?.sport?.name || r.event?.name || "")
+        isItemTeamSport(r.event || r)
       )
     );
-  }, [confirmedMyRegistrations]);
+  }, [confirmedMyRegistrations, isItemTeamSport]);
+
+  const displayedConfirmedTeamRegs = useMemo(() => {
+    if (!upcomingFamilyFilter || upcomingFamilyFilter === "ALL") {
+      return confirmedTeamRegistrations;
+    }
+    return confirmedTeamRegistrations.filter(r => isRegistrationForMember(r, upcomingFamilyFilter));
+  }, [confirmedTeamRegistrations, upcomingFamilyFilter, isRegistrationForMember]);
 
   const fetchData = useCallback(async () => {
     if (!user?.userId) return;
@@ -1830,11 +1839,15 @@ export function SportsDashboard() {
         await sportsService.confirmCaptain(selectedRegForNomination, true);
         toast.success(`Captain appointed for team "${assignedName}"!`);
       } else {
-        // Player self-nomination flow
+        // Player self or member nomination flow
         if (nominatingRegId) {
-          await sportsService.nominateCaptain(nominatingRegId, true, assignedName).catch(() => {});
+          await sportsService.nominateCaptain(nominatingRegId, true, assignedName);
         }
-        await auctionService.nominateCaptain(eventId, true, assignedName);
+        try {
+          await auctionService.nominateCaptain(eventId, true, assignedName);
+        } catch (auctionErr) {
+          console.warn("Auction team nominate sync note:", auctionErr);
+        }
         toast.success(`Captain nomination submitted for team "${assignedName}"!`);
       }
 
@@ -3426,78 +3439,123 @@ export function SportsDashboard() {
           )}
 
           {/* Unified Captain Nominations Section — team sports only */}
-          {((canManageCaptainNominations && adminTeamEvents.length > 0) || confirmedTeamRegistrations.length > 0) && (
+          {((canManageCaptainNominations && adminTeamEvents.length > 0) || displayedConfirmedTeamRegs.length > 0) && (
             <div className="rounded-xl p-2 sm:p-2.5 mt-2 bg-white border border-slate-200/90 shadow-2xs">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
-                  {canManageCaptainNominations && adminTeamEvents.length > 0
+                  {displayedConfirmedTeamRegs.length > 0 && canManageCaptainNominations && adminTeamEvents.length > 0
+                    ? `${displayedConfirmedTeamRegs.length} Nominations · ${adminTeamEvents.length} Admin Events`
+                    : canManageCaptainNominations && adminTeamEvents.length > 0
                     ? `${adminTeamEvents.length} Available`
                     : "Registration Confirmed ✓"}
                 </span>
               </div>
 
               <div className="space-y-2">
-                {/* Admin View: team events only */}
-                {canManageCaptainNominations && adminTeamEvents.length > 0 ? (
-                  adminTeamEvents.map(item => (
-                    <div key={item.id}>
-                      <RegCard
-                        item={{ ...item, action: "Appoint Captain" as any }}
-                        onRegister={() => { }}
-                        onView={async () => {
-                          setSelectedCaptainEventId(item.id);
-                          setSelectedCaptainEvent(item);
-                          setIsAdminNomination(true);
-                          setIsNominateModalOpen(true);
-                          setCaptainSearchQuery("");
-                          setIsCaptainDropdownOpen(false);
-                          await fetchCaptainRegs(item.id, item);
-                        }}
-                        isAdmin={false}
-                      />
-                    </div>
-                  ))
-                ) : (
-                  /* User View: Self-nomination for confirmed team events only */
-                  confirmedTeamRegistrations.map(reg => {
-                    const capNom = captainRegistration.find(c => c.eventId === reg.event.id)
-                    const isNominated = capNom?.captainNomination;
-                    const isCaptainConfirmed = capNom?.captainConfirmation;
+                {/* User / Member View: Self & Family Nominations for confirmed team events */}
+                {displayedConfirmedTeamRegs.length > 0 && (
+                  <div className="space-y-1.5">
+                    {canManageCaptainNominations && adminTeamEvents.length > 0 && (
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Your & Family Nominations
+                      </div>
+                    )}
+                    {displayedConfirmedTeamRegs.map(reg => {
+                      const targetEventId = Number(reg.eventId || reg.event?.id);
+                      const capNom = captainRegistration.find(c => Number(c.eventId) === targetEventId);
+                      const isNominated = Boolean(capNom?.captainNomination || reg.captainNomination);
+                      const isCaptainConfirmed = Boolean(capNom?.captainConfirmation || reg.captainConfirmation);
+                      const isSelf = isSelfRelationOrMember(reg.relation, reg.familyMemberId, reg.playerName, user?.fullName);
+                      const regPersonName = reg.playerName || (isSelf ? (user?.fullName || "You") : "Member");
+                      const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
 
-                    return (
-                      <RegCard
-                        key={reg.id}
-                        item={{
-                          id: reg.id,
-                          name: reg.event.name,
-                          date: `${new Date(reg.event.eventDateStart).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`,
-                          category: `${reg.event.sport?.name ?? "Sport"} · ${reg.category?.name ?? "Open"}`,
-                          spots: isCaptainConfirmed ? "Confirmed Captain 🏆" : (isNominated ? "Nomination Active" : "Available for Captaincy"),
-                          progress: isCaptainConfirmed ? 100 : (isNominated ? 50 : 0),
-                          progressColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                          dotColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                          action: (isCaptainConfirmed || isNominated ? "Withdraw" : "Nominate Me") as any,
-                          status: reg.event.registrationStatus,
-                        }}
-                        onView={async () => {
-                          if (isNominated) {
-                            try {
-                              await auctionService.nominateCaptain(reg.event.id, false);
-                              toast.success("Nomination withdrawn");
-                              fetchData();
-                            } catch { toast.error("Failed to withdraw"); }
-                          } else {
-                            setNominatingRegId(reg.id);
-                            setIsAdminNomination(false);
-                            setNominateTeamName("");
+                      const rawDate = reg.event?.eventDateStart || reg.eventDateStart;
+                      const formattedDate = rawDate && !isNaN(new Date(rawDate).getTime())
+                        ? new Date(rawDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
+                        : "TBD";
+
+                      const teamDisplay = capNom?.teamName || reg.proposedTeamName || reg.teamName;
+
+                      return (
+                        <RegCard
+                          key={reg.id}
+                          item={{
+                            id: reg.id,
+                            name: reg.event?.name || reg.eventName || "Team Event",
+                            date: formattedDate,
+                            category: `${reg.event?.sport?.name ?? reg.sportName ?? "Sport"} · ${regPersonName}${!isSelf && reg.relation ? ` (${reg.relation})` : isSelf ? " (Self)" : ""}`,
+                            categoryName: reg.category?.name || reg.categoryName,
+                            sportEmoji: reg.event?.sportEmoji || reg.sportEmoji,
+                            spots: isCaptainConfirmed
+                              ? "Confirmed Captain 🏆"
+                              : isNominated
+                                ? (teamDisplay ? `Nominated: "${teamDisplay}"` : "Nomination Active")
+                                : "Available for Captaincy",
+                            progress: isCaptainConfirmed ? 100 : (isNominated ? 50 : 0),
+                            progressColor: isCaptainConfirmed ? "#10b981" : "#f97316",
+                            dotColor: isCaptainConfirmed ? "#10b981" : "#f97316",
+                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : actionLabel) as any,
+                            status: reg.event?.registrationStatus || reg.eventRegistrationStatus,
+                          }}
+                          onView={async () => {
+                            if (isCaptainConfirmed) return;
+                            if (isNominated) {
+                              try {
+                                if (reg.id) {
+                                  await sportsService.nominateCaptain(reg.id, false).catch(() => {});
+                                }
+                                if (targetEventId) {
+                                  await auctionService.nominateCaptain(targetEventId, false).catch(() => {});
+                                }
+                                toast.success("Nomination withdrawn");
+                                await fetchData();
+                              } catch {
+                                toast.error("Failed to withdraw nomination");
+                              }
+                            } else {
+                              setNominatingRegId(reg.id);
+                              setSelectedCaptainEventId(targetEventId);
+                              setSelectedCaptainEvent(reg.event || { id: targetEventId, name: reg.eventName || reg.event?.name });
+                              setIsAdminNomination(false);
+                              setNominateTeamName(reg.proposedTeamName || reg.teamName || "");
+                              setIsNominateModalOpen(true);
+                            }
+                          }}
+                          onRegister={() => {}}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Admin View: team events only */}
+                {canManageCaptainNominations && adminTeamEvents.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {displayedConfirmedTeamRegs.length > 0 && (
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                        Admin Team Events ({adminTeamEvents.length})
+                      </div>
+                    )}
+                    {adminTeamEvents.map(item => (
+                      <div key={item.id}>
+                        <RegCard
+                          item={{ ...item, action: "Appoint Captain" as any }}
+                          onRegister={() => { }}
+                          onView={async () => {
+                            setSelectedCaptainEventId(item.id);
+                            setSelectedCaptainEvent(item);
+                            setIsAdminNomination(true);
                             setIsNominateModalOpen(true);
-                          }
-                        }}
-                        onRegister={() => {}}
-                      />
-                    );
-                  })
+                            setCaptainSearchQuery("");
+                            setIsCaptainDropdownOpen(false);
+                            await fetchCaptainRegs(item.id, item);
+                          }}
+                          isAdmin={false}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
