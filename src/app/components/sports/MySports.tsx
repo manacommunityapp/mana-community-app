@@ -573,6 +573,8 @@ export function MySports() {
           {partnerInvitations.map((inv) => {
             const invId = inv.id;
             const pName = inv.playerName || inv.user?.fullName || "A player";
+            const pFlat = inv.flatNumber || (inv as any).flatNo || inv.user?.flatNo || (inv as any).user?.flatNumber;
+            const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
             const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
             const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
             const catName = inv.categoryName || inv.category?.name;
@@ -593,7 +595,7 @@ export function MySports() {
                     {evName}
                   </h4>
                   <p className="text-xs text-slate-600 mt-0.5">
-                    <strong className="text-slate-900 font-semibold">{pName}</strong> nominated you to play as their doubles partner.
+                    <strong className="text-slate-900 font-semibold">{pName}</strong>{cleanPFlat ? ` (Flat ${cleanPFlat})` : ""} nominated you to play as their doubles partner.
                   </p>
                   {catName && (
                     <div className="mt-1.5 text-xs font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">

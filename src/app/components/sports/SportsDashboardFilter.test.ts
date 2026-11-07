@@ -1222,6 +1222,28 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(isTeamSport({ name: "Badminton Singles" } as any)).toBe(false);
       expect(isTeamSport({} as any)).toBe(false);
     });
+
+    it("verifies partner invitation text correctly formats inviting resident with flat details", () => {
+      const formatInviteMessage = (pendingInvite: any, formatLabel: string = "Doubles") => {
+        const invitingPlayerName = pendingInvite?.playerName || pendingInvite?.user?.fullName || pendingInvite?.user?.name || "Partner";
+        const invitingFlatNumber = pendingInvite?.flatNumber || pendingInvite?.flatNo || pendingInvite?.user?.flatNo || pendingInvite?.user?.flatNumber;
+        const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
+
+        return `Invited by ${invitingPlayerName}${cleanInvitingFlat ? ` (Flat ${cleanInvitingFlat})` : ""} (${formatLabel})`;
+      };
+
+      // Case 1: with flatNumber directly
+      const inviteWithFlat = { playerName: "Test Resident", flatNumber: "A-204" };
+      expect(formatInviteMessage(inviteWithFlat)).toBe("Invited by Test Resident (Flat A-204) (Doubles)");
+
+      // Case 2: with user.flatNo
+      const inviteWithUserFlat = { user: { fullName: "Jane Doe", flatNo: "B-501" } };
+      expect(formatInviteMessage(inviteWithUserFlat, "Mixed Doubles")).toBe("Invited by Jane Doe (Flat B-501) (Mixed Doubles)");
+
+      // Case 3: without flat info
+      const inviteNoFlat = { playerName: "John Smith" };
+      expect(formatInviteMessage(inviteNoFlat)).toBe("Invited by John Smith (Doubles)");
+    });
   });
 });
 

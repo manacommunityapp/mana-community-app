@@ -2586,6 +2586,8 @@ export function SportsDashboard() {
                   const pendingInvite = getPendingPartnerInviteForEvent(item);
                   const isPendingInvite = Boolean(pendingInvite);
                   const invitingPlayerName = (pendingInvite as any)?.playerName || (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || "Partner";
+                  const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
+                  const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
                   const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
                   const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
 
@@ -2736,7 +2738,9 @@ export function SportsDashboard() {
                             <div className="flex items-center gap-1.5 min-w-0">
                               <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               <span className="text-[11px] font-medium text-amber-900 truncate">
-                                Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong> ({inviteFormatLabel})
+                                Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
+                                {cleanInvitingFlat ? <span className="font-medium text-amber-800"> (Flat {cleanInvitingFlat})</span> : null}{" "}
+                                ({inviteFormatLabel})
                               </span>
                             </div>
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800 shrink-0 uppercase tracking-wider">
