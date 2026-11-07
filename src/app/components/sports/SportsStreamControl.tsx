@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import {
   sportsStreamingService,
+  makeDefaultStream,
   type MatchStream,
 } from "../../../services/sports/sportsStreamingService";
 
@@ -18,9 +19,7 @@ interface Props {
 type Panel = "overview" | "cameras" | "commentary";
 
 export function SportsStreamControl({ matchId, matchTitle }: Props) {
-  const [stream, setStream] = useState<MatchStream>(() =>
-    sportsStreamingService.getStream(matchId)
-  );
+  const [stream, setStream] = useState<MatchStream>(() => makeDefaultStream(matchId));
   const [panel, setPanel] = useState<Panel>("overview");
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -37,29 +36,32 @@ export function SportsStreamControl({ matchId, matchTitle }: Props) {
   const [title, setTitle] = useState(stream.title);
 
   useEffect(() => {
+    // Initial load
+    sportsStreamingService.getStream(matchId).then((s) => { setStream(s); setTitle(s.title); }).catch(() => {});
+
     const id = setInterval(() => {
-      setStream(sportsStreamingService.refreshViewerCount(matchId));
+      sportsStreamingService.getStream(matchId).then(setStream).catch(() => {});
     }, 5000);
     return () => clearInterval(id);
   }, [matchId]);
 
-  function goLive() {
+  async function goLive() {
     setStarting(true);
-    setTimeout(() => {
-      setStream(sportsStreamingService.startStream(matchId, title));
-      setStarting(false);
-    }, 800);
+    try {
+      setStream(await sportsStreamingService.startStream(matchId, title));
+    } catch {}
+    setStarting(false);
   }
 
-  function endStream() {
+  async function endStream() {
     setStopping(true);
-    setTimeout(() => {
-      setStream(sportsStreamingService.endStream(matchId));
-      setStopping(false);
-    }, 600);
+    try {
+      setStream(await sportsStreamingService.endStream(matchId));
+    } catch {}
+    setStopping(false);
   }
 
-  function addCamera() {
+  async function addCamera() {
     if (!camLabel.trim()) { setCamError("Camera label required"); return; }
     if (!camUrl.trim())   { setCamError("Stream URL required"); return; }
     const url = camUrl.trim();
@@ -71,23 +73,33 @@ export function SportsStreamControl({ matchId, matchTitle }: Props) {
       return;
     }
     setCamError(null);
-    setStream(sportsStreamingService.addCamera(matchId, camLabel.trim(), url));
-    setCamLabel("");
-    setCamUrl("");
+    try {
+      setStream(await sportsStreamingService.addCamera(matchId, camLabel.trim(), url));
+      setCamLabel("");
+      setCamUrl("");
+    } catch (err: any) {
+      setCamError(err?.message ?? "Failed to add camera");
+    }
   }
 
-  function removeCamera(id: string) {
-    setStream(sportsStreamingService.removeCamera(matchId, id));
+  async function removeCamera(id: string) {
+    try {
+      setStream(await sportsStreamingService.removeCamera(matchId, id));
+    } catch {}
   }
 
-  function postCommentary() {
+  async function postCommentary() {
     if (!commentary.trim()) return;
-    setStream(sportsStreamingService.postMessage(matchId, commentary.trim(), "Commentator", true));
+    const text = commentary.trim();
     setCommentary("");
+    try {
+      setStream(await sportsStreamingService.postMessage(matchId, text, "Commentator", true));
+    } catch {}
   }
 
   function saveTitle() {
-    setStream(sportsStreamingService.updateTitle(matchId, title));
+    // Title is saved on next goLive or re-link; no dedicated endpoint
+    void title;
   }
 
   const isLive = stream.status === "LIVE";

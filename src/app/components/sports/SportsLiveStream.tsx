@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import {
   sportsStreamingService,
+  makeDefaultStream,
   type MatchStream,
   type StreamChatMessage,
 } from "../../../services/sports/sportsStreamingService";
@@ -19,9 +20,7 @@ const VIEWER_NAME = "You";
 
 export function SportsLiveStream({ matchId, matchTitle }: Props) {
   const navigate = useNavigate();
-  const [stream, setStream] = useState<MatchStream>(() =>
-    sportsStreamingService.getStream(matchId)
-  );
+  const [stream, setStream] = useState<MatchStream>(() => makeDefaultStream(matchId));
   const [chatInput, setChatInput] = useState("");
   const [showChat, setShowChat] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -31,11 +30,12 @@ export function SportsLiveStream({ matchId, matchTitle }: Props) {
   const activeCamera = stream.cameras.find((c) => c.id === stream.activeCameraId) ?? stream.cameras[0];
 
   useEffect(() => {
-    // Poll for new messages + viewer count every 5s
+    // Initial load
+    sportsStreamingService.getStream(matchId).then(setStream).catch(() => {});
+
+    // Poll every 5s for live messages + viewer count
     pollRef.current = setInterval(() => {
-      const updated = sportsStreamingService.refreshViewerCount(matchId);
-      setStream(sportsStreamingService.getStream(matchId));
-      void updated;
+      sportsStreamingService.getStream(matchId).then(setStream).catch(() => {});
     }, 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -46,15 +46,20 @@ export function SportsLiveStream({ matchId, matchTitle }: Props) {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [stream.chatMessages.length]);
 
-  function sendChat() {
+  async function sendChat() {
     if (!chatInput.trim()) return;
-    const updated = sportsStreamingService.postMessage(matchId, chatInput.trim(), VIEWER_NAME);
-    setStream(updated);
+    const text = chatInput.trim();
     setChatInput("");
+    try {
+      const updated = await sportsStreamingService.postMessage(matchId, text, VIEWER_NAME);
+      setStream(updated);
+    } catch {}
   }
 
-  function switchCamera(id: string) {
-    setStream(sportsStreamingService.switchCamera(matchId, id));
+  async function switchCamera(id: string) {
+    try {
+      setStream(await sportsStreamingService.switchCamera(matchId, id));
+    } catch {}
   }
 
   function copyLink() {

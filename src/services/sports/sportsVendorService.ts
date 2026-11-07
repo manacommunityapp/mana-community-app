@@ -272,7 +272,7 @@ export const sportsVendorService = {
   // ── Facilities ──
   async getFacilities(vendorId?: string): Promise<SportsFacility[]> {
     try {
-      const url = vendorId ? `/sports-vendor/facilities?vendorId=${vendorId}` : "/sports-vendor/facilities";
+      const url = vendorId ? `/sports/vendor/facilities?vendorId=${vendorId}` : "/sports/vendor/facilities";
       const res = await apiClient.get<SportsFacility[]>(url);
       if (res && res.length > 0) return res;
     } catch {}
@@ -283,7 +283,7 @@ export const sportsVendorService = {
 
   async getFacilityById(id: string): Promise<SportsFacility> {
     try {
-      const res = await apiClient.get<SportsFacility>(`/sports-vendor/facilities/${id}`);
+      const res = await apiClient.get<SportsFacility>(`/sports/vendor/facilities/${id}`);
       if (res) return res;
     } catch {}
     const list = getStored<SportsFacility[]>(STORAGE_KEY_FACILITIES, INITIAL_FACILITIES);
@@ -323,7 +323,7 @@ export const sportsVendorService = {
     };
 
     try {
-      const res = await apiClient.post<SportsFacility>("/sports-vendor/facilities", newFacility);
+      const res = await apiClient.post<SportsFacility>("/sports/vendor/facilities", newFacility);
       if (res) return res;
     } catch {}
 
@@ -335,7 +335,7 @@ export const sportsVendorService = {
 
   async updateFacility(id: string, data: Partial<SportsFacility>): Promise<SportsFacility> {
     try {
-      const res = await apiClient.put<SportsFacility>(`/sports-vendor/facilities/${id}`, data);
+      const res = await apiClient.put<SportsFacility>(`/sports/vendor/facilities/${id}`, data);
       if (res) return res;
     } catch {}
 
@@ -350,7 +350,7 @@ export const sportsVendorService = {
   // ── Courts ──
   async getCourts(facilityId?: string): Promise<SportsCourtConfig[]> {
     try {
-      const url = facilityId ? `/sports-vendor/courts?facilityId=${facilityId}` : "/sports-vendor/courts";
+      const url = facilityId ? `/sports/vendor/courts?facilityId=${facilityId}` : "/sports/vendor/courts";
       const res = await apiClient.get<SportsCourtConfig[]>(url);
       if (res && res.length > 0) return res;
     } catch {}
@@ -379,7 +379,7 @@ export const sportsVendorService = {
     };
 
     try {
-      const res = await apiClient.post<SportsCourtConfig>(`/sports-vendor/facilities/${facilityId}/courts`, newCourt);
+      const res = await apiClient.post<SportsCourtConfig>(`/sports/vendor/facilities/${facilityId}/courts`, newCourt);
       if (res) return res;
     } catch {}
 
@@ -400,7 +400,7 @@ export const sportsVendorService = {
 
   async updateCourt(courtId: string, data: Partial<SportsCourtConfig>): Promise<SportsCourtConfig> {
     try {
-      const res = await apiClient.put<SportsCourtConfig>(`/sports-vendor/courts/${courtId}`, data);
+      const res = await apiClient.put<SportsCourtConfig>(`/sports/vendor/courts/${courtId}`, data);
       if (res) return res;
     } catch {}
 
@@ -416,8 +416,8 @@ export const sportsVendorService = {
   async getPricingRules(facilityId: string, courtId?: string): Promise<SportsPricingRule[]> {
     try {
       const url = courtId
-        ? `/sports-vendor/facilities/${facilityId}/pricing?courtId=${courtId}`
-        : `/sports-vendor/facilities/${facilityId}/pricing`;
+        ? `/sports/vendor/facilities/${facilityId}/pricing?courtId=${courtId}`
+        : `/sports/vendor/facilities/${facilityId}/pricing`;
       const res = await apiClient.get<SportsPricingRule[]>(url);
       if (res && res.length > 0) return res;
     } catch {}
@@ -442,7 +442,7 @@ export const sportsVendorService = {
     };
 
     try {
-      const res = await apiClient.post<SportsPricingRule>("/sports-vendor/pricing", newRule);
+      const res = await apiClient.post<SportsPricingRule>("/sports/vendor/pricing", newRule);
       if (res) return res;
     } catch {}
 
@@ -459,7 +459,7 @@ export const sportsVendorService = {
 
   async deletePricingRule(ruleId: string): Promise<void> {
     try {
-      await apiClient.delete(`/sports-vendor/pricing/${ruleId}`);
+      await apiClient.delete(`/sports/vendor/pricing/${ruleId}`);
     } catch {}
     const list = getStored<SportsPricingRule[]>(STORAGE_KEY_PRICING, INITIAL_PRICING);
     const updated = list.filter((p) => p.id !== ruleId);
@@ -469,7 +469,7 @@ export const sportsVendorService = {
   // ── Court Slots ──
   async getCourtSlots(courtId: string, date: string): Promise<SportsCourtSlot[]> {
     try {
-      const res = await apiClient.get<SportsCourtSlot[]>(`/sports-vendor/courts/${courtId}/slots?date=${date}`);
+      const res = await apiClient.get<SportsCourtSlot[]>(`/sports/vendor/courts/${courtId}/slots?date=${date}`);
       if (res && res.length > 0) return res;
     } catch {}
 
@@ -520,7 +520,7 @@ export const sportsVendorService = {
       if (vendorId) params.append("vendorId", vendorId);
       if (facilityId) params.append("facilityId", facilityId);
       if (status) params.append("status", status);
-      const res = await apiClient.get<SportsVendorBooking[]>(`/sports-vendor/bookings?${params.toString()}`);
+      const res = await apiClient.get<SportsVendorBooking[]>(`/sports/vendor/bookings?${params.toString()}`);
       if (res && res.length > 0) return res;
     } catch {}
 
@@ -577,7 +577,7 @@ export const sportsVendorService = {
     };
 
     try {
-      const res = await apiClient.post<SportsVendorBooking>("/sports-vendor/bookings", newBooking);
+      const res = await apiClient.post<SportsVendorBooking>("/sports/vendor/bookings", newBooking);
       if (res) return res;
     } catch {}
 
@@ -589,7 +589,7 @@ export const sportsVendorService = {
 
   async checkInBooking(bookingId: string): Promise<SportsVendorBooking> {
     try {
-      const res = await apiClient.put<SportsVendorBooking>(`/sports-vendor/bookings/${bookingId}/check-in`, {});
+      const res = await apiClient.put<SportsVendorBooking>(`/sports/vendor/bookings/${bookingId}/check-in`, {});
       if (res) return res;
     } catch {}
 
@@ -607,7 +607,7 @@ export const sportsVendorService = {
 
   async markNoShow(bookingId: string): Promise<SportsVendorBooking> {
     try {
-      const res = await apiClient.put<SportsVendorBooking>(`/sports-vendor/bookings/${bookingId}/no-show`, {});
+      const res = await apiClient.put<SportsVendorBooking>(`/sports/vendor/bookings/${bookingId}/no-show`, {});
       if (res) return res;
     } catch {}
 
@@ -624,7 +624,7 @@ export const sportsVendorService = {
 
   async cancelBooking(bookingId: string, reason?: string): Promise<SportsVendorBooking> {
     try {
-      const res = await apiClient.put<SportsVendorBooking>(`/sports-vendor/bookings/${bookingId}/cancel`, { reason });
+      const res = await apiClient.put<SportsVendorBooking>(`/sports/vendor/bookings/${bookingId}/cancel`, { reason });
       if (res) return res;
     } catch {}
 
@@ -643,7 +643,7 @@ export const sportsVendorService = {
   // ── Dashboard Statistics ──
   async getDashboardStats(vendorId?: string): Promise<SportsVendorDashboardStats> {
     try {
-      const res = await apiClient.get<SportsVendorDashboardStats>("/sports-vendor/dashboard-stats");
+      const res = await apiClient.get<SportsVendorDashboardStats>("/sports/vendor/dashboard-stats");
       if (res) return res;
     } catch {}
 
