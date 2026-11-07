@@ -1764,6 +1764,38 @@ export function SportsDashboard() {
     };
   }, [fetchData]);
 
+  const ensureAuctionConfigForEvent = async (eventId: number) => {
+    try {
+      const allConfigs = await auctionService.getAllCommunityConfigs().catch(() => []);
+      const existing = allConfigs?.find((c: any) => c.eventId === eventId);
+      if (existing) {
+        return;
+      }
+      const targetEv = selectedCaptainEvent || events.find(e => e.id === eventId);
+      const sportId = (targetEv as any)?.rawEvent?.sport?.id ?? (targetEv as any)?.rawEvent?.sportId ?? 1;
+      await auctionService.createConfig({
+        sportId,
+        eventId,
+        seasonName: `${targetEv?.name || 'Tournament'} (Event #${eventId})`,
+        auctionFormat: "OPEN_AUCTION",
+        totalTeams: 8,
+        totalPlayers: 80,
+        budgetPerTeam: 100000,
+        basePrice: 1000,
+        bidIncrementDefault: 500,
+        bidIncrementThreshold: 10000,
+        bidIncrementAbove: 1000,
+        bidTimerSeconds: 30,
+        rtmEnabled: false,
+        unsoldRule: "ROTATION_AUCTION",
+        categories: ["Batsmen", "Bowler", "All-rounder"],
+        committeeMembers: [],
+      });
+    } catch (err) {
+      console.warn("Auction config auto-provision check note:", err);
+    }
+  };
+
   const handleNominateSubmit = async () => {
     if ((isAdminNomination && !selectedRegForNomination) || (!isAdminNomination && !nominatingRegId)) {
       toast.error("Required data missing");
@@ -1786,11 +1818,26 @@ export function SportsDashboard() {
         return;
       }
 
+      const assignedName = nominateTeamName.trim();
+
+      // Ensure auction configuration is available
+      await ensureAuctionConfigForEvent(eventId);
+
       if (isAdminNomination && selectedRegForNomination) {
-        await sportsService.confirmCaptain(selectedRegForNomination, true).catch(() => {});
+        // Step 1: Nominate player registration with the assigned team name
+        await sportsService.nominateCaptain(selectedRegForNomination, true, assignedName);
+        // Step 2: Confirm captain appointment
+        await sportsService.confirmCaptain(selectedRegForNomination, true);
+        toast.success(`Captain appointed for team "${assignedName}"!`);
+      } else {
+        // Player self-nomination flow
+        if (nominatingRegId) {
+          await sportsService.nominateCaptain(nominatingRegId, true, assignedName).catch(() => {});
+        }
+        await auctionService.nominateCaptain(eventId, true, assignedName);
+        toast.success(`Captain nomination submitted for team "${assignedName}"!`);
       }
-      await auctionService.nominateCaptain(eventId, true, nominateTeamName.trim());
-      toast.success(`Captain nomination submitted for team "${nominateTeamName.trim()}"!`);
+
       setIsNominateModalOpen(false);
       setNominateTeamName("");
       setNominatingRegId(null);
@@ -1800,9 +1847,10 @@ export function SportsDashboard() {
       setIsCaptainDropdownOpen(false);
       setIsAdminNomination(false);
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
-      fetchData();
-    } catch {
-      toast.error("Failed to nominate");
+      await fetchData();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Failed to appoint captain";
+      toast.error(errMsg);
     } finally {
       setIsSubmittingNomination(false);
     }
