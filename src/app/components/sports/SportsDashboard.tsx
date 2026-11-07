@@ -1046,11 +1046,12 @@ export function SportsDashboard() {
       ev?.rawEvent?.teamSport ||
       ev?.rawEvent?.matchType === "TEAM" ||
       ev?.rawEvent?.eventType === "TEAM" ||
-      isTeamSport(ev?.name || "") ||
-      isTeamSport(ev?.category || "") ||
-      isTeamSport(ev?.sportName || "") ||
-      isTeamSport(ev?.rawEvent?.sportName || "") ||
-      isTeamSport(ev?.rawEvent?.sport?.name || "")
+      isTeamSport(ev?.name) ||
+      isTeamSport(typeof ev?.category === "string" ? ev.category : ev?.category?.name) ||
+      isTeamSport(ev?.sportName) ||
+      isTeamSport(ev?.rawEvent?.sportName) ||
+      isTeamSport(ev?.rawEvent?.sport?.name) ||
+      isTeamSport(ev?.sport?.name)
     );
   }, []);
 

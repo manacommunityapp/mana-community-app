@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly, isRegForSportEvent } from "./SportsDashboard";
+import { isTeamSport } from "./utils/sportsConstants";
 import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
@@ -1209,6 +1210,17 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
 
       expect(confirmedOrRegistered).toHaveLength(2);
       expect(confirmedOrRegistered.map(r => r.id)).toEqual([1, 2]);
+    });
+
+    it("verifies isTeamSport safely handles non-string inputs including objects, undefined, and numbers", () => {
+      // Import directly or verify the safe behavior
+      expect(isTeamSport(null as any)).toBe(false);
+      expect(isTeamSport(undefined as any)).toBe(false);
+      expect(isTeamSport(123 as any)).toBe(false);
+      expect(isTeamSport({ name: "Cricket Championship" } as any)).toBe(true);
+      expect(isTeamSport({ category: "Men's Football" } as any)).toBe(true);
+      expect(isTeamSport({ name: "Badminton Singles" } as any)).toBe(false);
+      expect(isTeamSport({} as any)).toBe(false);
     });
   });
 });
