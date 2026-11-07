@@ -1105,7 +1105,8 @@ export function SportsDashboard() {
         r.event?.matchType === "TEAM" ||
         r.event?.teamSport ||
         r.event?.isTeamSport ||
-        isItemTeamSport(r.event || r)
+        isItemTeamSport(r.event) ||
+        isItemTeamSport(r)
       )
     );
   }, [confirmedMyRegistrations, isItemTeamSport]);
