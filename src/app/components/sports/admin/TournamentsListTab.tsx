@@ -11,8 +11,8 @@ interface TournamentsListTabProps {
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
   handleAnnounce: (id: number, name: string) => void;
-  handleViewPlayers: (id: number) => void;
-  handleViewCaptains: (id: number) => void;
+  handleViewPlayers: (id: number, forceReload?: boolean) => void;
+  handleViewCaptains: (id: number, forceReload?: boolean) => void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];

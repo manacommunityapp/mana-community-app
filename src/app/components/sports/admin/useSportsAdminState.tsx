@@ -2045,8 +2045,8 @@ export function useSportsAdminState() {
     }
   };
 
-  const handleViewPlayers = async (eventId: number) => {
-    if (viewingEventId === eventId && viewMode === "players") {
+  const handleViewPlayers = async (eventId: number, forceReload: boolean = false) => {
+    if (!forceReload && viewingEventId === eventId && viewMode === "players") {
       setViewingEventId(null);
       setRegistrations([]);
       return;
@@ -2065,8 +2065,8 @@ export function useSportsAdminState() {
     }
   };
 
-  const handleViewCaptains = async (eventId: number) => {
-    if (viewingEventId === eventId && viewMode === "captains") {
+  const handleViewCaptains = async (eventId: number, forceReload: boolean = false) => {
+    if (!forceReload && viewingEventId === eventId && viewMode === "captains") {
       setViewingEventId(null);
       setNominatedCaptains([]);
       return;
