@@ -2939,7 +2939,7 @@ export function SportsDashboard() {
                                   const isSelfMember = isSelf;
                                   handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
                                 }}
-                                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
+                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 min-h-[36px]"
                               >
                                 <span>Register Now</span>
                                 <ArrowUpRight className="w-3.5 h-3.5" />
