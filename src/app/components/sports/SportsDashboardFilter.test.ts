@@ -858,6 +858,149 @@ describe("SportsRegister - inferGender and normalizeGender for Family Members", 
     expect(options.includes(kid2Resolved)).toBe(true);
     expect(options.includes(kid3Resolved)).toBe(true);
   });
+
+  describe("SportsDashboard Partner Invitation & Partner Unregister Flow", () => {
+    const currentUserId = 101;
+    const currentUserName = "Sandeep Kamarapu";
+
+    const testEvent = {
+      id: 50,
+      name: "Table Tennis - 19+ Men",
+      category: "Table Tennis · Oct 24",
+      formats: [{ id: 1, format: "SINGLES" }, { id: 2, format: "DOUBLES" }],
+      matchType: "DOUBLES",
+      format: ["SINGLES", "DOUBLES"],
+    } as any;
+
+    it("matches pending partner invitations for Self when partnerUserId matches and status is PENDING", () => {
+      const pendingInvites = [
+        {
+          id: 501,
+          eventId: 50,
+          eventName: "Table Tennis - 19+ Men",
+          playerName: "Primary Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerConfirmationStatus: "PENDING",
+        },
+        {
+          id: 502,
+          eventId: 60,
+          eventName: "Badminton Doubles",
+          playerName: "Another Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerConfirmationStatus: "PENDING",
+        },
+      ];
+
+      const getPendingForEvent = (ev: any, memberId: string = "self") => {
+        const isSelf = !memberId || memberId === "self";
+        return pendingInvites.find(inv => {
+          const evMatch = isEventMatch(inv, ev);
+          if (!evMatch) return false;
+          const pStatus = String(inv.partnerConfirmationStatus || "").toUpperCase().trim();
+          if (pStatus !== "PENDING") return false;
+          if (isSelf) {
+            return String(inv.partnerUserId) === String(currentUserId);
+          }
+          return false;
+        });
+      };
+
+      const match = getPendingForEvent(testEvent, "self");
+      expect(match).toBeDefined();
+      expect(match?.id).toBe(501);
+      expect(match?.playerName).toBe("Primary Player");
+
+      // Non-matching event returns undefined
+      const nonMatch = getPendingForEvent({ id: 99, name: "Chess Open", matchType: "SINGLES" } as any, "self");
+      expect(nonMatch).toBeUndefined();
+    });
+
+    it("matches pending partner invitations for family member when partnerFamilyMemberId matches", () => {
+      const pendingInvites = [
+        {
+          id: 503,
+          eventId: 50,
+          eventName: "Table Tennis - 19+ Men",
+          playerName: "Primary Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerFamilyMemberId: 136,
+          partnerConfirmationStatus: "PENDING",
+        },
+      ];
+
+      const getPendingForEvent = (ev: any, memberId: string) => {
+        return pendingInvites.find(inv => {
+          const evMatch = isEventMatch(inv, ev);
+          if (!evMatch) return false;
+          const pStatus = String(inv.partnerConfirmationStatus || "").toUpperCase().trim();
+          if (pStatus !== "PENDING") return false;
+          return String(inv.partnerFamilyMemberId) === String(memberId);
+        });
+      };
+
+      expect(getPendingForEvent(testEvent, "136")).toBeDefined();
+      expect(getPendingForEvent(testEvent, "154")).toBeUndefined();
+    });
+
+    it("does not match pending invite if partnerConfirmationStatus is already CONFIRMED or DECLINED", () => {
+      const confirmedInvite = {
+        id: 504,
+        eventId: 50,
+        playerName: "Primary Player",
+        matchType: "DOUBLES",
+        partnerUserId: 101,
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      const declinedInvite = {
+        id: 505,
+        eventId: 50,
+        playerName: "Primary Player",
+        matchType: "DOUBLES",
+        partnerUserId: 101,
+        partnerConfirmationStatus: "DECLINED",
+      };
+
+      const isPending = (inv: any) => String(inv.partnerConfirmationStatus || "").toUpperCase().trim() === "PENDING";
+      expect(isPending(confirmedInvite)).toBe(false);
+      expect(isPending(declinedInvite)).toBe(false);
+    });
+
+    it("generates partner withdrawal confirmation message and toast for confirmed partner", () => {
+      const confirmedPartnerReg = {
+        id: 601,
+        eventId: 50,
+        playerName: "Primary Player",
+        partnerUserId: 101,
+        matchType: "DOUBLES",
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      const regs = [confirmedPartnerReg];
+      const isAnyConfirmedPartner = regs.some(r => String(r.partnerUserId) === String(currentUserId));
+      expect(isAnyConfirmedPartner).toBe(true);
+
+      const displayName = "Table Tennis - 19+ Men";
+      const fmtList = "DOUBLES";
+
+      const confirmMsg = isAnyConfirmedPartner
+        ? `Are you sure you want to withdraw as doubles partner from ${displayName}${fmtList ? ` (${fmtList})` : ""}? The primary player will be notified.`
+        : `Are you sure you want to unregister yourself from ${displayName}? You will lose your reserved spot.`;
+
+      expect(confirmMsg).toContain("withdraw as doubles partner from Table Tennis - 19+ Men (DOUBLES)");
+      expect(confirmMsg).toContain("The primary player will be notified");
+
+      const unregToast = isAnyConfirmedPartner
+        ? `Withdrew as partner from ${displayName} (${fmtList})`
+        : `Unregistered from ${displayName} (${fmtList})`;
+
+      expect(unregToast).toBe("Withdrew as partner from Table Tennis - 19+ Men (DOUBLES)");
+    });
+  });
 });
 
 

@@ -671,6 +671,8 @@ export function SportsDashboard() {
   const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentWithEvents[]>([]);
   const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
+  const [pendingPartnerInvites, setPendingPartnerInvites] = useState<any[]>([]);
+  const [respondingInviteId, setRespondingInviteId] = useState<number | null>(null);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
   const [captainRegs, setCaptainRegs] = useState<any[]>([]);
   const [selectedCaptainEventId, setSelectedCaptainEventId] = useState<number | null>(null);
@@ -953,7 +955,7 @@ export function SportsDashboard() {
     setError(null);
     try {
       // Trigger parallel granular fetch requests
-      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData, configsData] = await Promise.all([
+      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData, configsData, partnerInvitesData] = await Promise.all([
         sportsDashboardService.getStats(),
         sportsDashboardService.getUpcomingEvents(),
         sportsDashboardService.getOpenTournaments(),
@@ -961,7 +963,8 @@ export function SportsDashboard() {
         sportsDashboardService.getMyRegistrations(),
         sportsDashboardService.getNotifications(),
         sportsService.getCommunityTournaments(user?.communityId).catch(() => [] as any[]),
-        tournamentService.getConfigs().catch(() => [] as ConfigInfo[])
+        tournamentService.getConfigs().catch(() => [] as ConfigInfo[]),
+        sportsService.getPartnerInvitations("PENDING").catch(() => [] as any[]),
       ]);
 
       const fmtRange = (start: string | null, end: string | null) =>
@@ -1020,6 +1023,7 @@ export function SportsDashboard() {
         partnerFamilyMember: (r as any).partnerFamilyMember,
       }));
       setMyRegistrations(fetchedMyRegs);
+      setPendingPartnerInvites(Array.isArray(partnerInvitesData) ? partnerInvitesData : []);
 
       // Helper event mapping function
       const mapEventCard = (e: any): OpenRegistration => {
@@ -1582,8 +1586,10 @@ export function SportsDashboard() {
       fetchData();
     };
     window.addEventListener("mana_registrations_updated", handleRegUpdate);
+    window.addEventListener("mana_notifications_updated", handleRegUpdate);
     return () => {
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
+      window.removeEventListener("mana_notifications_updated", handleRegUpdate);
     };
   }, [fetchData]);
 
@@ -1622,6 +1628,39 @@ export function SportsDashboard() {
       toast.error("Failed to nominate");
     } finally {
       setIsSubmittingNomination(false);
+    }
+  };
+
+  const handleAcceptPartnerInvite = async (registrationId: number) => {
+    setRespondingInviteId(registrationId);
+    try {
+      await sportsService.respondToPartnerInvitation(registrationId, true);
+      toast.success("Partner invitation accepted!");
+      window.dispatchEvent(new CustomEvent("mana_notifications_updated"));
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to accept partner invitation");
+    } finally {
+      setRespondingInviteId(null);
+    }
+  };
+
+  const handleDeclinePartnerInvite = async (registrationId: number) => {
+    const entered = window.prompt("Optional reason for declining partner invitation:");
+    if (entered === null) return;
+    const reason = entered.trim() || undefined;
+    setRespondingInviteId(registrationId);
+    try {
+      await sportsService.respondToPartnerInvitation(registrationId, false, reason);
+      toast.success("Partner invitation declined");
+      window.dispatchEvent(new CustomEvent("mana_notifications_updated"));
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+      await fetchData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to decline partner invitation");
+    } finally {
+      setRespondingInviteId(null);
     }
   };
 
@@ -2117,6 +2156,27 @@ export function SportsDashboard() {
                   return getUnregisteredFormats(ev).length === 0;
                 };
 
+                const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
+
+                const getPendingPartnerInviteForEvent = (ev: OpenRegistration) => {
+                  return pendingPartnerInvites.find(inv => {
+                    const evMatch = isEventMatch(inv, ev);
+                    if (!evMatch) return false;
+                    const pStatus = String(inv.partnerConfirmationStatus || inv.partnerStatus || "").toUpperCase().trim();
+                    if (pStatus !== "PENDING") return false;
+
+                    if (isSelfTarget) {
+                      const partnerUid = inv.partnerUserId || (inv as any).partner?.id;
+                      return user?.userId != null && String(partnerUid) === String(user.userId);
+                    } else {
+                      const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
+                      const targetId = normId(selectedMemberId);
+                      const partnerFamId = inv.partnerFamilyMemberId || (inv as any).partnerFamilyMember?.id;
+                      return partnerFamId != null && normId(partnerFamId) === targetId;
+                    }
+                  });
+                };
+
                 const handleUnregisterCategory = async (item: OpenRegistration, targetRegId?: number) => {
                   const allMemberRegs = getMemberRegsForEvent(item);
                   const regs = targetRegId
@@ -2128,8 +2188,16 @@ export function SportsDashboard() {
                   const isSelfMember = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
                   const participantName = isSelfMember ? "yourself" : (familyMembers.find(m => String(m.id) === String(selectedMemberId))?.name || "this family member");
 
+                  const isAnyConfirmedPartner = regs.some(r => {
+                    const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
+                    const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
+                    return isPartner || isPartnerFam;
+                  });
+
                   const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
-                  const confirmMsg = fmtList
+                  const confirmMsg = isAnyConfirmedPartner
+                    ? `Are you sure you want to withdraw as doubles partner from ${displayName}${fmtList ? ` (${fmtList})` : ""}? The primary player will be notified.`
+                    : fmtList
                     ? `Are you sure you want to unregister ${participantName} from ${displayName} (${fmtList})? You will lose your reserved spot.`
                     : `Are you sure you want to unregister ${participantName} from ${displayName}? You will lose your reserved spot.`;
 
@@ -2196,7 +2264,7 @@ export function SportsDashboard() {
                       }
                     }
                     const unregLabel = fmtList ? `${displayName} (${fmtList})` : displayName;
-                    toast.success(`Unregistered from ${unregLabel}`);
+                    toast.success(isAnyConfirmedPartner ? `Withdrew as partner from ${unregLabel}` : `Unregistered from ${unregLabel}`);
                     window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
                     await fetchData();
                   } catch (err: any) {
@@ -2209,12 +2277,12 @@ export function SportsDashboard() {
                 // Eligibility filter state: default selected (true)
                 const showEligibleOnly = tournamentEligibleOnly[t.id] ?? true;
 
-                // "Eligible Only" filter: show eligible + age-unknown (amber badge) + registered
+                // "Eligible Only" filter: show eligible + age-unknown (amber badge) + registered + invited
                 // age-unknown means we can't verify yet — show them so user knows to add age
                 // Only truly ineligible (gender mismatch, over/under age) are hidden
                 const isCategoryEligibleOrRegistered = (item: OpenRegistration) => {
                   const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
-                  return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item);
+                  return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item) || Boolean(getPendingPartnerInviteForEvent(item));
                 };
 
                 const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
@@ -2264,12 +2332,20 @@ export function SportsDashboard() {
                   const isNearlyFull = maxSpots && maxSpots > 0 && percentFilled >= 75 && regCount < maxSpots;
                   const isFull = maxSpots && maxSpots > 0 && regCount >= maxSpots;
 
+                  const pendingInvite = getPendingPartnerInviteForEvent(item);
+                  const isPendingInvite = Boolean(pendingInvite);
+                  const invitingPlayerName = (pendingInvite as any)?.playerName || (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || "Partner";
+                  const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
+                  const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
+
                   return (
                     <div
                       key={item.id}
                       className={`p-2 sm:p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between gap-1.5 ${
                         isFullyReg
                           ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
+                          : isPendingInvite
+                          ? "border-amber-200 bg-amber-50/20 shadow-2xs"
                           : isBlocked
                           ? "border-slate-200 bg-slate-50/60 opacity-90"
                           : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-2xs"
@@ -2387,6 +2463,21 @@ export function SportsDashboard() {
                           </div>
                         )}
 
+                        {/* Pending Partner Invitation Alert */}
+                        {pendingInvite && (
+                          <div className="mt-1.5 p-1.5 sm:p-2 rounded-lg bg-amber-50/90 border border-amber-200 flex items-center justify-between gap-2 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span className="text-[11px] font-medium text-amber-900 truncate">
+                                Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong> ({inviteFormatLabel})
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800 shrink-0 uppercase tracking-wider">
+                              Pending Invite
+                            </span>
+                          </div>
+                        )}
+
                         {/* Action row */}
                         <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap mt-1.5">
                           {isNearlyFull && !isFull ? (
@@ -2415,21 +2506,20 @@ export function SportsDashboard() {
                                       >
                                         <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                                         <span>✓ {fmtLabel}</span>
-                                        {isConfirmedPartner ? (
+                                        {isConfirmedPartner && (
                                           <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
                                             Partner
                                           </span>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                            className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                            title={`Unregister from ${fmtLabel}`}
-                                            aria-label={`Unregister from ${fmtLabel}`}
-                                          >
-                                            ✕
-                                          </button>
                                         )}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                          title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                          aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                        >
+                                          ✕
+                                        </button>
                                       </span>
                                     );
                                   })
@@ -2446,16 +2536,14 @@ export function SportsDashboard() {
                                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                             <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
                                           </span>
-                                          {!isConfirmedPartner && (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
-                                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                              title="Unregister from this category"
-                                            >
-                                              Unregister
-                                            </button>
-                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
+                                            className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                            title={isConfirmedPartner ? "Withdraw as partner from this category" : "Unregister from this category"}
+                                          >
+                                            Unregister
+                                          </button>
                                         </>
                                       );
                                     })()}
@@ -2477,35 +2565,101 @@ export function SportsDashboard() {
                                     >
                                       <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                                       <span>✓ {fmtLabel}</span>
-                                      {isConfirmedPartner ? (
+                                      {isConfirmedPartner && (
                                         <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
                                           Partner
                                         </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                          title={`Unregister from ${fmtLabel}`}
-                                          aria-label={`Unregister from ${fmtLabel}`}
-                                        >
-                                          ✕
-                                        </button>
                                       )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                        className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                        title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                        aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                      >
+                                        ✕
+                                      </button>
                                     </span>
                                   );
                                 })}
+                                {pendingInvite ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      disabled={respondingInviteId === Number(pendingInvite.id)}
+                                      onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                                      title="Decline partner invitation"
+                                    >
+                                      ✕ Decline
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={respondingInviteId === Number(pendingInvite.id)}
+                                      onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5 disabled:opacity-50"
+                                      title="Accept partner invitation"
+                                    >
+                                      {respondingInviteId === Number(pendingInvite.id) ? (
+                                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                      ) : (
+                                        <CheckCircle2 className="w-2.5 h-2.5" />
+                                      )}
+                                      <span>Accept {inviteFormatLabel}</span>
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const isSelfMember = isSelf;
+                                      handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                                    }}
+                                    className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    <span>+ {unregFormats.join(", ")}</span>
+                                    <ArrowUpRight className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : pendingInvite ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const isSelfMember = isSelf;
-                                    handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
-                                  }}
-                                  className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  disabled={respondingInviteId === Number(pendingInvite.id)}
+                                  onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Decline partner invitation"
                                 >
-                                  <span>+ {unregFormats.join(", ")}</span>
-                                  <ArrowUpRight className="w-2.5 h-2.5" />
+                                  ✕ Decline
                                 </button>
+                                <button
+                                  type="button"
+                                  disabled={respondingInviteId === Number(pendingInvite.id)}
+                                  onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
+                                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                  title="Accept partner invitation"
+                                >
+                                  {respondingInviteId === Number(pendingInvite.id) ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3 h-3" />
+                                  )}
+                                  <span>Accept</span>
+                                </button>
+                                {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const isSelfMember = isSelf;
+                                      handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                                    }}
+                                    className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  >
+                                    <span>+ {unregFormats.filter(f => !inviteRawFmt.includes(f)).join(", ")}</span>
+                                    <ArrowUpRight className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
                               </div>
                             ) : isBlocked ? (
                               <span
