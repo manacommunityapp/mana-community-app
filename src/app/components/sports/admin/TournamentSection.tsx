@@ -10,6 +10,7 @@ import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "..
 import { getEventFormats } from "../SportsRegister";
 import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
 import { ShareTournamentModal } from "./ShareTournamentModal";
+import { ViewPlayersModal } from "./ViewPlayersModal";
 
 interface TournamentSectionProps {
   title: string;
@@ -398,6 +399,29 @@ export function TournamentSection({
   const groupedRegistrations = useMemo(() => {
     return groupRegistrationsByPlayer(registrations || []);
   }, [registrations]);
+
+  const activeViewingEvent = useMemo(() => {
+    if (!viewingEventId) return null;
+    for (const item of events) {
+      if (item.sportsEvents && Array.isArray(item.sportsEvents)) {
+        const found = item.sportsEvents.find((ev: any) => ev.id === viewingEventId);
+        if (found) {
+          return {
+            ...found,
+            tournamentName: item.name,
+            tournamentId: item.id,
+          };
+        }
+      }
+      const singleEv = item.event
+        ? { ...item.event, id: item.event.id, name: item.name || item.event.name, tournamentId: item.id }
+        : item;
+      if (singleEv.id === viewingEventId) {
+        return singleEv;
+      }
+    }
+    return { id: viewingEventId, name: "Sports Event" };
+  }, [events, viewingEventId]);
 
   const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "format" | "search", value: string) => {
     setEventFilters(prev => ({
@@ -897,15 +921,17 @@ export function TournamentSection({
   const PlayersBtn = ({ evId, size = "sm" }: { evId: number; size?: "sm" | "xs" }) =>
     onViewPlayers ? (
       <button
+        type="button"
         onClick={() => onViewPlayers(evId)}
         className={`${size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "players"
-            ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30"
+            ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30 font-medium"
             : "border border-slate-200 text-slate-500 hover:border-[#3b82f6] hover:text-[#3b82f6]"
         }`}
+        title="View Registered Players"
       >
         <ClipboardList className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
-        {viewingEventId === evId && viewMode === "players" ? "Hide Players" : "View Players"}
+        <span>View Players</span>
       </button>
     ) : null;
 
@@ -1434,7 +1460,7 @@ export function TournamentSection({
                               )}
                             </div>
                           </div>
-                          {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
+                          {hasRegistrationButtons && viewingEventId === ev.id && viewMode === "captains" && renderRegistrationPanel(ev)}
                         </div>
                       );
                     }))}
@@ -1529,7 +1555,7 @@ export function TournamentSection({
                   </button>
                 </div>
               </div>
-              {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
+              {hasRegistrationButtons && viewingEventId === ev.id && viewMode === "captains" && renderRegistrationPanel(ev)}
             </div>
           );
         })}
@@ -1543,6 +1569,21 @@ export function TournamentSection({
           isOpen={!!shareTournament}
           onClose={() => setShareTournament(null)}
           tournament={shareTournament}
+        />
+      )}
+
+      {viewMode === "players" && viewingEventId && activeViewingEvent && (
+        <ViewPlayersModal
+          isOpen={!!(viewMode === "players" && viewingEventId)}
+          onClose={() => viewingEventId && onViewPlayers?.(viewingEventId)}
+          event={activeViewingEvent}
+          registrations={registrations}
+          loadingRegs={loadingRegs}
+          onConfirmRegistration={onConfirmRegistration}
+          onRejectRegistration={onRejectRegistration}
+          onAddParticipant={onAddParticipant}
+          onImportParticipants={onImportParticipants}
+          onRefresh={() => onViewPlayers?.(viewingEventId)}
         />
       )}
     </div>

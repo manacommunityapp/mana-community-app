@@ -222,6 +222,11 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            loadingRegs={loadingRegs}
           />
         </>
       )}
