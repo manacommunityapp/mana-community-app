@@ -12,6 +12,7 @@ import { familyService, type FamilyMember } from "../../../services/common/famil
 import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats, inferGender } from "./SportsRegister";
 import { getStoredUser } from "../../../services/common/apiClient";
 import { isTeamSport } from "./utils/sportsConstants";
+import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import {
   VIEW_SPORTS_MAIN,
   VIEW_EVENT_REGISTRATIONS,
@@ -791,6 +792,18 @@ export function SportsDashboard() {
   const [detailsModalTournament, setDetailsModalTournament] = useState<any>(null);
   const [showOpenRegInfo, setShowOpenRegInfo] = useState(false);
   const [withdrawnRegistrationIds, setWithdrawnRegistrationIds] = useState<Set<number>>(new Set());
+  // Partner Nomination Modal State
+  const [partnerModalState, setPartnerModalState] = useState<{
+    open: boolean;
+    registration: any | null;
+    selectedPartner: SelectedPartnerInfo | null;
+    saving: boolean;
+  }>({
+    open: false,
+    registration: null,
+    selectedPartner: null,
+    saving: false,
+  });
 
   useEffect(() => {
     const loadFamily = async () => {
@@ -1734,6 +1747,29 @@ export function SportsDashboard() {
       setLoading(false);
     }
   }, [user?.userId]);
+
+  const handleSavePartner = async () => {
+    if (!partnerModalState.registration) return;
+    const regId = partnerModalState.registration.id;
+    setPartnerModalState(prev => ({ ...prev, saving: true }));
+    try {
+      const partnerUserId = partnerModalState.selectedPartner?.userId || null;
+      const partnerFamilyMemberId = partnerModalState.selectedPartner?.familyMemberId
+        ? Number(partnerModalState.selectedPartner.familyMemberId)
+        : null;
+      await sportsService.nominatePartner(regId, partnerUserId, partnerFamilyMemberId);
+      toast.success(
+        partnerUserId || partnerFamilyMemberId
+          ? `Partner invitation sent to ${partnerModalState.selectedPartner?.name || "partner"}!`
+          : "Registered in Open Pairing Pool. You'll be matched with a partner soon."
+      );
+      await fetchData();
+      setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update partner");
+      setPartnerModalState(prev => ({ ...prev, saving: false }));
+    }
+  };
 
   const fetchCaptainRegs = useCallback(async (eventId: number, eventObj?: OpenRegistration | null) => {
     setLoadingCaptains(true);
@@ -2705,12 +2741,29 @@ export function SportsDashboard() {
                                 return (
                                   <div
                                     key={`partner-${r.id}`}
-                                    className="text-[10px] font-medium text-amber-900 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 flex items-center gap-1.5"
+                                    className="text-[10px] font-medium text-amber-900 bg-amber-50/90 px-2 py-1 rounded border border-amber-200/80 flex items-center justify-between gap-1.5 flex-wrap"
                                   >
-                                    <Users className="w-3 h-3 text-amber-600 shrink-0" />
-                                    <span className="truncate">
-                                      ⚠️ Partner declined/withdrew{declineReason ? ` (${declineReason})` : ""}. In Open Pool.
-                                    </span>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <Users className="w-3 h-3 text-amber-600 shrink-0" />
+                                      <span className="truncate">
+                                        ⚠️ Partner declined/withdrew{declineReason ? ` (${declineReason})` : ""}. In Open Pool.
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPartnerModalState({
+                                          open: true,
+                                          registration: r,
+                                          selectedPartner: null,
+                                          saving: false,
+                                        });
+                                      }}
+                                      className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                                    >
+                                      <HeartHandshake className="w-3 h-3" />
+                                      <span>Nominate Partner</span>
+                                    </button>
                                   </div>
                                 );
                               }
@@ -2721,18 +2774,40 @@ export function SportsDashboard() {
                                 return (
                                   <div
                                     key={`partner-${r.id}`}
-                                    className="text-[10px] font-medium text-slate-700 bg-slate-50/90 px-2 py-0.5 rounded border border-slate-200/80 flex items-center gap-1.5"
+                                    className="text-[10px] font-medium text-slate-700 bg-slate-50/90 px-2 py-1 rounded border border-slate-200/80 flex items-center justify-between gap-1.5 flex-wrap"
                                   >
-                                    <Users className="w-3 h-3 text-indigo-500 shrink-0" />
-                                    {isPool ? (
-                                      <span className="text-amber-800 font-semibold">Partner: Open Pairing Pool</span>
-                                    ) : (
-                                      <span className="truncate">
-                                        Partner: <strong className="font-semibold text-slate-900">{pName}</strong>
-                                        {cleanPartnerFlat ? <span className="font-medium text-slate-600"> (Flat {cleanPartnerFlat})</span> : null}{" "}
-                                        ({statusLabel})
-                                      </span>
-                                    )}
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                                      {isPool ? (
+                                        <span className="text-amber-800 font-semibold">Partner: Open Pairing Pool</span>
+                                      ) : (
+                                        <span className="truncate">
+                                          Partner: <strong className="font-semibold text-slate-900">{pName}</strong>
+                                          {cleanPartnerFlat ? <span className="font-medium text-slate-600"> (Flat {cleanPartnerFlat})</span> : null}{" "}
+                                          ({statusLabel})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPartnerModalState({
+                                          open: true,
+                                          registration: r,
+                                          selectedPartner: r.partnerUserId ? {
+                                            userId: r.partnerUserId,
+                                            name: pName || undefined,
+                                            mode: "community",
+                                          } : null,
+                                          saving: false,
+                                        });
+                                      }}
+                                      className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer border border-indigo-200 shrink-0"
+                                      title={r.partnerUserId ? "Change Partner" : "Nominate Partner"}
+                                    >
+                                      <HeartHandshake className="w-2.5 h-2.5 text-indigo-600" />
+                                      <span>{r.partnerUserId ? "Change" : "Nominate"}</span>
+                                    </button>
                                   </div>
                                 );
                               }
@@ -4555,6 +4630,78 @@ export function SportsDashboard() {
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════ PARTNER NOMINATION MODAL ════════════════════ */}
+        {partnerModalState.open && partnerModalState.registration && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-100 max-w-lg w-full p-3.5 sm:p-5 space-y-3 sm:space-y-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto safe-area-bottom text-left">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                    <HeartHandshake className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-extrabold text-slate-900 truncate m-0 mb-0">
+                      {partnerModalState.registration.partnerUserId ? "Change Partner" : "Nominate Partner"}
+                    </h3>
+                    <p className="text-xs text-slate-500 truncate m-0">
+                      {partnerModalState.registration.eventName || partnerModalState.registration.event?.name}
+                      {partnerModalState.registration.categoryName || partnerModalState.registration.category?.name ? ` · ${partnerModalState.registration.categoryName || partnerModalState.registration.category?.name}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false })}
+                  className="p-2 sm:p-1.5 min-h-[40px] sm:min-h-0 min-w-[40px] sm:min-w-0 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5 sm:w-4 sm:h-4" />
+                </button>
+              </div>
+
+              <SportsPartnerSelector
+                selectedPartner={partnerModalState.selectedPartner}
+                onChange={(partner) => {
+                  setPartnerModalState(prev => ({
+                    ...prev,
+                    selectedPartner: partner,
+                  }));
+                }}
+                matchType={partnerModalState.registration.matchType || "DOUBLES"}
+                currentGender={(partnerModalState.registration as any)?.gender || (user as any)?.gender}
+                currentUserId={user?.userId || (user as any)?.id}
+                currentFamilyMemberId={(partnerModalState.registration as any)?.familyMemberId}
+                currentUserName={(partnerModalState.registration as any)?.playerName || user?.fullName}
+                communityId={user?.communityId}
+                familyMembers={familyMembers}
+                disabled={partnerModalState.saving}
+                eventId={partnerModalState.registration?.eventId || (partnerModalState.registration as any)?.event?.id}
+              />
+
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false })}
+                  disabled={partnerModalState.saving}
+                  className="px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 text-[13px] sm:text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePartner}
+                  disabled={partnerModalState.saving}
+                  className="px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-[13px] sm:text-xs font-bold text-white transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {partnerModalState.saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {partnerModalState.selectedPartner?.userId ? "Send Partner Invite" : "Save as Open Pool"}
+                  </span>
                 </button>
               </div>
             </div>
