@@ -3976,7 +3976,7 @@ export function SportsDashboard() {
                           {isSubmittingNomination ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            isAdminNomination ? "Confirm Appointment" : `Nominate ${targetPersonName.split(' ')[0]}`
+                            isAdminNomination ? "Confirm Appointment" : "Nominate"
                           )}
                         </button>
                       </div>
