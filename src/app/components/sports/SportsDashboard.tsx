@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin, Medal, Swords } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin, Medal, Swords, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -333,6 +333,56 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
   return false;
 }
 
+/**
+ * Checks whether a tournament registration specifically belongs to or is related
+ * to the given sports event (e.g. Cricket registrations only match Cricket events,
+ * and do not show up under Volleyball, Badminton, etc.).
+ */
+export function isRegForSportEvent(
+  reg: any,
+  targetEvent: OpenRegistration | null,
+  targetEventId: number | null
+): boolean {
+  if (!reg) return false;
+
+  const regEvId = Number(reg.eventId ?? reg.event?.id ?? reg.sportsEvent?.id ?? (reg as any).tournamentEventId);
+  const targetId = Number(targetEventId ?? targetEvent?.id ?? (targetEvent?.rawEvent as any)?.id);
+
+  // 1. Exact numeric ID match
+  if (Number.isFinite(regEvId) && regEvId > 0 && Number.isFinite(targetId) && targetId > 0 && regEvId === targetId) {
+    return true;
+  }
+
+  // 2. Event match utility (format compatibility, UUIDs, event categories)
+  if (targetEvent && isEventMatch(reg, targetEvent)) {
+    return true;
+  }
+
+  const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const regEvName = norm(reg.eventName || reg.event?.name);
+  const targetEvName = norm(targetEvent?.name);
+  const regSport = norm(reg.sportName || reg.event?.sport?.name || reg.event?.sportName);
+  const targetSport = norm(
+    (targetEvent as any)?.sportName ||
+    (targetEvent?.rawEvent as any)?.sportName ||
+    (targetEvent?.rawEvent as any)?.sport?.name ||
+    targetEvent?.category ||
+    targetEvent?.name
+  );
+
+  // 3. Match by specific event name
+  if (regEvName && targetEvName && (regEvName === targetEvName || targetEvName.includes(regEvName) || regEvName.includes(targetEvName))) {
+    return true;
+  }
+
+  // 4. Match by sport name (e.g. "Cricket", "Volleyball", "Football", "Badminton")
+  if (regSport && targetSport && (targetSport.includes(regSport) || regSport.includes(targetSport))) {
+    return true;
+  }
+
+  return false;
+}
+
 
 
 // ─── Event Row ───────────────────────────────────────────────────────────────
@@ -472,7 +522,9 @@ function RegCard({
             </span>
           )}
         </div>
-        {item.spots && <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{item.spots}</div>}
+        {item.spots && item.spots !== "Unlimited spots" && (
+          <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{item.spots}</div>
+        )}
       </div>
       <div className="flex flex-col gap-1 flex-shrink-0 items-end">
         <div className="flex gap-1 justify-end">
@@ -676,7 +728,36 @@ export function SportsDashboard() {
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
   const [captainRegs, setCaptainRegs] = useState<any[]>([]);
   const [selectedCaptainEventId, setSelectedCaptainEventId] = useState<number | null>(null);
+  const [selectedCaptainEvent, setSelectedCaptainEvent] = useState<OpenRegistration | null>(null);
+  const [captainSearchQuery, setCaptainSearchQuery] = useState("");
+  const [isCaptainDropdownOpen, setIsCaptainDropdownOpen] = useState(false);
+  const captainDropdownRef = useRef<HTMLDivElement>(null);
   const [loadingCaptains, setLoadingCaptains] = useState(false);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (captainDropdownRef.current && !captainDropdownRef.current.contains(event.target as Node)) {
+        setIsCaptainDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const filteredCaptainRegs = useMemo(() => {
+    if (!captainSearchQuery.trim()) return captainRegs;
+    const q = captainSearchQuery.trim().toLowerCase();
+    return captainRegs.filter(reg => {
+      const name = (reg.playerName || (reg as any).user?.fullName || "").toLowerCase();
+      const flat = (reg.flatNumber || (reg as any).flatNo || "").toLowerCase();
+      const phone = (reg.phone || "").toLowerCase();
+      const relation = (reg.relation || "").toLowerCase();
+      const team = (reg.proposedTeamName || "").toLowerCase();
+      return name.includes(q) || flat.includes(q) || phone.includes(q) || relation.includes(q) || team.includes(q);
+    });
+  }, [captainRegs, captainSearchQuery]);
 
   const [isNominateModalOpen, setIsNominateModalOpen] = useState(false);
   const [isAdminNomination, setIsAdminNomination] = useState(false);
@@ -1151,7 +1232,7 @@ export function SportsDashboard() {
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
-          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "Unlimited spots",
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : undefined,
           progress: activeRegId ? (rawRegStatus === "CONFIRMED" ? 100 : 50) : 0,
           progressColor: activeRegId ? (rawRegStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
@@ -1642,23 +1723,33 @@ export function SportsDashboard() {
     }
   }, [user?.userId]);
 
-  const fetchCaptainRegs = useCallback(async (eventId: number) => {
+  const fetchCaptainRegs = useCallback(async (eventId: number, eventObj?: OpenRegistration | null) => {
     setLoadingCaptains(true);
     try {
       const regs = await sportsService.getEventRegistrations(eventId);
-      setCaptainRegs(regs.filter(r => r.status === "CONFIRMED"));
+      const targetEvent = eventObj || selectedCaptainEvent || adminTeamEvents.find(e => e.id === eventId) || null;
+      const confirmed = regs.filter(r => r.status === "CONFIRMED");
+      const hasAnyDifferentiatingMetadata = confirmed.some(r => {
+        const s = r.sportName || r.event?.sport?.name || r.eventName || r.event?.name;
+        return Boolean(s);
+      });
+      let matched = confirmed.filter(r => isRegForSportEvent(r, targetEvent, eventId));
+      if (matched.length === 0 && !hasAnyDifferentiatingMetadata) {
+        matched = confirmed;
+      }
+      setCaptainRegs(matched);
     } catch {
       toast.error("Failed to fetch registrations for captaincy");
     } finally {
       setLoadingCaptains(false);
     }
-  }, []);
+  }, [selectedCaptainEvent, adminTeamEvents]);
 
   useEffect(() => {
     if (selectedCaptainEventId) {
-      fetchCaptainRegs(selectedCaptainEventId);
+      fetchCaptainRegs(selectedCaptainEventId, selectedCaptainEvent);
     }
-  }, [selectedCaptainEventId, fetchCaptainRegs]);
+  }, [selectedCaptainEventId, selectedCaptainEvent, fetchCaptainRegs]);
 
   useEffect(() => {
     fetchData();
@@ -1704,6 +1795,9 @@ export function SportsDashboard() {
       setNominateTeamName("");
       setNominatingRegId(null);
       setSelectedRegForNomination(null);
+      setSelectedCaptainEvent(null);
+      setCaptainSearchQuery("");
+      setIsCaptainDropdownOpen(false);
       setIsAdminNomination(false);
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       fetchData();
@@ -1712,6 +1806,17 @@ export function SportsDashboard() {
     } finally {
       setIsSubmittingNomination(false);
     }
+  };
+
+  const handleCloseNominateModal = () => {
+    setIsNominateModalOpen(false);
+    setIsAdminNomination(false);
+    setSelectedCaptainEvent(null);
+    setSelectedRegForNomination(null);
+    setNominateTeamName("");
+    setCaptainSearchQuery("");
+    setIsCaptainDropdownOpen(false);
+    setNominatingRegId(null);
   };
 
   const handleAcceptPartnerInvite = async (registrationId: number) => {
@@ -3294,14 +3399,12 @@ export function SportsDashboard() {
                         onRegister={() => { }}
                         onView={async () => {
                           setSelectedCaptainEventId(item.id);
+                          setSelectedCaptainEvent(item);
                           setIsAdminNomination(true);
                           setIsNominateModalOpen(true);
-                          setLoadingCaptains(true);
-                          try {
-                            const regs = await sportsService.getEventRegistrations(item.id);
-                            setCaptainRegs(regs.filter(r => r.status === "CONFIRMED"));
-                          } catch { toast.error("Failed to load members"); }
-                          setLoadingCaptains(false);
+                          setCaptainSearchQuery("");
+                          setIsCaptainDropdownOpen(false);
+                          await fetchCaptainRegs(item.id, item);
                         }}
                         isAdmin={false}
                       />
@@ -3485,6 +3588,7 @@ export function SportsDashboard() {
                 const targetPersonName = targetReg?.playerName || user?.fullName || "Player";
                 const isTargetSelf = isSelfRelationOrMember(targetReg?.relation, targetReg?.familyMemberId, targetReg?.playerName, user?.fullName);
                 const targetRelation = isTargetSelf ? "Self" : (targetReg?.relation || "Family Member");
+                const selectedRegObject = selectedRegForNomination ? captainRegs.find(r => r.id === selectedRegForNomination) : null;
 
                 return (
                   <>
@@ -3492,19 +3596,20 @@ export function SportsDashboard() {
                       <div>
                         <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
                           <Crown className="w-5 h-5 text-amber-500" />
-                          {isAdminNomination ? "Appoint Captain" : `Nominate Captain: ${targetPersonName}`}
+                          {isAdminNomination
+                            ? `Appoint Captain${selectedCaptainEvent?.name ? ` — ${selectedCaptainEvent.name}` : ""}`
+                            : `Nominate Captain: ${targetPersonName}`}
                         </h3>
                         <p className="text-xs mt-1 text-slate-500">
                           {isAdminNomination
-                            ? "Select a confirmed registrant and assign a team name"
+                            ? (selectedCaptainEvent?.name
+                                ? `Select a confirmed registrant from ${selectedCaptainEvent.name} and assign a team name`
+                                : "Select a confirmed registrant and assign a team name")
                             : `Propose team name for ${targetPersonName} (${targetRelation})`}
                         </p>
                       </div>
                       <button
-                        onClick={() => {
-                          setIsNominateModalOpen(false);
-                          setIsAdminNomination(false);
-                        }}
+                        onClick={handleCloseNominateModal}
                         className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
                       >
                         <X className="w-5 h-5" />
@@ -3513,37 +3618,202 @@ export function SportsDashboard() {
 
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="nomination-registrant-select" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                          {isAdminNomination ? "Select Registrant" : "Nominated Person"}
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            {isAdminNomination ? "Select Registrant" : "Nominated Person"}
+                          </label>
+                          {isAdminNomination && selectedCaptainEvent?.name && (
+                            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 max-w-[210px] truncate">
+                              {selectedCaptainEvent.name}
+                            </span>
+                          )}
+                        </div>
+
                         {isAdminNomination ? (
-                          <select
-                            id="nomination-registrant-select"
-                            name="nominationRegistrant"
-                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-semibold"
-                            value={selectedRegForNomination || ""}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSelectedRegForNomination(val);
-                              if (val) {
-                                const chosen = captainRegs.find(r => r.id === val);
-                                if (chosen?.proposedTeamName && !nominateTeamName) {
-                                  setNominateTeamName(chosen.proposedTeamName);
+                          <div className="relative" ref={captainDropdownRef}>
+                            {/* Search Input & Dropdown Toggle */}
+                            <div className="relative flex items-center">
+                              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                              <input
+                                id="nomination-registrant-search"
+                                type="text"
+                                placeholder={
+                                  selectedRegObject
+                                    ? `${selectedRegObject.playerName || (selectedRegObject as any).user?.fullName} selected — Type to search other players...`
+                                    : "Search registered player by name, flat, phone..."
                                 }
-                              }
-                            }}
-                          >
-                            <option value="">Choose a member...</option>
-                            {loadingCaptains ? (
-                              <option disabled>Loading members...</option>
-                            ) : captainRegs.length === 0 ? (
-                              <option disabled>No confirmed registrations found</option>
-                            ) : captainRegs.map(reg => (
-                              <option key={reg.id} value={reg.id}>
-                                {reg.playerName || (reg as any).user?.fullName || "Member"} {reg.relation ? `(${reg.relation})` : ""} {reg.captainConfirmation ? " (Confirmed Captain 🏆)" : reg.captainNomination ? " (Already Nominated)" : ""}
-                              </option>
-                            ))}
-                          </select>
+                                value={captainSearchQuery}
+                                onChange={(e) => {
+                                  setCaptainSearchQuery(e.target.value);
+                                  if (!isCaptainDropdownOpen) setIsCaptainDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsCaptainDropdownOpen(true)}
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-10 py-2.5 outline-none focus:border-indigo-500 focus:bg-white text-xs font-semibold transition-all shadow-2xs"
+                              />
+                              {captainSearchQuery ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setCaptainSearchQuery("")}
+                                  className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                                  title="Clear search"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCaptainDropdownOpen(prev => !prev)}
+                                  className="absolute right-3 p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                                  title="Toggle player list"
+                                >
+                                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isCaptainDropdownOpen ? "rotate-180" : ""}`} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Selected Registrant Card Preview (shown when a registrant is picked and dropdown is closed) */}
+                            {selectedRegObject && !isCaptainDropdownOpen && (
+                              <div className="mt-2 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100/90 flex items-center justify-between gap-2.5 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                                    👤
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                                      <span>{selectedRegObject.playerName || (selectedRegObject as any).user?.fullName || "Player"}</span>
+                                      {selectedRegObject.relation && (
+                                        <span className="text-[10px] font-normal text-slate-500">
+                                          ({selectedRegObject.relation})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-2">
+                                      {(selectedRegObject.flatNumber || (selectedRegObject as any).flatNo) && (
+                                        <span>Flat {selectedRegObject.flatNumber || (selectedRegObject as any).flatNo}</span>
+                                      )}
+                                      {selectedRegObject.phone && <span>· Ph: {selectedRegObject.phone}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {selectedRegObject.captainConfirmation ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                      Confirmed 🏆
+                                    </span>
+                                  ) : selectedRegObject.captainNomination ? (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                      Nominated
+                                    </span>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedRegForNomination(null);
+                                      setIsCaptainDropdownOpen(true);
+                                    }}
+                                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded hover:bg-indigo-100 transition-colors cursor-pointer"
+                                  >
+                                    Change
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dropdown Menu */}
+                            {isCaptainDropdownOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                                <div className="p-2 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between text-[11px] text-slate-500">
+                                  <span className="font-semibold">
+                                    {filteredCaptainRegs.length} registered player{filteredCaptainRegs.length !== 1 ? "s" : ""}
+                                  </span>
+                                  {selectedCaptainEvent?.name && (
+                                    <span className="text-slate-400 truncate max-w-[180px] font-medium">{selectedCaptainEvent.name}</span>
+                                  )}
+                                </div>
+
+                                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 pr-0.5">
+                                  {loadingCaptains ? (
+                                    <div className="py-6 flex flex-col items-center justify-center gap-2 text-slate-400">
+                                      <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
+                                      <span className="text-xs font-medium">Loading registered players...</span>
+                                    </div>
+                                  ) : filteredCaptainRegs.length === 0 ? (
+                                    <div className="py-6 text-center text-slate-400 px-4">
+                                      <p className="text-xs font-semibold text-slate-600">No matching players found</p>
+                                      <p className="text-[11px] text-slate-400 mt-0.5">
+                                        {captainSearchQuery
+                                          ? `No player matches "${captainSearchQuery}"`
+                                          : `No confirmed registrations found for ${selectedCaptainEvent?.name || "this event"}`}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    filteredCaptainRegs.map(reg => {
+                                      const isSelected = selectedRegForNomination === reg.id;
+                                      const pName = reg.playerName || (reg as any).user?.fullName || "Member";
+                                      const flat = reg.flatNumber || (reg as any).flatNo;
+                                      const rel = reg.relation;
+
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={reg.id}
+                                          onClick={() => {
+                                            setSelectedRegForNomination(reg.id);
+                                            if (reg.proposedTeamName && !nominateTeamName) {
+                                              setNominateTeamName(reg.proposedTeamName);
+                                            }
+                                            setIsCaptainDropdownOpen(false);
+                                            setCaptainSearchQuery("");
+                                          }}
+                                          className={`w-full text-left px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
+                                            isSelected ? "bg-indigo-50/80 hover:bg-indigo-50" : "hover:bg-slate-50"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                              isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+                                            }`}>
+                                              {rel && rel.toLowerCase() !== "self" ? "👥" : "👤"}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-bold text-slate-900 truncate flex items-center gap-1.5">
+                                                <span className={isSelected ? "text-indigo-900" : ""}>{pName}</span>
+                                                {rel && (
+                                                  <span className="text-[10px] font-normal text-slate-500">({rel})</span>
+                                                )}
+                                              </div>
+                                              <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                                                {flat && <span>Flat {flat}</span>}
+                                                {reg.phone && <span>· {reg.phone}</span>}
+                                                {reg.proposedTeamName && (
+                                                  <span className="text-amber-700 font-semibold truncate">
+                                                    · Team: "{reg.proposedTeamName}"
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            {reg.captainConfirmation ? (
+                                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                                Confirmed 🏆
+                                              </span>
+                                            ) : reg.captainNomination ? (
+                                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                                Nominated
+                                              </span>
+                                            ) : null}
+                                            {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                                          </div>
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
                             <div className="flex items-center gap-2.5 min-w-0">
@@ -3585,10 +3855,7 @@ export function SportsDashboard() {
 
                       <div className="pt-2 flex gap-3">
                         <button
-                          onClick={() => {
-                            setIsNominateModalOpen(false);
-                            setIsAdminNomination(false);
-                          }}
+                          onClick={handleCloseNominateModal}
                           className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-all border border-slate-200 cursor-pointer"
                         >
                           Cancel

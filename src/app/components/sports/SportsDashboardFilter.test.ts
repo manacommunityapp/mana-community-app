@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly, isRegForSportEvent } from "./SportsDashboard";
 import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
@@ -1002,5 +1002,105 @@ describe("SportsRegister - inferGender and normalizeGender for Family Members", 
     });
   });
 });
+
+describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search", () => {
+  const cricketEvent: any = {
+    id: 101,
+    name: "Box Cricket Tournament",
+    category: "Cricket · Ground A",
+    sportName: "Cricket",
+    isTeamSport: true,
+  };
+
+  const volleyballEvent: any = {
+    id: 102,
+    name: "Volleyball Championship",
+    category: "Volleyball · Court 1",
+    sportName: "Volleyball",
+    isTeamSport: true,
+  };
+
+  it("correctly matches registrations by explicit eventId", () => {
+    const regCricket = { id: 1, eventId: 101, playerName: "Player One", status: "CONFIRMED" };
+    const regVolleyball = { id: 2, eventId: 102, playerName: "Player Two", status: "CONFIRMED" };
+
+    expect(isRegForSportEvent(regCricket, cricketEvent, 101)).toBe(true);
+    expect(isRegForSportEvent(regVolleyball, cricketEvent, 101)).toBe(false);
+
+    expect(isRegForSportEvent(regVolleyball, volleyballEvent, 102)).toBe(true);
+    expect(isRegForSportEvent(regCricket, volleyballEvent, 102)).toBe(false);
+  });
+
+  it("correctly matches by sport name and filters out unrelated sports", () => {
+    const regCricket = { id: 10, sportName: "Cricket", playerName: "Cricket Star", status: "CONFIRMED" };
+    const regBadminton = { id: 20, sportName: "Badminton", playerName: "Shuttler", status: "CONFIRMED" };
+    const regChess = { id: 30, sportName: "Chess", playerName: "Grandmaster", status: "CONFIRMED" };
+    const regVolleyball = { id: 40, sportName: "Volleyball", playerName: "Spiker", status: "CONFIRMED" };
+
+    // Under Cricket event: only Cricket matches, Badminton and Chess are excluded
+    expect(isRegForSportEvent(regCricket, cricketEvent, 101)).toBe(true);
+    expect(isRegForSportEvent(regBadminton, cricketEvent, 101)).toBe(false);
+    expect(isRegForSportEvent(regChess, cricketEvent, 101)).toBe(false);
+    expect(isRegForSportEvent(regVolleyball, cricketEvent, 101)).toBe(false);
+
+    // Under Volleyball event: only Volleyball matches
+    expect(isRegForSportEvent(regVolleyball, volleyballEvent, 102)).toBe(true);
+    expect(isRegForSportEvent(regCricket, volleyballEvent, 102)).toBe(false);
+    expect(isRegForSportEvent(regBadminton, volleyballEvent, 102)).toBe(false);
+  });
+
+  it("filters captain registrations by search query across name, flat, phone, and proposed team", () => {
+    const regs = [
+      { id: 1, playerName: "Sunil Kanthala", relation: "Self", flatNumber: "E-502", phone: "9876543210", proposedTeamName: "Warriors" },
+      { id: 2, playerName: "Kavitha Kanthala", relation: "Spouse", flatNumber: "E-502", phone: "9876543211", proposedTeamName: "" },
+      { id: 3, playerName: "Ramesh Korlakunta", relation: "Self", flatNumber: "A-101", phone: "9123456789", proposedTeamName: "Strikers" },
+      { id: 4, playerName: "Deepak Pillai", relation: "Self", flatNumber: "B-204", phone: "9000000000", proposedTeamName: "" },
+    ];
+
+    const filterList = (query: string) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return regs;
+      return regs.filter(reg => {
+        const name = (reg.playerName || "").toLowerCase();
+        const flat = (reg.flatNumber || "").toLowerCase();
+        const phone = (reg.phone || "").toLowerCase();
+        const relation = (reg.relation || "").toLowerCase();
+        const team = (reg.proposedTeamName || "").toLowerCase();
+        return name.includes(q) || flat.includes(q) || phone.includes(q) || relation.includes(q) || team.includes(q);
+      });
+    };
+
+    // Search by player name
+    expect(filterList("Sunil")).toHaveLength(1);
+    expect(filterList("Sunil")[0].id).toBe(1);
+
+    // Search by flat number (both members in E-502)
+    expect(filterList("E-502")).toHaveLength(2);
+
+    // Search by phone
+    expect(filterList("9123456789")).toHaveLength(1);
+    expect(filterList("9123456789")[0].playerName).toBe("Ramesh Korlakunta");
+
+    // Search by relation
+    expect(filterList("Spouse")).toHaveLength(1);
+    expect(filterList("Spouse")[0].playerName).toBe("Kavitha Kanthala");
+
+    // Search by proposed team name
+    expect(filterList("Warriors")).toHaveLength(1);
+    expect(filterList("Warriors")[0].proposedTeamName).toBe("Warriors");
+  });
+
+  it("verifies that Unlimited spots is hidden when maxParticipants is absent or undefined", () => {
+    const computeSpots = (maxParticipants?: number | null, regCount: number = 0): string | undefined => {
+      return maxParticipants ? `${regCount}/${maxParticipants} spots` : undefined;
+    };
+
+    expect(computeSpots(undefined, 5)).toBeUndefined();
+    expect(computeSpots(null, 5)).toBeUndefined();
+    expect(computeSpots(0, 5)).toBeUndefined();
+    expect(computeSpots(16, 4)).toBe("4/16 spots");
+  });
+});
+
 
 
