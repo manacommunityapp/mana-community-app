@@ -939,15 +939,93 @@ export function SportsDashboard() {
     });
   };
 
-  const canManageCaptainNominations = hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN);
+  const isSportsAdminUser = Boolean(
+    isAdmin ||
+    isSportsAdmin ||
+    isSuperAdmin ||
+    canAccessAdminSports ||
+    hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN)
+  );
+  const canManageCaptainNominations = isSportsAdminUser;
   const activeMyRegistrations = useMemo(() => {
     return myRegistrations.filter(r =>
       isActiveRegistrationStatus(r.status) && !withdrawnRegistrationIds.has(Number(r.id))
     );
   }, [myRegistrations, withdrawnRegistrationIds]);
   const confirmedMyRegistrations = activeMyRegistrations.filter(r => r.status === "CONFIRMED");
-  const teamClosedRegs = closedRegs.filter(r => r.isTeamSport);
-  const confirmedTeamRegistrations = confirmedMyRegistrations.filter(r => r.matchType === "TEAM");
+
+  const isItemTeamSport = useCallback((ev: any) => {
+    return Boolean(
+      ev?.isTeamSport ||
+      ev?.matchType === "TEAM" ||
+      ev?.eventType === "TEAM" ||
+      ev?.teamSport ||
+      ev?.rawEvent?.teamSport ||
+      ev?.rawEvent?.matchType === "TEAM" ||
+      ev?.rawEvent?.eventType === "TEAM" ||
+      isTeamSport(ev?.name || "") ||
+      isTeamSport(ev?.category || "") ||
+      isTeamSport(ev?.sportName || "") ||
+      isTeamSport(ev?.rawEvent?.sportName || "") ||
+      isTeamSport(ev?.rawEvent?.sport?.name || "")
+    );
+  }, []);
+
+  const adminTeamEvents = useMemo(() => {
+    const list: OpenRegistration[] = [];
+    const seenIds = new Set<number>();
+
+    // 1. Team events from closed tournaments
+    for (const t of closedTournaments) {
+      for (const ev of (t.mappedEvents || [])) {
+        if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          list.push(ev);
+        }
+      }
+    }
+
+    // 2. Team events from closedRegs fallback
+    for (const ev of closedRegs) {
+      if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+        seenIds.add(ev.id);
+        list.push(ev);
+      }
+    }
+
+    // 3. Team events from open tournaments
+    for (const t of openTournaments) {
+      for (const ev of (t.mappedEvents || [])) {
+        if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          list.push(ev);
+        }
+      }
+    }
+
+    // 4. Team events from openRegs fallback
+    for (const ev of openRegs) {
+      if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+        seenIds.add(ev.id);
+        list.push(ev);
+      }
+    }
+
+    return list;
+  }, [closedTournaments, closedRegs, openTournaments, openRegs, isItemTeamSport]);
+
+  const teamClosedRegs = adminTeamEvents;
+  const confirmedTeamRegistrations = useMemo(() => {
+    return confirmedMyRegistrations.filter(r =>
+      Boolean(
+        r.matchType === "TEAM" ||
+        r.event?.matchType === "TEAM" ||
+        r.event?.teamSport ||
+        r.event?.isTeamSport ||
+        isTeamSport(r.event?.sport?.name || r.event?.name || "")
+      )
+    );
+  }, [confirmedMyRegistrations]);
 
   const fetchData = useCallback(async () => {
     if (!user?.userId) return;
@@ -1119,9 +1197,11 @@ export function SportsDashboard() {
             sponsors: getSponsorsForTournament(t),
           };
         }));
+        setOpenRegs(openTournamentsData.flatMap(t => t.events).map(mapEventCard));
         setExpandedTournaments(new Set(openTournamentsData.map(t => t.id)));
       } else {
         setOpenTournaments([]);
+        setOpenRegs([]);
       }
 
       // Determine active tournament sponsors for the Hero banner & showcase
@@ -1608,13 +1688,16 @@ export function SportsDashboard() {
       const regId = isAdminNomination ? selectedRegForNomination : nominatingRegId;
       if (!regId) return;
 
-      const foundReg = myRegistrations.find(r => r.id === regId);
+      const foundReg = myRegistrations.find(r => r.id === regId) || captainRegs.find(r => r.id === regId);
       const eventId = isAdminNomination ? selectedCaptainEventId : (foundReg?.eventId || foundReg?.event?.id || selectedCaptainEventId);
       if (!eventId) {
         toast.error("Event not found");
         return;
       }
 
+      if (isAdminNomination && selectedRegForNomination) {
+        await sportsService.confirmCaptain(selectedRegForNomination, true).catch(() => {});
+      }
       await auctionService.nominateCaptain(eventId, true, nominateTeamName.trim());
       toast.success(`Captain nomination submitted for team "${nominateTeamName.trim()}"!`);
       setIsNominateModalOpen(false);
@@ -3038,7 +3121,7 @@ export function SportsDashboard() {
                            fetchData();
                          }
                        }}
-                       isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                       isAdmin={isSportsAdminUser}
                        toggling={togglingId === item.id}
                        onToggleStatus={async (evt) => {
                          setTogglingId(evt.id);
@@ -3115,7 +3198,7 @@ export function SportsDashboard() {
                                 item={item}
                                 onRegister={() => { }}
                                 onView={() => navigate("/sports/auction")}
-                                isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                                isAdmin={isSportsAdminUser}
                                 toggling={togglingId === item.id}
                                 onToggleStatus={async (evt) => {
                                   setTogglingId(evt.id);
@@ -3156,7 +3239,7 @@ export function SportsDashboard() {
                       item={item}
                       onRegister={() => { }}
                       onView={() => navigate("/sports/auction")}
-                      isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                      isAdmin={isSportsAdminUser}
                       toggling={togglingId === item.id}
                       onToggleStatus={async (evt) => {
                         setTogglingId(evt.id);
@@ -3190,22 +3273,24 @@ export function SportsDashboard() {
           )}
 
           {/* Unified Captain Nominations Section — team sports only */}
-          {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
+          {((canManageCaptainNominations && adminTeamEvents.length > 0) || confirmedTeamRegistrations.length > 0) && (
             <div className="rounded-xl p-2 sm:p-2.5 mt-2 bg-white border border-slate-200/90 shadow-2xs">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
-                  {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
+                  {canManageCaptainNominations && adminTeamEvents.length > 0
+                    ? `${adminTeamEvents.length} Available`
+                    : "Registration Confirmed ✓"}
                 </span>
               </div>
 
               <div className="space-y-2">
                 {/* Admin View: team events only */}
-                {canManageCaptainNominations ? (
-                  teamClosedRegs.map(item => (
+                {canManageCaptainNominations && adminTeamEvents.length > 0 ? (
+                  adminTeamEvents.map(item => (
                     <div key={item.id}>
                       <RegCard
-                        item={{ ...item, action: "Register Captain" as any }}
+                        item={{ ...item, action: "Appoint Captain" as any }}
                         onRegister={() => { }}
                         onView={async () => {
                           setSelectedCaptainEventId(item.id);
@@ -3437,14 +3522,25 @@ export function SportsDashboard() {
                             name="nominationRegistrant"
                             className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-semibold"
                             value={selectedRegForNomination || ""}
-                            onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setSelectedRegForNomination(val);
+                              if (val) {
+                                const chosen = captainRegs.find(r => r.id === val);
+                                if (chosen?.proposedTeamName && !nominateTeamName) {
+                                  setNominateTeamName(chosen.proposedTeamName);
+                                }
+                              }
+                            }}
                           >
                             <option value="">Choose a member...</option>
                             {loadingCaptains ? (
                               <option disabled>Loading members...</option>
+                            ) : captainRegs.length === 0 ? (
+                              <option disabled>No confirmed registrations found</option>
                             ) : captainRegs.map(reg => (
                               <option key={reg.id} value={reg.id}>
-                                {reg.playerName || reg.user?.fullName} {reg.relation ? `(${reg.relation})` : ""} {reg.captainNomination ? " (Already Nominated)" : ""}
+                                {reg.playerName || (reg as any).user?.fullName || "Member"} {reg.relation ? `(${reg.relation})` : ""} {reg.captainConfirmation ? " (Confirmed Captain 🏆)" : reg.captainNomination ? " (Already Nominated)" : ""}
                               </option>
                             ))}
                           </select>
