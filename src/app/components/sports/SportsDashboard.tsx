@@ -2385,7 +2385,7 @@ export function SportsDashboard() {
                                 isTeamFmt
                                   ? "Team Squad"
                                   : isMixed
-                                  ? "Mixed"
+                                  ? "Mixed Doubles"
                                   : isDbl
                                   ? "Doubles"
                                   : fmt === "SINGLES"
@@ -2415,7 +2415,7 @@ export function SportsDashboard() {
                         </div>
 
                         {/* Partner Details for Registered Events */}
-                        {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
+                        {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (r as any).partnerDeclineReason || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
                           <div className="mt-1.5 flex flex-col gap-1">
                             {regs.map(r => {
                               const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
@@ -2425,6 +2425,8 @@ export function SportsDashboard() {
                               const pName = r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name;
                               const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
                               const statusLabel = (rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED") ? "Confirmed" : (rawStatus === "DECLINED" || rawStatus === "REJECTED") ? "Declined" : "Invited";
+                              const isDeclinedOrWithdrawn = rawStatus === "DECLINED" || rawStatus === "REJECTED" || Boolean((r as any).partnerDeclineReason);
+                              const declineReason = (r as any).partnerDeclineReason;
                               const isPool = Boolean((r as any).openPool || (r as any).isPoolPlayer || (r as any).needsPartner || (!pName && !r.partnerUserId));
 
                               if (isConfirmedPartner) {
@@ -2436,6 +2438,20 @@ export function SportsDashboard() {
                                     <Users className="w-3 h-3 text-emerald-600 shrink-0" />
                                     <span className="truncate">
                                       Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong> (Confirmed Partner)
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              if (isDeclinedOrWithdrawn && !pName) {
+                                return (
+                                  <div
+                                    key={`partner-${r.id}`}
+                                    className="text-[10px] font-medium text-amber-900 bg-amber-50/90 px-2 py-0.5 rounded border border-amber-200/80 flex items-center gap-1.5"
+                                  >
+                                    <Users className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span className="truncate">
+                                      ⚠️ Partner declined/withdrew{declineReason ? ` (${declineReason})` : ""}. In Open Pool.
                                     </span>
                                   </div>
                                 );
