@@ -17,9 +17,15 @@ import {
   Search,
   Filter,
   RefreshCw,
+  Building,
+  Phone,
+  Mail,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration } from "../../../../types/api";
+import { getPartnerDetails } from "./sportsPartnerUtils";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
 import { sportsService } from "../../../../services/sports/sportsService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
@@ -171,25 +177,27 @@ export function ViewPlayersModal({
         const phone = (reg.phone || "").toLowerCase();
         const email = (reg.email || reg.user?.email || "").toLowerCase();
         const cat = (reg.category?.name || "").toLowerCase();
-        const partner = (
-          reg.partnerName ||
-          reg.partner?.fullName ||
-          reg.partner?.name ||
-          ""
-        ).toLowerCase();
+        const partnerInfo = getPartnerDetails(reg, registrations, event);
+        const partnerName = (partnerInfo.name || "").toLowerCase();
+        const partnerFlat = (partnerInfo.flat || "").toLowerCase();
+        const partnerPhone = (partnerInfo.phone || "").toLowerCase();
+        const partnerEmail = (partnerInfo.email || "").toLowerCase();
         const match =
           pName.includes(q) ||
           flat.includes(q) ||
           phone.includes(q) ||
           email.includes(q) ||
           cat.includes(q) ||
-          partner.includes(q);
+          partnerName.includes(q) ||
+          partnerFlat.includes(q) ||
+          partnerPhone.includes(q) ||
+          partnerEmail.includes(q);
         if (!match) return false;
       }
 
       return true;
     });
-  }, [allGrouped, statusFilter, searchQuery]);
+  }, [allGrouped, statusFilter, searchQuery, registrations, event]);
 
   if (!isOpen || !event) return null;
 
@@ -661,10 +669,10 @@ export function ViewPlayersModal({
 
                 return (
                   <div key={group.key} className="space-y-1.5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:border-indigo-200 hover:shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-3.5 bg-white rounded-xl border border-slate-200/80 shadow-2xs transition-all hover:border-indigo-200 hover:shadow-xs">
                       {/* Left: Player Details */}
-                      <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                        <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
+                      <div className="flex items-start gap-3 min-w-0 flex-1 text-left">
+                        <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0 mt-0.5">
                           {idx + 1}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -702,77 +710,126 @@ export function ViewPlayersModal({
 
                           {/* Doubles / Mixed Doubles Partner Display */}
                           {(() => {
-                            const partnerName =
-                              reg.partnerName ||
-                              reg.partner?.fullName ||
-                              reg.partner?.name ||
-                              reg.partnerFamilyMember?.name;
-                            const partnerFlat =
-                              reg.partnerFlatNumber || reg.partner?.flatNo;
-                            const partnerPhone =
-                              reg.partnerPhone || reg.partner?.phone;
-                            const rawPartnerStatus = (
-                              reg.partnerConfirmationStatus ||
-                              reg.partnerStatus ||
-                              ""
-                            ).toUpperCase();
-                            const isConfirmed =
-                              rawPartnerStatus === "CONFIRMED" ||
-                              rawPartnerStatus === "ACCEPTED";
-                            const isDeclined =
-                              rawPartnerStatus === "DECLINED" ||
-                              rawPartnerStatus === "REJECTED";
-                            const isDoublesEvent = Boolean(
-                              (reg.matchType &&
-                                reg.matchType.toUpperCase().includes("DOUBLES")) ||
-                              (reg.matchFormat &&
-                                reg.matchFormat.toUpperCase().includes("DOUBLES")) ||
-                              (event.name &&
-                                event.name.toLowerCase().includes("doubles")) ||
-                              (reg.category?.name &&
-                                reg.category.name.toLowerCase().includes("doubles")) ||
-                              partnerName ||
-                              reg.partnerUserId ||
-                              (reg as any).partnerFamilyMemberId
+                            const partnerInfo = getPartnerDetails(
+                              reg,
+                              registrations,
+                              event
                             );
 
-                            if (partnerName) {
+                            if (partnerInfo.hasPartner) {
                               return (
-                                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-indigo-800 bg-indigo-50/80 border border-indigo-200/80 px-2 py-0.5 rounded-md w-fit flex-wrap">
-                                  <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                  <span>
-                                    Partner:{" "}
-                                    <strong className="font-semibold text-indigo-950">
-                                      {partnerName}
-                                    </strong>
-                                    {partnerFlat ? ` · Flat ${partnerFlat}` : ""}
-                                    {partnerPhone ? ` · Ph: ${partnerPhone}` : ""}
-                                  </span>
-                                  <span
-                                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border ${
-                                      isConfirmed
-                                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                        : isDeclined
-                                        ? "bg-rose-100 text-rose-800 border-rose-300"
-                                        : "bg-amber-100 text-amber-800 border-amber-300"
-                                    }`}
-                                  >
-                                    {isConfirmed
-                                      ? "Partner Confirmed"
-                                      : isDeclined
-                                      ? "Partner Declined"
-                                      : "Partner Invited"}
-                                  </span>
+                                <div className="mt-2.5 rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 via-indigo-50/40 to-slate-50/70 p-2.5 sm:p-3 text-xs shadow-2xs">
+                                  {/* Header: Partner Label + Relation + Reciprocal + Status */}
+                                  <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-indigo-100/90 pb-1.5 mb-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <div className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                                        <Users className="w-3 h-3" />
+                                      </div>
+                                      <span className="font-bold text-indigo-950 text-xs">
+                                        Doubles Partner
+                                      </span>
+                                      {partnerInfo.relation && (
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                          {partnerInfo.relation}
+                                        </span>
+                                      )}
+                                      {partnerInfo.isReciprocal && (
+                                        <span
+                                          className="text-[10px] font-medium px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 border border-slate-200"
+                                          title="Linked reciprocally from partner's registration"
+                                        >
+                                          Reciprocal Match
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Partner Confirmation Status Badge */}
+                                    <span
+                                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-2xs shrink-0 ${
+                                        partnerInfo.isConfirmed
+                                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                          : partnerInfo.isDeclined
+                                          ? "bg-rose-50 text-rose-800 border-rose-300"
+                                          : "bg-amber-50 text-amber-800 border-amber-300"
+                                      }`}
+                                    >
+                                      {partnerInfo.isConfirmed ? (
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      ) : partnerInfo.isDeclined ? (
+                                        <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                      ) : (
+                                        <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                      )}
+                                      <span>{partnerInfo.statusLabel}</span>
+                                    </span>
+                                  </div>
+
+                                  {/* Body: Partner Name & Contact Details */}
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-slate-700">
+                                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                                      {partnerInfo.name}
+                                    </span>
+                                    {partnerInfo.flat && (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-medium text-[11px] shadow-2xs">
+                                        <Building className="w-3 h-3 text-slate-400" />
+                                        Flat {partnerInfo.flat}
+                                      </span>
+                                    )}
+                                    {partnerInfo.phone && (
+                                      <span className="inline-flex items-center gap-1 text-slate-600 font-medium text-[11px]">
+                                        <Phone className="w-3 h-3 text-slate-400" />
+                                        Ph: {partnerInfo.phone}
+                                      </span>
+                                    )}
+                                    {partnerInfo.email && (
+                                      <span className="inline-flex items-center gap-1 text-slate-600 font-medium text-[11px]">
+                                        <Mail className="w-3 h-3 text-slate-400" />
+                                        {partnerInfo.email}
+                                      </span>
+                                    )}
+                                    {partnerInfo.age && (
+                                      <span className="text-slate-500 text-[11px]">
+                                        Age: {partnerInfo.age}
+                                      </span>
+                                    )}
+                                    {partnerInfo.gender && (
+                                      <span className="text-slate-500 text-[11px]">
+                                        ({partnerInfo.gender})
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Decline Reason Banner if declined */}
+                                  {partnerInfo.isDeclined && partnerInfo.declineReason && (
+                                    <div className="mt-2 text-[11px] text-rose-800 bg-rose-50/90 border border-rose-200/90 rounded-md p-1.5 flex items-start gap-1.5">
+                                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                      <span>
+                                        <strong className="font-semibold text-rose-900">
+                                          Decline Reason:
+                                        </strong>{" "}
+                                        {partnerInfo.declineReason}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               );
                             }
 
-                            if (isDoublesEvent) {
+                            if (partnerInfo.isDoublesEvent) {
                               return (
-                                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-800 bg-purple-50/80 border border-purple-200/80 px-2 py-0.5 rounded-md w-fit">
-                                  <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                  <span className="font-medium">
-                                    Open Pairing Pool (Partner Not Assigned)
+                                <div className="mt-2 flex items-center justify-between gap-2 p-2 rounded-lg border border-purple-200/80 bg-purple-50/70 text-xs text-purple-900 flex-wrap">
+                                  <div className="flex items-center gap-1.5 font-medium">
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                    <span>Doubles Event:</span>
+                                    <span className="font-bold text-purple-950">
+                                      Looking for Partner
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                                      Open Pairing Pool
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-purple-700">
+                                    Partner not assigned
                                   </span>
                                 </div>
                               );
@@ -784,7 +841,7 @@ export function ViewPlayersModal({
                       </div>
 
                       {/* Right: Actions, Seed, Status */}
-                      <div className="flex flex-wrap items-center gap-2 sm:shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                      <div className="flex flex-wrap items-center gap-2 sm:shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 sm:self-start">
                         {/* Seed Input */}
                         <div className="flex items-center gap-1 mr-1">
                           <span className="text-[10px] text-slate-400 font-medium">
@@ -952,6 +1009,19 @@ export function ViewPlayersModal({
                                           )
                                         : "—"}
                                     </span>
+                                    {(() => {
+                                      const hPartner =
+                                        hReg.partnerName ||
+                                        hReg.partner?.fullName ||
+                                        hReg.partner?.name ||
+                                        hReg.partnerFamilyMember?.name;
+                                      if (!hPartner) return null;
+                                      return (
+                                        <span className="text-indigo-600 font-medium">
+                                          · Partner: {hPartner}
+                                        </span>
+                                      );
+                                    })()}
                                     {hReg.notes && (
                                       <span className="text-slate-400 italic">
                                         · {hReg.notes}
