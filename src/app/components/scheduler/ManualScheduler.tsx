@@ -24,14 +24,17 @@ interface TeamItem {
   name: string;
   group: string;
   color: string;
+  flatNumber?: string;
 }
 
 interface MatchItem {
   id: number;
   home: string;
   homeId?: string | number | null;
+  homeFlat?: string;
   away: string;
   awayId?: string | number | null;
+  awayFlat?: string;
   date: string;
   stage: string;
   type: string;
@@ -293,9 +296,13 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
           loadedTeams = pairs.map((r, idx) => {
             const partnerInfo = getPartnerDetails(r as any, confirmed as any);
             let tName = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
+            let flatDisplay = r.flatNumber || r.user?.community?.name || undefined;
             if (isDoubles || partnerInfo.hasPartner) {
               if (partnerInfo.hasPartner && partnerInfo.name) {
                 tName = `${tName} / ${partnerInfo.name}`;
+                if (partnerInfo.flat && partnerInfo.flat !== flatDisplay) {
+                  flatDisplay = flatDisplay ? `${flatDisplay} / ${partnerInfo.flat}` : partnerInfo.flat;
+                }
               } else if (partnerInfo.isOpenPool) {
                 tName = `${tName} / [Seeking Partner]`;
               }
@@ -309,6 +316,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               name: tName,
               group: teamGroupMap[tid] || 'UNASSIGNED',
               color: TEAM_COLORS[idx % TEAM_COLORS.length],
+              flatNumber: flatDisplay,
             };
           });
         } catch (err) {
@@ -323,8 +331,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
           id: m.id || i + 1,
           home: m.homeTeamName || m.homeName || m.teamA?.name || 'TBD',
           homeId: m.homeTeamId || m.homeId,
+          homeFlat: m.teamAFlat || m.homeFlat,
           away: m.awayTeamName || m.awayName || m.teamB?.name || 'TBD',
           awayId: m.awayTeamId || m.awayId,
+          awayFlat: m.teamBFlat || m.awayFlat,
           date: m.scheduledAt || m.date || new Date().toISOString(),
           stage: m.round || m.stage || 'GROUP_STAGE',
           type: (m.round === 'GROUP_STAGE' || m.stage?.includes('GROUP')) ? 'GROUP_STAGE' : 'KNOCKOUT',
@@ -1587,7 +1597,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         <div className="flex items-center gap-2.5 min-w-0">
           <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
           <div className="w-3 h-3 rounded-full shrink-0 shadow-xs" style={{ background: team.color }} />
-          <span className="font-semibold text-slate-800 text-xs truncate">{team.name}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="font-semibold text-slate-800 text-xs truncate" title={team.name}>{team.name}</span>
+            {team.flatNumber && <span className="text-[10px] text-slate-500 font-normal truncate">🏠 {team.flatNumber}</span>}
+          </div>
         </div>
 
         {/* Quick Assign Dropdown Menu (Touch & Accessibility friendly) */}
@@ -1619,8 +1632,9 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         {/* Match Header / Teams Layout */}
         <div className="flex-1 flex items-center justify-between sm:justify-start gap-4">
           {/* Home Team */}
-          <div className="flex-1 text-right sm:text-left sm:w-40 truncate">
-            <span className="font-bold text-slate-900 text-xs sm:text-sm">{m.home}</span>
+          <div className="flex-1 text-right sm:text-left sm:w-40 min-w-0">
+            <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate" title={m.home}>{m.home}</span>
+            {m.homeFlat && <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.homeFlat}</span>}
           </div>
 
           {/* VS Pill */}
@@ -1629,8 +1643,9 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
           </div>
 
           {/* Away Team */}
-          <div className="flex-1 text-left sm:w-40 truncate">
-            <span className="font-bold text-slate-900 text-xs sm:text-sm">{m.away}</span>
+          <div className="flex-1 text-left sm:w-40 min-w-0">
+            <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate" title={m.away}>{m.away}</span>
+            {m.awayFlat && <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.awayFlat}</span>}
           </div>
         </div>
 

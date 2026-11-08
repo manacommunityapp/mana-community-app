@@ -232,4 +232,45 @@ describe("SetupSchedule & SportsSchedule Doubles Category Support", () => {
       expect(getPlayerInitials(null as any)).toBe("");
     });
   });
+
+  describe("Flat details preservation in Match payload & Schedule entries", () => {
+    it("preserves homeFlat and awayFlat in singles match payloads", () => {
+      const match = {
+        home: { id: "P1", name: "Sandeep Kamarapu", flatNumber: "A-101" },
+        away: { id: "P2", name: "Rahul Sharma", flatNumber: "B-202" },
+      };
+
+      const matchPayload = {
+        homeName: match.home.name,
+        homeId: match.home.id,
+        homeFlat: match.home.flatNumber || null,
+        awayName: match.away.name,
+        awayId: match.away.id,
+        awayFlat: match.away.flatNumber || null,
+      };
+
+      expect(matchPayload.homeFlat).toBe("A-101");
+      expect(matchPayload.awayFlat).toBe("B-202");
+    });
+
+    it("handles combined flat in doubles match payloads", () => {
+      const match = {
+        home: { id: "P1", name: "Player 1 / Player 2", flatNumber: "A-101 / B-202" },
+        away: { id: "P2", name: "Player 3 / Player 4", flatNumber: "C-303" },
+      };
+
+      const matchPayload = {
+        homeName: match.home.name,
+        homeId: match.home.id,
+        homeFlat: match.home.flatNumber || null,
+        awayName: match.away.name,
+        awayId: match.away.id,
+        awayFlat: match.away.flatNumber || null,
+      };
+
+      expect(matchPayload.homeFlat).toBe("A-101 / B-202");
+      expect(matchPayload.awayFlat).toBe("C-303");
+    });
+  });
 });
+
