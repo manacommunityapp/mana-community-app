@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
-import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle } from "lucide-react";
+import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
 import { getEventFormats } from "../SportsRegister";
@@ -8,6 +9,13 @@ import { ShareTournamentModal } from "./ShareTournamentModal";
 import { ViewPlayersModal } from "./ViewPlayersModal";
 import { ViewCaptainsModal } from "./ViewCaptainsModal";
 import { getPartnerDetails } from "./sportsPartnerUtils";
+import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
+import { TournamentPlayersPaymentModal } from "../TournamentPlayersPaymentModal";
+import {
+  exportTournamentPaymentsToCSV,
+  exportTournamentPaymentsToExcel,
+  exportTournamentPaymentsToPDF,
+} from "../../../utils/sportsExportUtils";
 
 interface TournamentSectionProps {
   title: string;
@@ -349,6 +357,58 @@ export function TournamentSection({
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
   const [shareTournament, setShareTournament] = useState<any | null>(null);
   const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; format?: string; search?: string }>>({});
+  const [exportDropdownTournamentId, setExportDropdownTournamentId] = useState<number | null>(null);
+  const [exportingTournamentId, setExportingTournamentId] = useState<number | null>(null);
+  const [paymentModalTournament, setPaymentModalTournament] = useState<any | null>(null);
+
+  const handleTournamentExport = async (
+    tournamentItem: any,
+    exportFormat: "excel" | "csv-roster" | "csv-events" | "pdf"
+  ) => {
+    setExportDropdownTournamentId(null);
+    setExportingTournamentId(tournamentItem.id);
+    try {
+      toast.info(`Preparing ${tournamentItem.name} export...`);
+      const rawEvents = tournamentItem.sportsEvents || (tournamentItem.events ? tournamentItem.events : []);
+      const players = await tournamentPaymentService.loadTournamentPlayers({
+        id: tournamentItem.id,
+        events: rawEvents,
+      });
+
+      if (!players || players.length === 0) {
+        toast.warning("No participants registered for this tournament yet.");
+        setExportingTournamentId(null);
+        return;
+      }
+
+      const tName = tournamentItem.name || "Tournament";
+      const exportStats = {
+        total: players.length,
+        flats: new Set(players.map((p) => p.flatNumber).filter(Boolean)).size,
+        paid: players.filter((p) => p.paymentStatus === "PAID" || p.paymentStatus === "WAIVED").length,
+        unpaid: players.filter((p) => p.paymentStatus !== "PAID" && p.paymentStatus !== "WAIVED").length,
+        totalCollected: players.reduce((sum, p) => sum + (p.payment?.amount || 0), 0),
+      };
+
+      if (exportFormat === "excel") {
+        exportTournamentPaymentsToExcel(players, tName, exportStats);
+        toast.success(`Exported ${players.length} participants to Excel`);
+      } else if (exportFormat === "csv-roster") {
+        exportTournamentPaymentsToCSV(players, tName, "roster");
+        toast.success(`Exported ${players.length} participant roster rows to CSV`);
+      } else if (exportFormat === "csv-events") {
+        exportTournamentPaymentsToCSV(players, tName, "events");
+        toast.success(`Exported detailed event registrations to CSV`);
+      } else if (exportFormat === "pdf") {
+        exportTournamentPaymentsToPDF(players, tName, exportStats);
+      }
+    } catch (err) {
+      console.error("Failed to export tournament:", err);
+      toast.error("Failed to export tournament details");
+    } finally {
+      setExportingTournamentId(null);
+    }
+  };
 
   const activeViewingEvent = useMemo(() => {
     if (!viewingEventId) return null;
@@ -597,6 +657,104 @@ export function TournamentSection({
                     >
                       <Share2 className="w-3 h-3" /> Share Form
                     </button>
+
+                    {/* Complete Tournament Export Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExportDropdownTournamentId(
+                            exportDropdownTournamentId === item.id ? null : item.id
+                          )
+                        }
+                        disabled={exportingTournamentId === item.id}
+                        className="text-xs px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-colors font-semibold cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                        title="Export complete tournament player roster, events & payment details"
+                      >
+                        {exportingTournamentId === item.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                        ) : (
+                          <Download className="w-3 h-3 text-emerald-600" />
+                        )}
+                        <span>Export</span>
+                        <ChevronDown className="w-3 h-3 text-emerald-600" />
+                      </button>
+
+                      {exportDropdownTournamentId === item.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setExportDropdownTournamentId(null)}
+                          />
+                          <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                              Export Complete Tournament
+                            </div>
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "excel")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download Excel (.xls)</div>
+                                  <div className="text-[10px] text-slate-400">Complete multi-sport roster &amp; payments</div>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "csv-roster")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileText className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download CSV — Player Summary</div>
+                                  <div className="text-[10px] text-slate-400">1 row per participant with all payment info</div>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "csv-events")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileText className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download CSV — Event Breakdown</div>
+                                  <div className="text-[10px] text-slate-400">1 row per event registration &amp; partner</div>
+                                </div>
+                              </button>
+                            </div>
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "pdf")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <Printer className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Print / Save PDF Roster</div>
+                                  <div className="text-[10px] text-slate-400">Printable sheet with summary stats</div>
+                                </div>
+                              </button>
+                            </div>
+                            <div className="p-1.5 bg-slate-50">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExportDropdownTournamentId(null);
+                                  setPaymentModalTournament(item);
+                                }}
+                                className="w-full px-2 py-1.5 text-center text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Open Roster &amp; Payment Hub</span>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {onAddEventToTournament && (
                       <button
                         type="button"
@@ -1054,6 +1212,18 @@ export function TournamentSection({
           isOpen={!!shareTournament}
           onClose={() => setShareTournament(null)}
           tournament={shareTournament}
+        />
+      )}
+
+      {paymentModalTournament && (
+        <TournamentPlayersPaymentModal
+          isOpen={!!paymentModalTournament}
+          onClose={() => setPaymentModalTournament(null)}
+          tournament={{
+            id: paymentModalTournament.id,
+            name: paymentModalTournament.name,
+            events: paymentModalTournament.sportsEvents || paymentModalTournament.events || [],
+          } as any}
         />
       )}
 
