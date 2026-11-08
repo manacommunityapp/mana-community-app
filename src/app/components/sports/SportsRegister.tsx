@@ -102,12 +102,25 @@ export function inferGender(
   if (!member) return "";
   const rel = (member.relation || "").trim().toLowerCase();
   
-  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (member.gender && String(member.gender).trim()) {
+    const norm = normalizeGender(member.gender);
+    if (norm === "FEMALE") return "Female";
+    if (norm === "MALE") return "Male";
+    return String(member.gender).trim();
+  }
+
+  const femaleRelations = [
+    "wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom",
+    "sister-in-law", "daughter-in-law", "mother-in-law", "girl", "female", "lady", "woman", "women"
+  ];
   if (femaleRelations.some(r => rel.includes(r))) {
     return "Female";
   }
 
-  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  const maleRelations = [
+    "husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad",
+    "brother-in-law", "son-in-law", "father-in-law", "boy", "male", "gentleman", "man", "men"
+  ];
   if (maleRelations.some(r => rel.includes(r))) {
     return "Male";
   }
@@ -117,11 +130,14 @@ export function inferGender(
     return pGen.startsWith("m") ? "Female" : "Male";
   }
 
-  if (member.gender && String(member.gender).trim()) {
-    const norm = normalizeGender(member.gender);
-    if (norm === "FEMALE") return "Female";
-    if (norm === "MALE") return "Male";
-    return String(member.gender).trim();
+  const nameLower = (member.name || "").trim().toLowerCase();
+  if (nameLower) {
+    if (nameLower.includes("(female)") || nameLower.includes("(f)") || nameLower.includes("(girl)") || /\b(female|girl|women|woman)\b/i.test(nameLower)) {
+      return "Female";
+    }
+    if (nameLower.includes("(male)") || nameLower.includes("(m)") || nameLower.includes("(boy)") || /\b(male|boy|men|man)\b/i.test(nameLower)) {
+      return "Male";
+    }
   }
 
   return "";
@@ -1026,7 +1042,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         matchTypes: ["SINGLES"],
         matchType: "SINGLES",
         role: "",
-        gender: initialFamMember.gender || "",
+        gender: normalizeGender(initialFamMember.gender) || normalizeGender(inferGender(initialFamMember, (user as any)?.gender)) || "",
         dateOfBirth: initDob,
         age: calcAge,
         matches: 0,
@@ -1050,7 +1066,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       matchTypes: ["SINGLES"],
       matchType: "SINGLES",
       role: "",
-      gender: (user as any)?.gender || "",
+      gender: normalizeGender((user as any)?.gender) || "",
       dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
       age: (user as any)?.dateOfBirth || (user as any)?.dob
         ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
@@ -1102,7 +1118,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       setFormData(prev => {
         if (prev.regType === "self") {
           const uName = userNameVal || prev.playerName;
-          const uGen = userGenderVal || prev.gender;
+          const uGen = normalizeGender(userGenderVal) || prev.gender;
           const uDob = userDobVal || prev.dateOfBirth;
           const uFlat = userFlatVal || prev.flatNumber;
           const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
@@ -1123,7 +1139,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [updateUser]);
 
   const userFullName = liveUser?.fullName || user?.fullName || "";
-  const userGender = liveUser?.gender || user?.gender || "";
+  const userGender = normalizeGender(liveUser?.gender || user?.gender) || "";
   const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
   const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
   const rawUserFlat =
@@ -1273,7 +1289,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       ...prev,
       playerName: mem.name,
       familyMemberId: mem.id,
-      gender: mem.gender ? mem.gender.toUpperCase() : prev.gender,
+      gender: normalizeGender(mem.gender) || normalizeGender(inferGender(mem, userGender)) || "",
       dateOfBirth: mem.dob || prev.dateOfBirth,
       age: memberAge ?? prev.age,
       relation: (mem.relation || "CHILD").toUpperCase(),
@@ -1657,12 +1673,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             ...prev,
             dateOfBirth: activeDob,
             age: calculatedAge,
-            gender: prev.gender || activeMember.gender || "",
+            gender: normalizeGender(activeMember.gender) || normalizeGender(inferGender(activeMember, userGender)) || prev.gender || "",
           }));
         }
       }
     }
-  }, [savedFamilyMembers, formData.regType, formData.familyMemberId, formData.dateOfBirth, formData.age]);
+  }, [savedFamilyMembers, formData.regType, formData.familyMemberId, formData.dateOfBirth, formData.age, userGender]);
 
   const [searchParams] = useSearchParams();
   const queryFor = props.initialFor || searchParams.get("for");
@@ -1680,7 +1696,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           regType: "family",
           playerName: targetMember.name,
           familyMemberId: targetMember.id,
-          gender: inferredGen || targetMember.gender || "",
+          gender: normalizeGender(inferredGen) || normalizeGender(targetMember.gender) || "",
           dateOfBirth: memberDob,
           flatNumber: userFlat,
           age: calculatedAge,
@@ -1694,7 +1710,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         regType: "self",
         playerName: userFullName,
         familyMemberId: undefined,
-        gender: userGender,
+        gender: normalizeGender(userGender) || "",
         dateOfBirth: userDob,
         flatNumber: userFlat,
         age: computedUserAge,
@@ -1947,7 +1963,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         ...prev,
         dateOfBirth: effectiveDob || prev.dateOfBirth,
         age: effectiveDob ? calculatedAge : prev.age,
-        gender: effectiveGender || prev.gender,
+        gender: normalizeGender(effectiveGender) || prev.gender,
         playerName: user?.fullName || prev.playerName,
       }));
     }
@@ -2171,7 +2187,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 matchType: fmt,
                 role: formData.role,
                 age: formData.age,
-                gender: formData.gender || undefined,
+                gender: normalizeGender(formData.gender) || undefined,
                 dateOfBirth: formData.dateOfBirth,
                 matches: formData.matches,
                 runs: formData.runs,
@@ -2242,7 +2258,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             matchType: fmt,
             role: formData.role,
             age: formData.age,
-            gender: formData.gender || undefined,
+            gender: normalizeGender(formData.gender) || undefined,
             dateOfBirth: formData.dateOfBirth,
             matches: formData.matches,
             runs: formData.runs,
@@ -3034,7 +3050,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 regType: "family",
                                 playerName: m.name,
                                 familyMemberId: m.id,
-                                gender: inferredGen || m.gender || "",
+                                gender: normalizeGender(inferredGen) || normalizeGender(m.gender) || "",
                                 dateOfBirth: mDob,
                                 flatNumber: userFlat,
                                 age: mAge,
@@ -3350,7 +3366,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         <select
                           id="sports-reg-gender-select"
                           name="gender"
-                          value={formData.gender}
+                          value={normalizeGender(formData.gender)}
                           onChange={handleInputChange}
                           required
                           className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"

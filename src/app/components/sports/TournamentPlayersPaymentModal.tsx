@@ -19,11 +19,16 @@ import {
   Calendar,
   Crown,
   ChevronRight,
+  ChevronDown,
   Building2,
   Mail,
   UserCheck,
   Pencil,
   RotateCcw,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -34,6 +39,11 @@ import {
   type UniqueTournamentPlayer,
   type TournamentPlayerPayment
 } from "../../../services/sports/tournamentPaymentService";
+import {
+  exportTournamentPaymentsToCSV,
+  exportTournamentPaymentsToExcel,
+  exportTournamentPaymentsToPDF,
+} from "../../../utils/sportsExportUtils";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { TournamentRegistration } from "../../../types/api";
 
@@ -201,50 +211,23 @@ export function TournamentPlayersPaymentModal({
     if (!isOpen || !tournament || !tournamentId) return;
 
     let isMounted = true;
-    setLoading(true);
+
+    // SWR Fast-Path: If fresh cached data exists, render it immediately in 0ms!
+    const cachedPlayers = tournamentPaymentService.getCachedPlayers(tournamentId);
+    if (cachedPlayers && cachedPlayers.length > 0) {
+      setPlayers(cachedPlayers);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     const loadData = async () => {
       try {
-        const rawEvents = tournament.events || [];
-        const paymentsPromise = tournamentPaymentService.getPayments(tournamentId);
-
-        // Deduplicate event IDs so each unique eventId is only queried once from the backend
-        const uniqueEventIds = Array.from(
-          new Set(
-            rawEvents
-              .map((ev) => ev.id)
-              .filter((id): id is number => typeof id === "number" && id > 0)
-          )
-        );
-
-        // Fetch registrations in parallel only once per unique event ID
-        const registrationsByEventId = new Map<number, TournamentRegistration[]>();
-        await Promise.all(
-          uniqueEventIds.map(async (eventId) => {
-            try {
-              const regs = await sportsService.getTournamentRegistrations(eventId);
-              registrationsByEventId.set(eventId, regs || []);
-            } catch (err) {
-              console.error(`Failed to load registrations for event ${eventId}:`, err);
-              registrationsByEventId.set(eventId, []);
-            }
-          })
-        );
-
-        // Map back to each event entry in rawEvents so category and format mappings are preserved
-        const eventsWithRegs = rawEvents.map((ev) => ({
-          event: ev,
-          registrations: registrationsByEventId.get(ev.id) || [],
-        }));
-
-        const paymentsMap = await paymentsPromise;
+        const deduplicated = await tournamentPaymentService.loadTournamentPlayers(tournament, {
+          forceRefresh: !cachedPlayers,
+        });
 
         if (!isMounted) return;
-
-        const deduplicated = tournamentPaymentService.deduplicatePlayers(
-          eventsWithRegs,
-          paymentsMap
-        );
         setPlayers(deduplicated);
       } catch (err) {
         console.error("Failed to load tournament players for payment:", err);
@@ -304,7 +287,8 @@ export function TournamentPlayersPaymentModal({
           (e) =>
             e.eventName.toLowerCase().includes(q) ||
             (e.sportName && e.sportName.toLowerCase().includes(q)) ||
-            (e.matchType && e.matchType.toLowerCase().includes(q))
+            (e.matchType && e.matchType.toLowerCase().includes(q)) ||
+            (e.partnerName && e.partnerName.toLowerCase().includes(q))
         );
         if (!matchesName && !matchesFlat && !matchesPhone && !matchesRelation && !matchesEvent) {
           return false;
@@ -313,6 +297,47 @@ export function TournamentPlayersPaymentModal({
       return true;
     });
   }, [players, searchQuery, statusFilter, categoryFilter]);
+
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+
+  const handleExport = (
+    exportFormat: "excel" | "csv-roster" | "csv-events" | "pdf",
+    scope: "current" | "all" = "current"
+  ) => {
+    const targetPlayers = scope === "all" ? players : filteredPlayers;
+    if (targetPlayers.length === 0) {
+      toast.error("No players available to export");
+      return;
+    }
+    const tName = tournament?.name || "Tournament";
+    setExportDropdownOpen(false);
+
+    const exportStats = {
+      total: targetPlayers.length,
+      flats: new Set(targetPlayers.map((p) => p.flatNumber).filter(Boolean)).size,
+      paid: targetPlayers.filter((p) => p.paymentStatus === "PAID" || p.paymentStatus === "WAIVED").length,
+      unpaid: targetPlayers.filter((p) => p.paymentStatus !== "PAID" && p.paymentStatus !== "WAIVED").length,
+      totalCollected: targetPlayers.reduce((sum, p) => sum + (p.payment?.amount || 0), 0),
+    };
+
+    try {
+      if (exportFormat === "excel") {
+        exportTournamentPaymentsToExcel(targetPlayers, tName, exportStats);
+        toast.success(`Exported ${targetPlayers.length} participants to Excel`);
+      } else if (exportFormat === "csv-roster") {
+        exportTournamentPaymentsToCSV(targetPlayers, tName, "roster");
+        toast.success(`Exported ${targetPlayers.length} participant roster rows to CSV`);
+      } else if (exportFormat === "csv-events") {
+        exportTournamentPaymentsToCSV(targetPlayers, tName, "events");
+        toast.success(`Exported detailed event registrations to CSV`);
+      } else if (exportFormat === "pdf") {
+        exportTournamentPaymentsToPDF(targetPlayers, tName, exportStats);
+      }
+    } catch (err) {
+      console.error("Export failed:", err);
+      toast.error("Failed to export player details");
+    }
+  };
 
   // Group by Flat Number Category
   const flatGroups = useMemo<FlatGroup[]>(() => {
@@ -596,6 +621,14 @@ export function TournamentPlayersPaymentModal({
             </span>
           )}
 
+          {/* Doubles Partner Badge if participating solely as invited partner */}
+          {player.isPartnerOnly && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 shrink-0">
+              <Users className="w-2.5 h-2.5 text-emerald-600" />
+              <span>Doubles Partner</span>
+            </span>
+          )}
+
           {/* Flat Number (shown in All Players view) */}
           {!isUnderFlatView && player.flatNumber && (
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 shrink-0">
@@ -730,12 +763,24 @@ export function TournamentPlayersPaymentModal({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleExport("excel")}
+              disabled={players.length === 0}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200/90 bg-white hover:bg-indigo-50/70 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group/exp"
+              title="Quick download all tournament participant & payment details as Excel (.xls)"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600 group-hover/exp:scale-110 transition-transform" />
+              <span>Export All Details</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Compact Stats Row */}
@@ -860,8 +905,106 @@ export function TournamentPlayersPaymentModal({
                 </button>
               ))}
             </div>
+
+            {/* Export Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                disabled={players.length === 0}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
+                  players.length > 0
+                    ? "bg-white border-slate-200 text-slate-700 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer"
+                    : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
+                }`}
+                title="Download tournament participant roster & payment records"
+              >
+                <Download className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Export</span>
+                {filteredPlayers.length < players.length && (
+                  <span className="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-1.5 py-0.2 rounded-full">
+                    {filteredPlayers.length}
+                  </span>
+                )}
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+
+              {exportDropdownOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setExportDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs divide-y divide-slate-100">
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Export Details ({filteredPlayers.length} {filteredPlayers.length === 1 ? "player" : "players"})
+                    </div>
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => handleExport("excel")}
+                        className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-slate-800">Download Excel (.xls)</div>
+                          <div className="text-[10px] text-slate-400">Complete roster, events &amp; payment ledger</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport("csv-roster")}
+                        className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <FileText className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-slate-800">Download CSV — Player Summary</div>
+                          <div className="text-[10px] text-slate-400">1 row per participant with all payment info</div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport("csv-events")}
+                        className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <FileText className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-slate-800">Download CSV — Event Breakdown</div>
+                          <div className="text-[10px] text-slate-400">1 row per event registration &amp; partner</div>
+                        </div>
+                      </button>
+                    </div>
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => handleExport("pdf")}
+                        className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <Printer className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-slate-800">Print / Save PDF Roster</div>
+                          <div className="text-[10px] text-slate-400">Printable sheet with summary stats</div>
+                        </div>
+                      </button>
+                    </div>
+                    {filteredPlayers.length < players.length && (
+                      <div className="p-1.5 bg-slate-50">
+                        <button
+                          type="button"
+                          onClick={() => handleExport("excel", "all")}
+                          className="w-full px-2 py-1.5 text-center text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
+                        >
+                          Export All {players.length} Players (Ignore Filters)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
+
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
@@ -1019,6 +1162,12 @@ export function TournamentPlayersPaymentModal({
                         </span>
                       );
                     })()}
+                    {viewingEventsPlayer.isPartnerOnly && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[9px] font-bold text-emerald-700">
+                        <Users className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Doubles Partner</span>
+                      </span>
+                    )}
                     {viewingEventsPlayer.flatNumber && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
                         <Home className="w-2.5 h-2.5 text-slate-400" />
@@ -1137,8 +1286,9 @@ export function TournamentPlayersPaymentModal({
                       <span className="inline-flex items-center gap-1 text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-1.5 py-0.5 rounded-md">
                         <Users className="w-3 h-3 text-indigo-600" />
                         <span>
-                          Partner: <strong className="font-semibold">{ev.partnerName}</strong>
+                          {ev.isPartner ? "Playing with:" : "Partner:"} <strong className="font-semibold">{ev.partnerName}</strong>
                           {ev.partnerPhone ? ` (${ev.partnerPhone})` : ""}
+                          {ev.isPartner ? " (Confirmed Partner)" : ""}
                         </span>
                       </span>
                     )}

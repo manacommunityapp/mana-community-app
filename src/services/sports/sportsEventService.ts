@@ -295,6 +295,12 @@ export const sportsEventService = {
     return this.getTournamentRegistrations(eventId, latestOnly);
   },
 
+  /** GET /api/sports/tournaments/{tournamentId}/all-registrations — batch load all registrations across all events in a tournament */
+  async getAllTournamentRegistrations(tournamentId: number, eventIds?: number[]): Promise<TournamentRegistration[]> {
+    const qs = eventIds && eventIds.length > 0 ? `?eventIds=${eventIds.join(",")}` : "";
+    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${tournamentId}/all-registrations${qs}`);
+  },
+
   /** GET /api/sports/tournaments/{eventId}/registrations/{registrationId}/history — lazy load player registration history */
   async getRegistrationHistory(eventId: number, registrationId: number): Promise<TournamentRegistration[]> {
     return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations/${registrationId}/history`);

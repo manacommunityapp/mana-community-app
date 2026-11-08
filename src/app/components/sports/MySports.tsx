@@ -572,11 +572,21 @@ export function MySports() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {partnerInvitations.map((inv) => {
             const invId = inv.id;
-            const pName = inv.playerName || inv.user?.fullName || "A player";
+            const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
+            const pFlat = inv.flatNumber || (inv as any).flatNo || inv.user?.flatNo || (inv as any).user?.flatNumber;
+            const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
             const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
             const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
             const catName = inv.categoryName || inv.category?.name;
             const isBusy = respondingInviteId === invId;
+
+            const primaryFam = (inv as any).familyMember;
+            const primaryFamName = primaryFam?.name;
+            const primaryFamRel = primaryFam?.relation || (inv as any).relation;
+
+            const partnerFam = (inv as any).partnerFamilyMember;
+            const partnerFamName = partnerFam?.name;
+            const partnerFamRel = partnerFam?.relation;
 
             return (
               <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
@@ -592,8 +602,29 @@ export function MySports() {
                   <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
                     {evName}
                   </h4>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    <strong className="text-slate-900 font-semibold">{pName}</strong> nominated you to play as their doubles partner.
+                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    <strong className="text-slate-900 font-semibold">{inviterUser}</strong>
+                    {cleanPFlat ? ` (Flat ${cleanPFlat})` : ""}{" "}
+                    {primaryFamName && partnerFamName ? (
+                      <>
+                        invited your {partnerFamRel ? `${partnerFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{partnerFamName}</strong>) to team up with their{" "}
+                        {primaryFamRel ? `${primaryFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{primaryFamName}</strong>) as doubles partners.
+                      </>
+                    ) : primaryFamName ? (
+                      <>
+                        invited you to team up with their {primaryFamRel ? `${primaryFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{primaryFamName}</strong>) as doubles partners.
+                      </>
+                    ) : partnerFamName ? (
+                      <>
+                        nominated your {partnerFamRel ? `${partnerFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{partnerFamName}</strong>) to play as their doubles partner.
+                      </>
+                    ) : (
+                      <>nominated you to play as their doubles partner.</>
+                    )}
                   </p>
                   {catName && (
                     <div className="mt-1.5 text-xs font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
@@ -610,7 +641,7 @@ export function MySports() {
                     className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{isBusy ? "Confirming..." : "Accept Partner"}</span>
+                    <span>{isBusy ? "Confirming..." : (partnerFamName ? `Accept for ${partnerFamName}` : "Accept Partner")}</span>
                   </button>
                   <button
                     type="button"
@@ -1122,17 +1153,23 @@ export function MySports() {
                                     (reg.categoryName && reg.categoryName.toLowerCase().includes("doubles"))) && (
                                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                                       {reg.partnerUserId || reg.partnerName ? (
-                                        <div className="flex items-center gap-1.5">
-                                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
-                                            <Users className="w-3 h-3" />
-                                            <span>
-                                              Partner: <strong>{reg.partnerName || "Partner"}</strong>
-                                            </span>
-                                            <span className="text-[10px] font-medium opacity-80">
-                                              ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
-                                            </span>
-                                          </span>
-                                        </div>
+                                        (() => {
+                                          const partnerFlat = (reg as any).partnerFlatNumber || (reg as any).partner?.flatNo || (reg as any).partner?.flatNumber;
+                                          const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+                                          return (
+                                            <div className="flex items-center gap-1.5">
+                                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
+                                                <Users className="w-3 h-3" />
+                                                <span>
+                                                  Partner: <strong>{reg.partnerName || "Partner"}</strong>{cleanPartnerFlat ? ` (Flat ${cleanPartnerFlat})` : ""}
+                                                </span>
+                                                <span className="text-[10px] font-medium opacity-80">
+                                                  ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
+                                                </span>
+                                              </span>
+                                            </div>
+                                          );
+                                        })()
                                       ) : (
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200">
