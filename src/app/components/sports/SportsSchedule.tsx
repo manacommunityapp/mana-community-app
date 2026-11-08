@@ -170,7 +170,7 @@ type BracketMatch = {
 };
 type BracketRound = { name: string; matches: BracketMatch[] };
 
-function getPlayerInitials(fullName: string): string {
+export function getPlayerInitials(fullName: string): string {
   if (!fullName) return "";
   if (fullName.includes(" / ")) {
     return fullName.split(" / ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" / ");

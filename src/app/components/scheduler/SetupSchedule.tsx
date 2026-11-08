@@ -51,6 +51,66 @@ const SEEDING_OPTIONS: { value: PlayoffSeedingOrder; label: string }[] = [
 ];
 const VENUE_ASSIGN_OPTIONS = ['Random','Snake','Sequential','Parallel'];
 
+export function deduplicateReciprocalRegistrations(
+  registrations: EventRegistration[],
+  isDoubles: boolean
+): EventRegistration[] {
+  if (!isDoubles) return registrations;
+  const processedRegIds = new Set<number>();
+  const effectiveRegistrations: EventRegistration[] = [];
+
+  for (const reg of registrations) {
+    if (processedRegIds.has(reg.id)) continue;
+    processedRegIds.add(reg.id);
+
+    if (reg.partnerUserId != null) {
+      const reciprocal = registrations.find(
+        other => other.id !== reg.id &&
+          ((other.user?.id != null && other.user.id === reg.partnerUserId) || other.id === reg.partnerUserId) &&
+          (other.partnerUserId === reg.user?.id || other.partnerUserId === reg.id)
+      );
+      if (reciprocal) {
+        processedRegIds.add(reciprocal.id);
+      }
+    }
+    effectiveRegistrations.push(reg);
+  }
+  return effectiveRegistrations;
+}
+
+export function formatParticipantDisplayName(
+  reg: EventRegistration,
+  partnerInfo: ReturnType<typeof getPartnerDetails>,
+  isDoubles: boolean,
+  fallbackIndex = 1
+): { displayName: string; flatDisplay?: string } {
+  let displayName = reg.playerName || reg.user?.fullName || `Participant ${fallbackIndex}`;
+  let flatDisplay = reg.flatNumber || reg.user?.community?.name || undefined;
+
+  if (isDoubles) {
+    const primaryName = reg.playerName || reg.user?.fullName || 'Player';
+    if (partnerInfo.hasPartner && partnerInfo.name) {
+      const partnerName = partnerInfo.name;
+      if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+        displayName = `${reg.proposedTeamName.trim()} (${primaryName} / ${partnerName})`;
+      } else {
+        displayName = `${primaryName} / ${partnerName}`;
+      }
+      if (partnerInfo.flat && partnerInfo.flat !== flatDisplay) {
+        flatDisplay = flatDisplay ? `${flatDisplay} / ${partnerInfo.flat}` : partnerInfo.flat;
+      }
+    } else if (partnerInfo.isOpenPool) {
+      displayName = `${primaryName} / [Seeking Partner]`;
+    } else {
+      displayName = `${primaryName} / [Partner Invited]`;
+    }
+  } else if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+    displayName = `${reg.proposedTeamName.trim()} (${displayName})`;
+  }
+
+  return { displayName, flatDisplay };
+}
+
 interface SetupScheduleProps {
   initialEventId?: string;
 }
@@ -926,25 +986,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const isDoubles = fmt.toLowerCase().includes('doubles') || Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2);
 
     // If doubles, deduplicate reciprocal pairs (when Player A registered with B, and B registered with A)
-    const processedRegIds = new Set<number>();
-    const effectiveRegistrations: EventRegistration[] = [];
-
-    for (const reg of confirmedRegistrations) {
-      if (processedRegIds.has(reg.id)) continue;
-      processedRegIds.add(reg.id);
-
-      if (isDoubles && reg.partnerUserId != null) {
-        const reciprocal = confirmedRegistrations.find(
-          other => other.id !== reg.id &&
-            ((other.user?.id != null && other.user.id === reg.partnerUserId) || other.id === reg.partnerUserId) &&
-            (other.partnerUserId === reg.user?.id || other.partnerUserId === reg.id)
-        );
-        if (reciprocal) {
-          processedRegIds.add(reciprocal.id);
-        }
-      }
-      effectiveRegistrations.push(reg);
-    }
+    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, isDoubles);
 
     for (let i = 0; i < count; i++) {
       if (customLines[i]) {
@@ -954,30 +996,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         });
       } else if (i < effectiveRegistrations.length) {
         const reg = effectiveRegistrations[i];
-        let displayName = reg.playerName || reg.user?.fullName || `Participant ${i + 1}`;
-        let flatDisplay = reg.flatNumber || reg.user?.community?.name || undefined;
-
-        if (isDoubles) {
-          const partnerInfo = getPartnerDetails(reg as any, confirmedRegistrations as any, ev);
-          const primaryName = reg.playerName || reg.user?.fullName || 'Player';
-          if (partnerInfo.hasPartner && partnerInfo.name) {
-            const partnerName = partnerInfo.name;
-            if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
-              displayName = `${reg.proposedTeamName.trim()} (${primaryName} / ${partnerName})`;
-            } else {
-              displayName = `${primaryName} / ${partnerName}`;
-            }
-            if (partnerInfo.flat && partnerInfo.flat !== flatDisplay) {
-              flatDisplay = flatDisplay ? `${flatDisplay} / ${partnerInfo.flat}` : partnerInfo.flat;
-            }
-          } else if (partnerInfo.isOpenPool) {
-            displayName = `${primaryName} / [Seeking Partner]`;
-          } else {
-            displayName = `${primaryName} / [Partner Invited]`;
-          }
-        } else if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
-          displayName = `${reg.proposedTeamName.trim()} (${displayName})`;
-        }
+        const partnerInfo = isDoubles ? getPartnerDetails(reg as any, confirmedRegistrations as any, ev) : { hasPartner: false, isOpenPool: false } as any;
+        const { displayName, flatDisplay } = formatParticipantDisplayName(reg, partnerInfo, isDoubles, i + 1);
 
         allParts.push({
           id: `P${i + 1}`,

@@ -6,6 +6,8 @@ import {
   ChevronDown, Medal, Tag, Activity
 } from 'lucide-react';
 import { tournamentService, type ConfigInfo } from '../../../services/sports/tournamentService';
+import { sportsService } from '../../../services/sports/sportsService';
+import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
 import { venueService } from '../../../services/bookings/venueService';
 import { showSuccess, showError, showWarning } from '../../../utils/ToastUtils';
 import { confirmAction } from '../../../utils/AlertUtils';
@@ -265,6 +267,53 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
             color: t.colorHex || TEAM_COLORS[idx % TEAM_COLORS.length],
           };
         });
+      } else if (activeCfg?.eventId) {
+        // Fallback for non-auction (singles / doubles) tournaments: load from event registrations
+        try {
+          const regs = await sportsService.getEventRegistrations(activeCfg.eventId);
+          const confirmed = (regs || []).filter(r => r.status === 'CONFIRMED' || r.status === 'REGISTERED');
+          const isDoubles = (activeCfg.tournamentName || '').toLowerCase().includes('doubles');
+
+          const processed = new Set<number>();
+          const pairs: typeof confirmed = [];
+          for (const r of confirmed) {
+            if (processed.has(r.id)) continue;
+            processed.add(r.id);
+            if (isDoubles && r.partnerUserId != null) {
+              const reciprocal = confirmed.find(
+                o => o.id !== r.id &&
+                  ((o.user?.id != null && o.user.id === r.partnerUserId) || o.id === r.partnerUserId) &&
+                  (o.partnerUserId === r.user?.id || o.partnerUserId === r.id)
+              );
+              if (reciprocal) processed.add(reciprocal.id);
+            }
+            pairs.push(r);
+          }
+
+          loadedTeams = pairs.map((r, idx) => {
+            const partnerInfo = getPartnerDetails(r as any, confirmed as any);
+            let tName = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
+            if (isDoubles || partnerInfo.hasPartner) {
+              if (partnerInfo.hasPartner && partnerInfo.name) {
+                tName = `${tName} / ${partnerInfo.name}`;
+              } else if (partnerInfo.isOpenPool) {
+                tName = `${tName} / [Seeking Partner]`;
+              }
+            }
+            if (r.proposedTeamName && r.proposedTeamName.trim()) {
+              tName = `${r.proposedTeamName.trim()} (${tName})`;
+            }
+            const tid = String(r.id);
+            return {
+              id: tid,
+              name: tName,
+              group: teamGroupMap[tid] || 'UNASSIGNED',
+              color: TEAM_COLORS[idx % TEAM_COLORS.length],
+            };
+          });
+        } catch (err) {
+          console.warn('Could not load registrations for manual scheduler:', err);
+        }
       }
       setTeams(loadedTeams);
 
