@@ -80,7 +80,7 @@ export function deduplicateReciprocalRegistrations(
 
 export function formatParticipantDisplayName(
   reg: EventRegistration,
-  partnerInfo: ReturnType<typeof getPartnerDetails>,
+  partnerInfo: { hasPartner: boolean; isOpenPool?: boolean; name?: string | null; flat?: string | null; [key: string]: any },
   isDoubles: boolean,
   fallbackIndex = 1
 ): { displayName: string; flatDisplay?: string } {

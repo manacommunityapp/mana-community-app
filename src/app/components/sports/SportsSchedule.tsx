@@ -86,6 +86,8 @@ interface ScheduleEntry {
   partnerName?: string;
   partnerStatus?: string;
   isDoubles?: boolean;
+  flatNumber?: string;
+  partnerFlat?: string;
 }
 
 

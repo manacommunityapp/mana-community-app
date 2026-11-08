@@ -57,6 +57,7 @@ interface SportsEventTabProps {
   handleCloseEvent?: (id: number) => void;
   handleStartEventRegistration?: (id: number, name?: string) => void;
   handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
+  handleAnnounce?: (id: number, name: string) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -228,7 +229,7 @@ export function SportsEventTab({
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           handleActivate={handleActivate}
-          handleAnnounce={handleAnnounce}
+          handleAnnounce={handleAnnounce || (() => {})}
           handleViewPlayers={handleViewPlayers}
           handleViewCaptains={handleViewCaptains}
           viewingEventId={viewingEventId}

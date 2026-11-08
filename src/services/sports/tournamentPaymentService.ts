@@ -140,7 +140,7 @@ export const tournamentPaymentService = {
    * 4. Updates the in-memory SWR cache.
    */
   async loadTournamentPlayers(
-    tournament: { id: number; events?: Array<{ id: number; name?: string; sportName?: string; categoryName?: string }> },
+    tournament: { id: number; events?: Array<{ id: number; name?: string | null; sportName?: string | null; categoryName?: string | null; [key: string]: any }> },
     options?: { forceRefresh?: boolean }
   ): Promise<UniqueTournamentPlayer[]> {
     const tournamentId = tournament.id;
@@ -164,7 +164,7 @@ export const tournamentPaymentService = {
     const paymentsPromise = this.getPayments(tournamentId);
 
     let eventsWithRegs: Array<{
-      event: DashboardEventCard | { id: number; name?: string; sportName?: string; categoryName?: string };
+      event: DashboardEventCard | { id: number; name?: string | null; sportName?: string | null; categoryName?: string | null; [key: string]: any };
       registrations: TournamentRegistration[];
     }> = [];
 
@@ -229,7 +229,7 @@ export const tournamentPaymentService = {
    * warming the cache 150-300ms before click so the modal opens instantaneously.
    */
   prefetchTournamentData(
-    tournament: { id: number; events?: Array<{ id: number; name?: string; sportName?: string; categoryName?: string }> }
+    tournament: { id: number; events?: Array<{ id: number; name?: string | null; sportName?: string | null; categoryName?: string | null; [key: string]: any }> }
   ): void {
     if (!tournament?.id) return;
     const entry = tournamentRosterCache.get(tournament.id);
@@ -369,7 +369,7 @@ export const tournamentPaymentService = {
    */
   deduplicatePlayers(
     eventsWithRegistrations: Array<{
-      event: DashboardEventCard | { id: number; name?: string; sportName?: string; categoryName?: string };
+      event: DashboardEventCard | { id: number; name?: string | null; sportName?: string | null; categoryName?: string | null; [key: string]: any };
       registrations: TournamentRegistration[];
     }>,
     paymentsMap: Record<string, TournamentPlayerPayment>

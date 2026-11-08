@@ -3,10 +3,10 @@ import type { AuctionTeam } from "../../../../types/api";
 
 // Helper function replicating modal filtering logic for test isolation
 function filterCaptains(
-  captains: AuctionTeam[],
+  captains: Partial<AuctionTeam>[],
   statusFilter: "ALL" | "CONFIRMED" | "PENDING",
   searchQuery: string
-): AuctionTeam[] {
+): Partial<AuctionTeam>[] {
   const q = searchQuery.trim().toLowerCase();
   return captains.filter((team) => {
     if (statusFilter === "CONFIRMED" && !team.captainConfirmation) return false;
@@ -35,7 +35,7 @@ function filterCaptains(
   });
 }
 
-function computeCounts(captains: AuctionTeam[]) {
+function computeCounts(captains: Partial<AuctionTeam>[]) {
   let confirmed = 0;
   let pending = 0;
   for (const team of captains) {
@@ -59,7 +59,7 @@ describe("ViewCaptainsModal: counts calculation", () => {
   });
 
   it("accurately calculates confirmed and pending counts", () => {
-    const sampleCaptains: AuctionTeam[] = [
+    const sampleCaptains: Partial<AuctionTeam>[] = [
       {
         id: 1,
         teamName: "Super Strikers",
@@ -98,7 +98,7 @@ describe("ViewCaptainsModal: counts calculation", () => {
 });
 
 describe("ViewCaptainsModal: status filter", () => {
-  const sampleCaptains: AuctionTeam[] = [
+  const sampleCaptains: Partial<AuctionTeam>[] = [
     {
       id: 1,
       teamName: "Thunderbolts",
@@ -160,7 +160,7 @@ describe("ViewCaptainsModal: status filter", () => {
 });
 
 describe("ViewCaptainsModal: search filtering", () => {
-  const sampleCaptains: AuctionTeam[] = [
+  const sampleCaptains: Partial<AuctionTeam>[] = [
     {
       id: 10,
       teamName: "Falcon Riders",
