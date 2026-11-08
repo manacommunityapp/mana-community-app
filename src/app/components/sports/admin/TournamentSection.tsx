@@ -9,13 +9,13 @@ import { ShareTournamentModal } from "./ShareTournamentModal";
 import { ViewPlayersModal } from "./ViewPlayersModal";
 import { ViewCaptainsModal } from "./ViewCaptainsModal";
 import { getPartnerDetails } from "./sportsPartnerUtils";
-import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
+import { tournamentPaymentService } from "../../../../services/sports/tournamentPaymentService";
 import { TournamentPlayersPaymentModal } from "../TournamentPlayersPaymentModal";
 import {
   exportTournamentPaymentsToCSV,
   exportTournamentPaymentsToExcel,
   exportTournamentPaymentsToPDF,
-} from "../../../utils/sportsExportUtils";
+} from "../../../../utils/sportsExportUtils";
 
 interface TournamentSectionProps {
   title: string;
