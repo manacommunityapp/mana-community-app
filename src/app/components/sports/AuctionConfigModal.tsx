@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Gavel,
@@ -16,6 +16,8 @@ import {
   Loader2,
   Sliders,
   CheckCircle2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { auctionService } from "../../../services/sports/auctionService";
@@ -157,7 +159,10 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   const [committeeMembers, setCommitteeMembers] = useState<Array<{ id?: number; name: string }>>([]);
   const [committeeSearchQuery, setCommitteeSearchQuery] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [activeModalTab, setActiveModalTab] = useState<"general" | "teams" | "bidding" | "categories" | "committee">("general");
+  const [activeSection, setActiveSection] = useState<string>("overview");
+
+  // Scroll container ref
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync state with editingConfig when opened
   useEffect(() => {
@@ -178,9 +183,11 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
       setBidTimerSeconds(editingConfig.bidTimerSeconds || 30);
       setRtmEnabled(editingConfig.rtmEnabled ?? true);
       setUnsoldRule(editingConfig.unsoldRule || "ROTATION_AUCTION");
-      setCategories(editingConfig.categories && editingConfig.categories.length > 0
-        ? editingConfig.categories
-        : ["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
+      setCategories(
+        editingConfig.categories && editingConfig.categories.length > 0
+          ? editingConfig.categories
+          : ["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]
+      );
       setCommitteeMembers(
         (editingConfig.committeeMembers || []).map((name, idx) => ({ id: idx + 1, name }))
       );
@@ -205,7 +212,7 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
     }
     setNewCategoryInput("");
     setCommitteeSearchQuery("");
-    setActiveModalTab("general");
+    setActiveSection("overview");
   }, [isOpen, editingConfig]);
 
   // When sport changes in Create mode, update default categories
@@ -281,6 +288,27 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
       .filter(u => u.name.toLowerCase().includes(q) && !committeeMembers.some(c => c.name.toLowerCase() === u.name.toLowerCase()))
       .slice(0, 8);
   }, [communityUsers, committeeSearchQuery, committeeMembers]);
+
+  // Squad metrics computation
+  const squadMetrics = useMemo(
+    () => computeSquadMetrics(totalTeams, totalPlayers, budgetPerTeam),
+    [totalTeams, totalPlayers, budgetPerTeam]
+  );
+
+  // Selected sport object
+  const currentSport = useMemo(
+    () => SPORT_OPTIONS.find((s) => s.id === sportId) || SPORT_OPTIONS[0],
+    [sportId]
+  );
+
+  // Smooth scroll to section
+  const scrollToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    const target = document.getElementById(`section-${sectionId}`);
+    if (target && scrollContainerRef.current) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
 
   // Validation
   const validateForm = (): string | null => {
@@ -362,115 +390,154 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl h-[92vh] max-h-[92vh] flex flex-col shadow-2xl text-left overflow-hidden animate-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center text-lg flex-shrink-0">
-              <Gavel size={20} />
+        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-amber-50/70 via-white to-slate-50 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/20 shrink-0">
+                <Gavel size={22} className="stroke-[2.2]" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 m-0 leading-tight">
+                    {isEditMode ? "Edit Auction Configuration" : "New Auction Configuration"}
+                  </h2>
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                      isEditMode
+                        ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                        : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    }`}
+                  >
+                    {isEditMode ? "Edit Mode" : "New Config"}
+                  </span>
+                  <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+                    <span>{currentSport.emoji}</span>
+                    <span>{currentSport.name}</span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 m-0 mt-0.5 truncate">
+                  Define tournament rules, team budgets, bidding increments, and category structures
+                </p>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 m-0 leading-tight">
-                  {isEditMode ? "Edit Auction Configuration" : "New Auction Configuration"}
-                </h3>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                  isEditMode ? "bg-indigo-100 text-indigo-700" : "bg-emerald-100 text-emerald-700"
-                }`}>
-                  {isEditMode ? "Edit Mode" : "New Config"}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 hover:bg-slate-200/80 rounded-xl text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer shrink-0"
+              title="Close Modal"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Quick-Scroll In-Modal Section Anchor Bar */}
+          <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100 overflow-x-auto no-scrollbar">
+            {[
+              { id: "overview", label: "1. Overview", icon: Trophy },
+              { id: "teams", label: "2. Teams & Purse", icon: Users },
+              { id: "bidding", label: "3. Bidding Ladder", icon: IndianRupee },
+              { id: "categories", label: "4. Categories & Rules", icon: Tag },
+              { id: "committee", label: "5. Dispute Committee", icon: Shield },
+            ].map((sec) => {
+              const Icon = sec.icon;
+              const isActive = activeSection === sec.id;
+              return (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => scrollToSection(sec.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
+                  }`}
+                >
+                  <Icon size={13} />
+                  <span>{sec.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Modal Form Body - Single Smooth Scroll */}
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {/* ── SECTION 1: Overview & Tournament Details ── */}
+            <div
+              id="section-overview"
+              className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold">
+                    <Trophy size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 m-0">1. Tournament & Auction Overview</h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      Select sport discipline, link community event, and choose auction style
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sport Selection with Quick Emoji Chips */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                  Sport Discipline <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {SPORT_OPTIONS.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleSportChange(s.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                        sportId === s.id
+                          ? "bg-amber-500 text-white border-amber-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="text-sm">{s.emoji}</span>
+                      <span>{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] text-slate-400 block pt-0.5">
+                  Selecting a sport automatically loads category presets and positional buckets.
                 </span>
               </div>
-              <p className="text-xs text-slate-500 m-0 mt-0.5">
-                Define tournament rules, team budgets, bidding increments, and category structures
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer text-base"
-            title="Close Modal"
-          >
-            <X size={18} />
-          </button>
-        </div>
 
-        {/* Modal Tab Bar */}
-        <div className="flex border-b border-slate-200 bg-white px-6 overflow-x-auto gap-2 flex-shrink-0">
-          {[
-            { id: "general", label: "General & Event", icon: Trophy },
-            { id: "teams", label: "Teams & Budget", icon: Users },
-            { id: "bidding", label: "Bidding Ladder", icon: IndianRupee },
-            { id: "categories", label: "Categories & Rules", icon: Tag },
-            { id: "committee", label: "Dispute Committee", icon: Shield },
-          ].map(tab => {
-            const Icon = tab.icon;
-            const active = activeModalTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveModalTab(tab.id as any)}
-                className={`flex items-center gap-1.5 py-3 px-3 text-xs font-semibold border-b-2 transition-all whitespace-nowrap bg-transparent cursor-pointer ${
-                  active
-                    ? "border-amber-600 text-amber-600"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <Icon size={14} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: "thin" }}>
-          
-          {/* TAB 1: General & Event */}
-          {activeModalTab === "general" && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* Sport */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    Sport <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                    value={sportId}
-                    onChange={e => handleSportChange(Number(e.target.value))}
-                  >
-                    {SPORT_OPTIONS.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.emoji} {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="text-[11px] text-slate-400">Selecting a sport applies corresponding category presets.</span>
-                </div>
-
+              {/* Event, Season, Format Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
                 {/* Mapped Event */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                    Mapped Sports Event / Tournament
-                  </label>
+                  <label className="text-xs font-bold text-slate-700">Mapped Sports Event</label>
                   <select
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     value={eventId ?? ""}
-                    onChange={e => handleEventChange(e.target.value ? Number(e.target.value) : undefined)}
+                    onChange={(e) => handleEventChange(e.target.value ? Number(e.target.value) : undefined)}
                   >
-                    <option value="">No Event (Standalone Auction Config)</option>
-                    {communityEvents.map(ev => (
+                    <option value="">No Event (Standalone Auction)</option>
+                    {communityEvents.map((ev) => (
                       <option key={ev.id} value={ev.id}>
                         {ev.name} {ev.sport?.name ? `(${ev.sport.name})` : ""}
                       </option>
                     ))}
                   </select>
-                  <span className="text-[11px] text-slate-400">Optional: links player registrations to this tournament.</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    Optional: links registered community players to the auction pool.
+                  </span>
                 </div>
 
                 {/* Season Name */}
@@ -480,13 +547,15 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                     placeholder="e.g. LEPL Season 2 (2026)"
                     value={seasonName}
-                    onChange={e => setSeasonName(e.target.value)}
+                    onChange={(e) => setSeasonName(e.target.value)}
                     required
                   />
-                  <span className="text-[11px] text-slate-400">Displays on the live auction banner and public scorecard.</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    Appears on live scoreboard and player cards.
+                  </span>
                 </div>
 
                 {/* Auction Format */}
@@ -495,44 +564,62 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     Auction Format <span className="text-red-500">*</span>
                   </label>
                   <select
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                     value={auctionFormat}
-                    onChange={e => setAuctionFormat(e.target.value)}
+                    onChange={(e) => setAuctionFormat(e.target.value)}
                   >
-                    <option value="OPEN_AUCTION">Open Auction (Real-time live English bidding)</option>
+                    <option value="OPEN_AUCTION">Open Auction (Real-time English bidding)</option>
                     <option value="SILENT_AUCTION">Silent Auction (Sealed bid submission)</option>
-                    <option value="DRAFT_FORMAT">Draft Format (Sequential snake draft pick)</option>
+                    <option value="DRAFT_FORMAT">Draft Format (Snake draft pick)</option>
                   </select>
-                  <span className="text-[11px] text-slate-400">Open Auction is recommended for live community events.</span>
+                  <span className="text-[10px] text-slate-400 block">
+                    Open English auction is recommended for live events.
+                  </span>
                 </div>
               </div>
 
               {/* Status Alert if in Edit Mode */}
               {isEditMode && editingConfig && (
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
                     <Sliders size={18} />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-amber-900">Current Status: {editingConfig.status}</span>
+                    <span className="text-xs font-bold text-amber-900">
+                      Configuration Status: {editingConfig.status}
+                    </span>
                     <p className="text-[11px] text-amber-700 m-0">
                       {editingConfig.status === "LIVE"
-                        ? "Auction is currently LIVE. Pricing and team rules cannot be edited while in live session."
-                        : "Rules can be updated dynamically before the auction commences."}
+                        ? "Auction is currently LIVE. Pricing and team rules cannot be edited during active bidding."
+                        : "Rules and settings can be modified freely before the live session begins."}
                     </p>
                   </div>
                 </div>
               )}
             </div>
-          )}
 
-          {/* TAB 2: Teams & Budget */}
-          {activeModalTab === "teams" && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
+            {/* ── SECTION 2: Teams & Budget Allocation ── */}
+            <div
+              id="section-teams"
+              className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-700 flex items-center justify-center font-bold">
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 m-0">2. Teams & Purse Allocation</h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      Set participating franchises, expected pool size, and salary caps
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Total Teams */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Users size={14} className="text-amber-600" /> Participating Teams
                   </label>
@@ -540,15 +627,15 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     type="number"
                     min={2}
                     max={20}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-semibold text-slate-800"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800"
                     value={totalTeams}
-                    onChange={e => setTotalTeams(Number(e.target.value))}
+                    onChange={(e) => setTotalTeams(Number(e.target.value))}
                   />
                   <span className="text-[11px] text-slate-400 block">Between 2 and 20 teams.</span>
                 </div>
 
                 {/* Total Players */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Users size={14} className="text-indigo-600" /> Total Players in Pool
                   </label>
@@ -556,15 +643,15 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     type="number"
                     min={1}
                     max={500}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-semibold text-slate-800"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800"
                     value={totalPlayers}
-                    onChange={e => setTotalPlayers(Number(e.target.value))}
+                    onChange={(e) => setTotalPlayers(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400 block">Expected pool size for the auction.</span>
+                  <span className="text-[11px] text-slate-400 block">Target pool size for the auction.</span>
                 </div>
 
                 {/* Team Budget */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <IndianRupee size={14} className="text-emerald-600" /> Budget Per Team (₹)
                   </label>
@@ -572,151 +659,225 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     type="number"
                     min={1000}
                     step={1000}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-semibold text-slate-800"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800"
                     value={budgetPerTeam}
-                    onChange={e => setBudgetPerTeam(Number(e.target.value))}
+                    onChange={(e) => setBudgetPerTeam(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-emerald-600 font-medium block">
-                    ₹{budgetPerTeam.toLocaleString("en-IN")} ({((budgetPerTeam) / 100000).toFixed(1)} Lakhs)
+                  <span className="text-[11px] text-emerald-600 font-semibold block">
+                    ₹{budgetPerTeam.toLocaleString("en-IN")} ({(budgetPerTeam / 100000).toFixed(1)} Lakhs)
                   </span>
                 </div>
               </div>
 
-              {/* Pool Sizing Summary Card */}
-              <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl">
-                <div className="text-xs font-bold text-indigo-900 mb-1">Squad Sizing Preview</div>
-                <div className="text-xs text-indigo-700 leading-relaxed">
-                  With <span className="font-bold">{totalTeams} teams</span> and{" "}
-                  <span className="font-bold">{totalPlayers} total players</span>, each team will acquire an average of{" "}
-                  <span className="font-bold">
-                    {totalTeams > 0 ? (totalPlayers / totalTeams).toFixed(1) : 0} players
-                  </span>{" "}
-                  with an average spend of{" "}
-                  <span className="font-bold">
-                    ₹{totalPlayers > 0 ? Math.round((totalTeams * budgetPerTeam) / totalPlayers).toLocaleString("en-IN") : 0}
-                  </span>{" "}
-                  per player.
+              {/* Squad & Economy Preview Card */}
+              <div className="p-3.5 bg-gradient-to-r from-indigo-50/80 to-blue-50/50 border border-indigo-100 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={15} className="text-indigo-600" />
+                  <span className="text-xs font-bold text-indigo-950">League Economy & Squad Sizing Preview</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center sm:text-left">
+                  <div className="p-2 bg-white/80 rounded-lg border border-indigo-100">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">
+                      Avg Squad Size
+                    </span>
+                    <span className="text-sm font-extrabold text-indigo-700">
+                      {squadMetrics.avgSquadSize} players / team
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white/80 rounded-lg border border-indigo-100">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">
+                      Avg Spend / Player
+                    </span>
+                    <span className="text-sm font-extrabold text-indigo-700">
+                      ₹{squadMetrics.avgSpendPerPlayer.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-white/80 rounded-lg border border-indigo-100">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider block">
+                      Total League Purse
+                    </span>
+                    <span className="text-sm font-extrabold text-indigo-700">
+                      ₹{squadMetrics.totalCombinedPurse.toLocaleString("en-IN")}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* TAB 3: Bidding Ladder */}
-          {activeModalTab === "bidding" && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
+            {/* ── SECTION 3: Bidding Ladder & Timer ── */}
+            <div
+              id="section-bidding"
+              className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center font-bold">
+                    <IndianRupee size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 m-0">3. Bidding Ladder & Timer</h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      Opening base prices, tiered bid escalation increments, and clock duration
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 {/* Base Price */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <label className="text-xs font-bold text-slate-700">Base Price (₹)</label>
                   <input
                     type="number"
                     min={100}
                     step={100}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
                     value={basePrice}
-                    onChange={e => setBasePrice(Number(e.target.value))}
+                    onChange={(e) => setBasePrice(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400">Opening bid when a player is brought to the auction floor.</span>
+                  <span className="text-[10px] text-slate-400 block">Opening floor price.</span>
                 </div>
 
                 {/* Default Increment */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Default Bid Increment (₹)</label>
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
+                  <label className="text-xs font-bold text-slate-700">Default Increment (₹)</label>
                   <input
                     type="number"
                     min={100}
                     step={100}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
                     value={bidIncrementDefault}
-                    onChange={e => setBidIncrementDefault(Number(e.target.value))}
+                    onChange={(e) => setBidIncrementDefault(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400">Standard increment added to each subsequent bid.</span>
+                  <span className="text-[10px] text-slate-400 block">Added to bids below threshold.</span>
                 </div>
 
                 {/* Threshold */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Threshold Bid Amount (₹)</label>
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
+                  <label className="text-xs font-bold text-slate-700">Threshold Amount (₹)</label>
                   <input
                     type="number"
                     min={0}
                     step={500}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
                     value={bidIncrementThreshold}
-                    onChange={e => setBidIncrementThreshold(Number(e.target.value))}
+                    onChange={(e) => setBidIncrementThreshold(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400">When bid reaches this level, the higher increment kicks in.</span>
+                  <span className="text-[10px] text-slate-400 block">Escalation point.</span>
                 </div>
 
                 {/* Increment Above Threshold */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Increment Above Threshold (₹)</label>
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
+                  <label className="text-xs font-bold text-slate-700">Above Threshold (₹)</label>
                   <input
                     type="number"
                     min={100}
                     step={500}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
                     value={bidIncrementAbove}
-                    onChange={e => setBidIncrementAbove(Number(e.target.value))}
+                    onChange={(e) => setBidIncrementAbove(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400">Faster bid escalation once threshold is crossed.</span>
+                  <span className="text-[10px] text-slate-400 block">Higher tier increment.</span>
                 </div>
+              </div>
 
-                {/* Bid Timer Seconds */}
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 sm:col-span-2">
+              {/* Interactive Bidding Ladder Flow Visualizer */}
+              <div className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl flex items-center justify-between gap-3 flex-wrap text-xs">
+                <span className="font-bold text-emerald-950 flex items-center gap-1.5">
+                  <Sliders size={14} className="text-emerald-700" /> Bidding Escalation Flow:
+                </span>
+                <div className="flex items-center gap-2 flex-wrap text-emerald-800 font-semibold text-[11px]">
+                  <span className="px-2 py-0.5 bg-white rounded-md border border-emerald-200 shadow-2xs">
+                    Floor: ₹{basePrice.toLocaleString("en-IN")}
+                  </span>
+                  <ArrowRight size={12} className="text-emerald-500" />
+                  <span className="px-2 py-0.5 bg-white rounded-md border border-emerald-200 shadow-2xs">
+                    +₹{bidIncrementDefault.toLocaleString("en-IN")}
+                  </span>
+                  <ArrowRight size={12} className="text-emerald-500" />
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-md border border-emerald-300 font-bold">
+                    Threshold: ₹{bidIncrementThreshold.toLocaleString("en-IN")}
+                  </span>
+                  <ArrowRight size={12} className="text-emerald-500" />
+                  <span className="px-2 py-0.5 bg-white rounded-md border border-emerald-200 shadow-2xs text-amber-700 font-bold">
+                    +₹{bidIncrementAbove.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Countdown Timer with Presets */}
+              <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Clock size={14} className="text-amber-600" /> Real-Time Countdown Timer (seconds)
                   </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min={10}
-                      max={120}
-                      className="w-28 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
-                      value={bidTimerSeconds}
-                      onChange={e => setBidTimerSeconds(Number(e.target.value))}
-                    />
-                    <div className="flex gap-2">
-                      {[15, 30, 45, 60].map(sec => (
-                        <button
-                          key={sec}
-                          type="button"
-                          onClick={() => setBidTimerSeconds(sec)}
-                          className={`px-2.5 py-1 text-xs rounded-md border cursor-pointer font-medium ${
-                            bidTimerSeconds === sec
-                              ? "bg-amber-100 border-amber-300 text-amber-800"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                          }`}
-                        >
-                          {sec}s
-                        </button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    {[15, 30, 45, 60].map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setBidTimerSeconds(sec)}
+                        className={`px-2.5 py-1 text-xs rounded-lg border cursor-pointer font-bold transition-all ${
+                          bidTimerSeconds === sec
+                            ? "bg-amber-100 border-amber-300 text-amber-900 shadow-2xs"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        }`}
+                      >
+                        {sec}s
+                      </button>
+                    ))}
                   </div>
-                  <span className="text-[11px] text-slate-400">Timer resets automatically whenever a team submits a valid higher bid.</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={10}
+                    max={120}
+                    className="w-28 px-3 py-1.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold"
+                    value={bidTimerSeconds}
+                    onChange={(e) => setBidTimerSeconds(Number(e.target.value))}
+                  />
+                  <span className="text-[11px] text-slate-400">
+                    Timer automatically resets whenever a franchise places a higher bid.
+                  </span>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* TAB 4: Categories & Rules */}
-          {activeModalTab === "categories" && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              
-              {/* Category Pills & Manager */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+            {/* ── SECTION 4: Player Categories & Rules ── */}
+            <div
+              id="section-categories"
+              className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-700 flex items-center justify-center font-bold">
+                    <Tag size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 m-0">4. Categories & Auction Rules</h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      Define positional categories, Right-to-Match privileges, and unsold rules
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Pills & Quick Presets */}
+              <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <Tag size={14} className="text-purple-600" /> Player Categories ({categories.length})
                   </label>
-                  <div className="flex gap-1.5">
-                    {Object.keys(DEFAULT_CATEGORY_PRESETS).map(sportKey => (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400 font-medium">Quick presets:</span>
+                    {Object.keys(DEFAULT_CATEGORY_PRESETS).map((sportKey) => (
                       <button
                         key={sportKey}
                         type="button"
                         onClick={() => handleApplyPreset(sportKey)}
-                        className="text-[10px] px-2 py-0.5 bg-white border border-slate-200 rounded text-slate-600 hover:text-slate-900 cursor-pointer capitalize"
-                        title={`Apply ${sportKey} preset`}
+                        className="text-[10px] px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer capitalize font-semibold transition"
+                        title={`Apply ${sportKey} category preset`}
                       >
                         {sportKey}
                       </button>
@@ -725,17 +886,17 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                 </div>
 
                 {/* Current category pills */}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-0.5">
                   {categories.map((cat) => (
                     <span
                       key={cat}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-semibold shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-xs font-semibold shadow-2xs"
                     >
                       {cat}
                       <button
                         type="button"
                         onClick={() => handleRemoveCategory(cat)}
-                        className="text-purple-400 hover:text-purple-700 cursor-pointer border-none bg-transparent p-0 text-sm leading-none"
+                        className="text-purple-400 hover:text-purple-800 cursor-pointer border-none bg-transparent p-0 text-sm leading-none ml-0.5"
                         title={`Remove ${cat}`}
                       >
                         ×
@@ -745,14 +906,14 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                 </div>
 
                 {/* Add new category input */}
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-1">
                   <input
                     type="text"
                     placeholder="Add custom category (e.g. All-Rounder, Batsman)..."
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="flex-1 px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     value={newCategoryInput}
-                    onChange={e => setNewCategoryInput(e.target.value)}
-                    onKeyDown={e => {
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
                         handleAddCategory();
@@ -769,11 +930,10 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                 </div>
               </div>
 
-              {/* Advanced Auction Rules */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
+              {/* Advanced Auction Rules Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* RTM Toggle */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                       <Shield size={14} className="text-blue-600" /> Right to Match (RTM)
@@ -782,52 +942,62 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                       type="checkbox"
                       id="rtmToggle"
                       checked={rtmEnabled}
-                      onChange={e => setRtmEnabled(e.target.checked)}
-                      className="w-4 h-4 text-amber-600 rounded cursor-pointer"
+                      onChange={(e) => setRtmEnabled(e.target.checked)}
+                      className="w-4 h-4 text-amber-600 rounded cursor-pointer accent-amber-600"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 m-0">
-                    Allows a player's previous franchise to match the highest hammer bid before sale finalization.
+                  <p className="text-[11px] text-slate-500 m-0 leading-relaxed">
+                    Allows a player's previous franchise to match the highest hammer bid to retain them.
                   </p>
                 </div>
 
                 {/* Unsold Player Rule */}
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
                   <label className="text-xs font-bold text-slate-700">Unsold Player Rule</label>
                   <select
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none font-medium"
                     value={unsoldRule}
-                    onChange={e => setUnsoldRule(e.target.value)}
+                    onChange={(e) => setUnsoldRule(e.target.value)}
                   >
-                    <option value="ROTATION_AUCTION">Rotation Auction (Re-queued until sold)</option>
-                    <option value="RESERVE_POOL">Reserve Pool (Transferred to unsold reserve)</option>
-                    <option value="RE_AUCTION_BASE">Re-Auction at Base (Discounted secondary round)</option>
+                    <option value="ROTATION_AUCTION">Rotation Auction (Re-queued into subsequent rounds)</option>
+                    <option value="RESERVE_POOL">Reserve Pool (Transferred to reserve pool)</option>
+                    <option value="RE_AUCTION_BASE">Re-Auction at Base Price (Secondary discounted round)</option>
                   </select>
-                  <p className="text-[11px] text-slate-500 m-0">
-                    Dictates procedure when no team bids on a player in their initial round.
+                  <p className="text-[11px] text-slate-500 m-0 leading-relaxed">
+                    Specifies rule when no team bids on a player in their initial presentation.
                   </p>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* TAB 5: Dispute Committee */}
-          {activeModalTab === "committee" && (
-            <div className="space-y-5 animate-in fade-in duration-150">
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Shield size={14} className="text-amber-600" /> Dispute Committee Members ({committeeMembers.length})
-                  </label>
-                  <span className="text-[11px] text-slate-400">Responsible for resolving disputes during live bidding.</span>
+            {/* ── SECTION 5: Dispute Resolution Committee ── */}
+            <div
+              id="section-committee"
+              className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-700 flex items-center justify-center font-bold">
+                    <Shield size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 m-0">
+                      5. Dispute Committee ({committeeMembers.length})
+                    </h3>
+                    <p className="text-[11px] text-slate-500 m-0">
+                      Appoint community members to arbitrate bids, tie-breakers, and live disputes
+                    </p>
+                  </div>
                 </div>
+              </div>
 
+              <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3 shadow-2xs">
                 {/* Current committee chips */}
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-0.5">
                   {committeeMembers.map((member, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold shadow-2xs"
                     >
                       <span className="w-4 h-4 rounded-full bg-amber-200 text-[10px] text-amber-800 flex items-center justify-center font-bold">
                         {member.name.charAt(0).toUpperCase()}
@@ -836,7 +1006,7 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoveCommitteeMember(member.name)}
-                        className="text-amber-500 hover:text-amber-800 cursor-pointer border-none bg-transparent p-0 text-sm leading-none"
+                        className="text-amber-500 hover:text-amber-800 cursor-pointer border-none bg-transparent p-0 text-sm leading-none ml-0.5"
                         title={`Remove ${member.name}`}
                       >
                         ×
@@ -844,30 +1014,34 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     </span>
                   ))}
                   {committeeMembers.length === 0 && (
-                    <span className="text-xs text-slate-400 italic">No committee members added yet. Search below to add.</span>
+                    <span className="text-xs text-slate-400 italic">
+                      No committee members added yet. Search below to add from community.
+                    </span>
                   )}
                 </div>
 
                 {/* User search dropdown */}
-                <div className="relative pt-2">
+                <div className="relative pt-1">
                   <input
                     type="text"
-                    placeholder="Search community member name..."
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    placeholder="Search community resident name to add to committee..."
+                    className="w-full px-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     value={committeeSearchQuery}
-                    onChange={e => setCommitteeSearchQuery(e.target.value)}
+                    onChange={(e) => setCommitteeSearchQuery(e.target.value)}
                   />
 
                   {filteredUsers.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-lg mt-1 shadow-lg z-20 max-h-48 overflow-y-auto">
-                      {filteredUsers.map(user => (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-slate-200 rounded-xl mt-1.5 shadow-xl z-20 max-h-48 overflow-y-auto">
+                      {filteredUsers.map((user) => (
                         <div
                           key={user.id}
-                          className="px-3 py-2 hover:bg-slate-50 cursor-pointer text-xs border-b border-slate-100 flex items-center justify-between"
+                          className="px-3.5 py-2 hover:bg-slate-50 cursor-pointer text-xs border-b border-slate-100 flex items-center justify-between transition-colors"
                           onClick={() => handleAddCommitteeMember(user)}
                         >
                           <span className="font-semibold text-slate-800">{user.name}</span>
-                          <span className="text-[10px] text-amber-600 font-bold">+ Add to Committee</span>
+                          <span className="text-[10px] text-amber-600 font-bold hover:underline">
+                            + Add to Committee
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -875,27 +1049,40 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Form Actions (Sticky at bottom) */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-200 flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer bg-white"
-            >
-              Cancel
-            </button>
-
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500 hidden sm:inline">
-                {seasonName ? `Ready to save: ${seasonName}` : "Enter season name to proceed"}
+          {/* Sticky Bottom Modal Footer */}
+          <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-200 bg-slate-50/90 backdrop-blur-sm flex-shrink-0">
+            <div className="flex items-center gap-2 text-xs text-slate-600 hidden md:flex">
+              <span className="font-semibold text-slate-700">Summary:</span>
+              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                {currentSport.emoji} {currentSport.name}
               </span>
+              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                {totalTeams} Teams
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                ₹{(budgetPerTeam / 100000).toFixed(1)}L Budget
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                {categories.length} Categories
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/80 rounded-xl transition-colors border border-slate-200 cursor-pointer bg-white"
+              >
+                Cancel
+              </button>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm shadow-amber-600/20 disabled:opacity-50 active:scale-98"
               >
                 {isSubmitting ? (
                   <>

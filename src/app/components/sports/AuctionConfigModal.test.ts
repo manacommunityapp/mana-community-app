@@ -159,8 +159,8 @@ describe("AuctionConfigModal validation & business logic", () => {
     // Mimics the backend SportsAuctionConfig.AuctionStatus state machine
     const ALLOWED_TRANSITIONS: Record<string, string[]> = {
       DRAFT: ["ACTIVE", "CANCELLED"],
-      ACTIVE: ["LIVE", "CANCELLED"],
-      LIVE: ["COMPLETED", "CANCELLED"],
+      ACTIVE: ["LIVE", "DRAFT", "COMPLETED", "CANCELLED"],
+      LIVE: ["ACTIVE", "COMPLETED", "CANCELLED"],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -176,13 +176,15 @@ describe("AuctionConfigModal validation & business logic", () => {
       expect(canTransition("DRAFT", "COMPLETED")).toBe(false);
     });
 
-    it("allows ACTIVE to transition to LIVE and CANCELLED", () => {
+    it("allows ACTIVE to transition to LIVE, DRAFT, COMPLETED, and CANCELLED", () => {
       expect(canTransition("ACTIVE", "LIVE")).toBe(true);
+      expect(canTransition("ACTIVE", "DRAFT")).toBe(true);
+      expect(canTransition("ACTIVE", "COMPLETED")).toBe(true);
       expect(canTransition("ACTIVE", "CANCELLED")).toBe(true);
-      expect(canTransition("ACTIVE", "DRAFT")).toBe(false);
     });
 
-    it("allows LIVE to transition to COMPLETED and CANCELLED", () => {
+    it("allows LIVE to transition to ACTIVE (pause), COMPLETED, and CANCELLED", () => {
+      expect(canTransition("LIVE", "ACTIVE")).toBe(true);
       expect(canTransition("LIVE", "COMPLETED")).toBe(true);
       expect(canTransition("LIVE", "CANCELLED")).toBe(true);
       expect(canTransition("LIVE", "DRAFT")).toBe(false);
