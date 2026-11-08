@@ -1266,6 +1266,79 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(formatPlayingWithMessage({ playerName: "Test Resident" }))
         .toBe("Playing with Test Resident (Confirmed Partner)");
     });
+
+    it("verifies family-aware doubles partner invitation message formulation across all 4 scenarios", () => {
+      const formatDoublesInvitationText = (inv: any) => {
+        const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
+        const pFlat = inv.flatNumber || inv.flatNo || inv.user?.flatNo || inv.user?.flatNumber;
+        const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
+
+        const primaryFam = inv.familyMember;
+        const primaryFamName = primaryFam?.name;
+        const primaryFamRel = primaryFam?.relation || inv.relation;
+
+        const partnerFam = inv.partnerFamilyMember;
+        const partnerFamName = partnerFam?.name;
+        const partnerFamRel = partnerFam?.relation;
+
+        const inviterDesc = `${inviterUser}${cleanPFlat ? ` (Flat ${cleanPFlat})` : ""}`;
+
+        if (primaryFamName && partnerFamName) {
+          return `${inviterDesc} invited your ${partnerFamRel ? `${partnerFamRel} ` : ""}(${partnerFamName}) to team up with their ${primaryFamRel ? `${primaryFamRel} ` : ""}(${primaryFamName}) as doubles partners.`;
+        } else if (primaryFamName) {
+          return `${inviterDesc} invited you to team up with their ${primaryFamRel ? `${primaryFamRel} ` : ""}(${primaryFamName}) as doubles partners.`;
+        } else if (partnerFamName) {
+          return `${inviterDesc} nominated your ${partnerFamRel ? `${partnerFamRel} ` : ""}(${partnerFamName}) to play as their doubles partner.`;
+        } else {
+          return `${inviterDesc} nominated you to play as their doubles partner.`;
+        }
+      };
+
+      const resolveAcceptButtonText = (inv: any, fallbackFmt = "Doubles") => {
+        const partnerFamName = inv.partnerFamilyMember?.name;
+        return partnerFamName ? `Accept for ${partnerFamName}` : `Accept ${fallbackFmt}`;
+      };
+
+      // Scenario 1: Family Member -> Family Member (Child to Child)
+      const childToChildInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+        familyMember: { name: "Aarav", relation: "Son" },
+        partnerFamilyMember: { name: "Rohan", relation: "Son" },
+      };
+      expect(formatDoublesInvitationText(childToChildInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) invited your Son (Rohan) to team up with their Son (Aarav) as doubles partners."
+      );
+      expect(resolveAcceptButtonText(childToChildInvite)).toBe("Accept for Rohan");
+
+      // Scenario 2: Family Member -> User (Child inviting User)
+      const childToUserInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "Flat A-101" },
+        familyMember: { name: "Aarav", relation: "Son" },
+      };
+      expect(formatDoublesInvitationText(childToUserInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) invited you to team up with their Son (Aarav) as doubles partners."
+      );
+      expect(resolveAcceptButtonText(childToUserInvite)).toBe("Accept Doubles");
+
+      // Scenario 3: User -> Family Member (User inviting Child)
+      const userToChildInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+        partnerFamilyMember: { name: "Rohan", relation: "Daughter" },
+      };
+      expect(formatDoublesInvitationText(userToChildInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) nominated your Daughter (Rohan) to play as their doubles partner."
+      );
+      expect(resolveAcceptButtonText(userToChildInvite)).toBe("Accept for Rohan");
+
+      // Scenario 4: User -> User (Adult to Adult)
+      const userToUserInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+      };
+      expect(formatDoublesInvitationText(userToUserInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) nominated you to play as their doubles partner."
+      );
+      expect(resolveAcceptButtonText(userToUserInvite)).toBe("Accept Doubles");
+    });
   });
 });
 

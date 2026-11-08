@@ -687,4 +687,23 @@ export const tournamentPaymentService = {
       a.playerName.localeCompare(b.playerName)
     );
   },
+
+  /** Updates the otherContacts JSON on a tournament (used for payment coordinators) */
+  async updateTournamentOtherContacts(tournamentId: number, otherContacts: string, fallbackTournament?: any): Promise<void> {
+    try {
+      await apiClient.put(`/sports/tournaments/${tournamentId}/other-contacts`, {
+        otherContacts,
+      });
+    } catch {
+      // Fallback to updateTournament endpoint if other-contacts endpoint isn't available
+      const payload: any = {
+        name: fallbackTournament?.name,
+        communityId: fallbackTournament?.communityId || fallbackTournament?.community?.id,
+        eventDateStart: fallbackTournament?.eventDateStart || fallbackTournament?.startDate,
+        eventDateEnd: fallbackTournament?.eventDateEnd || fallbackTournament?.endDate,
+        otherContacts,
+      };
+      await apiClient.put(`/sports/tournaments/${tournamentId}`, payload);
+    }
+  },
 };

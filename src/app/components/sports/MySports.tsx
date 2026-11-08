@@ -572,13 +572,21 @@ export function MySports() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {partnerInvitations.map((inv) => {
             const invId = inv.id;
-            const pName = inv.playerName || inv.user?.fullName || "A player";
+            const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
             const pFlat = inv.flatNumber || (inv as any).flatNo || inv.user?.flatNo || (inv as any).user?.flatNumber;
             const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
             const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
             const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
             const catName = inv.categoryName || inv.category?.name;
             const isBusy = respondingInviteId === invId;
+
+            const primaryFam = (inv as any).familyMember;
+            const primaryFamName = primaryFam?.name;
+            const primaryFamRel = primaryFam?.relation || (inv as any).relation;
+
+            const partnerFam = (inv as any).partnerFamilyMember;
+            const partnerFamName = partnerFam?.name;
+            const partnerFamRel = partnerFam?.relation;
 
             return (
               <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
@@ -594,8 +602,29 @@ export function MySports() {
                   <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
                     {evName}
                   </h4>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    <strong className="text-slate-900 font-semibold">{pName}</strong>{cleanPFlat ? ` (Flat ${cleanPFlat})` : ""} nominated you to play as their doubles partner.
+                  <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    <strong className="text-slate-900 font-semibold">{inviterUser}</strong>
+                    {cleanPFlat ? ` (Flat ${cleanPFlat})` : ""}{" "}
+                    {primaryFamName && partnerFamName ? (
+                      <>
+                        invited your {partnerFamRel ? `${partnerFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{partnerFamName}</strong>) to team up with their{" "}
+                        {primaryFamRel ? `${primaryFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{primaryFamName}</strong>) as doubles partners.
+                      </>
+                    ) : primaryFamName ? (
+                      <>
+                        invited you to team up with their {primaryFamRel ? `${primaryFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{primaryFamName}</strong>) as doubles partners.
+                      </>
+                    ) : partnerFamName ? (
+                      <>
+                        nominated your {partnerFamRel ? `${partnerFamRel} ` : ""}(
+                        <strong className="text-slate-900 font-semibold">{partnerFamName}</strong>) to play as their doubles partner.
+                      </>
+                    ) : (
+                      <>nominated you to play as their doubles partner.</>
+                    )}
                   </p>
                   {catName && (
                     <div className="mt-1.5 text-xs font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
@@ -612,7 +641,7 @@ export function MySports() {
                     className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{isBusy ? "Confirming..." : "Accept Partner"}</span>
+                    <span>{isBusy ? "Confirming..." : (partnerFamName ? `Accept for ${partnerFamName}` : "Accept Partner")}</span>
                   </button>
                   <button
                     type="button"

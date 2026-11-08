@@ -2622,11 +2622,16 @@ export function SportsDashboard() {
 
                   const pendingInvite = getPendingPartnerInviteForEvent(item);
                   const isPendingInvite = Boolean(pendingInvite);
-                  const invitingPlayerName = (pendingInvite as any)?.playerName || (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || "Partner";
+                  const invitingPlayerName = (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || (pendingInvite as any)?.playerName || "Partner";
                   const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
                   const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
                   const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
                   const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
+                  const invitePartnerFam = (pendingInvite as any)?.partnerFamilyMember;
+                  const invitePartnerFamName = invitePartnerFam?.name;
+                  const invitePartnerFamRel = invitePartnerFam?.relation;
+                  const invitePrimaryFam = (pendingInvite as any)?.familyMember;
+                  const invitePrimaryFamName = invitePrimaryFam?.name;
 
                   return (
                     <div
@@ -2822,7 +2827,23 @@ export function SportsDashboard() {
                             <div className="flex items-center gap-1.5 min-w-0">
                               <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               <span className="text-[11px] font-medium text-amber-900 truncate">
-                                Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
+                                {invitePartnerFamName && invitePrimaryFamName ? (
+                                  <>
+                                    Invite for <strong className="font-semibold text-amber-950">{invitePartnerFamName}{invitePartnerFamRel ? ` (${invitePartnerFamRel})` : ""}</strong> to team up with <strong className="font-semibold text-amber-950">{invitePrimaryFamName}</strong> from <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
+                                  </>
+                                ) : invitePartnerFamName ? (
+                                  <>
+                                    Invite for <strong className="font-semibold text-amber-950">{invitePartnerFamName}{invitePartnerFamRel ? ` (${invitePartnerFamRel})` : ""}</strong> from <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
+                                  </>
+                                ) : invitePrimaryFamName ? (
+                                  <>
+                                    Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong> to team up with <strong className="font-semibold text-amber-950">{invitePrimaryFamName}</strong>
+                                  </>
+                                ) : (
+                                  <>
+                                    Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
+                                  </>
+                                )}
                                 {cleanInvitingFlat ? <span className="font-medium text-amber-800"> (Flat {cleanInvitingFlat})</span> : null}{" "}
                                 ({inviteFormatLabel})
                               </span>
@@ -2960,7 +2981,7 @@ export function SportsDashboard() {
                                       ) : (
                                         <CheckCircle2 className="w-2.5 h-2.5" />
                                       )}
-                                      <span>Accept {inviteFormatLabel}</span>
+                                      <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
                                     </button>
                                   </div>
                                 ) : (
@@ -3000,7 +3021,7 @@ export function SportsDashboard() {
                                   ) : (
                                     <CheckCircle2 className="w-3 h-3" />
                                   )}
-                                  <span>Accept</span>
+                                  <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
                                 </button>
                                 {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
                                   <button
