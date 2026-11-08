@@ -3028,6 +3028,7 @@ export function SportsAuction() {
         }}
         onSaveSuccess={handleConfigSaved}
         editingConfig={editingAuctionConfig}
+        defaultEventId={selectedEventId || undefined}
         communityEvents={auctionEvents}
         communityUsers={communityUsers}
       />

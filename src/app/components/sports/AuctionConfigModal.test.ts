@@ -5,6 +5,7 @@ import {
   computeSquadMetrics,
   getSportCategoryPreset,
   parseDisputeCommitteeIds,
+  extractEventMetrics,
   SPORT_OPTIONS,
   DEFAULT_CATEGORY_PRESETS,
 } from "./AuctionConfigModal";
@@ -226,6 +227,119 @@ describe("AuctionConfigModal validation & business logic", () => {
       expect(parseDisputeCommitteeIds("")).toEqual([]);
       expect(parseDisputeCommitteeIds([])).toEqual([]);
       expect(parseDisputeCommitteeIds({})).toEqual([]);
+    });
+  });
+
+  describe("extractEventMetrics (Dynamic Extraction from Selected Sports Event)", () => {
+    it("extracts participating teams and player pool size from event fields", () => {
+      const event = {
+        id: 101,
+        name: "LEPL Cricket Premier League",
+        sport: { id: 1, name: "Cricket" },
+        totalTeams: 6,
+        totalPlayers: 40,
+      };
+      const res = extractEventMetrics(event);
+      expect(res.totalTeams).toBe(6);
+      expect(res.totalPlayers).toBe(40);
+      expect(res.sportId).toBe(1);
+      expect(res.eventName).toBe("LEPL Cricket Premier League");
+    });
+
+    it("extracts player pool from maxParticipants or registeredCount", () => {
+      const eventWithMax = {
+        id: 102,
+        name: "Summer Badminton Championship",
+        sport: { id: 2, name: "Badminton" },
+        maxParticipants: 40,
+        maxTeams: 6,
+      };
+      const res1 = extractEventMetrics(eventWithMax);
+      expect(res1.totalTeams).toBe(6);
+      expect(res1.totalPlayers).toBe(40);
+
+      const eventWithRegCount = {
+        id: 103,
+        name: "Monsoon Football Trophy",
+        sport: { id: 3, name: "Football" },
+        teamCount: 6,
+        registeredCount: 40,
+      };
+      const res2 = extractEventMetrics(eventWithRegCount);
+      expect(res2.totalTeams).toBe(6);
+      expect(res2.totalPlayers).toBe(40);
+    });
+
+    it("extracts pool size from spots string (e.g. '18/40 spots')", () => {
+      const eventWithSpots = {
+        id: 104,
+        name: "Volleyball Smash League",
+        spots: "18/40 spots",
+        teamsCount: 6,
+      };
+      const res = extractEventMetrics(eventWithSpots);
+      expect(res.totalTeams).toBe(6);
+      expect(res.totalPlayers).toBe(40);
+    });
+
+    it("counts teams from teams array or nominatedCaptains array", () => {
+      const eventWithTeamsArray = {
+        id: 105,
+        name: "Community Cup",
+        teams: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }, { id: 6 }],
+        maxParticipants: 40,
+      };
+      const res1 = extractEventMetrics(eventWithTeamsArray);
+      expect(res1.totalTeams).toBe(6);
+      expect(res1.totalPlayers).toBe(40);
+
+      const eventWithNominated = {
+        id: 106,
+        name: "Captains League",
+        nominatedCaptains: [1, 2, 3, 4, 5, 6],
+        registrations: new Array(40).fill({ id: 1 }),
+      };
+      const res2 = extractEventMetrics(eventWithNominated);
+      expect(res2.totalTeams).toBe(6);
+      expect(res2.totalPlayers).toBe(40);
+    });
+
+    it("estimates teams from maxParticipants and minPlayers when teams not explicitly provided", () => {
+      const event = {
+        id: 107,
+        name: "Cricket Cup",
+        maxParticipants: 42,
+        minPlayers: 7, // 42 / 7 = 6 teams
+      };
+      const res = extractEventMetrics(event);
+      expect(res.totalTeams).toBe(6);
+      expect(res.totalPlayers).toBe(42);
+    });
+
+    it("clamps boundaries safely (teams: 2..20, players: 1..500)", () => {
+      const eventHigh = {
+        id: 108,
+        totalTeams: 50,
+        totalPlayers: 1000,
+      };
+      const resHigh = extractEventMetrics(eventHigh);
+      expect(resHigh.totalTeams).toBe(20);
+      expect(resHigh.totalPlayers).toBe(500);
+
+      const eventLow = {
+        id: 109,
+        totalTeams: 1,
+        totalPlayers: 0,
+      };
+      const resLow = extractEventMetrics(eventLow);
+      expect(resLow.totalTeams).toBeUndefined(); // less than min 2, not treated as valid explicit team count
+      expect(resLow.totalPlayers).toBeUndefined();
+    });
+
+    it("handles null or undefined event gracefully without crashing", () => {
+      expect(extractEventMetrics(null)).toEqual({});
+      expect(extractEventMetrics(undefined)).toEqual({});
+      expect(extractEventMetrics({})).toEqual({});
     });
   });
 });

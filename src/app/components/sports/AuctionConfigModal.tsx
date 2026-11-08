@@ -29,11 +29,26 @@ export interface AuctionConfigModalProps {
   onClose: () => void;
   onSaveSuccess: (savedConfig: AuctionConfigResponse) => void;
   editingConfig?: AuctionConfigResponse | null;
+  defaultEventId?: number;
   communityEvents?: Array<{
     id: number;
     name: string;
     sport?: { id: number; name: string };
     status?: string;
+    maxParticipants?: number;
+    registeredCount?: number;
+    registrationCount?: number;
+    registeredParticipants?: number;
+    minPlayers?: number;
+    maxPlayers?: number;
+    totalTeams?: number;
+    maxTeams?: number;
+    teamCount?: number;
+    teamsCount?: number;
+    teams?: any[];
+    registrations?: any[];
+    spots?: string;
+    [key: string]: any;
   }>;
   communityUsers?: Array<{ id: number; name: string }>;
 }
@@ -129,11 +144,109 @@ export function parseDisputeCommitteeIds(raw: unknown): number[] {
   return [];
 }
 
+export interface EventSyncMetrics {
+  totalTeams?: number;
+  totalPlayers?: number;
+  sportId?: number;
+  seasonName?: string;
+  sourceDesc?: string;
+  eventName?: string;
+}
+
+/**
+ * Extracts and maps total participating teams, player pool size, sport, and metadata
+ * from a selected sports event object dynamically rather than static defaults.
+ */
+export function extractEventMetrics(ev: any): EventSyncMetrics {
+  if (!ev) return {};
+
+  const metrics: EventSyncMetrics = {};
+  if (ev.name) {
+    metrics.eventName = ev.name;
+    metrics.seasonName = `${ev.name} ${new Date().getFullYear()}`;
+  }
+
+  // 1. Sport ID
+  if (ev.sport?.id && typeof ev.sport.id === "number") {
+    metrics.sportId = ev.sport.id;
+  } else if (typeof ev.sportId === "number") {
+    metrics.sportId = ev.sportId;
+  }
+
+  // 2. Extract Total Players
+  // Priority: explicit totalPlayers -> maxParticipants -> registeredCount -> spots string -> registrations array -> maxPlayers
+  let players: number | undefined = undefined;
+  if (typeof ev.totalPlayers === "number" && ev.totalPlayers > 0) {
+    players = ev.totalPlayers;
+  } else if (typeof ev.maxParticipants === "number" && ev.maxParticipants > 0) {
+    players = ev.maxParticipants;
+  } else if (typeof ev.registeredCount === "number" && ev.registeredCount > 0) {
+    players = ev.registeredCount;
+  } else if (typeof ev.registrationCount === "number" && ev.registrationCount > 0) {
+    players = ev.registrationCount;
+  } else if (typeof ev.registeredParticipants === "number" && ev.registeredParticipants > 0) {
+    players = ev.registeredParticipants;
+  } else if (Array.isArray(ev.registrations) && ev.registrations.length > 0) {
+    players = ev.registrations.length;
+  } else if (typeof ev.spots === "string") {
+    const match = ev.spots.match(/\/(\d+)/) || ev.spots.match(/(\d+)\s*spots/i);
+    if (match && Number(match[1]) > 0) {
+      players = Number(match[1]);
+    }
+  } else if (typeof ev.maxPlayers === "number" && ev.maxPlayers > 0) {
+    players = ev.maxPlayers;
+  }
+
+  if (players !== undefined) {
+    metrics.totalPlayers = Math.min(500, Math.max(1, Math.round(players)));
+  }
+
+  // 3. Extract Total Teams
+  // Priority: explicit totalTeams -> maxTeams -> teamCount -> teamsCount -> teams.length -> registeredTeams.length -> nominatedCaptains.length -> derived squad
+  let teams: number | undefined = undefined;
+  if (typeof ev.totalTeams === "number" && ev.totalTeams >= 2) {
+    teams = ev.totalTeams;
+  } else if (typeof ev.maxTeams === "number" && ev.maxTeams >= 2) {
+    teams = ev.maxTeams;
+  } else if (typeof ev.teamCount === "number" && ev.teamCount >= 2) {
+    teams = ev.teamCount;
+  } else if (typeof ev.teamsCount === "number" && ev.teamsCount >= 2) {
+    teams = ev.teamsCount;
+  } else if (Array.isArray(ev.teams) && ev.teams.length >= 2) {
+    teams = ev.teams.length;
+  } else if (Array.isArray(ev.registeredTeams) && ev.registeredTeams.length >= 2) {
+    teams = ev.registeredTeams.length;
+  } else if (Array.isArray(ev.nominatedCaptains) && ev.nominatedCaptains.length >= 2) {
+    teams = ev.nominatedCaptains.length;
+  } else if (metrics.totalPlayers && ev.minPlayers && ev.minPlayers > 0) {
+    const estimated = Math.floor(metrics.totalPlayers / ev.minPlayers);
+    if (estimated >= 2 && estimated <= 20) {
+      teams = estimated;
+    }
+  } else if (metrics.totalPlayers && ev.maxPlayers && ev.maxPlayers > 0) {
+    const estimated = Math.round(metrics.totalPlayers / ev.maxPlayers);
+    if (estimated >= 2 && estimated <= 20) {
+      teams = estimated;
+    }
+  }
+
+  if (teams !== undefined) {
+    metrics.totalTeams = Math.min(20, Math.max(2, Math.round(teams)));
+  }
+
+  if (metrics.totalTeams || metrics.totalPlayers) {
+    metrics.sourceDesc = `Synced from ${ev.name || "selected event"}: ${metrics.totalTeams ? `${metrics.totalTeams} teams` : ""}${metrics.totalTeams && metrics.totalPlayers ? ", " : ""}${metrics.totalPlayers ? `${metrics.totalPlayers} players in pool` : ""}`;
+  }
+
+  return metrics;
+}
+
 export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   isOpen,
   onClose,
   onSaveSuccess,
   editingConfig,
+  defaultEventId,
   communityEvents = [],
   communityUsers = [],
 }) => {
@@ -161,10 +274,119 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<string>("overview");
 
+  // Live Event Sync State
+  const [syncedEventInfo, setSyncedEventInfo] = useState<{
+    name: string;
+    teams: number;
+    players: number;
+  } | null>(null);
+  const [isSyncingEvent, setIsSyncingEvent] = useState<boolean>(false);
+
   // Scroll container ref
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Sync state with editingConfig when opened
+  /**
+   * Synchronizes total teams and player pool counts from the selected sports event.
+   * Performs an immediate synchronous mapping from communityEvents, followed by an
+   * asynchronous enrichment (active registrations & nominated captains).
+   */
+  const syncEventData = async (selectedEvId?: number, options?: { force?: boolean }) => {
+    if (!selectedEvId) {
+      setSyncedEventInfo(null);
+      return;
+    }
+
+    const matchedEvent = communityEvents.find((e) => e.id === selectedEvId);
+    const syncMetrics = extractEventMetrics(matchedEvent);
+
+    if (syncMetrics.sportId) {
+      setSportId(syncMetrics.sportId);
+      if (!isEditMode) {
+        const sportObj = SPORT_OPTIONS.find((s) => s.id === syncMetrics.sportId);
+        const sportKey = sportObj?.name.toLowerCase() || "";
+        if (DEFAULT_CATEGORY_PRESETS[sportKey]) {
+          setCategories(DEFAULT_CATEGORY_PRESETS[sportKey]);
+        }
+      }
+    }
+
+    if (!isEditMode && syncMetrics.seasonName) {
+      setSeasonName((prev) => (prev.startsWith("Season ") || prev === "" || options?.force ? syncMetrics.seasonName! : prev));
+    }
+
+    let appliedTeams = syncMetrics.totalTeams;
+    let appliedPlayers = syncMetrics.totalPlayers;
+
+    if (appliedTeams) {
+      setTotalTeams(appliedTeams);
+    }
+    if (appliedPlayers) {
+      setTotalPlayers(appliedPlayers);
+    }
+
+    if (appliedTeams || appliedPlayers) {
+      setSyncedEventInfo({
+        name: matchedEvent?.name || `Event #${selectedEvId}`,
+        teams: appliedTeams ?? totalTeams,
+        players: appliedPlayers ?? totalPlayers,
+      });
+    }
+
+    // Secondary async enrichment from sports & auction services
+    setIsSyncingEvent(true);
+    try {
+      const [nominatedCaptains, eventDetails, registrations] = await Promise.allSettled([
+        auctionService.getNominatedCaptains(selectedEvId),
+        sportsService.getEventById(selectedEvId),
+        sportsService.getEventRegistrations(selectedEvId),
+      ]);
+
+      let enrichedTeams = appliedTeams;
+      let enrichedPlayers = appliedPlayers;
+      let eventName = matchedEvent?.name;
+
+      if (eventDetails.status === "fulfilled" && eventDetails.value) {
+        const fullMetrics = extractEventMetrics(eventDetails.value);
+        if (fullMetrics.eventName) eventName = fullMetrics.eventName;
+        if (fullMetrics.totalTeams && !enrichedTeams) enrichedTeams = fullMetrics.totalTeams;
+        if (fullMetrics.totalPlayers && !enrichedPlayers) enrichedPlayers = fullMetrics.totalPlayers;
+      }
+
+      if (nominatedCaptains.status === "fulfilled" && Array.isArray(nominatedCaptains.value) && nominatedCaptains.value.length >= 2) {
+        enrichedTeams = Math.min(20, Math.max(2, nominatedCaptains.value.length));
+      }
+
+      if (registrations.status === "fulfilled" && Array.isArray(registrations.value)) {
+        const activeRegs = registrations.value.filter(
+          (r: any) => r.status !== "CANCELLED" && r.status !== "REJECTED" && r.status !== "WITHDRAWN"
+        );
+        if (activeRegs.length >= 1 && (!enrichedPlayers || activeRegs.length > enrichedPlayers)) {
+          enrichedPlayers = Math.min(500, activeRegs.length);
+        }
+      }
+
+      if (enrichedTeams && enrichedTeams !== appliedTeams) {
+        setTotalTeams(enrichedTeams);
+      }
+      if (enrichedPlayers && enrichedPlayers !== appliedPlayers) {
+        setTotalPlayers(enrichedPlayers);
+      }
+
+      if (enrichedTeams || enrichedPlayers) {
+        setSyncedEventInfo({
+          name: eventName || `Event #${selectedEvId}`,
+          teams: enrichedTeams ?? (appliedTeams ?? totalTeams),
+          players: enrichedPlayers ?? (appliedPlayers ?? totalPlayers),
+        });
+      }
+    } catch (err) {
+      console.warn("Async event enrichment notice:", err);
+    } finally {
+      setIsSyncingEvent(false);
+    }
+  };
+
+  // Sync state with editingConfig or defaultEventId when opened
   useEffect(() => {
     if (!isOpen) return;
 
@@ -191,10 +413,22 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
       setCommitteeMembers(
         (editingConfig.committeeMembers || []).map((name, idx) => ({ id: idx + 1, name }))
       );
+
+      if (editingConfig.eventId) {
+        const ev = communityEvents.find((e) => e.id === editingConfig.eventId);
+        setSyncedEventInfo({
+          name: editingConfig.eventName || ev?.name || `Event #${editingConfig.eventId}`,
+          teams: editingConfig.totalTeams,
+          players: editingConfig.totalPlayers,
+        });
+      } else {
+        setSyncedEventInfo(null);
+      }
     } else {
       // Defaults for Create mode
+      const initialEvId = defaultEventId;
       setSportId(1);
-      setEventId(undefined);
+      setEventId(initialEvId);
       setSeasonName(`Season ${new Date().getFullYear()}`);
       setAuctionFormat("OPEN_AUCTION");
       setTotalTeams(8);
@@ -209,17 +443,22 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
       setUnsoldRule("ROTATION_AUCTION");
       setCategories(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
       setCommitteeMembers([]);
+      setSyncedEventInfo(null);
+
+      if (initialEvId) {
+        syncEventData(initialEvId, { force: true });
+      }
     }
     setNewCategoryInput("");
     setCommitteeSearchQuery("");
     setActiveSection("overview");
-  }, [isOpen, editingConfig]);
+  }, [isOpen, editingConfig, defaultEventId]);
 
   // When sport changes in Create mode, update default categories
   const handleSportChange = (newSportId: number) => {
     setSportId(newSportId);
     if (!isEditMode) {
-      const sportObj = SPORT_OPTIONS.find(s => s.id === newSportId);
+      const sportObj = SPORT_OPTIONS.find((s) => s.id === newSportId);
       const sportKey = sportObj?.name.toLowerCase() || "";
       if (DEFAULT_CATEGORY_PRESETS[sportKey]) {
         setCategories(DEFAULT_CATEGORY_PRESETS[sportKey]);
@@ -227,14 +466,13 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
     }
   };
 
-  // When event selection changes, sync sport if known
+  // When event selection changes, dynamically sync teams, players, and sport rules
   const handleEventChange = (selectedEvId?: number) => {
     setEventId(selectedEvId);
     if (selectedEvId) {
-      const ev = communityEvents.find(e => e.id === selectedEvId);
-      if (ev?.sport?.id) {
-        setSportId(ev.sport.id);
-      }
+      syncEventData(selectedEvId, { force: true });
+    } else {
+      setSyncedEventInfo(null);
     }
   };
 
@@ -536,7 +774,13 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     ))}
                   </select>
                   <span className="text-[10px] text-slate-400 block">
-                    Optional: links registered community players to the auction pool.
+                    {eventId ? (
+                      <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 size={11} /> Links registered players & auto-populates teams and player pool.
+                      </span>
+                    ) : (
+                      "Optional: select a tournament event to auto-populate teams and player pool size."
+                    )}
                   </span>
                 </div>
 
@@ -603,9 +847,9 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
               id="section-teams"
               className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4 transition-all"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 border-b border-slate-200/70">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-700 flex items-center justify-center font-bold">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-700 flex items-center justify-center font-bold shrink-0">
                     <Users size={16} />
                   </div>
                   <div>
@@ -615,14 +859,49 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     </p>
                   </div>
                 </div>
+
+                {syncedEventInfo ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold self-start sm:self-auto">
+                    <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                    <span>
+                      Synced from {syncedEventInfo.name} ({syncedEventInfo.teams} teams · {syncedEventInfo.players} players)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => syncEventData(eventId, { force: true })}
+                      disabled={isSyncingEvent}
+                      className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold underline ml-1 cursor-pointer disabled:opacity-50"
+                      title="Re-sync team and pool values from selected sports event"
+                    >
+                      {isSyncingEvent ? "Syncing..." : "Re-sync"}
+                    </button>
+                  </div>
+                ) : eventId ? (
+                  <button
+                    type="button"
+                    onClick={() => syncEventData(eventId, { force: true })}
+                    disabled={isSyncingEvent}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-100 transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50"
+                  >
+                    {isSyncingEvent && <Loader2 size={12} className="animate-spin text-indigo-600" />}
+                    <span>Sync from Event</span>
+                  </button>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* Total Teams */}
                 <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Users size={14} className="text-amber-600" /> Participating Teams
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users size={14} className="text-amber-600" /> Participating Teams
+                    </label>
+                    {syncedEventInfo && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Event Linked
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min={2}
@@ -631,14 +910,29 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     value={totalTeams}
                     onChange={(e) => setTotalTeams(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400 block">Between 2 and 20 teams.</span>
+                  <span className="text-[11px] text-slate-400 block">
+                    {syncedEventInfo ? (
+                      <span className="text-emerald-700 font-medium">
+                        ✓ Value from {syncedEventInfo.name} ({totalTeams} teams)
+                      </span>
+                    ) : (
+                      "Between 2 and 20 teams."
+                    )}
+                  </span>
                 </div>
 
                 {/* Total Players */}
                 <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-2xs">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Users size={14} className="text-indigo-600" /> Total Players in Pool
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users size={14} className="text-indigo-600" /> Total Players in Pool
+                    </label>
+                    {syncedEventInfo && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Event Linked
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min={1}
@@ -647,7 +941,15 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                     value={totalPlayers}
                     onChange={(e) => setTotalPlayers(Number(e.target.value))}
                   />
-                  <span className="text-[11px] text-slate-400 block">Target pool size for the auction.</span>
+                  <span className="text-[11px] text-slate-400 block">
+                    {syncedEventInfo ? (
+                      <span className="text-emerald-700 font-medium">
+                        ✓ Value from {syncedEventInfo.name} ({totalPlayers} players in pool)
+                      </span>
+                    ) : (
+                      "Target pool size for the auction."
+                    )}
+                  </span>
                 </div>
 
                 {/* Team Budget */}
