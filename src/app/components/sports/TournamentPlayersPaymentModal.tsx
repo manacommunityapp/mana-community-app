@@ -201,50 +201,23 @@ export function TournamentPlayersPaymentModal({
     if (!isOpen || !tournament || !tournamentId) return;
 
     let isMounted = true;
-    setLoading(true);
+
+    // SWR Fast-Path: If fresh cached data exists, render it immediately in 0ms!
+    const cachedPlayers = tournamentPaymentService.getCachedPlayers(tournamentId);
+    if (cachedPlayers && cachedPlayers.length > 0) {
+      setPlayers(cachedPlayers);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     const loadData = async () => {
       try {
-        const rawEvents = tournament.events || [];
-        const paymentsPromise = tournamentPaymentService.getPayments(tournamentId);
-
-        // Deduplicate event IDs so each unique eventId is only queried once from the backend
-        const uniqueEventIds = Array.from(
-          new Set(
-            rawEvents
-              .map((ev) => ev.id)
-              .filter((id): id is number => typeof id === "number" && id > 0)
-          )
-        );
-
-        // Fetch registrations in parallel only once per unique event ID
-        const registrationsByEventId = new Map<number, TournamentRegistration[]>();
-        await Promise.all(
-          uniqueEventIds.map(async (eventId) => {
-            try {
-              const regs = await sportsService.getTournamentRegistrations(eventId);
-              registrationsByEventId.set(eventId, regs || []);
-            } catch (err) {
-              console.error(`Failed to load registrations for event ${eventId}:`, err);
-              registrationsByEventId.set(eventId, []);
-            }
-          })
-        );
-
-        // Map back to each event entry in rawEvents so category and format mappings are preserved
-        const eventsWithRegs = rawEvents.map((ev) => ({
-          event: ev,
-          registrations: registrationsByEventId.get(ev.id) || [],
-        }));
-
-        const paymentsMap = await paymentsPromise;
+        const deduplicated = await tournamentPaymentService.loadTournamentPlayers(tournament, {
+          forceRefresh: !cachedPlayers,
+        });
 
         if (!isMounted) return;
-
-        const deduplicated = tournamentPaymentService.deduplicatePlayers(
-          eventsWithRegs,
-          paymentsMap
-        );
         setPlayers(deduplicated);
       } catch (err) {
         console.error("Failed to load tournament players for payment:", err);

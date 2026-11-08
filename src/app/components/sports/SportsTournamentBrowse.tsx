@@ -25,6 +25,7 @@ import { SportsTournamentStandings } from "./SportsTournamentStandings";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
 import { TournamentPlayersPaymentModal } from "./TournamentPlayersPaymentModal";
 import { TournamentPaymentContactsModal } from "./TournamentPaymentContactsModal";
+import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -433,6 +434,8 @@ function TournamentCard({
                 <button
                   type="button"
                   onClick={onOpenPayments}
+                  onMouseEnter={() => tournamentPaymentService.prefetchTournamentData(tournament)}
+                  onFocus={() => tournamentPaymentService.prefetchTournamentData(tournament)}
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
                   title={`View ${totalRegistered} registered players across ${sportsEventsDisplayCount} sports events & payment status`}
                 >

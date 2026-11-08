@@ -92,7 +92,156 @@ function saveLocalPayments(tournamentId: number, payments: Record<string, Tourna
   }
 }
 
+interface TournamentRosterCacheEntry {
+  timestamp: number;
+  players: UniqueTournamentPlayer[];
+}
+
+const tournamentRosterCache = new Map<number, TournamentRosterCacheEntry>();
+const CACHE_TTL_MS = 60_000; // 60 seconds TTL for instant warm loads
+
 export const tournamentPaymentService = {
+  /**
+   * Retrieve cached tournament players if fresh (younger than 60s)
+   */
+  getCachedPlayers(tournamentId: number): UniqueTournamentPlayer[] | null {
+    const entry = tournamentRosterCache.get(tournamentId);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp < CACHE_TTL_MS) {
+      return entry.players;
+    }
+    return null;
+  },
+
+  /**
+   * Invalidate cached tournament players so next load fetches fresh data from server
+   */
+  invalidateRosterCache(tournamentId?: number): void {
+    if (tournamentId != null) {
+      tournamentRosterCache.delete(tournamentId);
+    } else {
+      tournamentRosterCache.clear();
+    }
+  },
+
+  /**
+   * Access local payments synchronously for immediate zero-latency UI hydration
+   */
+  getLocalPayments(tournamentId: number): Record<string, TournamentPlayerPayment> {
+    return getLocalPayments(tournamentId);
+  },
+
+  /**
+   * High-performance loader for tournament players & payment details:
+   * 1. Returns fresh cached data immediately if available (0ms warm load).
+   * 2. Uses the single batch API `/sports/tournaments/{tournamentId}/all-registrations`
+   *    in parallel with `getPayments`, reducing N+1 round-trips to just 2 parallel requests.
+   * 3. Falls back seamlessly to individual event queries if batch endpoint fails.
+   * 4. Updates the in-memory SWR cache.
+   */
+  async loadTournamentPlayers(
+    tournament: { id: number; events?: Array<{ id: number; name?: string; sportName?: string; categoryName?: string }> },
+    options?: { forceRefresh?: boolean }
+  ): Promise<UniqueTournamentPlayer[]> {
+    const tournamentId = tournament.id;
+    if (!options?.forceRefresh) {
+      const cached = this.getCachedPlayers(tournamentId);
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+    }
+
+    const rawEvents = tournament.events || [];
+    const uniqueEventIds = Array.from(
+      new Set(
+        rawEvents
+          .map((ev) => ev.id)
+          .filter((id): id is number => typeof id === "number" && id > 0)
+      )
+    );
+
+    // Parallel fetch: (1) Payments and (2) Registrations
+    const paymentsPromise = this.getPayments(tournamentId);
+
+    let eventsWithRegs: Array<{
+      event: DashboardEventCard | { id: number; name?: string; sportName?: string; categoryName?: string };
+      registrations: TournamentRegistration[];
+    }> = [];
+
+    // Attempt 1: Single Batch Registrations Endpoint
+    try {
+      const qs = uniqueEventIds.length > 0 ? `?eventIds=${uniqueEventIds.join(",")}` : "";
+      const batchRegs = await apiClient.get<TournamentRegistration[]>(
+        `/sports/tournaments/${tournamentId}/all-registrations${qs}`
+      );
+
+      if (Array.isArray(batchRegs)) {
+        const regsByEventId = new Map<number, TournamentRegistration[]>();
+        for (const r of batchRegs) {
+          const evId = r.event?.id != null ? Number(r.event.id) : (r as any).eventId != null ? Number((r as any).eventId) : undefined;
+          if (evId) {
+            if (!regsByEventId.has(evId)) regsByEventId.set(evId, []);
+            regsByEventId.get(evId)!.push(r);
+          }
+        }
+
+        eventsWithRegs = rawEvents.map((ev) => ({
+          event: ev,
+          registrations: regsByEventId.get(ev.id) || (uniqueEventIds.length === 1 && batchRegs.length > 0 ? batchRegs : []),
+        }));
+      }
+    } catch {
+      // Fallback: If batch endpoint is not reachable, query each event in parallel
+      const registrationsByEventId = new Map<number, TournamentRegistration[]>();
+      await Promise.all(
+        uniqueEventIds.map(async (eventId) => {
+          try {
+            const regs = await apiClient.get<TournamentRegistration[]>(
+              `/sports/tournaments/${eventId}/registrations`
+            );
+            registrationsByEventId.set(eventId, regs || []);
+          } catch {
+            registrationsByEventId.set(eventId, []);
+          }
+        })
+      );
+
+      eventsWithRegs = rawEvents.map((ev) => ({
+        event: ev,
+        registrations: registrationsByEventId.get(ev.id) || [],
+      }));
+    }
+
+    const paymentsMap = await paymentsPromise;
+    const deduplicated = this.deduplicatePlayers(eventsWithRegs, paymentsMap);
+
+    // Update in-memory cache
+    tournamentRosterCache.set(tournamentId, {
+      timestamp: Date.now(),
+      players: deduplicated,
+    });
+
+    return deduplicated;
+  },
+
+  /**
+   * Pre-fetches tournament players and payment records on user hover or focus,
+   * warming the cache 150-300ms before click so the modal opens instantaneously.
+   */
+  prefetchTournamentData(
+    tournament: { id: number; events?: Array<{ id: number; name?: string; sportName?: string; categoryName?: string }> }
+  ): void {
+    if (!tournament?.id) return;
+    const entry = tournamentRosterCache.get(tournament.id);
+    if (entry && Date.now() - entry.timestamp < 30_000) {
+      return; // Already warm in memory
+    }
+    // Background fire-and-forget
+    this.loadTournamentPlayers(tournament).catch(() => {
+      // Ignore background prefetch network errors
+    });
+  },
+
   /**
    * Fetch all payment records for a tournament
    */
@@ -174,12 +323,14 @@ export const tournamentPaymentService = {
       if (saved && saved.playerKey) {
         localMap[payload.playerKey] = saved;
         saveLocalPayments(tournamentId, localMap);
+        this.invalidateRosterCache(tournamentId);
         return saved;
       }
     } catch {
       // If backend endpoint is unavailable, local paymentRecord is preserved
     }
 
+    this.invalidateRosterCache(tournamentId);
     return paymentRecord;
   },
 
@@ -187,6 +338,7 @@ export const tournamentPaymentService = {
    * Mark a player as unpaid for the tournament (revert payment record)
    */
   async markUnpaid(tournamentId: number, playerKey: string): Promise<void> {
+    this.invalidateRosterCache(tournamentId);
     // Remove from local storage first for instant zero-latency UI update
     const localMap = getLocalPayments(tournamentId);
     if (localMap[playerKey]) {

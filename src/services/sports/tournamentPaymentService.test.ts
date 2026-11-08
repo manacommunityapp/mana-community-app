@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { apiClient } from "../common/apiClient";
 import {
   tournamentPaymentService,
   type UniqueTournamentPlayer,
@@ -226,3 +227,140 @@ describe("tournamentPaymentService.deduplicatePlayers", () => {
     expect(result[0].playerKey).toBe("user_10");
   });
 });
+
+describe("tournamentPaymentService.loadTournamentPlayers & SWR Caching", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    tournamentPaymentService.invalidateRosterCache();
+  });
+
+  const mockTournament = {
+    id: 100,
+    events: [
+      { id: 101, name: "Singles A", sportName: "Badminton" },
+      { id: 102, name: "Doubles B", sportName: "Badminton" },
+    ],
+  };
+
+  const mockBatchRegistrations = [
+    {
+      id: 1,
+      event: { id: 101 },
+      user: { id: 50, fullName: "Player Fifty", flatNo: "F-50" },
+      playerName: "Player Fifty",
+      flatNumber: "F-50",
+      status: "CONFIRMED",
+    },
+    {
+      id: 2,
+      event: { id: 102 },
+      user: { id: 50, fullName: "Player Fifty", flatNo: "F-50" },
+      playerName: "Player Fifty",
+      flatNumber: "F-50",
+      status: "CONFIRMED",
+      matchType: "DOUBLES",
+      partnerUserId: 60,
+      partnerName: "Partner Sixty",
+      partnerConfirmationStatus: "CONFIRMED",
+      partner: { id: 60, fullName: "Partner Sixty", flatNo: "S-60" },
+    },
+  ];
+
+  it("loads via single batch registrations endpoint and caches the result", async () => {
+    const getSpy = vi.spyOn(apiClient, "get").mockImplementation(async (url: string) => {
+      if (url.includes("/all-registrations")) {
+        return mockBatchRegistrations as any;
+      }
+      if (url.includes("/payments")) {
+        return [] as any;
+      }
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    // 1st call: Cold load, hits API
+    const players = await tournamentPaymentService.loadTournamentPlayers(mockTournament);
+
+    expect(getSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/sports/tournaments/100/all-registrations?eventIds=101,102")
+    );
+    expect(getSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/sports/tournaments/100/payments")
+    );
+    expect(players).toHaveLength(2); // Player 50 + Partner 60
+
+    // Cache should now have the entry
+    const cached = tournamentPaymentService.getCachedPlayers(100);
+    expect(cached).not.toBeNull();
+    expect(cached).toHaveLength(2);
+
+    // 2nd call: Warm load, should return cached result WITHOUT calling apiClient.get again
+    getSpy.mockClear();
+    const warmPlayers = await tournamentPaymentService.loadTournamentPlayers(mockTournament);
+    expect(warmPlayers).toEqual(players);
+    expect(getSpy).not.toHaveBeenCalled();
+
+    // Force refresh should bypass cache and call API again
+    await tournamentPaymentService.loadTournamentPlayers(mockTournament, { forceRefresh: true });
+    expect(getSpy).toHaveBeenCalled();
+  });
+
+  it("falls back to individual event registration endpoints if batch endpoint fails", async () => {
+    const getSpy = vi.spyOn(apiClient, "get").mockImplementation(async (url: string) => {
+      if (url.includes("/all-registrations")) {
+        throw new Error("404 Batch Not Found");
+      }
+      if (url.includes("/tournaments/101/registrations")) {
+        return [mockBatchRegistrations[0]] as any;
+      }
+      if (url.includes("/tournaments/102/registrations")) {
+        return [mockBatchRegistrations[1]] as any;
+      }
+      if (url.includes("/payments")) {
+        return [] as any;
+      }
+      return [] as any;
+    });
+
+    const players = await tournamentPaymentService.loadTournamentPlayers(mockTournament);
+
+    // Should have attempted batch first, then called individual endpoints
+    expect(getSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/sports/tournaments/100/all-registrations")
+    );
+    expect(getSpy).toHaveBeenCalledWith("/sports/tournaments/101/registrations");
+    expect(getSpy).toHaveBeenCalledWith("/sports/tournaments/102/registrations");
+    expect(players).toHaveLength(2);
+  });
+
+  it("invalidates cache on invalidateRosterCache", async () => {
+    vi.spyOn(apiClient, "get").mockImplementation(async (url: string) => {
+      if (url.includes("/all-registrations")) return mockBatchRegistrations as any;
+      if (url.includes("/payments")) return [] as any;
+      return [] as any;
+    });
+
+    await tournamentPaymentService.loadTournamentPlayers(mockTournament);
+    expect(tournamentPaymentService.getCachedPlayers(100)).not.toBeNull();
+
+    tournamentPaymentService.invalidateRosterCache(100);
+    expect(tournamentPaymentService.getCachedPlayers(100)).toBeNull();
+  });
+
+  it("prefetchTournamentData loads data in background and warms cache", async () => {
+    vi.spyOn(apiClient, "get").mockImplementation(async (url: string) => {
+      if (url.includes("/all-registrations")) return mockBatchRegistrations as any;
+      if (url.includes("/payments")) return [] as any;
+      return [] as any;
+    });
+
+    tournamentPaymentService.prefetchTournamentData(mockTournament);
+
+    // Give microtask/promise a tick to resolve
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const cached = tournamentPaymentService.getCachedPlayers(100);
+    expect(cached).not.toBeNull();
+    expect(cached).toHaveLength(2);
+  });
+});
+

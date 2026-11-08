@@ -88,6 +88,7 @@ export const sportsService = {
   registerForEvent: sportsEventService.registerForEvent,
   withdraw: sportsEventService.withdraw,
   getTournamentRegistrations: sportsEventService.getTournamentRegistrations,
+  getAllTournamentRegistrations: sportsEventService.getAllTournamentRegistrations,
   getEventRegistrations: sportsEventService.getEventRegistrations,
   getRegistrationHistory: sportsEventService.getRegistrationHistory,
   getMyRegistrations: sportsEventService.getMyRegistrations,
