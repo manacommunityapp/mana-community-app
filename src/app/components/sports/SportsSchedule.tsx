@@ -86,6 +86,8 @@ interface ScheduleEntry {
   partnerName?: string;
   partnerStatus?: string;
   isDoubles?: boolean;
+  flatNumber?: string;
+  partnerFlat?: string;
 }
 
 
@@ -170,7 +172,7 @@ type BracketMatch = {
 };
 type BracketRound = { name: string; matches: BracketMatch[] };
 
-function getPlayerInitials(fullName: string): string {
+export function getPlayerInitials(fullName: string): string {
   if (!fullName) return "";
   if (fullName.includes(" / ")) {
     return fullName.split(" / ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" / ");
@@ -1030,6 +1032,8 @@ export function SportsSchedule() {
               partnerName: registration.partnerName || registration.partner?.fullName,
               partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
               isDoubles,
+              flatNumber: registration.flatNumber || registration.user?.community?.name || registration.user?.flatNo,
+              partnerFlat: registration.partnerFlat || registration.partner?.flatNumber || registration.partner?.flatNo,
             });
           });
 

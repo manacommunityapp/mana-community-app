@@ -157,6 +157,7 @@ export interface AppUser {
   phone: string;
   role: string;
   kycStatus: string;
+  flatNumber?: string;
   community?: Community;
 }
 
@@ -389,6 +390,9 @@ export interface EventRegistration {
   partnerStatus?: string;
   partnerConfirmationStatus?: string;
   partnerDeclineReason?: string;
+  familyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number };
+  familyMemberId?: number | string | null;
+  notes?: string;
 }
 
 export interface SportsPlayerRanking {
