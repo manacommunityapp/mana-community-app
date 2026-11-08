@@ -261,7 +261,7 @@ export interface SportsEvent {
   maxPlayers?: number;
   gender?: string;
   playersBorn?: string;
-  disputeCommitteeIds?: string;
+  disputeCommitteeIds?: string | number[] | (string | number)[];
   status?: string;
   /** When true, self-registrations require organiser confirmation (land PENDING). */
   adminApprovalRequired?: boolean;

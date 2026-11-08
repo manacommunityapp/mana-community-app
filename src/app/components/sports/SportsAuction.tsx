@@ -38,7 +38,7 @@ import {
   AuctionRtmModal,
   type RtmPromptData,
 } from "./auction";
-import { AuctionConfigModal } from "./AuctionConfigModal";
+import { AuctionConfigModal, parseDisputeCommitteeIds } from "./AuctionConfigModal";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
@@ -89,6 +89,8 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
     players: summary.players || [],
   };
 };
+
+export { parseDisputeCommitteeIds };
 
 export function SportsAuction() {
   const {
@@ -443,9 +445,9 @@ export function SportsAuction() {
         }
         setFamilyRelationMap(relMap);
 
-        // Hydrate committee
-        if (event.disputeCommitteeIds) {
-          const ids = event.disputeCommitteeIds.split(',').map(Number);
+        // Hydrate committee safely regardless of whether backend returns array, string, or number
+        const ids = parseDisputeCommitteeIds(event.disputeCommitteeIds);
+        if (ids.length > 0) {
           const members = confirmed.filter(r => ids.includes(Number(r.id)));
           setCommittee(members);
         } else {
@@ -455,7 +457,17 @@ export function SportsAuction() {
         // Fetch all community users for this event's community
         if (event.community?.id) {
           userService.getCommunityUsers(event.community.id)
-            .then(users => setCommunityUsers(users.map(u => ({ id: u.id, name: u.fullName || 'Unnamed User' }))))
+            .then(users => {
+              const mappedUsers = users.map(u => ({ id: u.id, name: u.fullName || 'Unnamed User' }));
+              setCommunityUsers(mappedUsers);
+              // Fallback: if committee wasn't found in confirmed registrations, check community users
+              if (ids.length > 0) {
+                setCommittee(prev => {
+                  if (prev.length > 0) return prev;
+                  return mappedUsers.filter(u => ids.includes(Number(u.id)));
+                });
+              }
+            })
             .catch(() => setCommunityUsers([]));
         }
       }).catch(err => console.error("Failed to fetch event data", err));

@@ -4,6 +4,7 @@ import {
   calculateNextBidAmount,
   computeSquadMetrics,
   getSportCategoryPreset,
+  parseDisputeCommitteeIds,
   SPORT_OPTIONS,
   DEFAULT_CATEGORY_PRESETS,
 } from "./AuctionConfigModal";
@@ -192,6 +193,37 @@ describe("AuctionConfigModal validation & business logic", () => {
       expect(canTransition("COMPLETED", "ACTIVE")).toBe(false);
       expect(canTransition("COMPLETED", "LIVE")).toBe(false);
       expect(canTransition("CANCELLED", "ACTIVE")).toBe(false);
+    });
+  });
+
+  describe("parseDisputeCommitteeIds", () => {
+    it("handles array of numbers returned by backend", () => {
+      expect(parseDisputeCommitteeIds([1, 2, 3])).toEqual([1, 2, 3]);
+    });
+
+    it("handles array of string numbers", () => {
+      expect(parseDisputeCommitteeIds(["10", "20", "30"])).toEqual([10, 20, 30]);
+    });
+
+    it("handles comma-separated string", () => {
+      expect(parseDisputeCommitteeIds("4, 8, 15, 16")).toEqual([4, 8, 15, 16]);
+    });
+
+    it("handles single number", () => {
+      expect(parseDisputeCommitteeIds(42)).toEqual([42]);
+    });
+
+    it("filters out invalid numbers or NaN values", () => {
+      expect(parseDisputeCommitteeIds(["abc", -1, 0, 5, NaN])).toEqual([5]);
+      expect(parseDisputeCommitteeIds("foo, -3, 0, 99")).toEqual([99]);
+    });
+
+    it("handles null, undefined, or empty values safely without throwing", () => {
+      expect(parseDisputeCommitteeIds(null)).toEqual([]);
+      expect(parseDisputeCommitteeIds(undefined)).toEqual([]);
+      expect(parseDisputeCommitteeIds("")).toEqual([]);
+      expect(parseDisputeCommitteeIds([])).toEqual([]);
+      expect(parseDisputeCommitteeIds({})).toEqual([]);
     });
   });
 });

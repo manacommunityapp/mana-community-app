@@ -110,6 +110,23 @@ export function computeSquadMetrics(totalTeams: number, totalPlayers: number, bu
   return { avgSquadSize, avgSpendPerPlayer, totalCombinedPurse };
 }
 
+export function parseDisputeCommitteeIds(raw: unknown): number[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(Number).filter((n) => !isNaN(n) && n > 0);
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => !isNaN(n) && n > 0);
+  }
+  if (typeof raw === "number" && !isNaN(raw) && raw > 0) {
+    return [raw];
+  }
+  return [];
+}
+
 export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   isOpen,
   onClose,
