@@ -14,7 +14,9 @@ import {
   Clock,
   Award,
   CreditCard,
+  Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -26,6 +28,7 @@ import { TournamentDetailsModal } from "./TournamentDetailsModal";
 import { TournamentPlayersPaymentModal } from "./TournamentPlayersPaymentModal";
 import { TournamentPaymentContactsModal } from "./TournamentPaymentContactsModal";
 import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
+import { exportTournamentPaymentsToExcel } from "../../../utils/sportsExportUtils";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -431,24 +434,47 @@ function TournamentCard({
 
               {/* Registered Players & Sports Events Count Action Button */}
               {onOpenPayments ? (
-                <button
-                  type="button"
-                  onClick={onOpenPayments}
-                  onMouseEnter={() => tournamentPaymentService.prefetchTournamentData(tournament)}
-                  onFocus={() => tournamentPaymentService.prefetchTournamentData(tournament)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
-                  title={`View ${totalRegistered} registered players across ${sportsEventsDisplayCount} sports events & payment status`}
-                >
-                  <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
-                  <span className="font-bold text-slate-900 group-hover/btn:text-indigo-700">
-                    {totalRegistered} Registered
-                  </span>
-                  <span className="text-slate-300 font-normal">/</span>
-                  <span className="text-slate-600 group-hover/btn:text-indigo-600 font-medium">
-                    {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
-                  </span>
-                  <ChevronRight className="w-3 h-3 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
-                </button>
+                <div className="inline-flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onOpenPayments}
+                    onMouseEnter={() => tournamentPaymentService.prefetchTournamentData(tournament)}
+                    onFocus={() => tournamentPaymentService.prefetchTournamentData(tournament)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
+                    title={`View ${totalRegistered} registered players across ${sportsEventsDisplayCount} sports events & payment status`}
+                  >
+                    <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
+                    <span className="font-bold text-slate-900 group-hover/btn:text-indigo-700">
+                      {totalRegistered} Registered
+                    </span>
+                    <span className="text-slate-300 font-normal">/</span>
+                    <span className="text-slate-600 group-hover/btn:text-indigo-600 font-medium">
+                      {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
+                  </button>
+
+                  {totalRegistered > 0 && (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          toast.info("Preparing tournament export...");
+                          const players = await tournamentPaymentService.loadTournamentPlayers(tournament);
+                          exportTournamentPaymentsToExcel(players, tournament.name);
+                          toast.success(`Exported ${players.length} players to Excel`);
+                        } catch {
+                          toast.error("Failed to export tournament details");
+                        }
+                      }}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200/90 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/70 shadow-2xs transition-all active:scale-95 cursor-pointer group/btn"
+                      title="Download Excel spreadsheet of registered players & payment details"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-500 group-hover/btn:scale-110 transition-transform" />
+                    </button>
+                  )}
+                </div>
               ) : totalRegistered > 0 ? (
                 <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <Users className="w-3.5 h-3.5 text-emerald-500" />
