@@ -48,6 +48,19 @@ export function TournamentScheduler() {
   const [saving, setSaving] = useState(false);
   const [venueList, setVenueList] = useState<Venue[]>([]);
 
+  // Scoring & Format Configuration State
+  const [fSportName, setFSportName] = useState("");
+  const [fOversPerInnings, setFOversPerInnings] = useState("20");
+  const [fMaxOversPerBowler, setFMaxOversPerBowler] = useState("4");
+  const [fPeriodsCount, setFPeriodsCount] = useState("3");
+  const [fPeriodsToWin, setFPeriodsToWin] = useState("2");
+  const [fPointsToWinPeriod, setFPointsToWinPeriod] = useState("21");
+  const [fMustWinByTwo, setFMustWinByTwo] = useState(true);
+  const [fPeriodDurationMinutes, setFPeriodDurationMinutes] = useState("45");
+  const [fHasOvertime, setFHasOvertime] = useState(false);
+  const [fHasPenaltyShootout, setFHasPenaltyShootout] = useState(false);
+  const [fTargetScore, setFTargetScore] = useState("");
+
   useEffect(() => {
     loadData();
   }, [token]);
@@ -147,6 +160,17 @@ export function TournamentScheduler() {
     setFPtsLoss("0");
     setFThirdPlace(true);
     setFSeeding(false);
+    setFSportName("");
+    setFOversPerInnings("20");
+    setFMaxOversPerBowler("4");
+    setFPeriodsCount("3");
+    setFPeriodsToWin("2");
+    setFPointsToWinPeriod("21");
+    setFMustWinByTwo(true);
+    setFPeriodDurationMinutes("45");
+    setFHasOvertime(false);
+    setFHasPenaltyShootout(false);
+    setFTargetScore("");
   };
 
   const handleTournamentChange = (tId: string) => {
@@ -186,6 +210,25 @@ export function TournamentScheduler() {
       if (matchedEvent.venueId) {
         setFVenueId(matchedEvent.venueId);
       }
+      if (matchedEvent.sportName) {
+        setFSportName(matchedEvent.sportName);
+        tournamentService.getDefaultScoringConfig(matchedEvent.sportName.toUpperCase())
+          .then((cfg) => {
+            if (cfg) {
+              if (cfg.oversPerInnings) setFOversPerInnings(cfg.oversPerInnings.toString());
+              if (cfg.maxOversPerBowler) setFMaxOversPerBowler(cfg.maxOversPerBowler.toString());
+              if (cfg.periodsCount) setFPeriodsCount(cfg.periodsCount.toString());
+              if (cfg.periodsToWin) setFPeriodsToWin(cfg.periodsToWin.toString());
+              if (cfg.pointsToWinPeriod) setFPointsToWinPeriod(cfg.pointsToWinPeriod.toString());
+              if (cfg.mustWinByTwo !== undefined) setFMustWinByTwo(cfg.mustWinByTwo);
+              if (cfg.periodDurationMinutes) setFPeriodDurationMinutes(cfg.periodDurationMinutes.toString());
+              if (cfg.hasOvertime !== undefined) setFHasOvertime(cfg.hasOvertime);
+              if (cfg.hasPenaltyShootout !== undefined) setFHasPenaltyShootout(cfg.hasPenaltyShootout);
+              if (cfg.targetScore) setFTargetScore(cfg.targetScore.toString());
+            }
+          })
+          .catch(() => {});
+      }
     }
   };
 
@@ -206,6 +249,7 @@ export function TournamentScheduler() {
           } else {
             setFTournamentId("standalone");
           }
+          if (ev.sportName) setFSportName(ev.sportName);
         } else {
           setFTournamentId("");
         }
@@ -227,6 +271,25 @@ export function TournamentScheduler() {
       setFPtsLoss(config.pointsForLoss !== undefined ? config.pointsForLoss.toString() : "0");
       setFThirdPlace(config.thirdPlaceMatch !== false);
       setFSeeding(config.hasSeeding === true);
+      if (config.sportName) setFSportName(config.sportName);
+
+      tournamentService.getScoringConfig(config.id)
+        .then((cfg) => {
+          if (cfg) {
+            if (cfg.sportType) setFSportName(cfg.sportType);
+            if (cfg.oversPerInnings) setFOversPerInnings(cfg.oversPerInnings.toString());
+            if (cfg.maxOversPerBowler) setFMaxOversPerBowler(cfg.maxOversPerBowler.toString());
+            if (cfg.periodsCount) setFPeriodsCount(cfg.periodsCount.toString());
+            if (cfg.periodsToWin) setFPeriodsToWin(cfg.periodsToWin.toString());
+            if (cfg.pointsToWinPeriod) setFPointsToWinPeriod(cfg.pointsToWinPeriod.toString());
+            if (cfg.mustWinByTwo !== undefined) setFMustWinByTwo(cfg.mustWinByTwo);
+            if (cfg.periodDurationMinutes) setFPeriodDurationMinutes(cfg.periodDurationMinutes.toString());
+            if (cfg.hasOvertime !== undefined) setFHasOvertime(cfg.hasOvertime);
+            if (cfg.hasPenaltyShootout !== undefined) setFHasPenaltyShootout(cfg.hasPenaltyShootout);
+            if (cfg.targetScore) setFTargetScore(cfg.targetScore.toString());
+          }
+        })
+        .catch(() => {});
     } else {
       resetForm();
     }
@@ -269,11 +332,37 @@ export function TournamentScheduler() {
 
     setSaving(true);
     try {
+      let savedConfigId = editingId;
       if (editingId) {
-        await tournamentService.updateConfig(editingId, body);
+        const res = await tournamentService.updateConfig(editingId, body);
+        savedConfigId = res?.id || editingId;
       } else {
-        await tournamentService.createConfig(body);
+        const res = await tournamentService.createConfig(body);
+        savedConfigId = res?.id;
       }
+
+      if (savedConfigId) {
+        try {
+          await tournamentService.saveScoringConfig({
+            configId: savedConfigId,
+            sportType: (fSportName || "DEFAULT").toUpperCase(),
+            periodsCount: Number(fPeriodsCount) || 2,
+            pointsToWinPeriod: fPointsToWinPeriod ? Number(fPointsToWinPeriod) : undefined,
+            mustWinByTwo: fMustWinByTwo,
+            periodsToWin: fPeriodsToWin ? Number(fPeriodsToWin) : undefined,
+            periodDurationMinutes: fPeriodDurationMinutes ? Number(fPeriodDurationMinutes) : undefined,
+            hasOvertime: fHasOvertime,
+            hasPenaltyShootout: fHasPenaltyShootout,
+            oversPerInnings: fOversPerInnings ? Number(fOversPerInnings) : undefined,
+            maxOversPerBowler: fMaxOversPerBowler ? Number(fMaxOversPerBowler) : undefined,
+            ballsPerOver: 6,
+            targetScore: fTargetScore ? Number(fTargetScore) : undefined,
+          });
+        } catch (scErr) {
+          console.warn("Could not save scoring rules config", scErr);
+        }
+      }
+
       showToast(editingId ? "Configuration updated!" : "Configuration saved!");
       setIsModalOpen(false);
       loadData();
@@ -684,6 +773,190 @@ export function TournamentScheduler() {
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Pts Loss</label>
                   <input type="number" value={fPtsLoss} onChange={(e) => setFPtsLoss(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10" />
                 </div>
+              </div>
+
+              {/* Scoring & Match Format Rules (Pre-Match Config) */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                      Match Format & Scoring Rules
+                    </span>
+                    {fSportName && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                        {fSportName}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-indigo-600 font-medium">Pre-Match Configuration</span>
+                </div>
+
+                {/* CRICKET FIELDS */}
+                {(fSportName.toUpperCase().includes("CRICKET") || (!fSportName && !fEvent)) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Overs per Innings / Match
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={fOversPerInnings}
+                        onChange={(e) => setFOversPerInnings(e.target.value)}
+                        placeholder="e.g. 20 (T20) or 10"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                      <span className="text-[10px] text-slate-400">Total overs each team bats</span>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Max Overs per Bowler
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={fMaxOversPerBowler}
+                        onChange={(e) => setFMaxOversPerBowler(e.target.value)}
+                        placeholder="e.g. 4 (T20) or 2"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                      <span className="text-[10px] text-slate-400">Quota limit per single bowler</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* RACKET / SET-BASED SPORTS */}
+                {["BADMINTON", "TENNIS", "TABLE_TENNIS", "PICKLEBALL", "SQUASH", "VOLLEYBALL"].some(s => fSportName.toUpperCase().includes(s)) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Max Sets (Periods)
+                      </label>
+                      <select
+                        value={fPeriodsCount}
+                        onChange={(e) => {
+                          setFPeriodsCount(e.target.value);
+                          setFPeriodsToWin(e.target.value === "5" ? "3" : "2");
+                        }}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        <option value="1">1 Set (Single Game)</option>
+                        <option value="3">Best of 3 Sets (First to 2)</option>
+                        <option value="5">Best of 5 Sets (First to 3)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Points to Win Set
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={fPointsToWinPeriod}
+                        onChange={(e) => setFPointsToWinPeriod(e.target.value)}
+                        placeholder="e.g. 21 (Badminton) or 11"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex items-center pt-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={fMustWinByTwo}
+                          onChange={(e) => setFMustWinByTwo(e.target.checked)}
+                          className="w-4 h-4 accent-indigo-600"
+                        />
+                        Must Win by 2 (Deuce)
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* TIMED SPORTS (FOOTBALL, BASKETBALL, KABADDI) */}
+                {["FOOTBALL", "SOCCER", "BASKETBALL", "KABADDI"].some(s => fSportName.toUpperCase().includes(s)) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Periods / Halves
+                      </label>
+                      <select
+                        value={fPeriodsCount}
+                        onChange={(e) => setFPeriodsCount(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        <option value="2">2 Halves</option>
+                        <option value="4">4 Quarters</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Minutes per Period
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={fPeriodDurationMinutes}
+                        onChange={(e) => setFPeriodDurationMinutes(e.target.value)}
+                        placeholder="e.g. 45 or 20"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2 pt-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={fHasOvertime}
+                          onChange={(e) => setFHasOvertime(e.target.checked)}
+                          className="w-3.5 h-3.5 accent-indigo-600"
+                        />
+                        Extra Time / Overtime
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={fHasPenaltyShootout}
+                          onChange={(e) => setFHasPenaltyShootout(e.target.checked)}
+                          className="w-3.5 h-3.5 accent-indigo-600"
+                        />
+                        Penalty Shootout
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* TARGET / BOARD SPORTS (CARROM, DARTS, SNOOKER, FOOSBALL) */}
+                {["CARROM", "DART", "POOL", "BILLIARDS", "SNOOKER", "FOOSBALL"].some(s => fSportName.toUpperCase().includes(s)) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Target Score to Win
+                      </label>
+                      <input
+                        type="number"
+                        value={fTargetScore}
+                        onChange={(e) => setFTargetScore(e.target.value)}
+                        placeholder="e.g. 25 (Carrom) or 501 (Darts)"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Max Boards / Frames
+                      </label>
+                      <input
+                        type="number"
+                        value={fPeriodsCount}
+                        onChange={(e) => setFPeriodsCount(e.target.value)}
+                        placeholder="e.g. 8 boards or 5 frames"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-100 pt-3">
