@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin, Medal, Swords, Search, Check } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin, Medal, Swords, Search, Check, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -529,36 +529,82 @@ function RegCard({
       </div>
       <div className="flex flex-col gap-1 flex-shrink-0 items-end">
         <div className="flex gap-1 justify-end">
-          {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
-            <button
-              disabled
-              className="text-xs px-2 py-0.5 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
-            >
-              Closed
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                if (item.action === "Confirmed") return;
-                if (item.action === "Register") onRegister(item);
-                else if (item.action === "Withdraw" && onWithdraw) onWithdraw(item);
-                else onView(item);
-              }}
-              disabled={item.action === "Confirmed"}
-              className={`text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer ${
-                item.action === "Register"
-                  ? "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white active:scale-95"
-                  : item.action === "Confirmed"
-                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
-                    : item.action === "Withdraw"
-                      ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer"
-                      : "bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
-              }`}
-            >
-              <span>{item.action}</span>
-              {item.action === "Register" && <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />}
-            </button>
-          )}
+          {(() => {
+            const isClosed = item.status === "REGISTRATION_CLOSED"
+              || (item.rawEvent as any)?.registrationStatus === "REGISTRATION_CLOSED"
+              || (item.rawEvent as any)?.status === "REGISTRATION_CLOSED"
+            const isRegistered = Boolean(
+              item.registrationId ||
+              item.action === "Withdraw" ||
+              item.action === "Confirmed" ||
+              item.action === "Registered" ||
+              (item.rawEvent as any)?.myRegistrationId
+            );
+
+            if (isClosed && !isAdmin) {
+              if (isRegistered) {
+                return (
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Registered</span>
+                    </span>
+                    <span
+                      className="text-xs font-semibold px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                      title="Registration is closed for this event"
+                    >
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      <span>Registration Closed</span>
+                    </span>
+                  </div>
+                );
+              }
+              if (item.action === "Register") {
+                return (
+                  <button
+                    disabled
+                    title="Registration is closed for this event"
+                    className="text-xs px-2.5 py-1 rounded-lg font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75 flex items-center gap-1"
+                  >
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>Closed</span>
+                  </button>
+                );
+              }
+              return (
+                <button
+                  onClick={() => onView(item)}
+                  className="text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
+                >
+                  {item.action || "View"}
+                </button>
+              );
+            }
+
+            return (
+              <button
+                onClick={() => {
+                  if (item.action === "Confirmed") return;
+                  if (item.action === "Register") onRegister(item);
+                  else if (item.action === "Withdraw" && onWithdraw) onWithdraw(item);
+                  else onView(item);
+                }}
+                disabled={item.action === "Confirmed"}
+                className={`text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer ${
+                  item.action === "Register"
+                    ? "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white active:scale-95"
+                    : item.action === "Confirmed"
+                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
+                      : item.action === "Withdraw"
+                        ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                        : "bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
+                }`}
+              >
+                <span>{item.action}</span>
+                {item.action === "Register" && <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />}
+              </button>
+            );
+          })()}
           {secondaryActionLabel && onSecondaryAction && (
             <button
               onClick={() => onSecondaryAction(item)}
@@ -1018,7 +1064,29 @@ export function SportsDashboard() {
     forType: "self",
   });
 
+  const isSportsAdminUser = Boolean(
+    isAdmin ||
+    isSportsAdmin ||
+    isSuperAdmin ||
+    canAccessAdminSports ||
+    hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN)
+  );
+
   const handleOpenRegistration = (eventUuidOrId: string | number, forType: "self" | "family" = "self", memberId?: string | number) => {
+    const targetEvent = openRegs.find(e => String(e.uuid) === String(eventUuidOrId) || String(e.id) === String(eventUuidOrId))
+      || closedRegs.find(e => String(e.uuid) === String(eventUuidOrId) || String(e.id) === String(eventUuidOrId));
+    const isClosedTarget = targetEvent && (
+      targetEvent.status === "REGISTRATION_CLOSED" ||
+      targetEvent.rawEvent?.status === "REGISTRATION_CLOSED" ||
+      targetEvent.rawEvent?.registrationStatus === "REGISTRATION_CLOSED" ||
+      targetEvent.status === "COMPLETED" ||
+      targetEvent.status === "CANCELLED"
+    );
+    if (isClosedTarget && !isSportsAdminUser) {
+      toast.error("Registration for this event is closed.");
+      return;
+    }
+
     const targetId = forType === "self" ? "self" : memberId;
     const status = getMemberProfileStatus(targetId);
     if (!status.isValid) {
@@ -1032,14 +1100,6 @@ export function SportsDashboard() {
       memberId,
     });
   };
-
-  const isSportsAdminUser = Boolean(
-    isAdmin ||
-    isSportsAdmin ||
-    isSuperAdmin ||
-    canAccessAdminSports ||
-    hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN)
-  );
   const canManageCaptainNominations = isSportsAdminUser;
   const activeMyRegistrations = useMemo(() => {
     return myRegistrations.filter(r =>
@@ -1257,7 +1317,7 @@ export function SportsDashboard() {
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
-          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : undefined,
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "",
           progress: activeRegId ? (rawRegStatus === "CONFIRMED" ? 100 : 50) : 0,
           progressColor: activeRegId ? (rawRegStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
@@ -1336,6 +1396,28 @@ export function SportsDashboard() {
 
       // Helper closed event mapping function
       const mapClosedEventCard = (e: any): OpenRegistration => {
+        const isLocallyWithdrawn = withdrawnRegistrationIds.has(Number(e.id)) || (e.myRegistrationId && withdrawnRegistrationIds.has(Number(e.myRegistrationId)));
+        const isBackendInactive = e.myRegistrationStatus && !isActiveRegistrationStatus(e.myRegistrationStatus);
+        const matchingReg = fetchedMyRegs.find(r =>
+          isEventMatch(r, e) &&
+          isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId) &&
+          !withdrawnRegistrationIds.has(Number(r.id))
+        );
+        const isWithdrawnInMyRegs = fetchedMyRegs.some(r =>
+          isEventMatch(r, e) &&
+          !isActiveRegistrationStatus(r.status) &&
+          isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId)
+        );
+        const isForFamilyInMyRegs = fetchedMyRegs.some(r =>
+          isEventMatch(r, e) &&
+          !isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId)
+        );
+
+        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
+        const rawRegId = hasActiveBackendReg ? e.myRegistrationId : (matchingReg && !isLocallyWithdrawn ? matchingReg.id : undefined);
+        const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
+        const activeRegId = (rawRegId && isActiveRegistrationStatus(rawRegStatus) && !isLocallyWithdrawn) ? rawRegId : undefined;
+
         return {
           id: e.id,
           uuid: e.uuid ?? undefined,
@@ -1344,9 +1426,10 @@ export function SportsDashboard() {
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: "Registration closed",
           progress: 100,
-          progressColor: "#ef4444",
-          dotColor: "#ef4444",
-          action: "View" as const,
+          progressColor: activeRegId ? "#10b981" : "#ef4444",
+          dotColor: activeRegId ? "#10b981" : "#ef4444",
+          action: activeRegId ? ("Registered" as const) : ("View" as const),
+          registrationId: activeRegId,
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
@@ -1778,7 +1861,7 @@ export function SportsDashboard() {
       const targetEvent = eventObj || selectedCaptainEvent || adminTeamEvents.find(e => e.id === eventId) || null;
       const confirmed = regs.filter(r => r.status === "CONFIRMED");
       const hasAnyDifferentiatingMetadata = confirmed.some(r => {
-        const s = r.sportName || r.event?.sport?.name || r.eventName || r.event?.name;
+        const s = (r as any).sportName || r.event?.sport?.name || (r as any).eventName || r.event?.name;
         return Boolean(s);
       });
       let matched = confirmed.filter(r => isRegForSportEvent(r, targetEvent, eventId));
@@ -1819,7 +1902,7 @@ export function SportsDashboard() {
       if (existing) {
         return;
       }
-      const targetEv = selectedCaptainEvent || events.find(e => e.id === eventId);
+      const targetEv = selectedCaptainEvent || openRegs.find(e => e.id === eventId) || closedRegs.find(e => e.id === eventId);
       const sportId = (targetEv as any)?.rawEvent?.sport?.id ?? (targetEv as any)?.rawEvent?.sportId ?? 1;
       await auctionService.createConfig({
         sportId,
@@ -2370,25 +2453,29 @@ export function SportsDashboard() {
                   const evStatus = (ev as any).myRegistrationStatus;
                   if (evStatus && !isActiveRegistrationStatus(evStatus)) return [];
 
-                  // When myRegistrations has loaded, it is authoritative!
-                  if (myRegistrations.length > 0) return [];
-
-                  if (isSelf && (ev.registrationId || (ev as any).myRegistrationId)) {
-                    const rawId = ev.registrationId || (ev as any).myRegistrationId;
-                    if (withdrawnRegistrationIds.has(Number(rawId))) return [];
-                    const isForFamily = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isRegistrationForMember(r, "self"));
-                    if (isForFamily) return [];
-                    const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                    const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
-                    const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
-                    return [{
-                      id: rawId,
-                      eventId: ev.id,
-                      status: (ev as any).myRegistrationStatus || "CONFIRMED",
-                      matchType: (ev as any).matchType || defaultFmt,
-                      playerName: user?.fullName || "Self",
-                      relation: "SELF",
-                    }];
+                  // Direct check on event card's own registrationId / myRegistrationId
+                  const rawId = ev.registrationId || (ev as any).myRegistrationId;
+                  if (rawId && !withdrawnRegistrationIds.has(Number(rawId))) {
+                    const isWithdrawnInMyRegs = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isActiveRegistrationStatus(r.status));
+                    if (!isWithdrawnInMyRegs) {
+                      const matchingRegById = myRegistrations.find(r => Number(r.id) === Number(rawId));
+                      const isTargetMember = matchingRegById
+                        ? isRegistrationForMember(matchingRegById, selectedMemberId)
+                        : (isSelf || !selectedMemberId || selectedMemberId === "self");
+                      if (isTargetMember) {
+                        const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                        const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
+                        const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+                        return [{
+                          id: rawId,
+                          eventId: ev.id,
+                          status: (ev as any).myRegistrationStatus || matchingRegById?.status || "CONFIRMED",
+                          matchType: matchingRegById?.matchType || (ev as any).matchType || defaultFmt,
+                          playerName: matchingRegById?.playerName || user?.fullName || "Self",
+                          relation: matchingRegById?.relation || "SELF",
+                        }];
+                      }
+                    }
                   }
 
                   return [];
@@ -2466,6 +2553,22 @@ export function SportsDashboard() {
                 };
 
                 const handleUnregisterCategory = async (item: OpenRegistration, targetRegId?: number) => {
+                  const checkClosed = (st?: string | null) => {
+                    if (!st) return false;
+                    const s = String(st).toUpperCase().trim();
+                    return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                  };
+                  const isClosed = checkClosed(item.status)
+                    || checkClosed((item.rawEvent as any)?.registrationStatus)
+                    || checkClosed((item.rawEvent as any)?.status)
+                    || checkClosed(t.registrationStatus)
+                    || checkClosed((t as any).status);
+
+                  if (isClosed && !isSportsAdminUser) {
+                    toast.error("Registration is closed for this event. Unregistering is not allowed.");
+                    return;
+                  }
+
                   const allMemberRegs = getMemberRegsForEvent(item);
                   const regs = targetRegId
                     ? allMemberRegs.filter(r => Number(r.id) === targetRegId)
@@ -2592,6 +2695,17 @@ export function SportsDashboard() {
                   : t.mappedEvents;
 
                 const renderCategoryCard = (item: OpenRegistration) => {
+                  const checkClosed = (st?: string | null) => {
+                    if (!st) return false;
+                    const s = String(st).toUpperCase().trim();
+                    return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                  };
+                  const isRegClosed = checkClosed(item.status)
+                    || checkClosed((item.rawEvent as any)?.registrationStatus)
+                    || checkClosed((item.rawEvent as any)?.status)
+                    || checkClosed(t.registrationStatus)
+                    || checkClosed((t as any).status);
+
                   const sportName = (item.category?.split(" · ")[0]) || "Sport";
                   const emoji = item.sportEmoji || getSportEmoji(sportName);
                   const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
@@ -2869,38 +2983,55 @@ export function SportsDashboard() {
                             {isFullyReg ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {regs.length > 1 ? (
-                                  regs.map(r => {
-                                    const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
-                                    const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                                    const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                                    const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                                    const isConfirmedPartner = isPartner || isPartnerFam;
-                                    return (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Registered</span>
+                                    </span>
+                                    {isRegClosed && (
                                       <span
-                                        key={r.id}
-                                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
+                                        title="Registration is closed for this event"
                                       >
-                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                        <span>✓ {fmtLabel}</span>
-                                        {isConfirmedPartner && (
-                                          <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
-                                            Partner
-                                          </span>
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                          title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                          aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                        >
-                                          ✕
-                                        </button>
+                                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                        <span>Registration Closed</span>
                                       </span>
-                                    );
-                                  })
+                                    )}
+                                    {regs.map(r => {
+                                      const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
+                                      const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                      const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                                      const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                                      const isConfirmedPartner = isPartner || isPartnerFam;
+                                      return (
+                                        <span
+                                          key={r.id}
+                                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                                        >
+                                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                          <span>✓ {fmtLabel}</span>
+                                          {isConfirmedPartner && (
+                                            <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
+                                              Partner
+                                            </span>
+                                          )}
+                                          {(!isRegClosed || isSportsAdminUser) && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                              className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                              title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                              aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                            >
+                                              ✕
+                                            </button>
+                                          )}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 ) : (
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     {(() => {
                                       const r = regs[0];
                                       const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
@@ -2908,18 +3039,29 @@ export function SportsDashboard() {
                                       const isConfirmedPartner = isPartner || isPartnerFam;
                                       return (
                                         <>
-                                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
                                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                             <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
                                           </span>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
-                                            className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                            title={isConfirmedPartner ? "Withdraw as partner from this category" : "Unregister from this category"}
-                                          >
-                                            Unregister
-                                          </button>
+                                          {isRegClosed && (
+                                            <span
+                                              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                                              title="Registration is closed for this event"
+                                            >
+                                              <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                              <span>Registration Closed</span>
+                                            </span>
+                                          )}
+                                          {(!isRegClosed || isSportsAdminUser) && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
+                                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                              title={isConfirmedPartner ? "Withdraw as partner from this category" : "Unregister from this category"}
+                                            >
+                                              Unregister
+                                            </button>
+                                          )}
                                         </>
                                       );
                                     })()}
@@ -2928,6 +3070,19 @@ export function SportsDashboard() {
                               </div>
                             ) : isPartiallyReg ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Registered</span>
+                                </span>
+                                {isRegClosed && (
+                                  <span
+                                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
+                                    title="Registration is closed for this event"
+                                  >
+                                    <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                    <span>Registration Closed</span>
+                                  </span>
+                                )}
                                 {regs.map(r => {
                                   const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
                                   const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -2946,15 +3101,17 @@ export function SportsDashboard() {
                                           Partner
                                         </span>
                                       )}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                        className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                        title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                        aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                      >
-                                        ✕
-                                      </button>
+                                      {(!isRegClosed || isSportsAdminUser) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                          title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                          aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
                                     </span>
                                   );
                                 })}
@@ -2962,19 +3119,19 @@ export function SportsDashboard() {
                                   <div className="flex items-center gap-1">
                                     <button
                                       type="button"
-                                      disabled={respondingInviteId === Number(pendingInvite.id)}
+                                      disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
                                       onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
-                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
-                                      title="Decline partner invitation"
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
                                     >
                                       ✕ Decline
                                     </button>
                                     <button
                                       type="button"
-                                      disabled={respondingInviteId === Number(pendingInvite.id)}
+                                      disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
                                       onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
-                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5 disabled:opacity-50"
-                                      title="Accept partner invitation"
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
                                     >
                                       {respondingInviteId === Number(pendingInvite.id) ? (
                                         <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -2984,7 +3141,7 @@ export function SportsDashboard() {
                                       <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
                                     </button>
                                   </div>
-                                ) : (
+                                ) : isRegClosed && !isSportsAdminUser ? null : (
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -3002,19 +3159,19 @@ export function SportsDashboard() {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <button
                                   type="button"
-                                  disabled={respondingInviteId === Number(pendingInvite.id)}
+                                  disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
                                   onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
-                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Decline partner invitation"
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
                                 >
                                   ✕ Decline
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={respondingInviteId === Number(pendingInvite.id)}
+                                  disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
                                   onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
-                                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                                  title="Accept partner invitation"
+                                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
                                 >
                                   {respondingInviteId === Number(pendingInvite.id) ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -3024,19 +3181,57 @@ export function SportsDashboard() {
                                   <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
                                 </button>
                                 {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const isSelfMember = isSelf;
-                                      handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
-                                    }}
-                                    className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
-                                  >
-                                    <span>+ {unregFormats.filter(f => !inviteRawFmt.includes(f)).join(", ")}</span>
-                                    <ArrowUpRight className="w-2.5 h-2.5" />
-                                  </button>
+                                  isRegClosed && !isSportsAdminUser ? (
+                                    <button
+                                      type="button"
+                                      disabled
+                                      title="Registration is closed for this event"
+                                      className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 flex items-center gap-1"
+                                    >
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                      <span>Closed</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const isSelfMember = isSelf;
+                                        handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                                      }}
+                                      className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                    >
+                                      <span>+ {unregFormats.filter(f => !inviteRawFmt.includes(f)).join(", ")}</span>
+                                      <ArrowUpRight className="w-2.5 h-2.5" />
+                                    </button>
+                                  )
                                 )}
                               </div>
+                            ) : isRegClosed && !isSportsAdminUser ? (
+                              (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                    <span>Registered</span>
+                                  </span>
+                                  <span
+                                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                                    title="Registration is closed for this event"
+                                  >
+                                    <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                    <span>Registration Closed</span>
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Registration is closed for this event"
+                                  className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed opacity-75 flex items-center gap-1.5 min-h-[36px]"
+                                >
+                                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Registration Closed</span>
+                                </button>
+                              )
                             ) : isBlocked ? (
                               <span
                                 title={elig.warningMsg}
@@ -4236,65 +4431,94 @@ export function SportsDashboard() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(String(reg.status || "").toUpperCase().trim()) && (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const evName = reg.event?.name || reg.eventName || "this event";
-                                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
-                                  const regId = Number(reg.id);
-                                  if (!isNaN(regId) && regId > 0) {
-                                    setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
-                                    setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
-                                    setOpenTournaments(prev => prev.map(tourney => ({
-                                      ...tourney,
-                                      mappedEvents: tourney.mappedEvents.map(ev => {
-                                        if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
-                                          return {
-                                            ...ev,
-                                            registrationId: undefined,
-                                            action: "Register",
-                                            progress: 0,
-                                            progressColor: "#e2e8f0",
-                                            rawEvent: {
-                                              ...ev.rawEvent,
-                                              myRegistrationId: null,
-                                              myRegistrationStatus: "WITHDRAWN",
-                                            },
-                                          };
-                                        }
-                                        return ev;
-                                      })
-                                    })));
-                                    setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
-                                    try {
+                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(String(reg.status || "").toUpperCase().trim()) && (() => {
+                              const checkClosed = (st?: string | null) => {
+                                if (!st) return false;
+                                const s = String(st).toUpperCase().trim();
+                                return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                              };
+                              const isClosed = checkClosed(reg.eventRegistrationStatus)
+                                || checkClosed((reg.event as any)?.registrationStatus)
+                                || checkClosed((reg.event as any)?.status);
+
+                              if (isClosed && !canAccessAdminSports) {
+                                return (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Registered</span>
+                                    </span>
+                                    <span
+                                      className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
+                                      title="Registration is closed for this event"
+                                    >
+                                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                      <span>Registration Closed</span>
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const evName = reg.event?.name || reg.eventName || "this event";
+                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
+                                    const regId = Number(reg.id);
+                                    if (!isNaN(regId) && regId > 0) {
+                                      setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
+                                      setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
+                                      setOpenTournaments(prev => prev.map(tourney => ({
+                                        ...tourney,
+                                        mappedEvents: tourney.mappedEvents.map(ev => {
+                                          if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
+                                            return {
+                                              ...ev,
+                                              registrationId: undefined,
+                                              action: "Register",
+                                              progress: 0,
+                                              progressColor: "#e2e8f0",
+                                              rawEvent: {
+                                                ...ev.rawEvent,
+                                                myRegistrationId: null,
+                                                myRegistrationStatus: "WITHDRAWN",
+                                              },
+                                            };
+                                          }
+                                          return ev;
+                                        })
+                                      })));
+                                      setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
                                       try {
-                                        await sportsService.withdraw(regId);
-                                      } catch (withdrawErr: any) {
-                                        const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
-                                        if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
-                                          await sportsService.rejectRegistration(regId, "Withdrawn by Admin");
-                                        } else {
-                                          throw withdrawErr;
+                                        try {
+                                          await sportsService.withdraw(regId);
+                                        } catch (withdrawErr: any) {
+                                          const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+                                          if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                                            await sportsService.rejectRegistration(regId, "Withdrawn by Admin");
+                                          } else {
+                                            throw withdrawErr;
+                                          }
                                         }
+                                        toast.success(`Unregistered from ${evName}`);
+                                        window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+                                        await fetchData();
+                                      } catch (err: any) {
+                                        const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+                                        toast.error(msg);
+                                        fetchData();
                                       }
-                                      toast.success(`Unregistered from ${evName}`);
-                                      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
-                                      await fetchData();
-                                    } catch (err: any) {
-                                      const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
-                                      toast.error(msg);
-                                      fetchData();
                                     }
-                                  }
-                                }}
-                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"
-                                title="Unregister from this event"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>Unregister</span>
-                              </button>
-                            )}
+                                  }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"
+                                  title="Unregister from this event"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Unregister</span>
+                                </button>
+                              );
+                            })()}
                             {canAccessAdminSports && (
                               <Link
                                 to="/sports/my-sports"

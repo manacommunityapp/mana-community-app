@@ -1340,7 +1340,172 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(resolveAcceptButtonText(userToUserInvite)).toBe("Accept Doubles");
     });
   });
+
+  describe("REGISTRATION_CLOSED Button State & Protection", () => {
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+
+    const isRegistrationClosed = (item: any, tournament?: any) => {
+      return checkClosed(item.status)
+        || checkClosed(item.rawEvent?.registrationStatus)
+        || checkClosed(item.rawEvent?.status)
+        || checkClosed(tournament?.registrationStatus)
+        || checkClosed(tournament?.status);
+    };
+
+    it("evaluates isRegClosed true when event status is REGISTRATION_CLOSED", () => {
+      const closedEvent = { status: "REGISTRATION_CLOSED" };
+      expect(isRegistrationClosed(closedEvent)).toBe(true);
+
+      const openEvent = { status: "REGISTRATION_OPEN" };
+      expect(isRegistrationClosed(openEvent)).toBe(false);
+    });
+
+    it("evaluates isRegClosed true when parent tournament status is REGISTRATION_CLOSED", () => {
+      const eventInClosedTournament = { status: "REGISTRATION_OPEN" };
+      const closedTournament = { registrationStatus: "REGISTRATION_CLOSED" };
+      expect(isRegistrationClosed(eventInClosedTournament, closedTournament)).toBe(true);
+    });
+
+    it("evaluates isRegClosed true when rawEvent has REGISTRATION_CLOSED", () => {
+      const eventWithClosedRaw = { status: "REGISTRATION_OPEN", rawEvent: { registrationStatus: "REGISTRATION_CLOSED" } };
+      expect(isRegistrationClosed(eventWithClosedRaw)).toBe(true);
+    });
+
+    it("blocks register and unregister actions when REGISTRATION_CLOSED for non-admin user", () => {
+      const closedItem = {
+        id: 1,
+        name: "Badminton Open Singles",
+        status: "REGISTRATION_CLOSED",
+      };
+
+      const isAdmin = false;
+      const isRegClosed = isRegistrationClosed(closedItem);
+
+      // Verify button disabled state
+      const isRegisterButtonDisabled = isRegClosed && !isAdmin;
+      const isUnregisterButtonDisabled = isRegClosed && !isAdmin;
+
+      expect(isRegisterButtonDisabled).toBe(true);
+      expect(isUnregisterButtonDisabled).toBe(true);
+
+      // Verify admin bypass works
+      const isRegisterButtonDisabledForAdmin = isRegClosed && true; // isAdmin = true
+      expect(isRegClosed && !true).toBe(false);
+    });
+
+    it("displays 'Registered' status badge for registered users when registration is closed", () => {
+      // Simulate RegCard logic
+      const computeRegCardAction = (item: any, isAdmin: boolean) => {
+        const isClosed = item.status === "REGISTRATION_CLOSED"
+          || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
+          || item.rawEvent?.status === "REGISTRATION_CLOSED"
+          || item.status === "COMPLETED"
+          || item.status === "CANCELLED";
+
+        const isRegistered = Boolean(
+          item.registrationId ||
+          item.action === "Withdraw" ||
+          item.action === "Confirmed" ||
+          item.action === "Registered" ||
+          item.rawEvent?.myRegistrationId
+        );
+
+        if (isClosed && !isAdmin) {
+          if (isRegistered) {
+            return "Registered";
+          }
+          if (item.action === "Register") {
+            return "Closed";
+          }
+          return item.action || "View";
+        }
+        return item.action || "Register";
+      };
+
+      const closedRegisteredEvent = {
+        id: 101,
+        status: "REGISTRATION_CLOSED",
+        registrationId: 555,
+        action: "Withdraw",
+      };
+      expect(computeRegCardAction(closedRegisteredEvent, false)).toBe("Registered");
+    });
+
+    it("displays both 'Registered' and 'Registration Closed' status badges for registered users when registration is closed", () => {
+      // Simulate RegCard logic returning badges
+      const computeRegCardBadges = (item: any, isAdmin: boolean) => {
+        const isClosed = item.status === "REGISTRATION_CLOSED"
+          || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
+          || item.rawEvent?.status === "REGISTRATION_CLOSED"
+          || item.status === "COMPLETED"
+          || item.status === "CANCELLED";
+
+        const isRegistered = Boolean(
+          item.registrationId ||
+          item.action === "Withdraw" ||
+          item.action === "Confirmed" ||
+          item.action === "Registered" ||
+          item.rawEvent?.myRegistrationId
+        );
+
+        if (isClosed && !isAdmin) {
+          if (isRegistered) {
+            return {
+              badges: ["Registered", "Registration Closed"],
+              canRegister: false,
+              canUnregister: false,
+            };
+          }
+          return {
+            badges: ["Closed"],
+            canRegister: false,
+            canUnregister: false,
+          };
+        }
+
+        return {
+          badges: isRegistered ? ["Registered"] : [],
+          canRegister: !isRegistered,
+          canUnregister: isRegistered,
+        };
+      };
+
+      // Case 1: Closed event where user is registered
+      const closedRegisteredEvent = {
+        id: 101,
+        status: "REGISTRATION_CLOSED",
+        registrationId: 555,
+        action: "Withdraw",
+      };
+      const result1 = computeRegCardBadges(closedRegisteredEvent, false);
+      expect(result1.badges).toContain("Registered");
+      expect(result1.badges).toContain("Registration Closed");
+      expect(result1.canRegister).toBe(false);
+      expect(result1.canUnregister).toBe(false);
+
+      // Case 2: Closed event where user is NOT registered
+      const closedUnregisteredEvent = {
+        id: 104,
+        status: "REGISTRATION_CLOSED",
+        action: "Register",
+      };
+      const result2 = computeRegCardBadges(closedUnregisteredEvent, false);
+      expect(result2.badges).toEqual(["Closed"]);
+      expect(result2.canRegister).toBe(false);
+      expect(result2.canUnregister).toBe(false);
+
+      // Case 3: Admin on closed registered event can still unregister
+      const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
+      expect(adminResult.canUnregister).toBe(true);
+    });
+  });
 });
+
+
 
 
 

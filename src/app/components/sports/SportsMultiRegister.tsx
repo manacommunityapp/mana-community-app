@@ -5,7 +5,7 @@ import {
   Calendar, Sparkles, Check, AlertCircle,
   Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle, Search,
   ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown,
-  UserMinus
+  UserMinus, Lock
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -749,7 +749,8 @@ export function SportsMultiRegister() {
   const backDestination = typeof requestedReturnTo === "string" && requestedReturnTo.startsWith("/")
     ? requestedReturnTo
     : "/sports";
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
+  const isSportsAdminUser = Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [searchParams] = useSearchParams();
   const queryFor = searchParams.get("for");
   const queryMemberId = searchParams.get("memberId");
@@ -1826,6 +1827,20 @@ export function SportsMultiRegister() {
   // Direct Unregister / Withdrawal Handler
   const handleUnregister = async (eventId: number, passedRegId?: number) => {
     const ev = eventSelections.find(e => e.eventId === eventId);
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+    const isClosed = checkClosed((ev as any)?.registrationStatus)
+      || checkClosed(tournament?.registrationStatus)
+      || checkClosed((tournament as any)?.status);
+
+    if (isClosed && !isSportsAdminUser) {
+      toast.error("Registration is closed for this event. Unregistering is not allowed.");
+      return;
+    }
+
     const regsToWithdraw = findAllRegistrationsForParticipant(eventId);
     const targetRegIds: number[] = [];
 
@@ -1915,6 +1930,19 @@ export function SportsMultiRegister() {
 
     const ev = eventSelections.find(e => e.eventId === eventId);
     if (!ev) return;
+
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+    const isClosed = checkClosed((ev as any)?.registrationStatus)
+      || checkClosed(tournament?.registrationStatus)
+      || checkClosed((tournament as any)?.status);
+    if (isClosed && !isSportsAdminUser) {
+      toast.error("Registration is closed for this event.");
+      return;
+    }
 
     const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
     const selectedCategory = categories.find(c => c.id === ev.categoryId) || eventCats[0];
@@ -2181,6 +2209,20 @@ export function SportsMultiRegister() {
     let hasEligibilityIssues = false;
 
     for (const ev of selectedEvents) {
+      const checkClosed = (st?: string | null) => {
+        if (!st) return false;
+        const s = String(st).toUpperCase().trim();
+        return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+      };
+      const isClosed = checkClosed((ev as any)?.registrationStatus)
+        || checkClosed(tournament?.registrationStatus)
+        || checkClosed((tournament as any)?.status);
+      if (isClosed && !isSportsAdminUser) {
+        newEventErrors[ev.eventId] = "Registration is closed for this event";
+        hasEligibilityIssues = true;
+        continue;
+      }
+
       const selectedCategory = categories.find(c => c.id === ev.categoryId);
       if (!selectedCategory) {
         newEventErrors[ev.eventId] = "Please select a category bracket for this sport";
@@ -3165,6 +3207,14 @@ export function SportsMultiRegister() {
                           const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
                           const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
                           const hasError = Boolean(eventErrors[ev.eventId]);
+                          const checkClosed = (st?: string | null) => {
+                            if (!st) return false;
+                            const s = String(st).toUpperCase().trim();
+                            return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                          };
+                          const isEvClosed = checkClosed((ev as any)?.registrationStatus)
+                            || checkClosed(tournament?.registrationStatus)
+                            || checkClosed((tournament as any)?.status);
 
                           return (
                             <div key={ev.eventId} className={`px-2.5 py-2 sm:px-3 sm:py-2.5 transition-colors ${
@@ -3174,8 +3224,9 @@ export function SportsMultiRegister() {
                                 <input
                                   type="checkbox"
                                   checked={ev.selected}
+                                  disabled={isEvClosed && !isSportsAdminUser}
                                   onChange={() => toggleEventSelection(ev.eventId)}
-                                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0"
+                                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
 
                                 <div className="flex-1 min-w-0">
@@ -3208,19 +3259,31 @@ export function SportsMultiRegister() {
                                   ))}
                                 </select>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleSingleRegister(ev.eventId)}
-                                  disabled={registeringEventId === ev.eventId}
-                                  className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
-                                >
-                                  {registeringEventId === ev.eventId ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3 h-3" />
-                                  )}
-                                  <span className="hidden sm:inline">Register</span>
-                                </button>
+                                {isEvClosed && !isSportsAdminUser ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="Registration is closed for this event"
+                                    className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed opacity-75 flex items-center gap-1 shrink-0"
+                                  >
+                                    <Lock className="w-3 h-3 text-slate-400" />
+                                    <span className="hidden sm:inline">Closed</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSingleRegister(ev.eventId)}
+                                    disabled={registeringEventId === ev.eventId}
+                                    className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
+                                  >
+                                    {registeringEventId === ev.eventId ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="w-3 h-3" />
+                                    )}
+                                    <span className="hidden sm:inline">Register</span>
+                                  </button>
+                                )}
                               </div>
                               {/* Dropdowns & Options section (participant formats, category bracket & mobile role) */}
                               <div className="mt-1.5 pl-6 sm:pl-6 space-y-2 w-full max-w-full overflow-hidden">
@@ -3569,20 +3632,45 @@ export function SportsMultiRegister() {
                                   <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold flex items-center gap-1">
                                     <Check className="w-3 h-3 stroke-[2.5]" /> Registered
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUnregister(ev.eventId, ev.registrationId)}
-                                    disabled={unregisteringEventId === ev.eventId}
-                                    title="Unregister from this sports event"
-                                    className="min-h-[28px] px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 transition active:scale-95"
-                                  >
-                                    {unregisteringEventId === ev.eventId ? (
-                                      <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
-                                    ) : (
-                                      <UserMinus className="w-3 h-3 text-rose-600" />
-                                    )}
-                                    <span>Unregister</span>
-                                  </button>
+                                  {(() => {
+                                    const checkClosed = (st?: string | null) => {
+                                      if (!st) return false;
+                                      const s = String(st).toUpperCase().trim();
+                                      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                                    };
+                                    const isEvClosed = checkClosed((ev as any)?.registrationStatus)
+                                      || checkClosed(tournament?.registrationStatus)
+                                      || checkClosed((tournament as any)?.status);
+
+                                    if (isEvClosed && !isSportsAdminUser) {
+                                      return (
+                                        <span
+                                          className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-semibold flex items-center gap-1"
+                                          title="Registration is closed for this event"
+                                        >
+                                          <Lock className="w-3 h-3 text-slate-400" />
+                                          <span>Registration Closed</span>
+                                        </span>
+                                      );
+                                    }
+
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnregister(ev.eventId, ev.registrationId)}
+                                        disabled={unregisteringEventId === ev.eventId}
+                                        title="Unregister from this sports event"
+                                        className="min-h-[28px] px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 transition active:scale-95"
+                                      >
+                                        {unregisteringEventId === ev.eventId ? (
+                                          <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
+                                        ) : (
+                                          <UserMinus className="w-3 h-3 text-rose-600" />
+                                        )}
+                                        <span>Unregister</span>
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
