@@ -8,6 +8,7 @@ import { sportsService } from "../../../services/sports/sportsService";
 import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
+import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
 
 export function TournamentScheduler() {
   const { token, user } = useAuth() as any;
@@ -433,10 +434,45 @@ export function TournamentScheduler() {
                         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewPlayers.length}</span>
                       </div>
                       {viewPlayers.length ? <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 sm:gap-1 sm:p-2">
-                        {viewPlayers.map((player) => <div key={player.id} className="flex min-w-0 items-center justify-between gap-3 px-3 py-2.5 sm:rounded-lg sm:px-2.5">
-                          <div className="min-w-0"><p className="m-0 truncate text-xs font-bold text-slate-800">{player.playerName || player.user?.fullName || "Player"}</p><p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{[player.category?.name, player.flatNumber].filter(Boolean).join(" · ") || player.status}</p></div>
-                          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700">{player.status}</span>
-                        </div>)}
+                        {viewPlayers.map((player) => {
+                          const partnerInfo = getPartnerDetails(player, viewPlayers, event);
+                          const isDoubles = partnerInfo.isDoublesEvent;
+                          return (
+                            <div key={player.id} className="flex min-w-0 items-start justify-between gap-3 px-3 py-2.5 sm:rounded-lg sm:px-2.5 hover:bg-slate-50 transition-colors">
+                              <div className="min-w-0 flex-1">
+                                <p className="m-0 truncate text-xs font-bold text-slate-800">
+                                  {player.playerName || player.user?.fullName || "Player"}
+                                </p>
+                                {isDoubles && partnerInfo.hasPartner && (
+                                  <p className="m-0 mt-0.5 truncate text-[11px] font-semibold text-indigo-700 flex items-center gap-1">
+                                    <span>+ {partnerInfo.name}</span>
+                                    {partnerInfo.relation && (
+                                      <span className="text-[9px] text-slate-500 font-normal">({partnerInfo.relation})</span>
+                                    )}
+                                    <span className={`inline-block text-[8px] font-bold px-1.5 py-0.2 rounded-full ${
+                                      partnerInfo.isConfirmed ? "bg-emerald-100 text-emerald-800" :
+                                      partnerInfo.isDeclined ? "bg-rose-100 text-rose-800" :
+                                      "bg-amber-100 text-amber-800"
+                                    }`}>
+                                      {partnerInfo.statusLabel}
+                                    </span>
+                                  </p>
+                                )}
+                                {isDoubles && !partnerInfo.hasPartner && (
+                                  <p className="m-0 mt-0.5 truncate text-[10px] italic text-amber-600">
+                                    {partnerInfo.isOpenPool ? "Seeking Partner (Open Pool)" : "No Partner Assigned"}
+                                  </p>
+                                )}
+                                <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">
+                                  {[player.category?.name, player.flatNumber].filter(Boolean).join(" · ") || player.status}
+                                </p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                                {player.status}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div> : <p className="m-0 px-4 py-5 text-center text-xs text-slate-500">No confirmed or registered players are available for this event.</p>}
                     </section>
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -451,9 +487,9 @@ export function TournamentScheduler() {
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-600">{String(match.status || "SCHEDULED").replaceAll("_", " ")}</span>
                           </div>
                           <div className="my-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg bg-slate-50 px-3 py-3">
-                            <div className="min-w-0"><p className="m-0 truncate text-xs font-bold text-slate-800">{match.teamAName || match.homeName || "TBD"}</p>{match.scoreTeamA != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamA}</p>}</div>
+                            <div className="min-w-0"><p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamAName || match.homeName || "TBD"}>{match.teamAName || match.homeName || "TBD"}</p>{match.scoreTeamA != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamA}</p>}</div>
                             <span className="text-[9px] font-bold text-slate-400">VS</span>
-                            <div className="min-w-0 text-right"><p className="m-0 truncate text-xs font-bold text-slate-800">{match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}</p>{match.scoreTeamB != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamB}</p>}</div>
+                            <div className="min-w-0 text-right"><p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}>{match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}</p>{match.scoreTeamB != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamB}</p>}</div>
                           </div>
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
                             <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{matchDateLabel(match.scheduledAt || match.matchDate || match.date)}</span>

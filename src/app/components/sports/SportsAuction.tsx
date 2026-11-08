@@ -1381,7 +1381,7 @@ export function SportsAuction() {
               {/* Sport Filter Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100">
                 <span className="text-[11px] text-slate-400 mr-1 flex-shrink-0">Sport:</span>
-                {["ALL", "Cricket", "Badminton", "Football", "Volleyball"].map(sp => (
+                {["ALL", "Cricket", "Cricket (Tennis Ball)", "Badminton", "Football", "Volleyball"].map(sp => (
                   <button
                     key={sp}
                     type="button"
@@ -1392,7 +1392,17 @@ export function SportsAuction() {
                         : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200"
                     }`}
                   >
-                    {sp === "Cricket" ? "🏏 Cricket" : sp === "Badminton" ? "🏸 Badminton" : sp === "Football" ? "⚽ Football" : sp === "Volleyball" ? "🏐 Volleyball" : "🌐 All Sports"}
+                    {sp === "Cricket"
+                      ? "🏏 Cricket"
+                      : sp === "Cricket (Tennis Ball)"
+                      ? "🏏 Cricket (Tennis Ball)"
+                      : sp === "Badminton"
+                      ? "🏸 Badminton"
+                      : sp === "Football"
+                      ? "⚽ Football"
+                      : sp === "Volleyball"
+                      ? "🏐 Volleyball"
+                      : "🌐 All Sports"}
                   </button>
                 ))}
               </div>
@@ -1404,7 +1414,14 @@ export function SportsAuction() {
                 if (selectedEventId && c.eventId && c.eventId !== selectedEventId) return false;
                 if (configFilterSport !== "ALL") {
                   const sName = (c.sportName || "").toLowerCase();
-                  if (sName !== configFilterSport.toLowerCase()) return false;
+                  const fName = configFilterSport.toLowerCase();
+                  if (fName === "cricket (tennis ball)") {
+                    if (!sName.includes("tennis ball")) return false;
+                  } else if (fName === "cricket") {
+                    if (!sName.includes("cricket") || sName.includes("tennis ball")) return false;
+                  } else if (sName !== fName) {
+                    return false;
+                  }
                 }
                 if (configFilterStatus !== "ALL" && c.status !== configFilterStatus) return false;
                 if (configSearchQuery.trim()) {

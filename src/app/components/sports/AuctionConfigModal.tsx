@@ -55,6 +55,7 @@ export interface AuctionConfigModalProps {
 
 export const SPORT_OPTIONS = [
   { id: 1, name: "Cricket", emoji: "🏏" },
+  { id: 8, name: "Cricket (Tennis Ball)", emoji: "🏏" },
   { id: 2, name: "Badminton", emoji: "🏸" },
   { id: 3, name: "Football", emoji: "⚽" },
   { id: 4, name: "Volleyball", emoji: "🏐" },
@@ -65,13 +66,17 @@ export const SPORT_OPTIONS = [
 
 export const DEFAULT_CATEGORY_PRESETS: Record<string, string[]> = {
   cricket: ["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"],
+  "cricket (tennis ball)": ["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"],
+  "cricket tennis ball": ["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"],
   badminton: ["Men's Singles", "Women's Singles", "Men's Doubles", "Mixed Doubles"],
   football: ["Forwards", "Midfielders", "Defenders", "Goalkeepers"],
   volleyball: ["Attackers / Spikers", "Setters", "Blockers", "Liberos"],
 };
 
 export function getSportCategoryPreset(sportName: string): string[] {
-  const key = (sportName || "").toLowerCase();
+  const key = (sportName || "").toLowerCase().trim();
+  if (DEFAULT_CATEGORY_PRESETS[key]) return DEFAULT_CATEGORY_PRESETS[key];
+  if (key.includes("cricket")) return DEFAULT_CATEGORY_PRESETS.cricket;
   return DEFAULT_CATEGORY_PRESETS[key] || ["General"];
 }
 
@@ -171,6 +176,15 @@ export function extractEventMetrics(ev: any): EventSyncMetrics {
     metrics.sportId = ev.sport.id;
   } else if (typeof ev.sportId === "number") {
     metrics.sportId = ev.sportId;
+  } else if (ev.sport?.name || ev.sportName) {
+    const sName = String(ev.sport?.name || ev.sportName).toLowerCase().trim();
+    const matched =
+      (sName.includes("tennis ball") ? SPORT_OPTIONS.find((s) => s.name.toLowerCase().includes("tennis ball")) : undefined) ||
+      SPORT_OPTIONS.find((s) => s.name.toLowerCase() === sName) ||
+      (sName.includes("cricket") ? SPORT_OPTIONS.find((s) => s.name.toLowerCase() === "cricket") : undefined);
+    if (matched) {
+      metrics.sportId = matched.id;
+    }
   }
 
   // 2. Extract Total Players
@@ -303,9 +317,9 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
       setSportId(syncMetrics.sportId);
       if (!isEditMode) {
         const sportObj = SPORT_OPTIONS.find((s) => s.id === syncMetrics.sportId);
-        const sportKey = sportObj?.name.toLowerCase() || "";
-        if (DEFAULT_CATEGORY_PRESETS[sportKey]) {
-          setCategories(DEFAULT_CATEGORY_PRESETS[sportKey]);
+        const preset = getSportCategoryPreset(sportObj?.name || "");
+        if (preset && preset.length > 0) {
+          setCategories([...preset]);
         }
       }
     }
@@ -459,9 +473,9 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
     setSportId(newSportId);
     if (!isEditMode) {
       const sportObj = SPORT_OPTIONS.find((s) => s.id === newSportId);
-      const sportKey = sportObj?.name.toLowerCase() || "";
-      if (DEFAULT_CATEGORY_PRESETS[sportKey]) {
-        setCategories(DEFAULT_CATEGORY_PRESETS[sportKey]);
+      const preset = getSportCategoryPreset(sportObj?.name || "");
+      if (preset && preset.length > 0) {
+        setCategories([...preset]);
       }
     }
   };
@@ -497,8 +511,8 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
   };
 
   const handleApplyPreset = (sportName: string) => {
-    const preset = DEFAULT_CATEGORY_PRESETS[sportName.toLowerCase()];
-    if (preset) {
+    const preset = getSportCategoryPreset(sportName);
+    if (preset && preset.length > 0) {
       setCategories([...preset]);
       toast.success(`Applied ${sportName} category presets`);
     }
@@ -1173,7 +1187,7 @@ export const AuctionConfigModal: React.FC<AuctionConfigModalProps> = ({
                   </label>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-medium">Quick presets:</span>
-                    {Object.keys(DEFAULT_CATEGORY_PRESETS).map((sportKey) => (
+                    {["cricket", "badminton", "football", "volleyball"].map((sportKey) => (
                       <button
                         key={sportKey}
                         type="button"

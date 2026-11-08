@@ -18,6 +18,7 @@ import { PlayoffBracketView } from './PlayoffBracketView';
 import { ScheduleSaveFooter } from './ScheduleSaveFooter';
 import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
 import { FixturesListView } from './FixturesListView';
+import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
 import {
   exportScheduleToCSV,
   exportScheduleToExcel,
@@ -738,6 +739,34 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         (r: EventRegistration) => r.status === 'CONFIRMED' || r.status === 'REGISTERED'
       );
       setConfirmedRegistrations(confirmed);
+
+      // If format is doubles and reciprocal registrations exist, adjust participants count to unique pairs
+      const rawFmt = ev?.formats || ev?.format;
+      const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+      const isEvDoubles = fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+        Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2) ||
+        Boolean(ev?.name && ev.name.toLowerCase().includes('doubles'));
+
+      if (isEvDoubles && confirmed.length > 0) {
+        const processed = new Set<number>();
+        let pairCount = 0;
+        for (const r of confirmed) {
+          if (processed.has(r.id)) continue;
+          processed.add(r.id);
+          if (r.partnerUserId != null) {
+            const reciprocal = confirmed.find(
+              o => o.id !== r.id &&
+                ((o.user?.id != null && o.user.id === r.partnerUserId) || o.id === r.partnerUserId) &&
+                (o.partnerUserId === r.user?.id || o.partnerUserId === r.id)
+            );
+            if (reciprocal) processed.add(reciprocal.id);
+          }
+          pairCount++;
+        }
+        if (pairCount > 0) {
+          setParticipants(String(pairCount));
+        }
+      }
     } else {
       setConfirmedRegistrations([]);
     }
@@ -892,18 +921,68 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
       : [];
 
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    const fmt = ev ? formatParticipantFormat(ev) : '';
+    const isDoubles = fmt.toLowerCase().includes('doubles') || Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2);
+
+    // If doubles, deduplicate reciprocal pairs (when Player A registered with B, and B registered with A)
+    const processedRegIds = new Set<number>();
+    const effectiveRegistrations: EventRegistration[] = [];
+
+    for (const reg of confirmedRegistrations) {
+      if (processedRegIds.has(reg.id)) continue;
+      processedRegIds.add(reg.id);
+
+      if (isDoubles && reg.partnerUserId != null) {
+        const reciprocal = confirmedRegistrations.find(
+          other => other.id !== reg.id &&
+            ((other.user?.id != null && other.user.id === reg.partnerUserId) || other.id === reg.partnerUserId) &&
+            (other.partnerUserId === reg.user?.id || other.partnerUserId === reg.id)
+        );
+        if (reciprocal) {
+          processedRegIds.add(reciprocal.id);
+        }
+      }
+      effectiveRegistrations.push(reg);
+    }
+
     for (let i = 0; i < count; i++) {
       if (customLines[i]) {
         allParts.push({
           id: `P${i + 1}`,
           name: customLines[i],
         });
-      } else if (i < confirmedRegistrations.length) {
-        const reg = confirmedRegistrations[i];
+      } else if (i < effectiveRegistrations.length) {
+        const reg = effectiveRegistrations[i];
+        let displayName = reg.playerName || reg.user?.fullName || `Participant ${i + 1}`;
+        let flatDisplay = reg.flatNumber || reg.user?.community?.name || undefined;
+
+        if (isDoubles) {
+          const partnerInfo = getPartnerDetails(reg as any, confirmedRegistrations as any, ev);
+          const primaryName = reg.playerName || reg.user?.fullName || 'Player';
+          if (partnerInfo.hasPartner && partnerInfo.name) {
+            const partnerName = partnerInfo.name;
+            if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+              displayName = `${reg.proposedTeamName.trim()} (${primaryName} / ${partnerName})`;
+            } else {
+              displayName = `${primaryName} / ${partnerName}`;
+            }
+            if (partnerInfo.flat && partnerInfo.flat !== flatDisplay) {
+              flatDisplay = flatDisplay ? `${flatDisplay} / ${partnerInfo.flat}` : partnerInfo.flat;
+            }
+          } else if (partnerInfo.isOpenPool) {
+            displayName = `${primaryName} / [Seeking Partner]`;
+          } else {
+            displayName = `${primaryName} / [Partner Invited]`;
+          }
+        } else if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+          displayName = `${reg.proposedTeamName.trim()} (${displayName})`;
+        }
+
         allParts.push({
           id: `P${i + 1}`,
-          name: reg.playerName || reg.user?.fullName || `Participant ${i + 1}`,
-          flatNumber: reg.flatNumber || reg.user?.community?.name || undefined,
+          name: displayName,
+          flatNumber: flatDisplay,
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
         });
       } else {

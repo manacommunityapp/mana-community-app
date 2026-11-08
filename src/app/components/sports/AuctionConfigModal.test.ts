@@ -137,6 +137,9 @@ describe("AuctionConfigModal validation & business logic", () => {
     it("returns correct presets for supported sports", () => {
       expect(getSportCategoryPreset("cricket")).toEqual(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
       expect(getSportCategoryPreset("Cricket")).toEqual(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
+      expect(getSportCategoryPreset("Cricket (Tennis Ball)")).toEqual(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
+      expect(getSportCategoryPreset("cricket (tennis ball)")).toEqual(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
+      expect(getSportCategoryPreset("cricket tennis ball")).toEqual(["Batsmen", "Bowlers", "All-rounders", "Wicket-Keepers"]);
       expect(getSportCategoryPreset("badminton")).toEqual(["Men's Singles", "Women's Singles", "Men's Doubles", "Mixed Doubles"]);
       expect(getSportCategoryPreset("football")).toEqual(["Forwards", "Midfielders", "Defenders", "Goalkeepers"]);
       expect(getSportCategoryPreset("volleyball")).toEqual(["Attackers / Spikers", "Setters", "Blockers", "Liberos"]);
@@ -151,8 +154,14 @@ describe("AuctionConfigModal validation & business logic", () => {
       expect(SPORT_OPTIONS.length).toBeGreaterThanOrEqual(5);
       const names = SPORT_OPTIONS.map(s => s.name.toLowerCase());
       expect(names).toContain("cricket");
+      expect(names).toContain("cricket (tennis ball)");
       expect(names).toContain("badminton");
       expect(names).toContain("football");
+
+      const tennisBallCricket = SPORT_OPTIONS.find(s => s.name === "Cricket (Tennis Ball)");
+      expect(tennisBallCricket).toBeDefined();
+      expect(tennisBallCricket?.id).toBe(8);
+      expect(tennisBallCricket?.emoji).toBe("🏏");
     });
   });
 
@@ -336,6 +345,32 @@ describe("AuctionConfigModal validation & business logic", () => {
       expect(resLow.totalPlayers).toBeUndefined();
     });
 
+    it("resolves Cricket (Tennis Ball) sportId correctly from sport name", () => {
+      const event = {
+        id: 110,
+        name: "Tennis Ball Box Cricket Cup",
+        sportName: "Cricket (Tennis Ball)",
+      };
+      const res = extractEventMetrics(event);
+      expect(res.sportId).toBe(8);
+
+      const eventTennisBallOnly = {
+        id: 111,
+        name: "Gully Tennis Ball Cricket",
+        sport: { name: "Tennis Ball Cricket" },
+      };
+      const res2 = extractEventMetrics(eventTennisBallOnly);
+      expect(res2.sportId).toBe(8);
+
+      const eventStandardCricket = {
+        id: 112,
+        name: "Leather Ball Cricket Tournament",
+        sportName: "Cricket",
+      };
+      const res3 = extractEventMetrics(eventStandardCricket);
+      expect(res3.sportId).toBe(1);
+    });
+
     it("handles null or undefined event gracefully without crashing", () => {
       expect(extractEventMetrics(null)).toEqual({});
       expect(extractEventMetrics(undefined)).toEqual({});
@@ -343,3 +378,4 @@ describe("AuctionConfigModal validation & business logic", () => {
     });
   });
 });
+
