@@ -71,6 +71,7 @@ const safeFormatDate = (dateStr: string, formatStr: string) => {
 
 interface ScheduleEntry {
   id: number;
+  registrationId?: number;
   date: string;
   endDate: string;
   time: string;
@@ -81,6 +82,10 @@ interface ScheduleEntry {
   category: string;
   status: string;
   statusColor: string;
+  playerName?: string;
+  partnerName?: string;
+  partnerStatus?: string;
+  isDoubles?: boolean;
 }
 
 
@@ -105,9 +110,32 @@ function MyMatchCard({ item }: { item: ScheduleEntry }) {
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wide" style={{ color: sportColors.color }}>{item.sport}</span>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${statusTone}`}>{statusLabel}</span>
+              {item.isDoubles && (
+                <span className="rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/15 px-2 py-0.5 text-[10px] font-bold uppercase">Doubles</span>
+              )}
             </div>
             <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">{item.name}</h3>
             <p className="mt-1 text-xs text-slate-500">{item.category}</p>
+            {item.playerName && item.playerName !== item.name && (
+              <p className="mt-1 text-xs text-slate-700">
+                Player: <span className="font-bold text-slate-900">{item.playerName}</span>
+              </p>
+            )}
+            {item.partnerName && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-indigo-900 bg-indigo-50/70 border border-indigo-100 rounded-lg px-2.5 py-1 w-fit">
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>Partner: <strong className="font-semibold">{item.partnerName}</strong></span>
+                {item.partnerStatus && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                    ["CONFIRMED", "ACCEPTED"].includes(item.partnerStatus.toUpperCase()) ? "bg-emerald-100 text-emerald-800" :
+                    ["DECLINED", "REJECTED"].includes(item.partnerStatus.toUpperCase()) ? "bg-rose-100 text-rose-800" :
+                    "bg-amber-100 text-amber-800"
+                  }`}>
+                    {item.partnerStatus.toUpperCase() === "CONFIRMED" ? "Confirmed" : item.partnerStatus}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:w-[310px] sm:shrink-0 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
@@ -143,6 +171,13 @@ type BracketMatch = {
 type BracketRound = { name: string; matches: BracketMatch[] };
 
 function getPlayerInitials(fullName: string): string {
+  if (!fullName) return "";
+  if (fullName.includes(" / ")) {
+    return fullName.split(" / ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" / ");
+  }
+  if (fullName.includes(" & ")) {
+    return fullName.split(" & ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" & ");
+  }
   return fullName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
@@ -263,14 +298,22 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           return;
         }
 
-        const players = confirmed
-          .filter(r => r.user)
-          .map(r => ({
-            id: r.user!.id,
-            initials: getPlayerInitials(r.user!.fullName),
-            fullName: r.user!.fullName,
+        const players = confirmed.map((r, idx) => {
+          let name = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
+          const rawFmt = r.matchFormat || r.matchType || (r as any).format;
+          const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
+          const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") || Boolean(r.partnerName || r.partner?.fullName);
+          if (isDoubles) {
+            const pName = r.partnerName || r.partner?.fullName || r.partnerFamilyMember?.name;
+            if (pName) name = `${name} / ${pName}`;
+          }
+          return {
+            id: r.user?.id ?? r.id,
+            initials: getPlayerInitials(name),
+            fullName: name,
             flatNumber: r.flatNumber || undefined,
-          }));
+          };
+        });
 
         const generatedRounds = generateKnockoutBracket(players);
         setRounds(generatedRounds);
@@ -958,14 +1001,21 @@ export function SportsSchedule() {
           activeRegistrations.forEach((registration: any) => {
             const eventName = registration.eventName ?? registration.event?.name ?? "Sports event";
             const sport = registration.sportName ?? registration.event?.sportName ?? "Other";
-            const eventKey = registration.eventId != null
-              ? String(registration.eventId)
-              : `${sport.toLowerCase()}:${eventName.toLowerCase()}`;
+            const registrationId = registration.id != null ? String(registration.id) : null;
+            const eventKey = registrationId
+              ? `reg:${registrationId}`
+              : `${sport.toLowerCase()}:${eventName.toLowerCase()}:${registration.playerName || ""}`;
             if (registeredEvents.has(eventKey)) return;
+
+            const rawFmt = registration.format || registration.matchType || registration.event?.format;
+            const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
+            const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") ||
+              Boolean(registration.partnerName || registration.partnerUserId || registration.partnerFamilyMemberId);
 
             const status = String(registration.status ?? "REGISTERED").toUpperCase();
             registeredEvents.set(eventKey, {
               id: Number(registration.eventId ?? registration.id),
+              registrationId: registration.id,
               date: registration.eventDateStart ?? registration.event?.eventDateStart ?? "",
               endDate: registration.eventDateEnd ?? registration.event?.eventDateEnd ?? "",
               time: registration.startTime ?? registration.event?.startTime ?? "",
@@ -976,6 +1026,10 @@ export function SportsSchedule() {
               category: registration.categoryName ?? registration.category?.name ?? "General category",
               status,
               statusColor: status === "CONFIRMED" || status === "REGISTERED" ? "#10b981" : "#f97316",
+              playerName: registration.playerName || registration.user?.fullName,
+              partnerName: registration.partnerName || registration.partner?.fullName,
+              partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
+              isDoubles,
             });
           });
 

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { sportsService } from "../../../services/sports/sportsService";
+import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
 import { userService } from "../../../services/common/userService";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { SportsTournament, UserResponse } from "../../../types/api";
@@ -280,16 +280,17 @@ export function TournamentPaymentContactsModal({
         },
       ];
 
-      // Update tournament via sportsService
-      const payload: any = {
-        name: tournament.name,
-        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
-        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
-        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
-        otherContacts: JSON.stringify(updatedOther),
-      };
-
-      await sportsService.updateTournament(tournament.id, payload);
+      // Update tournament payment coordinators (otherContacts)
+      await tournamentPaymentService.updateTournamentOtherContacts(
+        tournament.id,
+        JSON.stringify(updatedOther),
+        {
+          ...tournament,
+          communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
+        }
+      );
 
       // Mutate local tournament object
       tournament.otherContacts = JSON.stringify(updatedOther);
@@ -333,15 +334,18 @@ export function TournamentPaymentContactsModal({
         (c) => !(c.name === coordToRemove.name && c.detail === coordToRemove.detail)
       );
 
-      const payload: any = {
-        name: tournament.name,
-        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
-        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
-        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
-        otherContacts: JSON.stringify(updatedOther),
-      };
+      // Update tournament payment coordinators (otherContacts)
+      await tournamentPaymentService.updateTournamentOtherContacts(
+        tournament.id,
+        JSON.stringify(updatedOther),
+        {
+          ...tournament,
+          communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
+        }
+      );
 
-      await sportsService.updateTournament(tournament.id, payload);
       tournament.otherContacts = JSON.stringify(updatedOther);
       if (onTournamentUpdated) {
         onTournamentUpdated({

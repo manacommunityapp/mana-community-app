@@ -21,6 +21,15 @@ import {
   VolumeX,
   Sparkles,
   Lock,
+  Plus,
+  Edit3,
+  Sliders,
+  Tag,
+  IndianRupee,
+  Filter,
+  ArrowRight,
+  Clock,
+  Shield,
 } from "lucide-react";
 import {
   auctionAudio,
@@ -29,6 +38,7 @@ import {
   AuctionRtmModal,
   type RtmPromptData,
 } from "./auction";
+import { AuctionConfigModal, parseDisputeCommitteeIds } from "./AuctionConfigModal";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
@@ -44,7 +54,7 @@ import {
   VIEW_AUCTION_RESULTS, CREATE_EDIT_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration, AuctionEvent } from "../../../types/api";
+import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration, AuctionEvent, AuctionConfigResponse } from "../../../types/api";
 import type { CricHeroesPlayerProfile } from "../../../types/sportsCricheroes";
 import { sportsCricHeroesService } from "../../../services/sports/sportsCricHeroesService";
 import { SportsCricHeroesProfileCard } from "./SportsCricHeroesProfileCard";
@@ -79,6 +89,8 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
     players: summary.players || [],
   };
 };
+
+export { parseDisputeCommitteeIds };
 
 export function SportsAuction() {
   const {
@@ -168,9 +180,15 @@ export function SportsAuction() {
   const [auctionFormat, setAuctionFormat] = useState("OPEN_AUCTION");
   const [bidTimerSeconds, setBidTimerSeconds] = useState(30);
 
-  // Event Selection State
-  const [availableConfigs, setAvailableConfigs] = useState<any[]>([]);
+  // Event Selection & Config Management State
+  const [availableConfigs, setAvailableConfigs] = useState<AuctionConfigResponse[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(eventId ? Number(eventId) : null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [editingAuctionConfig, setEditingAuctionConfig] = useState<AuctionConfigResponse | null>(null);
+  const [configFilterSport, setConfigFilterSport] = useState<string>("ALL");
+  const [configFilterStatus, setConfigFilterStatus] = useState<string>("ALL");
+  const [configSearchQuery, setConfigSearchQuery] = useState<string>("");
+  const [showInlineConfigEditor, setShowInlineConfigEditor] = useState(false);
 
   // Live Auction State
   const [players, setPlayers] = useState<AuctionPlayer[]>([]);
@@ -276,6 +294,37 @@ export function SportsAuction() {
       clearTimeout(fallbackTimer);
     };
   }, []);
+
+  const loadCommunityConfigs = useCallback(() => {
+    auctionService.getAllCommunityConfigs().then(configs => {
+      const configList = Array.isArray(configs) ? configs : [];
+      setAvailableConfigs(configList);
+    }).catch(err => {
+      console.error("Failed to refresh configs", err);
+    });
+  }, []);
+
+  const handleConfigSaved = (savedConfig: AuctionConfigResponse) => {
+    loadCommunityConfigs();
+    setSelectedConfigId(savedConfig.id);
+    setSelectedEventId(savedConfig.eventId || null);
+    setAuctionStatus(savedConfig.status);
+    setSport(savedConfig.sportName?.toLowerCase() || 'cricket');
+    setSeasonName(savedConfig.seasonName);
+  };
+
+  const handleStatusChangeForConfig = async (configId: number, targetStatus: string) => {
+    try {
+      await auctionService.updateStatus(configId, targetStatus);
+      toast.success(`Auction status changed to ${targetStatus}`);
+      loadCommunityConfigs();
+      if (selectedConfigId === configId) {
+        setAuctionStatus(targetStatus);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || `Failed to change status to ${targetStatus}`);
+    }
+  };
 
   // Fetch from backend when selectedConfigId changes
   useEffect(() => {
@@ -396,9 +445,9 @@ export function SportsAuction() {
         }
         setFamilyRelationMap(relMap);
 
-        // Hydrate committee
-        if (event.disputeCommitteeIds) {
-          const ids = event.disputeCommitteeIds.split(',').map(Number);
+        // Hydrate committee safely regardless of whether backend returns array, string, or number
+        const ids = parseDisputeCommitteeIds(event.disputeCommitteeIds);
+        if (ids.length > 0) {
           const members = confirmed.filter(r => ids.includes(Number(r.id)));
           setCommittee(members);
         } else {
@@ -408,7 +457,17 @@ export function SportsAuction() {
         // Fetch all community users for this event's community
         if (event.community?.id) {
           userService.getCommunityUsers(event.community.id)
-            .then(users => setCommunityUsers(users.map(u => ({ id: u.id, name: u.fullName || 'Unnamed User' }))))
+            .then(users => {
+              const mappedUsers = users.map(u => ({ id: u.id, name: u.fullName || 'Unnamed User' }));
+              setCommunityUsers(mappedUsers);
+              // Fallback: if committee wasn't found in confirmed registrations, check community users
+              if (ids.length > 0) {
+                setCommittee(prev => {
+                  if (prev.length > 0) return prev;
+                  return mappedUsers.filter(u => ids.includes(Number(u.id)));
+                });
+              }
+            })
             .catch(() => setCommunityUsers([]));
         }
       }).catch(err => console.error("Failed to fetch event data", err));
@@ -1049,13 +1108,26 @@ export function SportsAuction() {
               );
             })()}
 
-            <div className="flex gap-2 mb-3 sm:mb-4">
-              <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-auctions')}>
-                My Auctions &amp; Bids
-              </button>
-              <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-teams')}>
-                My Teams
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-4">
+              <div className="flex gap-2">
+                <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-auctions')}>
+                  My Auctions &amp; Bids
+                </button>
+                <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-teams')}>
+                  My Teams
+                </button>
+              </div>
+              {canEditAuctionConfig && (
+                <button
+                  className="btn btn-gold text-xs py-1.5 px-3.5 min-h-0 flex items-center gap-1.5 font-bold shadow-sm cursor-pointer"
+                  onClick={() => {
+                    setEditingAuctionConfig(null);
+                    setIsConfigModalOpen(true);
+                  }}
+                >
+                  <Plus size={14} /> + New Auction Configuration
+                </button>
+              )}
             </div>
 
             <div className="grid3 mb-3 sm:mb-4">
@@ -1078,7 +1150,8 @@ export function SportsAuction() {
                       } else if (canEditAuctionConfig) {
                         setSport(ev.sport?.name.toLowerCase() || 'cricket');
                         setSelectedEventId(ev.id);
-                        nav('config');
+                        setEditingAuctionConfig(null);
+                        setIsConfigModalOpen(true);
                       }
                     }}
                   >
@@ -1155,13 +1228,25 @@ export function SportsAuction() {
             </div>
           ) : (
           <div className="page active">
+            {/* Header */}
             <div className="page-hdr">
-              <div><div className="page-title">Auction Configuration</div><div className="page-sub">{sport.charAt(0).toUpperCase() + sport.slice(1)} · {seasonName} · Dynamically configurable rules</div></div>
+              <div>
+                <div className="page-title flex items-center gap-2">
+                  Auction Configurations
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                    {availableConfigs.length} configured
+                  </span>
+                </div>
+                <div className="page-sub">
+                  Dynamic rules, participating teams, budgets, and bidding parameters across sports tournaments
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center sm:mr-3">
-                  <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Select Event:</span>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center sm:mr-2">
+                  <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Filter Event:</span>
                   <select
-                    className="fselect w-full sm:w-auto sm:min-w-[200px] py-1.5 px-3"
+                    className="fselect w-full sm:w-auto sm:min-w-[180px] py-1.5 px-3 text-xs"
                     value={selectedEventId || ''}
                     onChange={e => {
                       const eid = e.target.value ? Number(e.target.value) : null;
@@ -1173,175 +1258,453 @@ export function SportsAuction() {
                       }
                     }}
                   >
-                    <option value="">Select Sports Event...</option>
+                    <option value="">All Events</option>
                     {auctionEventMap.map(ev => (
                       <option key={ev.id} value={ev.id}>{ev.name}</option>
                     ))}
                   </select>
                 </div>
-                {canEditAuctionConfig && <button className="btn btn-gold w-full sm:w-auto min-h-[44px] sm:min-h-0" onClick={handleSaveConfig}>Save & Apply ↗</button>}
+
+                {canEditAuctionConfig && (
+                  <button
+                    className="btn btn-gold flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl font-bold text-xs sm:text-sm min-h-[40px] shadow-sm cursor-pointer whitespace-nowrap"
+                    onClick={() => {
+                      setEditingAuctionConfig(null);
+                      setIsConfigModalOpen(true);
+                    }}
+                  >
+                    <Plus size={16} /> + New Auction Configuration
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="grid2">
-              <div>
-                <div className="card card-gold mb-3 sm:mb-4">
-                  <div className="sec-title">Sport Selection</div>
-                  <div className="form-row">
-                    <div className="fgrp">
-                      <div className="flabel">Sport</div>
-                      <select className="fselect" value={sport} onChange={e => setSport(e.target.value)}>
-                        <option value="cricket">Cricket</option>
-                        <option value="badminton">Badminton</option>
-                        <option value="football">Football</option>
-                      </select>
+            {/* KPI Metric Summary Row */}
+            {(() => {
+              const liveOrActive = availableConfigs.filter(c => c.status === 'LIVE' || c.status === 'ACTIVE').length;
+              const completed = availableConfigs.filter(c => c.status === 'COMPLETED').length;
+              const totalBudgetPool = availableConfigs.reduce((acc, c) => acc + (c.totalTeams * c.budgetPerTeam), 0);
+
+              return (
+                <div className="grid4 mb-4 sm:mb-5">
+                  <div className="stat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-amber-500/10 text-amber-600 flex-shrink-0">
+                      <Gavel size={16} />
                     </div>
-                    <div className="fgrp">
-                      <div className="flabel">Mapped Event</div>
-                      <select
-                        className="fselect"
-                        value={selectedEventId || ""}
-                        onChange={e => setSelectedEventId(e.target.value ? Number(e.target.value) : null)}
-                      >
-                        <option value="">Select Event...</option>
-                        {auctionEventMap.map(ev => (
-                          <option key={ev.id} value={ev.id}>{ev.name}</option>
-                        ))}
-                      </select>
+                    <div>
+                      <p className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight m-0">{availableConfigs.length}</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-[var(--muted)] uppercase tracking-wide m-0">Total Configs</p>
                     </div>
-                    <div className="fgrp">
-                      <div className="flabel">Auction Format</div>
-                      <select className="fselect" value={auctionFormat} onChange={e => setAuctionFormat(e.target.value)}>
-                        <option value="OPEN_AUCTION">Open Auction</option>
-                        <option value="SILENT_AUCTION">Silent Auction</option>
-                        <option value="DRAFT_FORMAT">Draft Format</option>
-                      </select>
+                  </div>
+
+                  <div className="stat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-red-500/10 text-red-600 flex-shrink-0">
+                      <Activity size={16} />
                     </div>
-                    <div className="fgrp">
-                      <div className="flabel">Season Name</div>
-                      <input className="finput" type="text" value={seasonName} onChange={e => setSeasonName(e.target.value)} placeholder="e.g. Season 2026" />
+                    <div>
+                      <p className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight m-0">{liveOrActive}</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-[var(--muted)] uppercase tracking-wide m-0">Live / Active</p>
                     </div>
-                    <div className="fgrp">
-                      <div className="flabel">Bid Timer (seconds)</div>
-                      <input className="finput" type="number" min={10} max={120} value={bidTimerSeconds} onChange={e => setBidTimerSeconds(Number(e.target.value))} />
+                  </div>
+
+                  <div className="stat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-600 flex-shrink-0">
+                      <CheckCircle size={16} />
+                    </div>
+                    <div>
+                      <p className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight m-0">{completed}</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-[var(--muted)] uppercase tracking-wide m-0">Completed</p>
+                    </div>
+                  </div>
+
+                  <div className="stat-card flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-indigo-500/10 text-indigo-600 flex-shrink-0">
+                      <IndianRupee size={16} />
+                    </div>
+                    <div>
+                      <p className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight m-0">
+                        ₹{(totalBudgetPool / 100000).toFixed(1)}L
+                      </p>
+                      <p className="text-[10px] sm:text-xs font-bold text-[var(--muted)] uppercase tracking-wide m-0">Combined Purse</p>
                     </div>
                   </div>
                 </div>
+              );
+            })()}
 
-                <div className="card card-gold mb-3 sm:mb-4">
-                  <div className="sec-title">Auction Rules</div>
-                  <div className="rule-box">
-                    <div className="rule-title">Teams & Players</div>
-                    <div className="form-row">
-                      <div className="fgrp"><div className="flabel">Participating Teams</div><input className="finput" type="number" value={totalTeamsConfig} onChange={e => setTotalTeamsConfig(Number(e.target.value))} /></div>
-                      <div className="fgrp"><div className="flabel">Players in Pool</div><input className="finput" type="number" value={totalPlayersConfig} onChange={e => setTotalPlayersConfig(Number(e.target.value))} /></div>
-                    </div>
-                    <div className="fgrp"><div className="flabel">Team Budget (₹)</div><input className="finput" type="number" value={budgetPerTeamConfig} onChange={e => setBudgetPerTeamConfig(Number(e.target.value))} /></div>
-                  </div>
-                  <div className="rule-box">
-                    <div className="rule-title">Bidding Rules</div>
-                    <div className="form-row">
-                      <div className="fgrp"><div className="flabel">Base Price (₹)</div><input className="finput" type="number" value={basePrice} onChange={e => setBasePrice(Number(e.target.value))} /></div>
-                      <div className="fgrp"><div className="flabel">Default Increment (₹)</div><input className="finput" type="number" value={bidIncrementDefault} onChange={e => setBidIncrementDefault(Number(e.target.value))} /></div>
-                    </div>
-                    <div className="form-row">
-                      <div className="fgrp">
-                        <div className="flabel">Threshold Amount (₹)</div>
-                        <input className="finput" type="number" value={bidIncrementThreshold} onChange={e => setBidIncrementThreshold(Number(e.target.value))} title="Bid amount at which the increment changes" />
-                      </div>
-                      <div className="fgrp">
-                        <div className="flabel">Increment Above Threshold (₹)</div>
-                        <input className="finput" type="number" value={bidIncrementAbove} onChange={e => setBidIncrementAbove(Number(e.target.value))} title="The new increment amount once the threshold is reached" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rule-box">
-                    <div className="rule-title">Player Categories</div>
-                    <div className="flex flex-wrap gap-2">
-                      {['Batsmen', 'Bowlers', 'All-rounders', 'Wicket-Keepers'].map(cat => (
-                        <button
-                          key={cat}
-                          className={`btn btn-outline btn-sm min-h-[36px] sm:min-h-0 ${categories.includes(cat) ? 'active-chip text-[var(--gold)] border-[rgba(212,160,23,0.5)] bg-[rgba(212,160,23,0.08)]' : ''}`}
-                          onClick={canEditAuctionConfig ? () => toggleCat(cat) : undefined}
-                          disabled={!canEditAuctionConfig}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            {/* Filter & Search Bar */}
+            <div className="card p-3 sm:p-4 mb-4 sm:mb-5 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search configs by season, sport, or tournament..."
+                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    value={configSearchQuery}
+                    onChange={e => setConfigSearchQuery(e.target.value)}
+                  />
+                  {configSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setConfigSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1 mr-1 flex-shrink-0">
+                    <Filter size={12} /> Status:
+                  </span>
+                  {["ALL", "DRAFT", "ACTIVE", "LIVE", "COMPLETED"].map(st => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setConfigFilterStatus(st)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer border ${
+                        configFilterStatus === st
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-700"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div>
-                <div className="card card-gold mb-3 sm:mb-4">
-                  <div className="sec-title">Dispute Committee</div>
+              {/* Sport Filter Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100">
+                <span className="text-[11px] text-slate-400 mr-1 flex-shrink-0">Sport:</span>
+                {["ALL", "Cricket", "Cricket (Tennis Ball)", "Badminton", "Football", "Volleyball"].map(sp => (
+                  <button
+                    key={sp}
+                    type="button"
+                    onClick={() => setConfigFilterSport(sp)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer border ${
+                      configFilterSport.toLowerCase() === sp.toLowerCase()
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200"
+                    }`}
+                  >
+                    {sp === "Cricket"
+                      ? "🏏 Cricket"
+                      : sp === "Cricket (Tennis Ball)"
+                      ? "🏏 Cricket (Tennis Ball)"
+                      : sp === "Badminton"
+                      ? "🏸 Badminton"
+                      : sp === "Football"
+                      ? "⚽ Football"
+                      : sp === "Volleyball"
+                      ? "🏐 Volleyball"
+                      : "🌐 All Sports"}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                  <div className="relative">
-                    <div className="fselect-multi flex flex-wrap gap-1.5 py-2 px-3 bg-[#1a1d21] border border-[#333] rounded-lg min-h-[44px] items-center cursor-text" onClick={() => document.getElementById('committee-search')?.focus()}>
+            {/* List of Configurations */}
+            {(() => {
+              const filteredList = availableConfigs.filter(c => {
+                if (selectedEventId && c.eventId && c.eventId !== selectedEventId) return false;
+                if (configFilterSport !== "ALL") {
+                  const sName = (c.sportName || "").toLowerCase();
+                  const fName = configFilterSport.toLowerCase();
+                  if (fName === "cricket (tennis ball)") {
+                    if (!sName.includes("tennis ball")) return false;
+                  } else if (fName === "cricket") {
+                    if (!sName.includes("cricket") || sName.includes("tennis ball")) return false;
+                  } else if (sName !== fName) {
+                    return false;
+                  }
+                }
+                if (configFilterStatus !== "ALL" && c.status !== configFilterStatus) return false;
+                if (configSearchQuery.trim()) {
+                  const q = configSearchQuery.toLowerCase();
+                  const matchesSeason = (c.seasonName || "").toLowerCase().includes(q);
+                  const matchesEvent = (c.eventName || "").toLowerCase().includes(q);
+                  const matchesSport = (c.sportName || "").toLowerCase().includes(q);
+                  if (!matchesSeason && !matchesEvent && !matchesSport) return false;
+                }
+                return true;
+              });
 
-                      {committee.map((c, i) => (
-                        <div key={i} className="committee-chip flex items-center gap-1.5 bg-[rgba(212,160,23,0.15)] border border-[rgba(212,160,23,0.3)] py-1 px-2.5 rounded-md text-xs text-[var(--gold)]">
-                          <span className="committee-avatar w-[18px] h-[18px] text-[10px]">{(c.name?.[0] || '?').toUpperCase()}</span>
-                          {c.name || 'Unknown'}
-                          <span className="text-[10px] cursor-pointer leading-none ml-1" onClick={(e) => { e.stopPropagation(); setCommittee(committee.filter(item => item.id !== c.id)); }}>×</span>
-                        </div>
-                      ))}
-
-                      <input
-                        id="committee-search"
-                        className="flex-1 border-none bg-transparent outline-none text-white text-[13px] min-w-[120px] py-1 px-0"
-                        placeholder={committee.length === 0 ? "Search & select confirmed players..." : ""}
-                        value={userSearchQuery}
-                        onChange={e => setUserSearchQuery(e.target.value)}
-                        disabled={!selectedEventId}
-                      />
+              if (filteredList.length === 0) {
+                return (
+                  <div className="card text-center p-8 sm:p-12 space-y-3 bg-white rounded-2xl border border-dashed border-slate-300">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto text-2xl">
+                      <Gavel size={28} />
                     </div>
-
-                    {userSearchQuery.length >= 2 && document.activeElement === document.getElementById('committee-search') && (
-                      <div className="search-results-dropdown absolute top-full left-0 right-0 bg-[#1a1d21] border border-[#444] rounded-lg z-[100] max-h-[250px] overflow-y-auto mt-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.6)]">
-                        {communityUsers
-                          .filter(u =>
-                            u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) &&
-                            !committee.find(c => c.id === u.id)
-                          )
-                          .map(u => (
-                            <div
-                              key={u.id}
-                              className="search-item p-3 sm:p-[12px_16px] cursor-pointer text-[13px] border-b border-[#2a2d32] transition-colors min-h-[44px] sm:min-h-0 flex flex-col justify-center"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                setCommittee([...committee, { id: u.id, name: u.name }]);
-                                toast.success(`${u.name} added`);
-                                setUserSearchQuery("");
-                              }}
-                            >
-                              <div className="font-semibold text-[var(--text)]">{u.name}</div>
-                              <div className="text-xs text-[var(--muted)] mt-0.5">Community Member</div>
-                            </div>
-                          ))}
-                        {communityUsers.filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) && !committee.find(c => c.id === u.id)).length === 0 && (
-                          <div className="p-5 text-center text-xs text-[var(--muted)]">
-                            {selectedEventId ? "No matching community users found" : "Please select an event above to see players"}
-                          </div>
-                        )}
+                    <div className="text-base font-bold text-slate-900">No Auction Configurations Found</div>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto m-0 leading-relaxed">
+                      {configSearchQuery || configFilterSport !== "ALL" || configFilterStatus !== "ALL"
+                        ? "No auction configurations match your selected filters. Try clearing your search or filters."
+                        : "No auction configurations have been created for your community yet. Create one to begin organizing team bidding."}
+                    </p>
+                    {canEditAuctionConfig && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          className="btn btn-gold text-xs px-4 py-2 font-bold cursor-pointer inline-flex items-center gap-1.5"
+                          onClick={() => {
+                            setEditingAuctionConfig(null);
+                            setIsConfigModalOpen(true);
+                          }}
+                        >
+                          <Plus size={14} /> + Create Auction Configuration
+                        </button>
                       </div>
                     )}
                   </div>
-                </div>
+                );
+              }
 
-                <div className="card card-gold">
-                  <div className="sec-title">Unsold Player Rule</div>
-                  <select className="fselect w-full mb-2.5" value={unsoldRule} onChange={e => setUnsoldRule(e.target.value)}>
-                    <option value="ROTATION_AUCTION">All players will be sold — rotation auction</option>
-                    <option value="RESERVE_POOL">Unsold players enter reserve pool</option>
-                  </select>
-                  <div className="text-xs text-[var(--muted)] leading-relaxed p-2 bg-[rgba(212,160,23,0.05)] rounded-md border border-[rgba(212,160,23,0.15)]">
-                    Current Rule: Teams must wait for their turn in the auction rotation. All players will be sold out.
-                  </div>
+              return (
+                <div className="space-y-4">
+                  {filteredList.map(c => {
+                    const isSelected = selectedConfigId === c.id;
+                    const isLive = c.status === "LIVE";
+                    const isDraft = c.status === "DRAFT";
+                    const isActive = c.status === "ACTIVE";
+                    const isCompleted = c.status === "COMPLETED";
+                    const emoji = (c.sportName || "").toLowerCase().includes("cricket") ? "🏏" :
+                      (c.sportName || "").toLowerCase().includes("badminton") ? "🏸" :
+                        (c.sportName || "").toLowerCase().includes("football") ? "⚽" : "🏆";
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`card relative p-4 sm:p-5 transition-all border ${
+                          isSelected
+                            ? "border-amber-400 shadow-[0_4px_20px_rgba(245,158,11,0.12)] bg-gradient-to-br from-white via-white to-amber-500/[0.02]"
+                            : "border-slate-200 hover:border-slate-300 hover:shadow-sm bg-white"
+                        }`}
+                      >
+                        {/* Top Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center text-xl flex-shrink-0">
+                              {emoji}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm sm:text-base font-extrabold text-slate-900 m-0">
+                                  {c.seasonName}
+                                </h3>
+                                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                                  {c.sportName}
+                                </span>
+                                {c.eventName ? (
+                                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                    <Trophy size={11} /> {c.eventName}
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">
+                                    Standalone Config
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 mt-0.5">
+                                Format: <span className="font-semibold text-slate-600">{c.auctionFormat}</span> · Config #{c.id}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            {isLive && (
+                              <span className="tag tag-live flex items-center gap-1.5 px-3 py-1 font-bold text-xs animate-pulse">
+                                <span className="w-2 h-2 rounded-full bg-red-600 animate-ping" /> ● Live Now
+                              </span>
+                            )}
+                            {isActive && (
+                              <span className="tag tag-blue px-3 py-1 font-bold text-xs">
+                                ⚡ Active &amp; Ready
+                              </span>
+                            )}
+                            {isDraft && (
+                              <span className="tag tag-amber px-3 py-1 font-bold text-xs">
+                                📝 Draft Setup
+                              </span>
+                            )}
+                            {isCompleted && (
+                              <span className="tag tag-green px-3 py-1 font-bold text-xs">
+                                🏆 Completed
+                              </span>
+                            )}
+                            {c.status === "CANCELLED" && (
+                              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-bold uppercase">
+                                Cancelled
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Rules Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3 py-3 border-b border-slate-100 text-xs">
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Teams</span>
+                            <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
+                              <Users size={12} className="text-amber-600" /> {c.totalTeams} Teams
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Player Pool</span>
+                            <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
+                              <Users size={12} className="text-indigo-600" /> {c.totalPlayers} Players
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Team Purse</span>
+                            <span className="font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                              ₹{(c.budgetPerTeam / 100000).toFixed(1)}L
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Base Price</span>
+                            <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
+                              ₹{c.basePrice.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Increment</span>
+                            <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
+                              +₹{c.bidIncrementDefault}
+                            </span>
+                          </div>
+
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] text-slate-400 block font-semibold uppercase">Timer</span>
+                            <span className="font-bold text-slate-800 flex items-center gap-1 mt-0.5">
+                              <Clock size={12} className="text-amber-600" /> {c.bidTimerSeconds}s
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Badges / Category Pills */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {c.categories && c.categories.length > 0 ? (
+                              c.categories.map((cat, idx) => (
+                                <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                                  {cat}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-slate-400">No categories specified</span>
+                            )}
+                            {c.rtmEnabled && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
+                                <Shield size={10} /> RTM Enabled
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                              Unsold: {c.unsoldRule === 'ROTATION_AUCTION' ? 'Rotation' : c.unsoldRule === 'RESERVE_POOL' ? 'Reserve Pool' : 'Re-Auction'}
+                            </span>
+                          </div>
+
+                          {/* Committee Summary */}
+                          {c.committeeMembers && c.committeeMembers.length > 0 && (
+                            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <Shield size={12} className="text-amber-600" />
+                              <span className="font-semibold text-slate-700">{c.committeeMembers.length}</span> Committee Members
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bottom Actions Toolbar */}
+                        <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {canEditAuctionConfig && (
+                              <button
+                                type="button"
+                                className="btn btn-outline text-xs py-1.5 px-3 min-h-0 flex items-center gap-1.5 font-semibold cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingAuctionConfig(c);
+                                  setIsConfigModalOpen(true);
+                                }}
+                              >
+                                <Edit3 size={13} /> Edit Rules
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              className="btn btn-outline text-xs py-1.5 px-3 min-h-0 flex items-center gap-1.5 cursor-pointer"
+                              onClick={() => {
+                                setSelectedConfigId(c.id);
+                                setSelectedEventId(c.eventId || null);
+                                nav('teams');
+                              }}
+                            >
+                              <Users size={13} /> Teams
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-outline text-xs py-1.5 px-3 min-h-0 flex items-center gap-1.5 cursor-pointer"
+                              onClick={() => {
+                                setSelectedConfigId(c.id);
+                                setSelectedEventId(c.eventId || null);
+                                nav('players');
+                              }}
+                            >
+                              <Search size={13} /> Player Pool
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Status Transition Action Buttons */}
+                            {canEditLiveAuction && isDraft && (
+                              <button
+                                type="button"
+                                className="btn btn-outline text-xs py-1.5 px-3 min-h-0 text-blue-600 border-blue-300 hover:bg-blue-50 font-bold cursor-pointer"
+                                onClick={() => handleStatusChangeForConfig(c.id, 'ACTIVE')}
+                              >
+                                Activate Auction →
+                              </button>
+                            )}
+
+                            {canEditLiveAuction && isActive && (
+                              <button
+                                type="button"
+                                className="btn btn-gold text-xs py-1.5 px-3 min-h-0 font-bold cursor-pointer flex items-center gap-1"
+                                onClick={() => handleStatusChangeForConfig(c.id, 'LIVE')}
+                              >
+                                ▶ Start Live Auction
+                              </button>
+                            )}
+
+                            {/* Enter Room / View Results */}
+                            <button
+                              type="button"
+                              className="btn btn-gold text-xs py-1.5 px-3.5 min-h-0 flex items-center gap-1.5 font-bold cursor-pointer"
+                              onClick={() => {
+                                setSelectedConfigId(c.id);
+                                setSelectedEventId(c.eventId || null);
+                                nav(isCompleted ? 'results' : 'live');
+                              }}
+                            >
+                              <Gavel size={13} /> {isCompleted ? 'View Results' : 'Enter Auction Room'} →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
           )
         )}
@@ -2671,6 +3034,20 @@ export function SportsAuction() {
         onClose={() => setShowComparison(false)}
         players={players}
         profiles={cricHeroesProfiles}
+      />
+
+      {/* ── Auction Configuration Modal (Create & Edit) ── */}
+      <AuctionConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => {
+          setIsConfigModalOpen(false);
+          setEditingAuctionConfig(null);
+        }}
+        onSaveSuccess={handleConfigSaved}
+        editingConfig={editingAuctionConfig}
+        defaultEventId={selectedEventId || undefined}
+        communityEvents={auctionEvents}
+        communityUsers={communityUsers}
       />
     </div>
   );

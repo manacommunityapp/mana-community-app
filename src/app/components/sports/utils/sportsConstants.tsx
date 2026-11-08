@@ -7,13 +7,31 @@ const TEAM_SPORT_KEYWORDS = [
   "tug of war", "baseball",
 ];
 
-export function isTeamSport(sportName: string): boolean {
-  const name = sportName.toLowerCase();
+export function isTeamSport(sportName?: any): boolean {
+  if (!sportName) return false;
+  let str = "";
+  if (typeof sportName === "string") {
+    str = sportName;
+  } else if (typeof sportName === "object") {
+    str = String(sportName.name || sportName.sportName || sportName.category || "");
+  } else {
+    str = String(sportName);
+  }
+  const name = str.toLowerCase();
   return TEAM_SPORT_KEYWORDS.some(k => name.includes(k));
 }
 
-export function getDefaultMinPlayers(sportName: string): number {
-  const name = sportName.toLowerCase();
+export function getDefaultMinPlayers(sportName?: any): number {
+  if (!sportName) return 5;
+  let str = "";
+  if (typeof sportName === "string") {
+    str = sportName;
+  } else if (typeof sportName === "object") {
+    str = String(sportName.name || sportName.sportName || "");
+  } else {
+    str = String(sportName);
+  }
+  const name = str.toLowerCase();
   if (name.includes("cricket")) return 11;
   if (name.includes("football")) return 11;
   if (name.includes("basketball")) return 5;

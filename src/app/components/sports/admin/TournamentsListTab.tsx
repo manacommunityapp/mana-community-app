@@ -11,8 +11,8 @@ interface TournamentsListTabProps {
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
   handleAnnounce: (id: number, name: string) => void;
-  handleViewPlayers: (id: number) => void;
-  handleViewCaptains: (id: number) => void;
+  handleViewPlayers: (id: number, forceReload?: boolean) => void;
+  handleViewCaptains: (id: number, forceReload?: boolean) => void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -166,6 +166,25 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
           />
 
           {/* Active Tournaments */}
@@ -222,6 +241,25 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
           />
         </>
       )}

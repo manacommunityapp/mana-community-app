@@ -1,15 +1,21 @@
 import { useState, useMemo } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, History, Play, AlertTriangle } from "lucide-react";
+import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
-import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
-import { sportsService } from "../../../../services/sports/sportsService";
-import { showError, showSuccess } from "../../../../utils/ToastUtils";
-import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
 import { getEventFormats } from "../SportsRegister";
-import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
 import { ShareTournamentModal } from "./ShareTournamentModal";
+import { ViewPlayersModal } from "./ViewPlayersModal";
+import { ViewCaptainsModal } from "./ViewCaptainsModal";
+import { getPartnerDetails } from "./sportsPartnerUtils";
+import { tournamentPaymentService } from "../../../../services/sports/tournamentPaymentService";
+import { TournamentPlayersPaymentModal } from "../TournamentPlayersPaymentModal";
+import {
+  exportTournamentPaymentsToCSV,
+  exportTournamentPaymentsToExcel,
+  exportTournamentPaymentsToPDF,
+} from "../../../../utils/sportsExportUtils";
 
 interface TournamentSectionProps {
   title: string;
@@ -26,8 +32,8 @@ interface TournamentSectionProps {
   onStartEvent?: (id: number, name?: string) => void;
   onStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
   onAnnounce?: (id: number, name: string) => void;
-  onViewPlayers?: (eventId: number) => void;
-  onViewCaptains?: (eventId: number) => void;
+  onViewPlayers?: (eventId: number, forceReload?: boolean) => void;
+  onViewCaptains?: (eventId: number, forceReload?: boolean) => void;
   viewMode?: "players" | "captains";
   viewingEventId?: number | null;
   registrations?: TournamentRegistration[];
@@ -349,55 +355,83 @@ export function TournamentSection({
   onAddParticipant, onImportParticipants, onEditEvent, onDeleteEvent, onAddEventToTournament,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
-  const [seedDrafts, setSeedDrafts] = useState<Record<number, string>>({});
-  const [savingSeeds, setSavingSeeds] = useState<Record<number, boolean>>({});
-  const [exportDropdownEventId, setExportDropdownEventId] = useState<number | null>(null);
-  const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
   const [shareTournament, setShareTournament] = useState<any | null>(null);
   const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; format?: string; search?: string }>>({});
-  const [expandedHistoryKeys, setExpandedHistoryKeys] = useState<Record<string, boolean>>({});
-  const [lazyHistoryMap, setLazyHistoryMap] = useState<Record<number, TournamentRegistration[]>>({});
-  const [loadingHistoryMap, setLoadingHistoryMap] = useState<Record<number, boolean>>({});
+  const [exportDropdownTournamentId, setExportDropdownTournamentId] = useState<number | null>(null);
+  const [exportingTournamentId, setExportingTournamentId] = useState<number | null>(null);
+  const [paymentModalTournament, setPaymentModalTournament] = useState<any | null>(null);
 
-  const handleToggleHistory = async (
-    groupKey: string,
-    eventId: number,
-    primaryRegId: number,
-    localHistory: TournamentRegistration[]
+  const handleTournamentExport = async (
+    tournamentItem: any,
+    exportFormat: "excel" | "csv-roster" | "csv-events" | "pdf"
   ) => {
-    const isCurrentlyExpanded = !!expandedHistoryKeys[groupKey];
-    if (isCurrentlyExpanded) {
-      setExpandedHistoryKeys(prev => ({ ...prev, [groupKey]: false }));
-      return;
-    }
-
-    setExpandedHistoryKeys(prev => ({ ...prev, [groupKey]: true }));
-
-    // If already loaded or fetched, no need to re-fetch
-    if (lazyHistoryMap[primaryRegId]) {
-      return;
-    }
-
-    // Attempt lazy loading from backend endpoint
-    setLoadingHistoryMap(prev => ({ ...prev, [primaryRegId]: true }));
+    setExportDropdownTournamentId(null);
+    setExportingTournamentId(tournamentItem.id);
     try {
-      const fetched = await sportsService.getRegistrationHistory(eventId, primaryRegId);
-      if (fetched && Array.isArray(fetched) && fetched.length > 0) {
-        setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: fetched }));
-      } else {
-        setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: localHistory }));
+      toast.info(`Preparing ${tournamentItem.name} export...`);
+      const rawEvents = tournamentItem.sportsEvents || (tournamentItem.events ? tournamentItem.events : []);
+      const players = await tournamentPaymentService.loadTournamentPlayers({
+        id: tournamentItem.id,
+        events: rawEvents,
+      });
+
+      if (!players || players.length === 0) {
+        toast.warning("No participants registered for this tournament yet.");
+        setExportingTournamentId(null);
+        return;
       }
-    } catch {
-      // Graceful fallback to client-grouped history if network or older backend
-      setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: localHistory }));
+
+      const tName = tournamentItem.name || "Tournament";
+      const exportStats = {
+        total: players.length,
+        flats: new Set(players.map((p) => p.flatNumber).filter(Boolean)).size,
+        paid: players.filter((p) => p.paymentStatus === "PAID" || p.paymentStatus === "WAIVED").length,
+        unpaid: players.filter((p) => p.paymentStatus !== "PAID" && p.paymentStatus !== "WAIVED").length,
+        totalCollected: players.reduce((sum, p) => sum + (p.payment?.amount || 0), 0),
+      };
+
+      if (exportFormat === "excel") {
+        exportTournamentPaymentsToExcel(players, tName, exportStats);
+        toast.success(`Exported ${players.length} participants to Excel`);
+      } else if (exportFormat === "csv-roster") {
+        exportTournamentPaymentsToCSV(players, tName, "roster");
+        toast.success(`Exported ${players.length} participant roster rows to CSV`);
+      } else if (exportFormat === "csv-events") {
+        exportTournamentPaymentsToCSV(players, tName, "events");
+        toast.success(`Exported detailed event registrations to CSV`);
+      } else if (exportFormat === "pdf") {
+        exportTournamentPaymentsToPDF(players, tName, exportStats);
+      }
+    } catch (err) {
+      console.error("Failed to export tournament:", err);
+      toast.error("Failed to export tournament details");
     } finally {
-      setLoadingHistoryMap(prev => ({ ...prev, [primaryRegId]: false }));
+      setExportingTournamentId(null);
     }
   };
 
-  const groupedRegistrations = useMemo(() => {
-    return groupRegistrationsByPlayer(registrations || []);
-  }, [registrations]);
+  const activeViewingEvent = useMemo(() => {
+    if (!viewingEventId) return null;
+    for (const item of events) {
+      if (item.sportsEvents && Array.isArray(item.sportsEvents)) {
+        const found = item.sportsEvents.find((ev: any) => ev.id === viewingEventId);
+        if (found) {
+          return {
+            ...found,
+            tournamentName: item.name,
+            tournamentId: item.id,
+          };
+        }
+      }
+      const singleEv = item.event
+        ? { ...item.event, id: item.event.id, name: item.name || item.event.name, tournamentId: item.id }
+        : item;
+      if (singleEv.id === viewingEventId) {
+        return singleEv;
+      }
+    }
+    return { id: viewingEventId, name: "Sports Event" };
+  }, [events, viewingEventId]);
 
   const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "format" | "search", value: string) => {
     setEventFilters(prev => ({
@@ -417,21 +451,6 @@ export function TournamentSection({
     });
   };
 
-  async function handleSeedSave(regId: number) {
-    const raw = seedDrafts[regId];
-    if (raw === undefined) return;
-    const seed = raw === "" ? null : Number(raw);
-    if (raw !== "" && (isNaN(seed!) || seed! < 1)) return;
-    setSavingSeeds(prev => ({ ...prev, [regId]: true }));
-    try {
-      await sportsRankingService.setRegistrationSeed(regId, seed);
-      showSuccess("Seed updated");
-    } catch {
-      showError("Failed to update seed");
-    } finally {
-      setSavingSeeds(prev => ({ ...prev, [regId]: false }));
-    }
-  }
 
   const toggleEvents = (tournamentId: number) => {
     setExpandedTournamentIds(prev => ({
@@ -442,407 +461,22 @@ export function TournamentSection({
 
   const hasRegistrationButtons = !!(onViewPlayers || onViewCaptains);
 
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case "PENDING":    return "bg-[#eab308]/20 text-[#eab308]";
-      case "REGISTERED": return "bg-[#f97316]/20 text-[#f97316]";
-      case "CONFIRMED":  return "bg-[#10b981]/20 text-[#10b981]";
-      case "WITHDRAWN":  return "bg-[#ef4444]/20 text-[#ef4444]";
-      case "REJECTED":   return "bg-[#ef4444]/20 text-[#ef4444]";
-      default:           return "bg-[#475569]/20 text-[#94a3b8]";
-    }
-  };
-
-  const renderRegistrationPanel = (ev: any) => (
-    <div className="mt-2 bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 mb-2">
-        <div className="flex items-center gap-2">
-          <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
-            {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
-          </div>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
-            {viewMode === "captains"
-              ? `${nominatedCaptains?.length ?? 0} captains`
-              : groupedRegistrations.length === (registrations?.length ?? 0)
-                ? `${groupedRegistrations.length} players`
-                : `${groupedRegistrations.length} players (${registrations?.length ?? 0} total records)`}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 relative">
-          {viewMode === "players" && registrations && registrations.length > 0 && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setExportDropdownEventId(exportDropdownEventId === ev.id ? null : ev.id)}
-                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Players</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-
-              {exportDropdownEventId === ev.id && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setExportDropdownEventId(null)} />
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-left text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        exportPlayersToExcel(registrations, ev.name || "Event");
-                        setExportDropdownEventId(null);
-                      }}
-                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                      <span>Download Excel (.xls)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        exportPlayersToCSV(registrations, ev.name || "Event");
-                        setExportDropdownEventId(null);
-                      }}
-                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <span>Download CSV (.csv)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        exportPlayersToPDF(registrations, ev.name || "Event");
-                        setExportDropdownEventId(null);
-                      }}
-                      className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-                    >
-                      <Printer className="w-4 h-4 text-indigo-600" />
-                      <span>Print / Save PDF Roster</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          {viewMode === "players" && onAddParticipant && onImportParticipants && (
-            <>
-              <button
-                onClick={() => onAddParticipant(ev.id)}
-                className="px-2.5 py-1 bg-[#f97316]/10 hover:bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 hover:border-[#f97316]/50 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Participant
-              </button>
-              <button
-                onClick={() => onImportParticipants(ev.id)}
-                className="px-2.5 py-1 bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 hover:border-[#10b981]/50 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <ClipboardList className="w-3.5 h-3.5" /> Import
-              </button>
-              <button
-                onClick={() => setShowExternalFormsEventId(showExternalFormsEventId === ev.id ? null : ev.id)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border ${
-                  showExternalFormsEventId === ev.id
-                    ? "bg-purple-600 text-white border-purple-600"
-                    : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
-                }`}
-                title="Google Forms & External Registration Integration"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> External Forms
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {showExternalFormsEventId === ev.id && (
-        <div className="mb-4">
-          <ExternalFormsManager
-            event={ev}
-            onRefreshRegistrations={() => onViewPlayers && onViewPlayers(ev.id)}
-          />
-        </div>
-      )}
-
-      {loadingRegs && (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-5 h-5 animate-spin text-[#f97316]" />
-        </div>
-      )}
-
-      {/* Players list */}
-      {!loadingRegs && viewMode === "players" && groupedRegistrations.length > 0 && (
-        <div className="space-y-2.5">
-          {groupedRegistrations.map((group, idx) => {
-            const reg = group.primary;
-            const isHistoryExpanded = !!expandedHistoryKeys[group.key];
-
-            return (
-              <div key={group.key} className="space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm transition-all hover:border-slate-300">
-                  <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
-                      {idx + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <span className="text-[10px] font-medium text-slate-800 break-words">
-                          {reg.playerName || reg.user?.fullName || "—"}
-                        </span>
-                        {reg.registrationSource === "GOOGLE_FORMS" && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
-                            Google Form
-                          </span>
-                        )}
-                        {reg.isExternalGuest && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
-                            Guest
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                        {reg.category?.name && <span>{reg.category.name}</span>}
-                        {reg.age && <span>Age: {reg.age}</span>}
-                        {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
-                        {reg.relation && <span>({reg.relation})</span>}
-                        {reg.registeredAt && <span>· {format(new Date(reg.registeredAt), "MMM d, h:mm a")}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                    <div className="flex items-center gap-1 mr-1">
-                      <span className="text-[10px] text-slate-400 font-medium">Seed</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={seedDrafts[reg.id] ?? (reg.seed != null ? String(reg.seed) : "")}
-                        onChange={e => setSeedDrafts(prev => ({ ...prev, [reg.id]: e.target.value }))}
-                        onBlur={() => handleSeedSave(reg.id)}
-                        onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); handleSeedSave(reg.id); } }}
-                        placeholder="—"
-                        className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
-                        disabled={!!savingSeeds[reg.id]}
-                      />
-                    </div>
-                    <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
-                      {reg.status}
-                    </span>
-                    {group.history.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHistory(group.key, ev.id, reg.id, group.history)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                          isHistoryExpanded
-                            ? "bg-slate-800 text-white border-slate-800 shadow-sm"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
-                        }`}
-                        title={`View ${group.history.length} past registration records`}
-                      >
-                        {loadingHistoryMap[reg.id] ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
-                        ) : (
-                          <History className="w-3.5 h-3.5" />
-                        )}
-                        <span>History ({group.history.length})</span>
-                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isHistoryExpanded ? "rotate-180" : ""}`} />
-                      </button>
-                    )}
-                    {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
-                      <button
-                        onClick={() => onConfirmRegistration(reg.id)}
-                        className="text-xs px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
-                      >
-                        <CheckCircle2 className="w-3 h-3" /> Confirm
-                      </button>
-                    )}
-                    {(reg.status === "REGISTERED" || reg.status === "PENDING") && onRejectRegistration && (
-                      <button
-                        onClick={() => onRejectRegistration(reg.id)}
-                        className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
-                      >
-                        <XCircle className="w-3 h-3" /> Reject
-                      </button>
-                    )}
-                    {reg.status === "CONFIRMED" && onRejectRegistration && (
-                      <button
-                        onClick={() => onRejectRegistration(reg.id)}
-                        className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
-                        title="Remove / unregister this player"
-                      >
-                        <XCircle className="w-3 h-3" /> Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Collapsible registration history panel with lazy loading */}
-                {isHistoryExpanded && group.history.length > 0 && (
-                  <div className="ml-3 sm:ml-8 p-3 bg-slate-50/90 rounded-lg border border-slate-200 space-y-2 text-xs">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 text-slate-700 font-semibold">
-                      <div className="flex items-center gap-1.5">
-                        <History className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Registration History for {reg.playerName || reg.user?.fullName}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-bold">
-                          {group.history.length} previous record{group.history.length > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleHistory(group.key, ev.id, reg.id, group.history)}
-                        className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    {loadingHistoryMap[reg.id] ? (
-                      <div className="flex items-center justify-center gap-2 py-4 text-slate-500">
-                        <Loader2 className="w-4 h-4 animate-spin text-[#f97316]" />
-                        <span>Loading history records...</span>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {(lazyHistoryMap[reg.id] ?? group.history).map((hist, hIdx) => (
-                          <div
-                            key={hist.id}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded border border-slate-200/80 text-slate-600 shadow-2xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <span className="text-[10px] font-bold text-slate-400 w-5 text-center flex-shrink-0">
-                                #{hIdx + 1}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="text-xs font-semibold text-slate-700">Reg ID: #{hist.id}</span>
-                                  {hist.category?.name && (
-                                    <span className="text-[10px] px-1.5 py-0.2 bg-violet-50 text-violet-700 border border-violet-200 rounded font-medium">
-                                      {hist.category.name}
-                                    </span>
-                                  )}
-                                  {hist.registrationSource && hist.registrationSource !== "MANA_APP" && (
-                                    <span className="text-[10px] px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
-                                      {hist.registrationSource}
-                                    </span>
-                                  )}
-                                  {hist.isExternalGuest && (
-                                    <span className="text-[10px] px-1.5 py-0.2 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium">
-                                      Guest
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 mt-0.5">
-                                  {hist.registeredAt && (
-                                    <span>Registered: {format(new Date(hist.registeredAt), "MMM d, yyyy · h:mm a")}</span>
-                                  )}
-                                  {hist.relation && <span>({hist.relation})</span>}
-                                  {hist.flatNumber && <span>Flat: {hist.flatNumber}</span>}
-                                  {hist.seed != null && <span>Seed: {hist.seed}</span>}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${statusBadge(hist.status)}`}>
-                                {hist.status}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Captains list */}
-      {!loadingRegs && viewMode === "captains" && nominatedCaptains && nominatedCaptains.length > 0 && (
-        <div className="space-y-2">
-          {nominatedCaptains.map((team) => (
-            <div key={team.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
-              <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-xs font-bold text-[#f97316] flex-shrink-0">
-                  C
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-800 break-words">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
-                  <div className="text-xs text-[#f97316] mt-1 font-semibold tracking-wide">
-                    Proposed Team: {team.teamName}
-                  </div>
-                  <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                    <span>Budget: ₹{team.totalBudget?.toLocaleString()}</span>
-                    {team.ownerUser?.phone && <span>· {team.ownerUser.phone}</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                {team.captainConfirmation ? (
-                  <span className="text-[10px] px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Confirmed
-                  </span>
-                ) : (
-                  onConfirmCaptain && (
-                    <button
-                      onClick={() => onConfirmCaptain(team.id, true)}
-                      className="text-xs px-3 py-1.5 bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/30 rounded-lg hover:bg-[#f97316]/20 transition-colors flex items-center gap-1 font-medium"
-                    >
-                      <CheckCircle2 className="w-3 h-3" /> Confirm Captain
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Empty states */}
-      {!loadingRegs && viewMode === "players" && (!registrations || registrations.length === 0) && (
-        <div className="flex flex-col items-center justify-center py-10 px-4 gap-3 bg-white rounded-xl border border-dashed border-slate-300">
-          <div className="flex items-center justify-center w-16 h-16 border border-slate-200 rounded-full bg-slate-50 shadow-inner">
-            <Users className="text-2xl text-slate-400" />
-          </div>
-          <h6 className="text-xs font-bold text-slate-800">No Participants to show</h6>
-          {onAddParticipant && onImportParticipants && (
-            <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
-              <button
-                onClick={() => onAddParticipant(ev.id)}
-                className="px-4 py-2 border border-[#f97316]/30 hover:border-[#f97316] bg-[#f97316]/5 hover:bg-[#f97316]/10 text-[#f97316] text-xs md:text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Add Participants
-              </button>
-              <span className="text-[#64748b] font-semibold text-[10px]">OR</span>
-              <button
-                onClick={() => onImportParticipants(ev.id)}
-                className="px-4 py-2 border border-[#10b981]/30 hover:border-[#10b981] bg-[#10b981]/5 hover:bg-[#10b981]/10 text-[#10b981] text-xs md:text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ClipboardList className="w-4 h-4" /> Import Participants
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {!loadingRegs && viewMode === "captains" && (!nominatedCaptains || nominatedCaptains.length === 0) && (
-        <div className="text-center py-6 text-xs text-[#475569] italic">No nominated captains found</div>
-      )}
-    </div>
-  );
-
   // ─── Button helpers ───────────────────────────────────────────────────────
 
   const PlayersBtn = ({ evId, size = "sm" }: { evId: number; size?: "sm" | "xs" }) =>
     onViewPlayers ? (
       <button
+        type="button"
         onClick={() => onViewPlayers(evId)}
         className={`${size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "players"
-            ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30"
+            ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30 font-medium"
             : "border border-slate-200 text-slate-500 hover:border-[#3b82f6] hover:text-[#3b82f6]"
         }`}
+        title="View Registered Players"
       >
         <ClipboardList className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
-        {viewingEventId === evId && viewMode === "players" ? "Hide Players" : "View Players"}
+        <span>View Players</span>
       </button>
     ) : null;
 
@@ -850,15 +484,17 @@ export function TournamentSection({
     if (!onViewCaptains || !isTeamSport(sportName)) return null;
     return (
       <button
+        type="button"
         onClick={() => onViewCaptains(evId)}
         className={`${size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "captains"
-            ? "bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30"
+            ? "bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 font-medium"
             : "border border-slate-200 text-slate-500 hover:border-[#f97316] hover:text-[#f97316]"
         }`}
+        title="View Nominated Captains"
       >
         <Users className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
-        {viewingEventId === evId && viewMode === "captains" ? "Hide Captains" : "Nominated Captains"}
+        <span>Nominated Captains</span>
       </button>
     );
   };
@@ -1021,6 +657,104 @@ export function TournamentSection({
                     >
                       <Share2 className="w-3 h-3" /> Share Form
                     </button>
+
+                    {/* Complete Tournament Export Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExportDropdownTournamentId(
+                            exportDropdownTournamentId === item.id ? null : item.id
+                          )
+                        }
+                        disabled={exportingTournamentId === item.id}
+                        className="text-xs px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-colors font-semibold cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                        title="Export complete tournament player roster, events & payment details"
+                      >
+                        {exportingTournamentId === item.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                        ) : (
+                          <Download className="w-3 h-3 text-emerald-600" />
+                        )}
+                        <span>Export</span>
+                        <ChevronDown className="w-3 h-3 text-emerald-600" />
+                      </button>
+
+                      {exportDropdownTournamentId === item.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setExportDropdownTournamentId(null)}
+                          />
+                          <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                              Export Complete Tournament
+                            </div>
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "excel")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-emerald-50/70 hover:text-emerald-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download Excel (.xls)</div>
+                                  <div className="text-[10px] text-slate-400">Complete multi-sport roster &amp; payments</div>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "csv-roster")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileText className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download CSV — Player Summary</div>
+                                  <div className="text-[10px] text-slate-400">1 row per participant with all payment info</div>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "csv-events")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <FileText className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Download CSV — Event Breakdown</div>
+                                  <div className="text-[10px] text-slate-400">1 row per event registration &amp; partner</div>
+                                </div>
+                              </button>
+                            </div>
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => handleTournamentExport(item, "pdf")}
+                                className="w-full px-3 py-2 text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-700 flex items-start gap-2.5 cursor-pointer transition-colors"
+                              >
+                                <Printer className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Print / Save PDF Roster</div>
+                                  <div className="text-[10px] text-slate-400">Printable sheet with summary stats</div>
+                                </div>
+                              </button>
+                            </div>
+                            <div className="p-1.5 bg-slate-50">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExportDropdownTournamentId(null);
+                                  setPaymentModalTournament(item);
+                                }}
+                                className="w-full px-2 py-1.5 text-center text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-1.5"
+                              >
+                                <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Open Roster &amp; Payment Hub</span>
+                              </button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {onAddEventToTournament && (
                       <button
                         type="button"
@@ -1371,7 +1105,6 @@ export function TournamentSection({
                               )}
                             </div>
                           </div>
-                          {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
                         </div>
                       );
                     }))}
@@ -1466,7 +1199,6 @@ export function TournamentSection({
                   </button>
                 </div>
               </div>
-              {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
             </div>
           );
         })}
@@ -1480,6 +1212,45 @@ export function TournamentSection({
           isOpen={!!shareTournament}
           onClose={() => setShareTournament(null)}
           tournament={shareTournament}
+        />
+      )}
+
+      {paymentModalTournament && (
+        <TournamentPlayersPaymentModal
+          isOpen={!!paymentModalTournament}
+          onClose={() => setPaymentModalTournament(null)}
+          tournament={{
+            id: paymentModalTournament.id,
+            name: paymentModalTournament.name,
+            events: paymentModalTournament.sportsEvents || paymentModalTournament.events || [],
+          } as any}
+        />
+      )}
+
+      {viewMode === "players" && viewingEventId && activeViewingEvent && (
+        <ViewPlayersModal
+          isOpen={!!(viewMode === "players" && viewingEventId)}
+          onClose={() => viewingEventId && onViewPlayers?.(viewingEventId)}
+          event={activeViewingEvent}
+          registrations={registrations}
+          loadingRegs={loadingRegs}
+          onConfirmRegistration={onConfirmRegistration}
+          onRejectRegistration={onRejectRegistration}
+          onAddParticipant={onAddParticipant}
+          onImportParticipants={onImportParticipants}
+          onRefresh={() => onViewPlayers?.(viewingEventId, true)}
+        />
+      )}
+
+      {viewMode === "captains" && viewingEventId && activeViewingEvent && (
+        <ViewCaptainsModal
+          isOpen={!!(viewMode === "captains" && viewingEventId)}
+          onClose={() => viewingEventId && onViewCaptains?.(viewingEventId)}
+          event={activeViewingEvent}
+          nominatedCaptains={nominatedCaptains}
+          loadingCaptains={loadingRegs}
+          onConfirmCaptain={(teamId) => onConfirmCaptain?.(teamId, true)}
+          onRefresh={() => onViewCaptains?.(viewingEventId, true)}
         />
       )}
     </div>
