@@ -1023,6 +1023,8 @@ export function SportsSchedule() {
               partnerName: registration.partnerName || registration.partner?.fullName,
               partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
               isDoubles,
+              flatNumber: registration.flatNumber || registration.user?.community?.name || registration.user?.flatNo,
+              partnerFlat: registration.partnerFlat || registration.partner?.flatNumber || registration.partner?.flatNo,
             });
           });
 
