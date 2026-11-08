@@ -304,7 +304,8 @@ export function TournamentPlayersPaymentModal({
           (e) =>
             e.eventName.toLowerCase().includes(q) ||
             (e.sportName && e.sportName.toLowerCase().includes(q)) ||
-            (e.matchType && e.matchType.toLowerCase().includes(q))
+            (e.matchType && e.matchType.toLowerCase().includes(q)) ||
+            (e.partnerName && e.partnerName.toLowerCase().includes(q))
         );
         if (!matchesName && !matchesFlat && !matchesPhone && !matchesRelation && !matchesEvent) {
           return false;
@@ -593,6 +594,14 @@ export function TournamentPlayersPaymentModal({
             <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 shrink-0">
               <Users className="w-2.5 h-2.5 text-purple-600" />
               <span>Family ({categoryInfo.relationLabel})</span>
+            </span>
+          )}
+
+          {/* Doubles Partner Badge if participating solely as invited partner */}
+          {player.isPartnerOnly && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 shrink-0">
+              <Users className="w-2.5 h-2.5 text-emerald-600" />
+              <span>Doubles Partner</span>
             </span>
           )}
 
@@ -1019,6 +1028,12 @@ export function TournamentPlayersPaymentModal({
                         </span>
                       );
                     })()}
+                    {viewingEventsPlayer.isPartnerOnly && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[9px] font-bold text-emerald-700">
+                        <Users className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Doubles Partner</span>
+                      </span>
+                    )}
                     {viewingEventsPlayer.flatNumber && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
                         <Home className="w-2.5 h-2.5 text-slate-400" />
@@ -1137,8 +1152,9 @@ export function TournamentPlayersPaymentModal({
                       <span className="inline-flex items-center gap-1 text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-1.5 py-0.5 rounded-md">
                         <Users className="w-3 h-3 text-indigo-600" />
                         <span>
-                          Partner: <strong className="font-semibold">{ev.partnerName}</strong>
+                          {ev.isPartner ? "Playing with:" : "Partner:"} <strong className="font-semibold">{ev.partnerName}</strong>
                           {ev.partnerPhone ? ` (${ev.partnerPhone})` : ""}
+                          {ev.isPartner ? " (Confirmed Partner)" : ""}
                         </span>
                       </span>
                     )}
