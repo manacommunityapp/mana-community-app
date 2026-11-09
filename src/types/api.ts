@@ -158,6 +158,7 @@ export interface AppUser {
   role: string;
   kycStatus: string;
   flatNumber?: string;
+  gender?: string;
   community?: Community;
 }
 
@@ -363,6 +364,7 @@ export interface EventRegistration {
   relation?: string;
   flatNumber?: string;
   age?: number;
+  gender?: string;
   role?: string;
   cricHeroesUrl?: string;
   verifiedAt?: string;
@@ -381,7 +383,7 @@ export interface EventRegistration {
   matchFormat?: string;
   matchType?: string;
   partner?: { id?: number; fullName?: string; name?: string; email?: string; phone?: string; flatNo?: string };
-  partnerFamilyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number };
+  partnerFamilyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number; user?: { flatNo?: string; phone?: string; id?: number; fullName?: string } };
   partnerUserId?: number | null;
   partnerFamilyMemberId?: number | string | null;
   partnerName?: string;

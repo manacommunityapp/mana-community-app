@@ -2008,6 +2008,1206 @@ export function SportsDashboard() {
     purple: { bg: "rgba(139,92,246,0.15)", text: "#8b5cf6" },
   };
 
+  const renderTournamentCard = (t: DashboardTournamentWithEvents, tIdx: number, isClosed: boolean = false) => {
+    const isExpanded = isClosed
+      ? expandedClosedTournaments.has(t.id)
+      : expandedTournaments.has(t.id);
+
+    const toggleExpanded = () => {
+      if (isClosed) {
+        setExpandedClosedTournaments(prev => {
+          const next = new Set(prev);
+          if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+          return next;
+        });
+      } else {
+        setExpandedTournaments(prev => {
+          const next = new Set(prev);
+          if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+          return next;
+        });
+      }
+    };
+
+    const totalCount = t.mappedEvents.length;
+    const deadlineDays = t.eventDateStart ? differenceInDays(new Date(t.eventDateStart), new Date()) : null;
+    const viewMode = tournamentViewMode[t.id] || "grid";
+
+    const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
+    const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
+    const isSelf = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
+    const stored = getStoredUser();
+    const targetMember = isSelf
+      ? {
+          age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
+          gender: user?.gender || stored?.gender || "",
+        }
+      : (() => {
+          const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+          const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+          const inferredGen = inferGender(fm, user?.gender || stored?.gender);
+          return {
+            age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+            gender: fm?.gender || inferredGen || "",
+          };
+        })();
+
+    const getMemberRegsForEvent = (ev: OpenRegistration) => {
+      const fromMyRegs = myRegistrations.filter(r =>
+        isEventMatch(r, ev) &&
+        isRegistrationForMember(r, selectedMemberId) &&
+        isActiveRegistrationStatus(r.status) &&
+        !withdrawnRegistrationIds.has(Number(r.id))
+      );
+      if (fromMyRegs.length > 0) return fromMyRegs;
+
+      // If this member has an inactive (WITHDRAWN/CANCELLED/REJECTED) registration in myRegistrations,
+      // they are definitely NOT registered!
+      const hasInactiveForMember = myRegistrations.some(r =>
+        isEventMatch(r, ev) &&
+        isRegistrationForMember(r, selectedMemberId) &&
+        !isActiveRegistrationStatus(r.status)
+      );
+      if (hasInactiveForMember) return [];
+
+      // If this event or registration ID was marked withdrawn in this session:
+      if (ev.registrationId && withdrawnRegistrationIds.has(Number(ev.registrationId))) return [];
+      if ((ev as any).myRegistrationId && withdrawnRegistrationIds.has(Number((ev as any).myRegistrationId))) return [];
+
+      // If backend event object reports withdrawn/cancelled status:
+      const evStatus = (ev as any).myRegistrationStatus;
+      if (evStatus && !isActiveRegistrationStatus(evStatus)) return [];
+
+      // Direct check on event card's own registrationId / myRegistrationId
+      const rawId = ev.registrationId || (ev as any).myRegistrationId;
+      if (rawId && !withdrawnRegistrationIds.has(Number(rawId))) {
+        const isWithdrawnInMyRegs = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isActiveRegistrationStatus(r.status));
+        if (!isWithdrawnInMyRegs) {
+          const matchingRegById = myRegistrations.find(r => Number(r.id) === Number(rawId));
+          const isTargetMember = matchingRegById
+            ? isRegistrationForMember(matchingRegById, selectedMemberId)
+            : (isSelf || !selectedMemberId || selectedMemberId === "self");
+          if (isTargetMember) {
+            const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+            const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
+            const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+            return [{
+              id: rawId,
+              eventId: ev.id,
+              status: (ev as any).myRegistrationStatus || matchingRegById?.status || "CONFIRMED",
+              matchType: matchingRegById?.matchType || (ev as any).matchType || defaultFmt,
+              playerName: matchingRegById?.playerName || user?.fullName || "Self",
+              relation: matchingRegById?.relation || "SELF",
+            }];
+          }
+        }
+      }
+
+      return [];
+    };
+    const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
+      return getMemberRegsForEvent(ev).length > 0;
+    };
+    const getMemberRegForEvent = (ev: OpenRegistration) => {
+      return getMemberRegsForEvent(ev)[0];
+    };
+    const getMemberRegisteredFormats = (ev: OpenRegistration) => {
+      const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+      if (isEvTeam) return ["TEAM"];
+      const evFormats = getEventFormats(ev as any);
+      const regs = getMemberRegsForEvent(ev);
+      if (regs.length === 0) return [];
+
+      // If event only offers 1 format (e.g. DOUBLES), any registration for this event is for that format
+      if (evFormats.length <= 1) {
+        const singleFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+        return [singleFmt.toUpperCase()];
+      }
+
+      const registered = regs.map(r => {
+        const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
+        if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
+          return rawFmt;
+        }
+        if (((r as any).partnerUserId || (r as any).partnerFamilyMemberId) && evFormats.some(f => f.toUpperCase().includes("DOUBLES"))) {
+          return (evFormats.find(f => f.toUpperCase() === "DOUBLES") || evFormats.find(f => f.toUpperCase().includes("DOUBLES"))!).toUpperCase();
+        }
+        return (evFormats[0] || "SINGLES").toUpperCase();
+      });
+      return Array.from(new Set(registered));
+    };
+    const getUnregisteredFormats = (ev: OpenRegistration) => {
+      const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+      if (isEvTeam) {
+        return isMemberRegisteredForEvent(ev) ? [] : ["TEAM"];
+      }
+      const allFormats = getEventFormats(ev as any);
+      if (allFormats.length <= 1) {
+        return isMemberRegisteredForEvent(ev) ? [] : (allFormats.length === 1 ? allFormats : ["SINGLES"]);
+      }
+      const regFormats = getMemberRegisteredFormats(ev);
+      return allFormats.filter(f => !regFormats.some(rf => rf.toUpperCase() === f.toUpperCase()));
+    };
+    const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
+      const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+      if (isEvTeam) return isMemberRegisteredForEvent(ev);
+      const allFormats = getEventFormats(ev as any);
+      if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
+      return getUnregisteredFormats(ev).length === 0;
+    };
+
+    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
+
+    const getPendingPartnerInviteForEvent = (ev: OpenRegistration) => {
+      return pendingPartnerInvites.find(inv => {
+        const evMatch = isEventMatch(inv, ev);
+        if (!evMatch) return false;
+        const pStatus = String(inv.partnerConfirmationStatus || inv.partnerStatus || "").toUpperCase().trim();
+        if (pStatus !== "PENDING") return false;
+
+        if (isSelfTarget) {
+          const partnerUid = inv.partnerUserId || (inv as any).partner?.id;
+          return user?.userId != null && String(partnerUid) === String(user.userId);
+        } else {
+          const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
+          const targetId = normId(selectedMemberId);
+          const partnerFamId = inv.partnerFamilyMemberId || (inv as any).partnerFamilyMember?.id;
+          return partnerFamId != null && normId(partnerFamId) === targetId;
+        }
+      });
+    };
+
+    const handleUnregisterCategory = async (item: OpenRegistration, targetRegId?: number) => {
+      const checkClosed = (st?: string | null) => {
+        if (!st) return false;
+        const s = String(st).toUpperCase().trim();
+        return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+      };
+      const isRegClosed = isClosed
+        || checkClosed(item.status)
+        || checkClosed((item.rawEvent as any)?.registrationStatus)
+        || checkClosed((item.rawEvent as any)?.status)
+        || checkClosed(t.registrationStatus)
+        || checkClosed((t as any).status);
+
+      if (isRegClosed && !isSportsAdminUser) {
+        toast.error("Registration is closed for this event. Unregistering is not allowed.");
+        return;
+      }
+
+      const allMemberRegs = getMemberRegsForEvent(item);
+      const regs = targetRegId
+        ? allMemberRegs.filter(r => Number(r.id) === targetRegId)
+        : allMemberRegs;
+      if (regs.length === 0) return;
+
+      const displayName = item.categoryName || item.name;
+      const isSelfMember = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
+      const participantName = isSelfMember ? "yourself" : (familyMembers.find(m => String(m.id) === String(selectedMemberId))?.name || "this family member");
+
+      const isAnyConfirmedPartner = regs.some(r => {
+        const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
+        const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
+        return isPartner || isPartnerFam;
+      });
+
+      const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
+      const confirmMsg = isAnyConfirmedPartner
+        ? `Are you sure you want to withdraw as doubles partner from ${displayName}${fmtList ? ` (${fmtList})` : ""}? The primary player will be notified.`
+        : fmtList
+        ? `Are you sure you want to unregister ${participantName} from ${displayName} (${fmtList})? You will lose your reserved spot.`
+        : `Are you sure you want to unregister ${participantName} from ${displayName}? You will lose your reserved spot.`;
+
+      if (!(await confirmAction("Unregister", confirmMsg))) return;
+
+      const withdrawnIds = regs.map(r => Number(r.id)).filter(id => !isNaN(id) && id > 0);
+
+      // 1. Mark IDs as locally withdrawn immediately
+      setWithdrawnRegistrationIds(prev => {
+        const next = new Set(prev);
+        withdrawnIds.forEach(id => next.add(id));
+        return next;
+      });
+
+      // 2. Optimistically update myRegistrations: mark status as WITHDRAWN
+      setMyRegistrations(prev =>
+        prev.map(r => withdrawnIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
+      );
+
+      // 3. Optimistically update openTournaments & closedTournaments: only if all active registrations for this event are withdrawn
+      const remainingActiveCount = allMemberRegs.filter(r => !withdrawnIds.includes(Number(r.id))).length;
+      if (remainingActiveCount === 0) {
+        const updateTourneyList = (prev: DashboardTournamentWithEvents[]) => prev.map(tourney => ({
+          ...tourney,
+          mappedEvents: tourney.mappedEvents.map(ev => {
+            const isTarget = ev.id === item.id || isEventMatch(item, ev);
+            if (isTarget) {
+              return {
+                ...ev,
+                registrationId: undefined,
+                action: "Register",
+                progress: 0,
+                progressColor: "#e2e8f0",
+                rawEvent: {
+                  ...ev.rawEvent,
+                  myRegistrationId: null,
+                  myRegistrationStatus: "WITHDRAWN",
+                },
+              };
+            }
+            return ev;
+          })
+        }));
+        setOpenTournaments(updateTourneyList);
+        setClosedTournaments(updateTourneyList);
+      }
+
+      // 4. Optimistically update stats count
+      setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - regs.length) } : s) : prev);
+
+      try {
+        for (const r of regs) {
+          const rId = Number(r.id);
+          if (!isNaN(rId) && rId > 0) {
+            try {
+              await sportsService.withdraw(rId);
+            } catch (withdrawErr: any) {
+              const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+              if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                await sportsService.rejectRegistration(rId, "Withdrawn by Admin");
+              } else {
+                throw withdrawErr;
+              }
+            }
+          }
+        }
+        const unregLabel = fmtList ? `${displayName} (${fmtList})` : displayName;
+        toast.success(isAnyConfirmedPartner ? `Withdrew as partner from ${unregLabel}` : `Unregistered from ${unregLabel}`);
+        window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+        await fetchData();
+      } catch (err: any) {
+        const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+        toast.error(msg);
+        fetchData();
+      }
+    };
+
+    // Eligibility filter state: default selected (true)
+    const showEligibleOnly = tournamentEligibleOnly[t.id] ?? true;
+
+    const isCategoryEligibleOrRegistered = (item: OpenRegistration) => {
+      const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
+      return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item) || Boolean(getPendingPartnerInviteForEvent(item));
+    };
+
+    const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
+
+    // Group child events by sport (filtered when showEligibleOnly is active)
+    const sportGroupMap = new Map<string, { emoji: string; events: OpenRegistration[] }>();
+    t.mappedEvents.forEach(ev => {
+      if (showEligibleOnly && !isCategoryEligibleOrRegistered(ev)) {
+        return;
+      }
+      const sport = (ev.category?.split(" · ")[0]) || "Sport";
+      if (!sportGroupMap.has(sport)) sportGroupMap.set(sport, { emoji: ev.sportEmoji || getSportEmoji(sport), events: [] });
+      sportGroupMap.get(sport)!.events.push(ev);
+    });
+    const sportEntries = Array.from(sportGroupMap.entries());
+
+    const gridEvents = showEligibleOnly
+      ? t.mappedEvents.filter(isCategoryEligibleOrRegistered)
+      : t.mappedEvents;
+
+    const renderCategoryCard = (item: OpenRegistration) => {
+      const checkClosed = (st?: string | null) => {
+        if (!st) return false;
+        const s = String(st).toUpperCase().trim();
+        return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+      };
+      const isRegClosed = isClosed
+        || checkClosed(item.status)
+        || checkClosed((item.rawEvent as any)?.registrationStatus)
+        || checkClosed((item.rawEvent as any)?.status)
+        || checkClosed(t.registrationStatus)
+        || checkClosed((t as any).status);
+
+      const sportName = (item.category?.split(" · ")[0]) || "Sport";
+      const emoji = item.sportEmoji || getSportEmoji(sportName);
+      const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
+      const regs = getMemberRegsForEvent(item);
+      const memberReg = regs[0];
+      const isReg = regs.length > 0;
+      const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
+      const isBlocked = !elig.eligible;
+      const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
+      const regFormats = getMemberRegisteredFormats(item);
+      const unregFormats = getUnregisteredFormats(item);
+      const isFullyReg = isReg && (isTeam || eventFormats.length <= 1 || unregFormats.length === 0);
+      const isPartiallyReg = !isTeam && isReg && eventFormats.length > 1 && unregFormats.length > 0;
+
+      const displayFormats = isTeam
+        ? ["TEAM"]
+        : eventFormats && eventFormats.length > 0
+        ? eventFormats
+        : [(item.categoryName || item.name || "").toLowerCase().includes("double") ? "DOUBLES" : "SINGLES"];
+
+      const spotsText = item.spots || "";
+      const matchSpots = spotsText.match(/(\d+)\/(\d+)/);
+      const regCount = matchSpots ? parseInt(matchSpots[1], 10) : 0;
+      const maxSpots = matchSpots ? parseInt(matchSpots[2], 10) : null;
+      const percentFilled = maxSpots && maxSpots > 0 ? Math.min(100, Math.round((regCount / maxSpots) * 100)) : 0;
+      const isNearlyFull = maxSpots && maxSpots > 0 && percentFilled >= 75 && regCount < maxSpots;
+      const isFull = maxSpots && maxSpots > 0 && regCount >= maxSpots;
+
+      const pendingInvite = getPendingPartnerInviteForEvent(item);
+      const isPendingInvite = Boolean(pendingInvite);
+      const invitingPlayerName = (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || (pendingInvite as any)?.playerName || "Partner";
+      const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
+      const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
+      const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
+      const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
+      const invitePartnerFam = (pendingInvite as any)?.partnerFamilyMember;
+      const invitePartnerFamName = invitePartnerFam?.name;
+      const invitePartnerFamRel = invitePartnerFam?.relation;
+      const invitePrimaryFam = (pendingInvite as any)?.familyMember;
+      const invitePrimaryFamName = invitePrimaryFam?.name;
+
+      return (
+        <div
+          key={item.id}
+          className={`p-2 sm:p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between gap-1.5 ${
+            isFullyReg
+              ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
+              : isPendingInvite
+              ? "border-amber-200 bg-amber-50/20 shadow-2xs"
+              : isBlocked
+              ? "border-slate-200 bg-slate-50/60 opacity-90"
+              : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-2xs"
+          }`}
+        >
+          <div>
+            {/* Card Header: Emoji + Title + Format Badge(s) */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] p-1 rounded-md bg-slate-50 border border-slate-100 shrink-0">
+                  {emoji}
+                </span>
+                <div className="min-w-0">
+                  <h5 className="text-xs font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
+                    {item.name || item.categoryName}
+                  </h5>
+                  <div className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                    <span>{sportName} {item.date ? `· ${item.date}` : ""}</span>
+                    {item.categoryName && (
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                        title={`Player Category: ${item.categoryName}`}
+                      >
+                        {item.categoryName}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                {displayFormats.map(fmt => {
+                  const isTeamFmt = fmt === "TEAM";
+                  const isMixed = fmt === "MIXED_DOUBLES" || fmt.includes("MIXED");
+                  const isDbl = fmt === "DOUBLES" || (fmt.includes("DOUBLES") && !isMixed);
+                  const isSingles = fmt === "SINGLES" || fmt.includes("SINGLE");
+                  const label =
+                    isTeamFmt
+                      ? "Team Squad"
+                      : isMixed
+                      ? "Mixed Doubles"
+                      : isDbl
+                      ? "Doubles"
+                      : fmt === "SINGLES"
+                      ? "Singles"
+                      : fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+                  return (
+                    <span
+                      key={fmt}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                        isTeamFmt
+                          ? "bg-purple-50 text-purple-700 border border-purple-200"
+                          : isMixed
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : isDbl
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : isSingles
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Partner Details for Registered Events */}
+            {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (r as any).partnerDeclineReason || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
+              <div className="mt-1.5 flex flex-col gap-1">
+                {regs.map(r => {
+                  const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                  const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                  const isConfirmedPartner = isPartner || isPartnerFam;
+
+                  const pName = r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name;
+                  const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+                  const isConfirmed = rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED";
+                  const isPending = rawStatus === "PENDING";
+                  const isDeclined = rawStatus === "DECLINED" || rawStatus === "REJECTED";
+                  const isOpenPool = (r as any).openPool || (!pName && !r.partnerUserId && !r.partnerFamilyMemberId);
+                  const isRegisteredFormat = (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE");
+                  if (!isRegisteredFormat && !pName && !isOpenPool) return null;
+
+                  const rFmt = extractFormatStr(r.matchType || (r as any).format) || "Doubles";
+                  const rFmtLabel = rFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+                  const partnerFlat = r.partnerFlatNumber || (r as any).partnerFlat || (r as any).partner?.flatNo || (r as any).partner?.flatNumber;
+                  const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+
+                  return (
+                    <div
+                      key={r.id}
+                      className="px-2 py-1 rounded-md bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-1 text-[11px]"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-semibold text-indigo-900 shrink-0">
+                          {rFmtLabel} Partner:
+                        </span>
+                        {isOpenPool ? (
+                          <span className="text-amber-700 font-medium italic truncate">
+                            Open Pool (Seeking Partner)
+                          </span>
+                        ) : pName ? (
+                          <span className="text-slate-800 font-medium truncate flex items-center gap-1">
+                            <span>{pName}</span>
+                            {cleanPartnerFlat && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-100/70 text-indigo-700 font-semibold shrink-0">
+                                🏠 {cleanPartnerFlat}
+                              </span>
+                            )}
+                            {isConfirmedPartner && (
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold shrink-0">
+                                You
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">None</span>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 flex items-center gap-1">
+                        {isOpenPool ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            Open Pool
+                          </span>
+                        ) : isConfirmed ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            Confirmed
+                          </span>
+                        ) : isPending ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            Invited (Pending)
+                          </span>
+                        ) : isDeclined ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 border border-rose-200" title={(r as any).partnerDeclineReason || "Invitation declined"}>
+                            Declined
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Pending Partner Invitation banner */}
+            {isPendingInvite && (
+              <div className="mt-1.5 p-1.5 rounded-md bg-amber-50/90 border border-amber-200 flex flex-col gap-1 text-[11px] text-amber-900 animate-fade-in">
+                <div className="flex items-center gap-1 font-bold text-amber-800">
+                  <span>📩 Invited as {inviteFormatLabel} Partner!</span>
+                </div>
+                <div className="text-amber-800">
+                  <span className="font-semibold text-slate-800">{invitingPlayerName}</span>
+                  {cleanInvitingFlat && (
+                    <span className="font-semibold text-indigo-700 ml-1">
+                      (🏠 {cleanInvitingFlat})
+                    </span>
+                  )}
+                  {invitePrimaryFamName && (
+                    <span className="text-slate-600 ml-1">
+                      for <span className="font-semibold text-slate-800">{invitePrimaryFamName}</span>
+                    </span>
+                  )}
+                  {" "}invited{" "}
+                  <span className="font-semibold text-slate-800">
+                    {invitePartnerFamName ? `${invitePartnerFamName}${invitePartnerFamRel ? ` (${invitePartnerFamRel})` : ""}` : (user?.fullName || "you")}
+                  </span>
+                  {" "}to play doubles.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer: Spots indicator + Action Button(s) */}
+          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
+            {/* Spots / Capacity text */}
+            {spotsText && spotsText !== "Unlimited spots" ? (
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold text-slate-500 truncate flex items-center gap-1">
+                  <span>{spotsText}</span>
+                  {isFull && <span className="text-rose-600 font-bold">· Full</span>}
+                  {isNearlyFull && <span className="text-amber-600 font-bold">· Fast Filling</span>}
+                </div>
+                {maxSpots && maxSpots > 0 ? (
+                  <div className="w-20 bg-slate-100 h-1 rounded-full overflow-hidden mt-0.5">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isFull ? "bg-rose-500" : isNearlyFull ? "bg-amber-500" : "bg-emerald-500"
+                      }`}
+                      style={{ width: `${percentFilled}%` }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : isNearlyFull ? (
+              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                ⚡ Filling Fast
+              </span>
+            ) : (
+              <div />
+            )}
+
+            {/* Action / Registration button */}
+            <div className="shrink-0 ml-auto">
+              {isFullyReg ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {regs.length > 1 ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Registered</span>
+                      </span>
+                      {isRegClosed && (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
+                          title="Registration is closed for this event"
+                        >
+                          <Lock className="w-2.5 h-2.5 text-slate-400" />
+                          <span>Registration Closed</span>
+                        </span>
+                      )}
+                      {regs.map(r => {
+                        const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
+                        const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                        const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                        const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                        const isConfirmedPartner = isPartner || isPartnerFam;
+                        return (
+                          <span
+                            key={r.id}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                            <span>✓ {fmtLabel}</span>
+                            {isConfirmedPartner && (
+                              <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
+                                Partner
+                              </span>
+                            )}
+                            {(!isRegClosed || isSportsAdminUser) && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                                aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(() => {
+                        const r = regs[0];
+                        const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
+                        const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
+                        const isConfirmedPartner = isPartner || isPartnerFam;
+                        return (
+                          <>
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
+                            </span>
+                            {isRegClosed && (
+                              <span
+                                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                                title="Registration is closed for this event"
+                              >
+                                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                <span>Registration Closed</span>
+                              </span>
+                            )}
+                            {(!isRegClosed || isSportsAdminUser) && (
+                              <button
+                                type="button"
+                                onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                title={isConfirmedPartner ? "Withdraw as partner from this category" : "Unregister from this category"}
+                              >
+                                Unregister
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : isPartiallyReg ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>Registered</span>
+                  </span>
+                  {isRegClosed && (
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
+                      title="Registration is closed for this event"
+                    >
+                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      <span>Registration Closed</span>
+                    </span>
+                  )}
+                  {regs.map(r => {
+                    const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
+                    const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                    const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                    const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                    const isConfirmedPartner = isPartner || isPartnerFam;
+                    return (
+                      <span
+                        key={r.id}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                      >
+                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span>✓ {fmtLabel}</span>
+                        {isConfirmedPartner && (
+                          <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
+                            Partner
+                          </span>
+                        )}
+                        {(!isRegClosed || isSportsAdminUser) && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                            className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                            title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                            aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+                  {pendingInvite ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
+                        onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
+                      >
+                        ✕ Decline
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
+                        onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
+                      >
+                        {respondingInviteId === Number(pendingInvite.id) ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                        )}
+                        <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
+                      </button>
+                    </div>
+                  ) : isRegClosed && !isSportsAdminUser ? null : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isSelfMember = isSelf;
+                        handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                      }}
+                      className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                    >
+                      <span>+ {unregFormats.join(", ")}</span>
+                      <ArrowUpRight className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                </div>
+              ) : pendingInvite ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
+                    onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
+                  >
+                    ✕ Decline
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
+                    onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
+                  >
+                    {respondingInviteId === Number(pendingInvite.id) ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-3 h-3" />
+                    )}
+                    <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
+                  </button>
+                  {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
+                    isRegClosed && !isSportsAdminUser ? (
+                      <button
+                        type="button"
+                        disabled
+                        title="Registration is closed for this event"
+                        className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 flex items-center gap-1"
+                      >
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                        <span>Closed</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const isSelfMember = isSelf;
+                          handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                        }}
+                        className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                      >
+                        <span>+ {unregFormats.filter(f => !inviteRawFmt.includes(f)).join(", ")}</span>
+                        <ArrowUpRight className="w-2.5 h-2.5" />
+                      </button>
+                    )
+                  )}
+                </div>
+              ) : isRegClosed && !isSportsAdminUser ? (
+                (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>Registered</span>
+                    </span>
+                    <span
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                      title="Registration is closed for this event"
+                    >
+                      <Lock className="w-2.5 h-2.5 text-slate-400" />
+                      <span>Registration Closed</span>
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Registration is closed for this event"
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed opacity-75 flex items-center gap-1.5 min-h-[36px]"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Registration Closed</span>
+                  </button>
+                )
+              ) : isBlocked ? (
+                <span
+                  title={elig.warningMsg}
+                  className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-not-allowed ${
+                    elig.isAgeUnknown
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
+                  }`}
+                >
+                  {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : elig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
+                </span>
+              ) : !memberProfileStatus.isValid ? (
+                <button
+                  type="button"
+                  onClick={() => notifyIncompleteProfile(selectedMemberId)}
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
+                >
+                  Complete Profile →
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isSelfMember = isSelf;
+                    handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 min-h-[36px]"
+                >
+                  <span>Register Now</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Admin Actions (Schedule, Auction, Reopen/Close) */}
+          {isSportsAdminUser && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-slate-100 mt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  setTogglingId(item.id);
+                  try {
+                    const newStatus = item.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                    await sportsService.updateEventStatus(item.id, newStatus);
+                    toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${item.name}`);
+                    fetchData();
+                  } catch {
+                    toast.error("Failed to update status");
+                  } finally {
+                    setTogglingId(null);
+                  }
+                }}
+                disabled={togglingId === item.id}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                  item.status === "REGISTRATION_OPEN"
+                    ? "border-red-300 text-red-600 bg-red-50 hover:bg-red-100"
+                    : "border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+              >
+                {togglingId === item.id ? "..." : item.status === "REGISTRATION_OPEN" ? "Close Reg" : "Reopen Reg"}
+              </button>
+              {isItemTeamSport(item) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await auctionService.updateStatus(item.id, "LIVE");
+                      navigate(`/sports/auction/${item.id}`);
+                    } catch {
+                      navigate(`/sports/auction/${item.id}`);
+                    }
+                  }}
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer transition-all"
+                >
+                  Auction
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => navigate(`/sports/schedule/${item.id}`)}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 cursor-pointer transition-all"
+              >
+                Schedule
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div key={t.id} className={`mb-2 last:mb-0 rounded-xl border ${isClosed ? "border-slate-200/90" : "border-indigo-100/90"} bg-white shadow-2xs overflow-hidden transition-all text-left`}>
+        {/* Tournament Header with Details */}
+        <div className={`p-2 sm:p-2.5 ${isClosed ? "bg-gradient-to-r from-slate-100/90 via-white to-slate-50/90 border-b border-slate-200/80" : "bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80"}`}>
+          <div className="flex items-center justify-between gap-2.5 flex-wrap">
+            {/* Tournament Name, Details Button & Badges */}
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDetailsModalTournament(t);
+                  setIsDetailsModalOpen(true);
+                }}
+                className="p-1 sm:px-2.5 sm:py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs shrink-0"
+                title="View full tournament rules, venue, and description"
+                aria-label="Tournament Details"
+              >
+                <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="hidden sm:inline">Tournament Details</span>
+              </button>
+
+              {t.eventDateStart && t.eventDateEnd && (
+                <span className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0">
+                  <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                  <span>
+                    {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
+                  </span>
+                </span>
+              )}
+
+              {isClosed ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-200/60 uppercase tracking-wider shrink-0">
+                  Closed
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-200/60 uppercase tracking-wider shrink-0">
+                  Open
+                </span>
+              )}
+
+              {t.sponsors && t.sponsors.length > 0 && (
+                <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
+              )}
+            </div>
+
+            {/* Hide / Show Button */}
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-auto sm:ml-0 shadow-2xs"
+              title={isExpanded ? "Collapse tournament details" : "Expand tournament details"}
+            >
+              <span>{isExpanded ? "Hide" : "Show"}</span>
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {/* Family member registration selector */}
+          {isExpanded && (
+            <div className="mt-1.5 pt-1.5 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <label htmlFor={`tournament-reg-for-${t.id}`} className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                    Register For:
+                  </label>
+                  <div className="relative">
+                    <select
+                      id={`tournament-reg-for-${t.id}`}
+                      name={`tournamentRegFor_${t.id}`}
+                      value={selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self"}
+                      onChange={(e) => handleTournamentMemberChange(t, e.target.value)}
+                      className="text-xs font-semibold pl-2.5 pr-7 py-1.5 rounded-lg bg-white border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all"
+                      title="Choose participant to register"
+                    >
+                      <option value="self">👤 {user?.fullName || "Self"}</option>
+                      {familyMembersOnly.map(m => (
+                        <option key={m.id} value={String(m.id)}>
+                          👥 {m.name}{m.relation && m.relation !== "Family" ? ` (${m.relation})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {/* Profile readiness & eligibility chip */}
+                  {!memberProfileStatus.isValid ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                      className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition"
+                      title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
+                    >
+                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                    </button>
+                  ) : totalEligibleCount === 0 ? (
+                    <span
+                      className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                      title={`0 eligible categories in this tournament for ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "unspecified"}, ${targetMember.age > 0 ? `${targetMember.age}y` : "age unspecified"}`}
+                    >
+                      <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>Ineligible ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : ""}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                      title={`Profile Ready & Verified: ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""} (${totalEligibleCount} eligible categories)`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* View mode & eligibility filter toolbar */}
+              <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-1 bg-slate-100/90 p-1 rounded-xl sm:rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60 shadow-2xs">
+                {/* Eligible filter toggle: Default selected */}
+                <button
+                  type="button"
+                  onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: !(prev[t.id] ?? true) }))}
+                  className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
+                    showEligibleOnly
+                      ? "bg-white text-emerald-700 shadow-2xs font-bold border border-emerald-100/60"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                  }`}
+                  title={
+                    showEligibleOnly
+                      ? "Showing eligible categories only. Click to view all categories (including ineligible)."
+                      : "Showing all categories (eligible & ineligible). Click to show eligible only."
+                  }
+                >
+                  <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${showEligibleOnly ? "text-emerald-600" : "text-slate-400"}`} />
+                  <span className="whitespace-nowrap">Eligible</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${ showEligibleOnly ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-200 text-slate-600" }`}
+                  >
+                    {totalEligibleCount}
+                  </span>
+                </button>
+
+                <div className="w-px h-4 bg-slate-300 mx-0.5 shrink-0" />
+
+                {/* View Switcher: Grid vs By Sport */}
+                <div className="flex items-center gap-1 flex-1 sm:flex-initial">
+                  <button
+                    type="button"
+                    onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "grid" }))}
+                    className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                      viewMode === "grid"
+                        ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                    }`}
+                    title="View all categories in a grid"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">
+                      <span className="hidden sm:inline">All </span>Grid
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "groups" }))}
+                    className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                      viewMode === "groups"
+                        ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                    }`}
+                    title="Group categories by sport"
+                  >
+                    <ListTree className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">By Sport</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sports Group View - Body */}
+        {isExpanded && (
+          <div className="p-2 sm:p-2.5 bg-slate-50/30">
+            {showEligibleOnly && (viewMode === "groups" ? sportEntries.length === 0 : gridEvents.length === 0) ? (
+              <div className="py-6 px-3 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-1.5 text-base">
+                  🔍
+                </div>
+                <p className="text-xs font-semibold text-slate-700">No eligible categories found for this participant</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
+                </p>
+                {!memberProfileStatus.isValid && (
+                  <div className="mt-2 flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                      className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
+                      title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
+                    >
+                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                      <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                      <span className="font-semibold underline ml-0.5">· Update Profile →</span>
+                    </button>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: false }))}
+                  className="mt-2.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                >
+                  <span>Show All Categories ({t.mappedEvents.length})</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : viewMode === "groups" ? (
+              <div className="space-y-1.5 sm:space-y-2">
+                {sportEntries.map(([sport, { emoji, events: sportEvents }]) => {
+                  const eligibleCount = sportEvents.filter(e => checkCategoryEligibility(e, targetMember.age, targetMember.gender).eligible).length;
+                  const regCount = sportEvents.filter(e => isMemberRegisteredForEvent(e)).length;
+
+                  return (
+                    <div key={sport} className="p-2 sm:p-2.5 rounded-lg border border-slate-200/80 bg-white shadow-2xs">
+                      <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 flex-wrap gap-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] shrink-0">{emoji}</span>
+                          <h3 className="text-xs font-bold text-slate-900 m-0 mb-0 truncate">{sport}</h3>
+                          <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                            · {sportEvents.length} {sportEvents.length === 1 ? "category" : "categories"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                          {eligibleCount > 0 && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              {eligibleCount} eligible
+                            </span>
+                          )}
+                          {regCount > 0 && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ✓ {regCount} registered
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetailsModalTournament(t);
+                              setIsDetailsModalOpen(true);
+                            }}
+                            className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer flex items-center justify-center"
+                            title="View tournament rules and details"
+                            aria-label="Tournament rules and details"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                        {sportEvents.map(renderCategoryCard)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                {gridEvents.map(renderCategoryCard)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-2">
 
@@ -2366,1166 +3566,7 @@ export function SportsDashboard() {
                 <p className="text-xs text-slate-500 mt-1">Check back later or ask your sports admin to open registrations</p>
               </div>
             ) : openTournaments.length > 0 ? (
-              openTournaments.map((t, tIdx) => {
-                const isExpanded = expandedTournaments.has(t.id);
-                const totalCount = t.mappedEvents.length;
-                const deadlineDays = t.eventDateStart ? differenceInDays(new Date(t.eventDateStart), new Date()) : null;
-                const viewMode = tournamentViewMode[t.id] || "grid";
-
-
-                const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
-                const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
-                const isSelf = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
-                const stored = getStoredUser();
-                const targetMember = isSelf
-                  ? {
-                      age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
-                      gender: user?.gender || stored?.gender || "",
-                    }
-                  : (() => {
-                      const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
-                      const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
-                      const inferredGen = inferGender(fm, user?.gender || stored?.gender);
-                      return {
-                        age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
-                        gender: fm?.gender || inferredGen || "",
-                      };
-                    })();
-
-                const getMemberRegsForEvent = (ev: OpenRegistration) => {
-                  const fromMyRegs = myRegistrations.filter(r =>
-                    isEventMatch(r, ev) &&
-                    isRegistrationForMember(r, selectedMemberId) &&
-                    isActiveRegistrationStatus(r.status) &&
-                    !withdrawnRegistrationIds.has(Number(r.id))
-                  );
-                  if (fromMyRegs.length > 0) return fromMyRegs;
-
-                  // If this member has an inactive (WITHDRAWN/CANCELLED/REJECTED) registration in myRegistrations,
-                  // they are definitely NOT registered!
-                  const hasInactiveForMember = myRegistrations.some(r =>
-                    isEventMatch(r, ev) &&
-                    isRegistrationForMember(r, selectedMemberId) &&
-                    !isActiveRegistrationStatus(r.status)
-                  );
-                  if (hasInactiveForMember) return [];
-
-                  // If this event or registration ID was marked withdrawn in this session:
-                  if (ev.registrationId && withdrawnRegistrationIds.has(Number(ev.registrationId))) return [];
-                  if ((ev as any).myRegistrationId && withdrawnRegistrationIds.has(Number((ev as any).myRegistrationId))) return [];
-
-                  // If backend event object reports withdrawn/cancelled status:
-                  const evStatus = (ev as any).myRegistrationStatus;
-                  if (evStatus && !isActiveRegistrationStatus(evStatus)) return [];
-
-                  // Direct check on event card's own registrationId / myRegistrationId
-                  const rawId = ev.registrationId || (ev as any).myRegistrationId;
-                  if (rawId && !withdrawnRegistrationIds.has(Number(rawId))) {
-                    const isWithdrawnInMyRegs = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isActiveRegistrationStatus(r.status));
-                    if (!isWithdrawnInMyRegs) {
-                      const matchingRegById = myRegistrations.find(r => Number(r.id) === Number(rawId));
-                      const isTargetMember = matchingRegById
-                        ? isRegistrationForMember(matchingRegById, selectedMemberId)
-                        : (isSelf || !selectedMemberId || selectedMemberId === "self");
-                      if (isTargetMember) {
-                        const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                        const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
-                        const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
-                        return [{
-                          id: rawId,
-                          eventId: ev.id,
-                          status: (ev as any).myRegistrationStatus || matchingRegById?.status || "CONFIRMED",
-                          matchType: matchingRegById?.matchType || (ev as any).matchType || defaultFmt,
-                          playerName: matchingRegById?.playerName || user?.fullName || "Self",
-                          relation: matchingRegById?.relation || "SELF",
-                        }];
-                      }
-                    }
-                  }
-
-                  return [];
-                };
-                const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
-                  return getMemberRegsForEvent(ev).length > 0;
-                };
-                const getMemberRegForEvent = (ev: OpenRegistration) => {
-                  return getMemberRegsForEvent(ev)[0];
-                };
-                const getMemberRegisteredFormats = (ev: OpenRegistration) => {
-                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                  if (isEvTeam) return ["TEAM"];
-                  const evFormats = getEventFormats(ev as any);
-                  const regs = getMemberRegsForEvent(ev);
-                  if (regs.length === 0) return [];
-
-                  // If event only offers 1 format (e.g. DOUBLES), any registration for this event is for that format
-                  if (evFormats.length <= 1) {
-                    const singleFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
-                    return [singleFmt.toUpperCase()];
-                  }
-
-                  const registered = regs.map(r => {
-                    const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
-                    if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
-                      return rawFmt;
-                    }
-                    if (((r as any).partnerUserId || (r as any).partnerFamilyMemberId) && evFormats.some(f => f.toUpperCase().includes("DOUBLES"))) {
-                      return (evFormats.find(f => f.toUpperCase() === "DOUBLES") || evFormats.find(f => f.toUpperCase().includes("DOUBLES"))!).toUpperCase();
-                    }
-                    return (evFormats[0] || "SINGLES").toUpperCase();
-                  });
-                  return Array.from(new Set(registered));
-                };
-                const getUnregisteredFormats = (ev: OpenRegistration) => {
-                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                  if (isEvTeam) {
-                    return isMemberRegisteredForEvent(ev) ? [] : ["TEAM"];
-                  }
-                  const allFormats = getEventFormats(ev as any);
-                  if (allFormats.length <= 1) {
-                    return isMemberRegisteredForEvent(ev) ? [] : (allFormats.length === 1 ? allFormats : ["SINGLES"]);
-                  }
-                  const regFormats = getMemberRegisteredFormats(ev);
-                  return allFormats.filter(f => !regFormats.some(rf => rf.toUpperCase() === f.toUpperCase()));
-                };
-                const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
-                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                  if (isEvTeam) return isMemberRegisteredForEvent(ev);
-                  const allFormats = getEventFormats(ev as any);
-                  if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
-                  return getUnregisteredFormats(ev).length === 0;
-                };
-
-                const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
-
-                const getPendingPartnerInviteForEvent = (ev: OpenRegistration) => {
-                  return pendingPartnerInvites.find(inv => {
-                    const evMatch = isEventMatch(inv, ev);
-                    if (!evMatch) return false;
-                    const pStatus = String(inv.partnerConfirmationStatus || inv.partnerStatus || "").toUpperCase().trim();
-                    if (pStatus !== "PENDING") return false;
-
-                    if (isSelfTarget) {
-                      const partnerUid = inv.partnerUserId || (inv as any).partner?.id;
-                      return user?.userId != null && String(partnerUid) === String(user.userId);
-                    } else {
-                      const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
-                      const targetId = normId(selectedMemberId);
-                      const partnerFamId = inv.partnerFamilyMemberId || (inv as any).partnerFamilyMember?.id;
-                      return partnerFamId != null && normId(partnerFamId) === targetId;
-                    }
-                  });
-                };
-
-                const handleUnregisterCategory = async (item: OpenRegistration, targetRegId?: number) => {
-                  const checkClosed = (st?: string | null) => {
-                    if (!st) return false;
-                    const s = String(st).toUpperCase().trim();
-                    return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
-                  };
-                  const isClosed = checkClosed(item.status)
-                    || checkClosed((item.rawEvent as any)?.registrationStatus)
-                    || checkClosed((item.rawEvent as any)?.status)
-                    || checkClosed(t.registrationStatus)
-                    || checkClosed((t as any).status);
-
-                  if (isClosed && !isSportsAdminUser) {
-                    toast.error("Registration is closed for this event. Unregistering is not allowed.");
-                    return;
-                  }
-
-                  const allMemberRegs = getMemberRegsForEvent(item);
-                  const regs = targetRegId
-                    ? allMemberRegs.filter(r => Number(r.id) === targetRegId)
-                    : allMemberRegs;
-                  if (regs.length === 0) return;
-
-                  const displayName = item.categoryName || item.name;
-                  const isSelfMember = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
-                  const participantName = isSelfMember ? "yourself" : (familyMembers.find(m => String(m.id) === String(selectedMemberId))?.name || "this family member");
-
-                  const isAnyConfirmedPartner = regs.some(r => {
-                    const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
-                    const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
-                    return isPartner || isPartnerFam;
-                  });
-
-                  const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
-                  const confirmMsg = isAnyConfirmedPartner
-                    ? `Are you sure you want to withdraw as doubles partner from ${displayName}${fmtList ? ` (${fmtList})` : ""}? The primary player will be notified.`
-                    : fmtList
-                    ? `Are you sure you want to unregister ${participantName} from ${displayName} (${fmtList})? You will lose your reserved spot.`
-                    : `Are you sure you want to unregister ${participantName} from ${displayName}? You will lose your reserved spot.`;
-
-                  if (!(await confirmAction("Unregister", confirmMsg))) return;
-
-                  const withdrawnIds = regs.map(r => Number(r.id)).filter(id => !isNaN(id) && id > 0);
-
-                  // 1. Mark IDs as locally withdrawn immediately
-                  setWithdrawnRegistrationIds(prev => {
-                    const next = new Set(prev);
-                    withdrawnIds.forEach(id => next.add(id));
-                    return next;
-                  });
-
-                  // 2. Optimistically update myRegistrations: mark status as WITHDRAWN
-                  setMyRegistrations(prev =>
-                    prev.map(r => withdrawnIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
-                  );
-
-                  // 3. Optimistically update openTournaments: only if all active registrations for this event are withdrawn
-                  const remainingActiveCount = allMemberRegs.filter(r => !withdrawnIds.includes(Number(r.id))).length;
-                  if (remainingActiveCount === 0) {
-                    setOpenTournaments(prev => prev.map(tourney => ({
-                      ...tourney,
-                      mappedEvents: tourney.mappedEvents.map(ev => {
-                        const isTarget = ev.id === item.id || isEventMatch(item, ev);
-                        if (isTarget) {
-                          return {
-                            ...ev,
-                            registrationId: undefined,
-                            action: "Register",
-                            progress: 0,
-                            progressColor: "#e2e8f0",
-                            rawEvent: {
-                              ...ev.rawEvent,
-                              myRegistrationId: null,
-                              myRegistrationStatus: "WITHDRAWN",
-                            },
-                          };
-                        }
-                        return ev;
-                      })
-                    })));
-                  }
-
-                  // 4. Optimistically update stats count
-                  setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - regs.length) } : s) : prev);
-
-                  try {
-                    for (const r of regs) {
-                      const rId = Number(r.id);
-                      if (!isNaN(rId) && rId > 0) {
-                        try {
-                          await sportsService.withdraw(rId);
-                        } catch (withdrawErr: any) {
-                          const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
-                          // If event has started and caller has admin/sports admin rights, use admin rejection/cancellation
-                          if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
-                            await sportsService.rejectRegistration(rId, "Withdrawn by Admin");
-                          } else {
-                            throw withdrawErr;
-                          }
-                        }
-                      }
-                    }
-                    const unregLabel = fmtList ? `${displayName} (${fmtList})` : displayName;
-                    toast.success(isAnyConfirmedPartner ? `Withdrew as partner from ${unregLabel}` : `Unregistered from ${unregLabel}`);
-                    window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
-                    await fetchData();
-                  } catch (err: any) {
-                    const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
-                    toast.error(msg);
-                    fetchData();
-                  }
-                };
-
-                // Eligibility filter state: default selected (true)
-                const showEligibleOnly = tournamentEligibleOnly[t.id] ?? true;
-
-                // "Eligible Only" filter: show eligible + age-unknown (amber badge) + registered + invited
-                // age-unknown means we can't verify yet — show them so user knows to add age
-                // Only truly ineligible (gender mismatch, over/under age) are hidden
-                const isCategoryEligibleOrRegistered = (item: OpenRegistration) => {
-                  const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
-                  return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item) || Boolean(getPendingPartnerInviteForEvent(item));
-                };
-
-                const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
-
-                // Group child events by sport (filtered when showEligibleOnly is active)
-                const sportGroupMap = new Map<string, { emoji: string; events: OpenRegistration[] }>();
-                t.mappedEvents.forEach(ev => {
-                  if (showEligibleOnly && !isCategoryEligibleOrRegistered(ev)) {
-                    return;
-                  }
-                  const sport = (ev.category?.split(" · ")[0]) || "Sport";
-                  if (!sportGroupMap.has(sport)) sportGroupMap.set(sport, { emoji: ev.sportEmoji || getSportEmoji(sport), events: [] });
-                  sportGroupMap.get(sport)!.events.push(ev);
-                });
-                const sportEntries = Array.from(sportGroupMap.entries());
-
-                const gridEvents = showEligibleOnly
-                  ? t.mappedEvents.filter(isCategoryEligibleOrRegistered)
-                  : t.mappedEvents;
-
-                const renderCategoryCard = (item: OpenRegistration) => {
-                  const checkClosed = (st?: string | null) => {
-                    if (!st) return false;
-                    const s = String(st).toUpperCase().trim();
-                    return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
-                  };
-                  const isRegClosed = checkClosed(item.status)
-                    || checkClosed((item.rawEvent as any)?.registrationStatus)
-                    || checkClosed((item.rawEvent as any)?.status)
-                    || checkClosed(t.registrationStatus)
-                    || checkClosed((t as any).status);
-
-                  const sportName = (item.category?.split(" · ")[0]) || "Sport";
-                  const emoji = item.sportEmoji || getSportEmoji(sportName);
-                  const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
-                  const regs = getMemberRegsForEvent(item);
-                  const memberReg = regs[0];
-                  const isReg = regs.length > 0;
-                  const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
-                  const isBlocked = !elig.eligible;
-                  const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
-                  const regFormats = getMemberRegisteredFormats(item);
-                  const unregFormats = getUnregisteredFormats(item);
-                  const isFullyReg = isReg && (isTeam || eventFormats.length <= 1 || unregFormats.length === 0);
-                  const isPartiallyReg = !isTeam && isReg && eventFormats.length > 1 && unregFormats.length > 0;
-
-                  const displayFormats = isTeam
-                    ? ["TEAM"]
-                    : eventFormats && eventFormats.length > 0
-                    ? eventFormats
-                    : [(item.categoryName || item.name || "").toLowerCase().includes("double") ? "DOUBLES" : "SINGLES"];
-
-                  const spotsText = item.spots || "";
-                  const matchSpots = spotsText.match(/(\d+)\/(\d+)/);
-                  const regCount = matchSpots ? parseInt(matchSpots[1], 10) : 0;
-                  const maxSpots = matchSpots ? parseInt(matchSpots[2], 10) : null;
-                  const percentFilled = maxSpots && maxSpots > 0 ? Math.min(100, Math.round((regCount / maxSpots) * 100)) : 0;
-                  const isNearlyFull = maxSpots && maxSpots > 0 && percentFilled >= 75 && regCount < maxSpots;
-                  const isFull = maxSpots && maxSpots > 0 && regCount >= maxSpots;
-
-                  const pendingInvite = getPendingPartnerInviteForEvent(item);
-                  const isPendingInvite = Boolean(pendingInvite);
-                  const invitingPlayerName = (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || (pendingInvite as any)?.playerName || "Partner";
-                  const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
-                  const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
-                  const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
-                  const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
-                  const invitePartnerFam = (pendingInvite as any)?.partnerFamilyMember;
-                  const invitePartnerFamName = invitePartnerFam?.name;
-                  const invitePartnerFamRel = invitePartnerFam?.relation;
-                  const invitePrimaryFam = (pendingInvite as any)?.familyMember;
-                  const invitePrimaryFamName = invitePrimaryFam?.name;
-
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-2 sm:p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between gap-1.5 ${
-                        isFullyReg
-                          ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
-                          : isPendingInvite
-                          ? "border-amber-200 bg-amber-50/20 shadow-2xs"
-                          : isBlocked
-                          ? "border-slate-200 bg-slate-50/60 opacity-90"
-                          : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-2xs"
-                      }`}
-                    >
-                      <div>
-                        {/* Card Header: Emoji + Title + Format Badge(s) */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[10px] p-1 rounded-md bg-slate-50 border border-slate-100 shrink-0">
-                              {emoji}
-                            </span>
-                            <div className="min-w-0">
-                              <h5 className="text-xs font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
-                                {item.name || item.categoryName}
-                              </h5>
-                              <div className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
-                                <span>{sportName} {item.date ? `· ${item.date}` : ""}</span>
-                                {item.categoryName && (
-                                  <span
-                                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
-                                    title={`Player Category: ${item.categoryName}`}
-                                  >
-                                    {item.categoryName}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                            {displayFormats.map(fmt => {
-                              const isTeamFmt = fmt === "TEAM";
-                              const isMixed = fmt === "MIXED_DOUBLES" || fmt.includes("MIXED");
-                              const isDbl = fmt === "DOUBLES" || (fmt.includes("DOUBLES") && !isMixed);
-                              const isSingles = fmt === "SINGLES" || fmt.includes("SINGLE");
-                              const label =
-                                isTeamFmt
-                                  ? "Team Squad"
-                                  : isMixed
-                                  ? "Mixed Doubles"
-                                  : isDbl
-                                  ? "Doubles"
-                                  : fmt === "SINGLES"
-                                  ? "Singles"
-                                  : fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-
-                              return (
-                                <span
-                                  key={fmt}
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
-                                    isTeamFmt
-                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                      : isMixed
-                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                      : isDbl
-                                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                      : isSingles
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                  }`}
-                                >
-                                  {label}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Partner Details for Registered Events */}
-                        {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (r as any).partnerDeclineReason || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
-                          <div className="mt-1.5 flex flex-col gap-1">
-                            {regs.map(r => {
-                              const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                              const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                              const isConfirmedPartner = isPartner || isPartnerFam;
-
-                              const pName = r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name;
-                              const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
-                              const statusLabel = (rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED") ? "Confirmed" : (rawStatus === "DECLINED" || rawStatus === "REJECTED") ? "Declined" : "Invited";
-                              const isDeclinedOrWithdrawn = rawStatus === "DECLINED" || rawStatus === "REJECTED" || Boolean((r as any).partnerDeclineReason);
-                              const declineReason = (r as any).partnerDeclineReason;
-                              const isPool = Boolean((r as any).openPool || (r as any).isPoolPlayer || (r as any).needsPartner || (!pName && !r.partnerUserId));
-
-                              if (isConfirmedPartner) {
-                                const primaryFlat = r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber;
-                                const cleanPrimaryFlat = primaryFlat ? String(primaryFlat).replace(/^Flat\s+/i, "").trim() : "";
-                                const partnerChildName = r.partnerFamilyMemberName || (r as any).partnerFamilyMember?.name;
-                                return (
-                                  <div
-                                    key={`partner-${r.id}`}
-                                    className="text-[10px] font-medium text-emerald-800 bg-emerald-50/90 px-2 py-0.5 rounded border border-emerald-200/80 flex items-center gap-1.5"
-                                  >
-                                    <Users className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span className="truncate">
-                                      {partnerChildName ? (
-                                        <>
-                                          <strong className="font-semibold text-emerald-950">{partnerChildName}</strong> playing with{" "}
-                                          <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
-                                        </>
-                                      ) : (
-                                        <>
-                                          Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
-                                        </>
-                                      )}
-                                      {cleanPrimaryFlat ? <span className="font-medium text-emerald-800"> (Flat {cleanPrimaryFlat})</span> : null}{" "}
-                                      (Confirmed Partner)
-                                    </span>
-                                  </div>
-                                );
-                              }
-
-                              if (isDeclinedOrWithdrawn && !pName) {
-                                return (
-                                  <div
-                                    key={`partner-${r.id}`}
-                                    className="text-[10px] font-medium text-amber-900 bg-amber-50/90 px-2 py-1 rounded border border-amber-200/80 flex items-center justify-between gap-1.5 flex-wrap"
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <Users className="w-3 h-3 text-amber-600 shrink-0" />
-                                      <span className="truncate">
-                                        ⚠️ Partner declined/withdrew{declineReason ? ` (${declineReason})` : ""}. In Open Pool.
-                                      </span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPartnerModalState({
-                                          open: true,
-                                          registration: r,
-                                          selectedPartner: null,
-                                          saving: false,
-                                        });
-                                      }}
-                                      className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                                    >
-                                      <HeartHandshake className="w-3 h-3" />
-                                      <span>Nominate Partner</span>
-                                    </button>
-                                  </div>
-                                );
-                              }
-
-                              if (pName || isPool) {
-                                const partnerFlat = r.partnerFlatNumber || (r as any).partner?.flatNo || (r as any).partner?.flatNumber;
-                                const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
-                                return (
-                                  <div
-                                    key={`partner-${r.id}`}
-                                    className="text-[10px] font-medium text-slate-700 bg-slate-50/90 px-2 py-1 rounded border border-slate-200/80 flex items-center justify-between gap-1.5 flex-wrap"
-                                  >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <Users className="w-3 h-3 text-indigo-500 shrink-0" />
-                                      {isPool ? (
-                                        <span className="text-amber-800 font-semibold">Partner: Open Pairing Pool</span>
-                                      ) : (
-                                        <span className="truncate">
-                                          Partner: <strong className="font-semibold text-slate-900">{pName}</strong>
-                                          {cleanPartnerFlat ? <span className="font-medium text-slate-600"> (Flat {cleanPartnerFlat})</span> : null}{" "}
-                                          ({statusLabel})
-                                        </span>
-                                      )}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setPartnerModalState({
-                                          open: true,
-                                          registration: r,
-                                          selectedPartner: r.partnerUserId ? {
-                                            userId: r.partnerUserId,
-                                            name: pName || undefined,
-                                            mode: "community",
-                                          } : null,
-                                          saving: false,
-                                        });
-                                      }}
-                                      className="px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer border border-indigo-200 shrink-0"
-                                      title={r.partnerUserId ? "Change Partner" : "Nominate Partner"}
-                                    >
-                                      <HeartHandshake className="w-2.5 h-2.5 text-indigo-600" />
-                                      <span>{r.partnerUserId ? "Change" : "Nominate"}</span>
-                                    </button>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })}
-                          </div>
-                        )}
-
-                        {/* Pending Partner Invitation Alert */}
-                        {pendingInvite && (
-                          <div className="mt-1.5 p-1.5 sm:p-2 rounded-lg bg-amber-50/90 border border-amber-200 flex items-center justify-between gap-2 animate-in fade-in duration-200">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <span className="text-[11px] font-medium text-amber-900 truncate">
-                                {invitePartnerFamName && invitePrimaryFamName ? (
-                                  <>
-                                    Invite for <strong className="font-semibold text-amber-950">{invitePartnerFamName}{invitePartnerFamRel ? ` (${invitePartnerFamRel})` : ""}</strong> to team up with <strong className="font-semibold text-amber-950">{invitePrimaryFamName}</strong> from <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
-                                  </>
-                                ) : invitePartnerFamName ? (
-                                  <>
-                                    Invite for <strong className="font-semibold text-amber-950">{invitePartnerFamName}{invitePartnerFamRel ? ` (${invitePartnerFamRel})` : ""}</strong> from <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
-                                  </>
-                                ) : invitePrimaryFamName ? (
-                                  <>
-                                    Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong> to team up with <strong className="font-semibold text-amber-950">{invitePrimaryFamName}</strong>
-                                  </>
-                                ) : (
-                                  <>
-                                    Invited by <strong className="font-semibold text-amber-950">{invitingPlayerName}</strong>
-                                  </>
-                                )}
-                                {cleanInvitingFlat ? <span className="font-medium text-amber-800"> (Flat {cleanInvitingFlat})</span> : null}{" "}
-                                ({inviteFormatLabel})
-                              </span>
-                            </div>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-800 shrink-0 uppercase tracking-wider">
-                              Pending Invite
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Action row */}
-                        <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap mt-1.5">
-                          {isNearlyFull && !isFull ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                              ⚡ Filling Fast
-                            </span>
-                          ) : (
-                            <div />
-                          )}
-
-                          {/* Action / Registration button */}
-                          <div className="shrink-0 ml-auto">
-                            {isFullyReg ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {regs.length > 1 ? (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                      <span>Registered</span>
-                                    </span>
-                                    {isRegClosed && (
-                                      <span
-                                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
-                                        title="Registration is closed for this event"
-                                      >
-                                        <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                        <span>Registration Closed</span>
-                                      </span>
-                                    )}
-                                    {regs.map(r => {
-                                      const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
-                                      const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                                      const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                                      const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                                      const isConfirmedPartner = isPartner || isPartnerFam;
-                                      return (
-                                        <span
-                                          key={r.id}
-                                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
-                                        >
-                                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                          <span>✓ {fmtLabel}</span>
-                                          {isConfirmedPartner && (
-                                            <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
-                                              Partner
-                                            </span>
-                                          )}
-                                          {(!isRegClosed || isSportsAdminUser) && (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                              className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                              title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                              aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                            >
-                                              ✕
-                                            </button>
-                                          )}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {(() => {
-                                      const r = regs[0];
-                                      const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
-                                      const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
-                                      const isConfirmedPartner = isPartner || isPartnerFam;
-                                      return (
-                                        <>
-                                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                            <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
-                                          </span>
-                                          {isRegClosed && (
-                                            <span
-                                              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                                              title="Registration is closed for this event"
-                                            >
-                                              <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                              <span>Registration Closed</span>
-                                            </span>
-                                          )}
-                                          {(!isRegClosed || isSportsAdminUser) && (
-                                            <button
-                                              type="button"
-                                              onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
-                                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                              title={isConfirmedPartner ? "Withdraw as partner from this category" : "Unregister from this category"}
-                                            >
-                                              Unregister
-                                            </button>
-                                          )}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
-                            ) : isPartiallyReg ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>Registered</span>
-                                </span>
-                                {isRegClosed && (
-                                  <span
-                                    className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
-                                    title="Registration is closed for this event"
-                                  >
-                                    <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                    <span>Registration Closed</span>
-                                  </span>
-                                )}
-                                {regs.map(r => {
-                                  const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
-                                  const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                                  const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                                  const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                                  const isConfirmedPartner = isPartner || isPartnerFam;
-                                  return (
-                                    <span
-                                      key={r.id}
-                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
-                                    >
-                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                      <span>✓ {fmtLabel}</span>
-                                      {isConfirmedPartner && (
-                                        <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
-                                          Partner
-                                        </span>
-                                      )}
-                                      {(!isRegClosed || isSportsAdminUser) && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                          title={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                          aria-label={isConfirmedPartner ? `Withdraw as partner from ${fmtLabel}` : `Unregister from ${fmtLabel}`}
-                                        >
-                                          ✕
-                                        </button>
-                                      )}
-                                    </span>
-                                  );
-                                })}
-                                {pendingInvite ? (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
-                                      onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
-                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
-                                    >
-                                      ✕ Decline
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
-                                      onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
-                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                                      title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
-                                    >
-                                      {respondingInviteId === Number(pendingInvite.id) ? (
-                                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                                      ) : (
-                                        <CheckCircle2 className="w-2.5 h-2.5" />
-                                      )}
-                                      <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
-                                    </button>
-                                  </div>
-                                ) : isRegClosed && !isSportsAdminUser ? null : (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const isSelfMember = isSelf;
-                                      handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
-                                    }}
-                                    className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
-                                  >
-                                    <span>+ {unregFormats.join(", ")}</span>
-                                    <ArrowUpRight className="w-2.5 h-2.5" />
-                                  </button>
-                                )}
-                              </div>
-                            ) : pendingInvite ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <button
-                                  type="button"
-                                  disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
-                                  onClick={() => handleDeclinePartnerInvite(Number(pendingInvite.id))}
-                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={isRegClosed ? "Registration is closed" : "Decline partner invitation"}
-                                >
-                                  ✕ Decline
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isRegClosed || respondingInviteId === Number(pendingInvite.id)}
-                                  onClick={() => handleAcceptPartnerInvite(Number(pendingInvite.id))}
-                                  className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-2xs transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title={isRegClosed ? "Registration is closed" : "Accept partner invitation"}
-                                >
-                                  {respondingInviteId === Number(pendingInvite.id) ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3 h-3" />
-                                  )}
-                                  <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
-                                </button>
-                                {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
-                                  isRegClosed && !isSportsAdminUser ? (
-                                    <button
-                                      type="button"
-                                      disabled
-                                      title="Registration is closed for this event"
-                                      className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 flex items-center gap-1"
-                                    >
-                                      <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                      <span>Closed</span>
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const isSelfMember = isSelf;
-                                        handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
-                                      }}
-                                      className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
-                                    >
-                                      <span>+ {unregFormats.filter(f => !inviteRawFmt.includes(f)).join(", ")}</span>
-                                      <ArrowUpRight className="w-2.5 h-2.5" />
-                                    </button>
-                                  )
-                                )}
-                              </div>
-                            ) : isRegClosed && !isSportsAdminUser ? (
-                              (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                    <span>Registered</span>
-                                  </span>
-                                  <span
-                                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                                    title="Registration is closed for this event"
-                                  >
-                                    <Lock className="w-2.5 h-2.5 text-slate-400" />
-                                    <span>Registration Closed</span>
-                                  </span>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled
-                                  title="Registration is closed for this event"
-                                  className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed opacity-75 flex items-center gap-1.5 min-h-[36px]"
-                                >
-                                  <Lock className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>Registration Closed</span>
-                                </button>
-                              )
-                            ) : isBlocked ? (
-                              <span
-                                title={elig.warningMsg}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-not-allowed ${
-                                  elig.isAgeUnknown
-                                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                                    : "bg-rose-50 text-rose-700 border-rose-200"
-                                }`}
-                              >
-                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : elig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
-                              </span>
-                            ) : !memberProfileStatus.isValid ? (
-                              <button
-                                type="button"
-                                onClick={() => notifyIncompleteProfile(selectedMemberId)}
-                                className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
-                              >
-                                Complete Profile →
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const isSelfMember = isSelf;
-                                  handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
-                                }}
-                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 min-h-[36px]"
-                              >
-                                <span>Register Now</span>
-                                <ArrowUpRight className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                };
-
-                return (
-                  <div key={t.id} className="mb-2 last:mb-0 rounded-xl border border-indigo-100/90 bg-white shadow-2xs overflow-hidden transition-all text-left">
-                    {/* Tournament Header with Details */}
-                    <div className="p-2 sm:p-2.5 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
-                      <div className="flex items-center justify-between gap-2.5 flex-wrap">
-                        {/* Tournament Name, Details Button & Badges */}
-                        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
-                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDetailsModalTournament(t);
-                              setIsDetailsModalOpen(true);
-                            }}
-                            className="p-1 sm:px-2.5 sm:py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs shrink-0"
-                            title="View full tournament rules, venue, and description"
-                            aria-label="Tournament Details"
-                          >
-                            <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                            <span className="hidden sm:inline">Tournament Details</span>
-                          </button>
-
-                          {t.eventDateStart && t.eventDateEnd && (
-                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0">
-                              <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                              <span>
-                                {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
-                              </span>
-                            </span>
-                          )}
-
-                          {/*
-                          {deadlineDays !== null && deadlineDays >= 0 && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shrink-0">
-                              <Clock className="w-3 h-3" />
-                              {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
-                            </span>
-                          )}
-                          */}
-
-                          {t.sponsors && t.sponsors.length > 0 && (
-                            <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
-                          )}
-                        </div>
-
-                        {/* Hide / Show Button (Hidden as requested) */}
-                        {/*
-                        <button
-                          type="button"
-                          onClick={() => setExpandedTournaments(prev => {
-                            const next = new Set(prev);
-                            if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
-                            return next;
-                          })}
-                          className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-auto sm:ml-0"
-                        >
-                          <span>{isExpanded ? "Hide" : "Show"}</span>
-                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                        </button>
-                        */}
-                      </div>
-
-                      {/* Family member registration selector */}
-                      {isExpanded && (
-                        <div className="mt-1.5 pt-1.5 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-wrap shrink-0">
-                              <label htmlFor={`tournament-reg-for-${t.id}`} className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
-                                Register For:
-                              </label>
-                              <div className="relative">
-                                <select
-                                  id={`tournament-reg-for-${t.id}`}
-                                  name={`tournamentRegFor_${t.id}`}
-                                  value={selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self"}
-                                  onChange={(e) => handleTournamentMemberChange(t, e.target.value)}
-                                  className="text-xs font-semibold pl-2.5 pr-7 py-1.5 rounded-lg bg-white border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all"
-                                  title="Choose participant to register"
-                                >
-                                  <option value="self">👤 {user?.fullName || "Self"}</option>
-                                  {familyMembersOnly.map(m => (
-                                    <option key={m.id} value={String(m.id)}>
-                                      👥 {m.name}{m.relation && m.relation !== "Family" ? ` (${m.relation})` : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-                              </div>
-
-                              {/* Profile readiness & eligibility chip */}
-                              {!memberProfileStatus.isValid ? (
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
-                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition"
-                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
-                                >
-                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
-                                </button>
-                              ) : totalEligibleCount === 0 ? (
-                                <span
-                                  className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
-                                  title={`0 eligible categories in this tournament for ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "unspecified"}, ${targetMember.age > 0 ? `${targetMember.age}y` : "age unspecified"}`}
-                                >
-                                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                                  <span>Ineligible ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : ""}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
-                                </span>
-                              ) : (
-                                <span
-                                  className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
-                                  title={`Profile Ready & Verified: ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""} (${totalEligibleCount} eligible categories)`}
-                                >
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span>Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* View mode & eligibility filter toolbar */}
-                          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-1 bg-slate-100/90 p-1 rounded-xl sm:rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60 shadow-2xs">
-                            {/* Eligible filter toggle: Default selected */}
-                            <button
-                              type="button"
-                              onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: !(prev[t.id] ?? true) }))}
-                              className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
-                                showEligibleOnly
-                                  ? "bg-white text-emerald-700 shadow-2xs font-bold border border-emerald-100/60"
-                                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
-                              }`}
-                              title={
-                                showEligibleOnly
-                                  ? "Showing eligible categories only. Click to view all categories (including ineligible)."
-                                  : "Showing all categories (eligible & ineligible). Click to show eligible only."
-                              }
-                            >
-                              <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${showEligibleOnly ? "text-emerald-600" : "text-slate-400"}`} />
-                              <span className="whitespace-nowrap">Eligible</span>
-                              <span
-                                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${ showEligibleOnly ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-200 text-slate-600" }`}
-                              >
-                                {totalEligibleCount}
-                              </span>
-                            </button>
-
-                            <div className="w-px h-4 bg-slate-300 mx-0.5 shrink-0" />
-
-                            {/* View Switcher: Grid vs By Sport */}
-                            <div className="flex items-center gap-1 flex-1 sm:flex-initial">
-                              <button
-                                type="button"
-                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "grid" }))}
-                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
-                                  viewMode === "grid"
-                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                                }`}
-                                title="View all categories in a grid"
-                              >
-                                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                                <span className="whitespace-nowrap">
-                                  <span className="hidden sm:inline">All </span>Grid
-                                </span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "groups" }))}
-                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
-                                  viewMode === "groups"
-                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                                }`}
-                                title="Group categories by sport"
-                              >
-                                <ListTree className="w-3.5 h-3.5 shrink-0" />
-                                <span className="whitespace-nowrap">By Sport</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sports Group View - Body */}
-                    {isExpanded && (
-                      <div className="p-2 sm:p-2.5 bg-slate-50/30">
-                        {showEligibleOnly && (viewMode === "groups" ? sportEntries.length === 0 : gridEvents.length === 0) ? (
-                          <div className="py-6 px-3 text-center bg-white rounded-xl border border-dashed border-slate-200">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-1.5 text-base">
-                              🔍
-                            </div>
-                            <p className="text-xs font-semibold text-slate-700">No eligible categories found for this participant</p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
-                            </p>
-                            {!memberProfileStatus.isValid && (
-                              <div className="mt-2 flex items-center justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
-                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
-                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
-                                >
-                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
-                                  <span className="font-semibold underline ml-0.5">· Update Profile →</span>
-                                </button>
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: false }))}
-                              className="mt-2.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
-                            >
-                              <span>Show All Categories ({t.mappedEvents.length})</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : viewMode === "groups" ? (
-                          <div className="space-y-1.5 sm:space-y-2">
-                            {sportEntries.map(([sport, { emoji, events: sportEvents }]) => {
-                              const eligibleCount = sportEvents.filter(e => checkCategoryEligibility(e, targetMember.age, targetMember.gender).eligible).length;
-                              const regCount = sportEvents.filter(e => isMemberRegisteredForEvent(e)).length;
-
-                              return (
-                                <div key={sport} className="p-2 sm:p-2.5 rounded-lg border border-slate-200/80 bg-white shadow-2xs">
-                                  <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 flex-wrap gap-1">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className="text-[10px] shrink-0">{emoji}</span>
-                                      <h3 className="text-xs font-bold text-slate-900 m-0 mb-0 truncate">{sport}</h3>
-                                      <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
-                                        · {sportEvents.length} {sportEvents.length === 1 ? "category" : "categories"}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                                      {eligibleCount > 0 && (
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                          {eligibleCount} eligible
-                                        </span>
-                                      )}
-                                      {regCount > 0 && (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                          ✓ {regCount} registered
-                                        </span>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setDetailsModalTournament(t);
-                                          setIsDetailsModalOpen(true);
-                                        }}
-                                        className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer flex items-center justify-center"
-                                        title="View tournament rules and details"
-                                        aria-label="Tournament rules and details"
-                                      >
-                                        <Info className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
-                                    {sportEvents.map(renderCategoryCard)}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
-                            {gridEvents.map(renderCategoryCard)}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+              openTournaments.map((t, tIdx) => renderTournamentCard(t, tIdx, false))
             ) : (
               <div className="max-h-[290px] overflow-y-auto pr-1">
                 {openRegs.map((item, idx) => (
@@ -3591,7 +3632,7 @@ export function SportsDashboard() {
           </div>
 
           {/* Closed registrations */}
-          {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
+          {(closedTournaments.length > 0 || closedRegs.length > 0) && (
             <div className="rounded-xl p-2 sm:p-2.5 mt-2 bg-white border border-slate-200/90 shadow-2xs">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
@@ -3602,83 +3643,7 @@ export function SportsDashboard() {
                 </span>
               </div>
               {closedTournaments.length > 0 ? (
-                closedTournaments.map((t, tIdx) => {
-                  const isExpanded = expandedClosedTournaments.has(t.id);
-                  return (
-                    <div key={t.id} className={`mb-1.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedClosedTournaments(prev => {
-                          const next = new Set(prev);
-                          if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-slate-50/70 border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer text-left group"
-                      >
-                        <div className="h-7 w-7 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
-                          <Trophy className="h-3.5 w-3.5 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-bold text-slate-900 truncate">{t.name}</div>
-                          <div className="text-xs text-slate-500 mt-0.5 font-medium">
-                            {t.eventDateStart && t.eventDateEnd
-                              ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
-                              : "Dates TBD"}
-                            {" · "}
-                            {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
-                            Closed
-                          </span>
-                          {isExpanded
-                            ? <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />
-                            : <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />}
-                        </div>
-                      </button>
-                      {isExpanded && (
-                        <div className="mt-1.5 ml-2 pl-2 border-l-2 border-slate-200 space-y-0">
-                          {t.mappedEvents.map((item, idx) => (
-                            <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                              <RegCard
-                                item={item}
-                                onRegister={() => { }}
-                                onView={() => navigate("/sports/auction")}
-                                isAdmin={isSportsAdminUser}
-                                toggling={togglingId === item.id}
-                                onToggleStatus={async (evt) => {
-                                  setTogglingId(evt.id);
-                                  try {
-                                    const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                                    await sportsService.updateEventStatus(evt.id, newStatus);
-                                    toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                                    fetchData();
-                                  } catch {
-                                    toast.error("Failed to update status");
-                                  } finally {
-                                    setTogglingId(null);
-                                  }
-                                }}
-                                onStartAuction={async (evt) => {
-                                  try {
-                                    await auctionService.updateStatus(evt.id, "LIVE");
-                                    navigate(`/sports/auction/${evt.id}`);
-                                  } catch {
-                                    navigate(`/sports/auction/${evt.id}`);
-                                  }
-                                }}
-                                onScheduleMatches={(evt) => {
-                                  navigate(`/sports/schedule/${evt.id}`);
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
+                closedTournaments.map((t, tIdx) => renderTournamentCard(t, tIdx, true))
               ) : (
                 closedRegs.map((item, idx) => (
                   <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
