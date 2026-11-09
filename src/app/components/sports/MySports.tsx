@@ -575,7 +575,7 @@ export function MySports() {
             const invId = inv.id;
             const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
             const pFlat = inv.flatNumber || (inv as any).flatNo || inv.user?.flatNo || (inv as any).user?.flatNumber;
-            const cleanPFlat = formatFlatLabel(pFlat, inv.user?.block || (inv as any).block);
+            const cleanPFlat = formatFlatLabel(pFlat, (inv.user as any)?.block || (inv as any).block);
             const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
             const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
             const catName = inv.categoryName || inv.category?.name;

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { sportsService } from "../../../../services/sports/sportsService";
 import type { AuctionTeam } from "../../../../types/api";
 import { getSportEmoji } from "./ViewPlayersModal";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 import {
   getSportName,
   getCategoryName,
@@ -350,7 +351,7 @@ export function ViewCaptainsModal({
               {filteredCaptains.map((team, idx) => {
                 const captainName = team.ownerName || team.ownerUser?.fullName || "—";
                 const isConfirmed = !!team.captainConfirmation;
-                const flatNo = team.ownerUser?.flatNumber;
+                const flatNo = formatFlatLabel(team.ownerUser?.flatNumber || (team.ownerUser as any)?.flatNo, (team.ownerUser as any)?.block);
                 const phone = team.ownerUser?.phone;
                 const email = team.ownerUser?.email;
 
@@ -410,7 +411,7 @@ export function ViewCaptainsModal({
                           {flatNo && (
                             <span className="flex items-center gap-1 font-medium">
                               <Building className="w-3 h-3 text-slate-400" />
-                              Flat {flatNo}
+                              {flatNo}
                             </span>
                           )}
                           {phone && (

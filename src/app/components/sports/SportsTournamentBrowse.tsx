@@ -73,7 +73,7 @@ export function getEventEffectiveStatus(event: SportsEvent | DashboardTournament
   };
 }
 
-type BrowseTab = "open" | "my" | "closed";
+type BrowseTab = "open" | "my" | "closed" | "completed";
 
 export function SportsTournamentBrowse() {
   const navigate = useNavigate();
@@ -83,6 +83,7 @@ export function SportsTournamentBrowse() {
   const [myStatusFilter, setMyStatusFilter] = useState<"all" | "open" | "closed">("all");
   const [openTournaments, setOpenTournaments] = useState<DashboardTournamentCard[]>([]);
   const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentCard[]>([]);
+  const [completedTournaments, setCompletedTournaments] = useState<DashboardTournamentCard[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<SportsEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [sportFilter, setSportFilter] = useState<string>("All");
@@ -103,8 +104,9 @@ export function SportsTournamentBrowse() {
     Promise.all([
       sportsDashboardService.getOpenTournaments().catch(() => []),
       sportsDashboardService.getClosedTournaments().catch(() => []),
+      sportsDashboardService.getCompletedTournaments().catch(() => []),
       sportsService.getMyTournaments().catch(() => []),
-    ]).then(([open, closed, my]) => {
+    ]).then(([open, closed, completed, my]) => {
       const nonDraftOpen = open
         .filter(t => String(t.registrationStatus || (t as any).status || "").toUpperCase().trim() !== "DRAFT")
         .map(t => ({
@@ -114,27 +116,21 @@ export function SportsTournamentBrowse() {
         .filter(t => t.events.length > 0);
       setOpenTournaments(nonDraftOpen);
       setClosedTournaments(closed);
+      setCompletedTournaments(completed);
       setMyRegistrations(my);
     }).finally(() => setLoading(false));
   }, []);
 
-  // Filter completed tab to strictly completed (completely closed) tournaments
-  const strictlyCompletedTournaments = useMemo(() => {
-    return closedTournaments.filter(t => {
-      const st = (t.registrationStatus || (t as any).status || "").toUpperCase();
-      return st === "COMPLETED";
-    });
-  }, [closedTournaments]);
-
   const tabs: { key: BrowseTab; label: string; icon: typeof Trophy; count: number }[] = [
     { key: "open", label: "Open Tournaments", icon: Trophy, count: openTournaments.length },
     { key: "my", label: "My Tournaments", icon: Medal, count: myRegistrations.length },
-    { key: "closed", label: "Completed", icon: Calendar, count: strictlyCompletedTournaments.length },
+    { key: "closed", label: "Closed Tournaments", icon: Lock, count: closedTournaments.length },
+    { key: "completed", label: "Completed", icon: Calendar, count: completedTournaments.length },
   ];
 
   const allSports = useMemo(() => {
     const sports = new Set<string>();
-    for (const t of [...openTournaments, ...closedTournaments]) {
+    for (const t of [...openTournaments, ...closedTournaments, ...completedTournaments]) {
       for (const ev of t.events || []) {
         if (ev.sportName) sports.add(ev.sportName);
       }
@@ -143,7 +139,7 @@ export function SportsTournamentBrowse() {
       if (ev.sportName) sports.add(ev.sportName);
     }
     return ["All", ...Array.from(sports).sort()];
-  }, [openTournaments, closedTournaments, myRegistrations]);
+  }, [openTournaments, closedTournaments, completedTournaments, myRegistrations]);
 
   const matchesSportFilter = useCallback((t: DashboardTournamentCard) => {
     if (sportFilter === "All") return true;
@@ -157,10 +153,16 @@ export function SportsTournamentBrowse() {
   }, [openTournaments, sportFilter, matchesSportFilter]);
 
   const filteredClosed = useMemo(() => {
-    let list = strictlyCompletedTournaments;
+    let list = closedTournaments;
     if (sportFilter !== "All") list = list.filter(matchesSportFilter);
     return list;
-  }, [strictlyCompletedTournaments, sportFilter, matchesSportFilter]);
+  }, [closedTournaments, sportFilter, matchesSportFilter]);
+
+  const filteredCompleted = useMemo(() => {
+    let list = completedTournaments;
+    if (sportFilter !== "All") list = list.filter(matchesSportFilter);
+    return list;
+  }, [completedTournaments, sportFilter, matchesSportFilter]);
 
   const myCounts = useMemo(() => {
     let openCount = 0;
@@ -339,7 +341,7 @@ export function SportsTournamentBrowse() {
           ) : (
             filteredMy.map(ev => {
               const matchedTournament =
-                [...openTournaments, ...closedTournaments].find(
+                [...openTournaments, ...closedTournaments, ...completedTournaments].find(
                   t => t.id === ev.tournament?.id || t.events?.some(e => e.id === ev.id)
                 ) || null;
 
@@ -365,13 +367,39 @@ export function SportsTournamentBrowse() {
         </div>
       )}
 
-      {/* Completed Tournaments */}
+      {/* Closed Tournaments */}
       {activeTab === "closed" && (
         <div className="space-y-4">
           {filteredClosed.length === 0 ? (
-            <EmptyState message="No completed tournaments found" />
+            <EmptyState message="No closed tournaments found" />
           ) : (
             filteredClosed.map(t => (
+              <TournamentCard
+                key={t.id}
+                tournament={t}
+                onViewDetails={() => handleOpenDetails(t)}
+                onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
+                onOpenPayments={() => {
+                  setSelectedTournamentForPayment(t);
+                  setIsPaymentModalOpen(true);
+                }}
+                onOpenPaymentContacts={() => {
+                  setSelectedTournamentForContacts(t);
+                  setIsPaymentContactsModalOpen(true);
+                }}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Completed Tournaments */}
+      {activeTab === "completed" && (
+        <div className="space-y-4">
+          {filteredCompleted.length === 0 ? (
+            <EmptyState message="No completed tournaments found" />
+          ) : (
+            filteredCompleted.map(t => (
               <TournamentCard
                 key={t.id}
                 tournament={t}
@@ -428,6 +456,9 @@ export function SportsTournamentBrowse() {
             prev.map((t) => (t.id === updated.id ? { ...t, otherContacts: updated.otherContacts } : t))
           );
           setClosedTournaments((prev) =>
+            prev.map((t) => (t.id === updated.id ? { ...t, otherContacts: updated.otherContacts } : t))
+          );
+          setCompletedTournaments((prev) =>
             prev.map((t) => (t.id === updated.id ? { ...t, otherContacts: updated.otherContacts } : t))
           );
         }}
