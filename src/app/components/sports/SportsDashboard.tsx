@@ -1895,38 +1895,6 @@ export function SportsDashboard() {
     };
   }, [fetchData]);
 
-  const ensureAuctionConfigForEvent = async (eventId: number) => {
-    try {
-      const allConfigs = await auctionService.getAllCommunityConfigs().catch(() => []);
-      const existing = allConfigs?.find((c: any) => c.eventId === eventId);
-      if (existing) {
-        return;
-      }
-      const targetEv = selectedCaptainEvent || openRegs.find(e => e.id === eventId) || closedRegs.find(e => e.id === eventId);
-      const sportId = (targetEv as any)?.rawEvent?.sport?.id ?? (targetEv as any)?.rawEvent?.sportId ?? 1;
-      await auctionService.createConfig({
-        sportId,
-        eventId,
-        seasonName: `${targetEv?.name || 'Tournament'} (Event #${eventId})`,
-        auctionFormat: "OPEN_AUCTION",
-        totalTeams: 8,
-        totalPlayers: 80,
-        budgetPerTeam: 100000,
-        basePrice: 1000,
-        bidIncrementDefault: 500,
-        bidIncrementThreshold: 10000,
-        bidIncrementAbove: 1000,
-        bidTimerSeconds: 30,
-        rtmEnabled: false,
-        unsoldRule: "ROTATION_AUCTION",
-        categories: ["Batsmen", "Bowler", "All-rounder"],
-        committeeMembers: [],
-      });
-    } catch (err) {
-      console.warn("Auction config auto-provision check note:", err);
-    }
-  };
-
   const handleNominateSubmit = async () => {
     if ((isAdminNomination && !selectedRegForNomination) || (!isAdminNomination && !nominatingRegId)) {
       toast.error("Required data missing");
@@ -1950,9 +1918,6 @@ export function SportsDashboard() {
       }
 
       const assignedName = nominateTeamName.trim();
-
-      // Ensure auction configuration is available
-      await ensureAuctionConfigForEvent(eventId);
 
       if (isAdminNomination && selectedRegForNomination) {
         // Step 1: Nominate player registration with the assigned team name
