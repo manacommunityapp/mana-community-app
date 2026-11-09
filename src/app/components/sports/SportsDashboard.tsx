@@ -3645,8 +3645,19 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations — grouped by tournament with rich sports group view */}
-          <div id="open-registrations-section" className="rounded-xl p-2 sm:p-2.5 bg-white border border-slate-200/90 shadow-2xs">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+          <div
+            id="open-registrations-section"
+            className={`rounded-xl bg-white border border-slate-200/90 shadow-2xs transition-all ${
+              openTournaments.length === 0 && openRegs.length === 0 && !loading
+                ? "p-2 sm:px-3 sm:py-2"
+                : "p-2 sm:p-2.5"
+            }`}
+          >
+            <div className={`flex items-center justify-between ${
+              openTournaments.length === 0 && openRegs.length === 0 && !loading
+                ? "mb-1 pb-1"
+                : "mb-2 pb-1.5"
+            } border-b border-slate-100`}>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-2xs shrink-0">
                   <Trophy className="w-3.5 h-3.5 text-white" />
@@ -3691,14 +3702,17 @@ export function SportsDashboard() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
               </div>
             ) : openTournaments.length === 0 && openRegs.length === 0 ? (
-              <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <div className="text-3xl mb-2">🏅</div>
-                <p className="text-xs font-bold text-slate-800">No events open for registration right now</p>
-                <p className="text-xs text-slate-500 mt-1">Check back later or ask your sports admin to open registrations</p>
+              <div className="text-center py-2.5 sm:py-3">
+                <div className="text-xs font-semibold text-slate-500">
+                  No events open for registration right now
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  Check back later or ask your sports admin to open registrations
+                </div>
               </div>
             ) : openTournaments.length > 0 ? (
               openTournaments.map((t, tIdx) => renderTournamentCard(t, tIdx, false))
