@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyVendorPackage, VendorPackageCategory } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyVendorPackage, VendorPackageCategory } from "../../../types/kittyPartyTypes";
 import {
   ShoppingBag,
   Utensils,

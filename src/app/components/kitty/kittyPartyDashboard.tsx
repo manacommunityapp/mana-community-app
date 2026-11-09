@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyCircleSummary, KittyPartyExpenseShare, KittyPartyCycle } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyCircleSummary, KittyPartyExpenseShare, KittyPartyCycle } from "../../../types/kittyPartyTypes";
 
 export const KittyPartyDashboard: React.FC = () => {
   const navigate = useNavigate();

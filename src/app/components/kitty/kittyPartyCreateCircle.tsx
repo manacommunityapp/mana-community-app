@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
+import { kittyPartyService } from "../../../services/kittyPartyService";
 
 export const KittyPartyCreateCircle: React.FC = () => {
   const navigate = useNavigate();
   const [circleName, setCircleName] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryCode, setCategoryCode] = useState("KITTY");
+  const [categoryCode, setCategoryCode] = useState("KITTY_PARTY");
   const [privacyType, setPrivacyType] = useState("PRIVATE");
   const [approvalRequired, setApprovalRequired] = useState(true);
   const [maxMembers, setMaxMembers] = useState(15);
@@ -88,12 +88,12 @@ export const KittyPartyCreateCircle: React.FC = () => {
               onChange={(e) => setCategoryCode(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white"
             >
-              <option value="KITTY">Monthly Kitty Party</option>
+              <option value="KITTY_PARTY">Monthly Kitty Party</option>
               <option value="LADIES_CLUB">Ladies Social Club</option>
-              <option value="FAMILY">Family Circle</option>
-              <option value="FRIENDS">Friends & Weekend Games</option>
-              <option value="HOBBY">Hobby & Crafts Circle</option>
-              <option value="PROFESSIONAL">Women Entrepreneurs Network</option>
+              <option value="BOOK_CLUB">Book Club</option>
+              <option value="FITNESS_SPORTS">Fitness & Sports</option>
+              <option value="SENIOR_CITIZENS">Senior Citizens Circle</option>
+              <option value="GENERAL_SOCIAL">General Social</option>
             </select>
           </div>
 

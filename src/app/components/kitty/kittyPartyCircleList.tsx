@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyCircleSummary, CircleCategory } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyCircleSummary, CircleCategory } from "../../../types/kittyPartyTypes";
 
 const CATEGORIES: { code: CircleCategory | "ALL"; label: string }[] = [
   { code: "ALL", label: "All Circles" },
-  { code: "KITTY", label: "Monthly Kitty" },
+  { code: "KITTY_PARTY", label: "Monthly Kitty" },
   { code: "LADIES_CLUB", label: "Ladies Club" },
-  { code: "FAMILY", label: "Family Circle" },
-  { code: "FRIENDS", label: "Friends & Games" },
-  { code: "HOBBY", label: "Hobby Club" },
-  { code: "PROFESSIONAL", label: "Women Network" },
+  { code: "BOOK_CLUB", label: "Book Club" },
+  { code: "FITNESS_SPORTS", label: "Fitness & Sports" },
+  { code: "SENIOR_CITIZENS", label: "Senior Citizens" },
+  { code: "GENERAL_SOCIAL", label: "General Social" },
 ];
 
 export const KittyPartyCircleList: React.FC = () => {

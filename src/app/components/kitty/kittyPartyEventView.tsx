@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { kittyPartyService } from "../../services/kittyPartyService";
+import { kittyPartyService } from "../../../services/kittyPartyService";
 import type {
   KittyPartyEvent,
   KittyPartyRsvp,
   KittyPartyRsvpResponse,
   KittyPartyAttendance,
-} from "../../types/kittyPartyTypes";
+} from "../../../types/kittyPartyTypes";
 import { KittyPartyEventCreateModal } from "./kittyPartyEventCreateModal";
 
 interface Props {
@@ -339,7 +339,7 @@ export const KittyPartyEventView: React.FC<Props> = ({ circleId, isAdmin }) => {
                     </button>
                     <a
                       href={`https://wa.me/?text=${encodeURIComponent(
-                        `🎉 You're invited to "${event.eventName}" on ${formatEventDate(event.eventDate)} (${getVenueLabel(
+                        `🎉 You're invited to "${event.eventName}" on ${formatDate(event.startTime)} (${getVenueLabel(
                           event.venueType
                         )})! RSVP on Mana Community App: ${window.location.origin}/kitty-party/${circleId}`
                       )}`}

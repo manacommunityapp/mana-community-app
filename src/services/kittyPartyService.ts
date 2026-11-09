@@ -110,7 +110,7 @@ export const kittyPartyService = {
   },
 
   acceptInvitation: async (token: string): Promise<{ success: boolean; message: string }> => {
-    return apiClient.post<{ success: boolean; message: string }>(`/v1/kitty-circles/invitations/accept?token=${encodeURIComponent(token)}`, {});
+    return apiClient.post<{ success: boolean; message: string }>('/v1/kitty-circles/invitations/accept', { inviteToken: token });
   },
 
   // Savings Ledger
@@ -135,8 +135,8 @@ export const kittyPartyService = {
     return apiClient.post<{ success: boolean; message: string }>(`/v1/kitty-ledger/cycles/${cycleId}/contributions`, payload);
   },
 
-  verifyContribution: async (contributionId: number, status: 'VERIFIED' | 'DEFAULTED'): Promise<{ success: boolean }> => {
-    return apiClient.post<{ success: boolean }>(`/v1/kitty-ledger/contributions/${contributionId}/verify`, { paymentStatus: status });
+  verifyContribution: async (contributionId: number): Promise<{ success: boolean; message: string }> => {
+    return apiClient.post<{ success: boolean; message: string }>(`/v1/kitty-ledger/contributions/${contributionId}/verify`, {});
   },
 
   disbursePayout: async (cycleId: number, periodNumber: number, externalPayoutRef: string, payoutReceiptUrl?: string): Promise<{ success: boolean }> => {
@@ -203,6 +203,10 @@ export const kittyPartyService = {
   },
 
   // Housie / Tambola Game Engine
+  getCircleRooms: async (circleId: number): Promise<KittyPartyGameRoom[]> => {
+    return apiClient.get<KittyPartyGameRoom[]>(`/v1/kitty-games/circles/${circleId}/rooms`);
+  },
+
   createGameRoom: async (circleId: number, payload: CreateGameRoomPayload): Promise<KittyPartyGameRoom> => {
     return apiClient.post<KittyPartyGameRoom>(`/v1/kitty-games/circles/${circleId}/rooms`, payload);
   },

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
+import { kittyPartyService } from "../../../services/kittyPartyService";
 import type {
   KittyPartyCycle,
   KittyPartyContribution,
   KittyPartyCircleSummary,
   KittyPartyMember,
-} from "../../types/kittyPartyTypes";
+} from "../../../types/kittyPartyTypes";
 import { KittyPartyAuditTrailModal } from "./kittyPartyAuditTrailModal";
 import { KittyPartyDisputeModal } from "./kittyPartyDisputeModal";
 import { KittyPartyUpiModal } from "./kittyPartyUpiModal";

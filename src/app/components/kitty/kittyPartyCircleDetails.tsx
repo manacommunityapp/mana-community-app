@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyCircleSummary, KittyPartyMember } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyCircleSummary, KittyPartyMember } from "../../../types/kittyPartyTypes";
 import { KittyPartyEventView } from "./kittyPartyEventView";
 import { KittyPartyFeedView } from "./kittyPartyFeedView";
 import { KittyPartyLeaderboardView } from "./kittyPartyLeaderboardView";

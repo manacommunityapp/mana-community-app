@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyLeaderboardEntry, KittyPartyCircleLeaderboardResponse } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyLeaderboardEntry, KittyPartyCircleLeaderboardResponse } from "../../../types/kittyPartyTypes";
 import { Trophy, Medal, Award, Flame, Star, Sparkles, RefreshCw, UserCheck } from "lucide-react";
 
 interface Props {

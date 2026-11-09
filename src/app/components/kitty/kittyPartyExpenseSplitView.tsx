@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyExpenseShare } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyExpenseShare } from "../../../types/kittyPartyTypes";
 
 export const KittyPartyExpenseSplitView: React.FC = () => {
   const { id } = useParams<{ id: string }>();

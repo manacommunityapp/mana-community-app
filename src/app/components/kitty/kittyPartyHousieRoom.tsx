@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyGameRoom, KittyPartyTicket, KittyPartyWinnerClaim } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyGameRoom, KittyPartyTicket, KittyPartyWinnerClaim } from "../../../types/kittyPartyTypes";
 
 export const KittyPartyHousieRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,12 +26,12 @@ export const KittyPartyHousieRoom: React.FC = () => {
   const loadGame = async () => {
     try {
       setLoading(true);
-      // Attempt to load existing room or details
       try {
-        const details = await kittyPartyService.getRoomDetails(circleId);
-        if (details?.id) {
-          setRoom(details);
-          const myTickets = await kittyPartyService.getMyTickets(details.id);
+        const rooms = await kittyPartyService.getCircleRooms(circleId);
+        if (rooms?.length > 0) {
+          const activeRoom = rooms.find(r => r.status === "IN_PROGRESS" || r.status === "WAITING") || rooms[0];
+          setRoom(activeRoom);
+          const myTickets = await kittyPartyService.getMyTickets(activeRoom.id);
           setTickets(myTickets || []);
         }
       } catch {

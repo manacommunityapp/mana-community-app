@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { KittyPartyAuditLog } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { KittyPartyAuditLog } from "../../../types/kittyPartyTypes";
 
 interface Props {
   cycleId: number;

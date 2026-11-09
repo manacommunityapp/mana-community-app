@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { kittyPartyService } from "../../services/kittyPartyService";
-import type { CreateKittyPartyPostRequest, KittyPartyPostType } from "../../types/kittyPartyTypes";
+import { kittyPartyService } from "../../../services/kittyPartyService";
+import type { CreateKittyPartyPostRequest, KittyPartyPostType } from "../../../types/kittyPartyTypes";
 
 interface Props {
   circleId: number;
