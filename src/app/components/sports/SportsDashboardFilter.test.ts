@@ -1806,7 +1806,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
                 ? "Available for Captaincy"
                 : "Nominations Closed",
           progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
-          action: isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed",
+          action: isCaptainConfirmed ? "Confirmed" : isNominated ? (isCaptainNominationOpen ? "Withdraw" : "Nominated") : isCaptainNominationOpen ? actionLabel : "Nominations Closed",
         };
       };
 
@@ -1854,7 +1854,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(resultAdmin.isCaptainNominationOpen).toBe(true);
       expect(resultAdmin.action).toBe("Nominate Me");
 
-      // Case 5: Already nominated
+      // Case 5: Already nominated but nominations closed (do not show Withdraw)
       const alreadyNominatedReg = {
         id: 5,
         playerName: "Sandeep Kamarapu",
@@ -1862,8 +1862,19 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
       };
       const resultNominated = computeCaptainItem(alreadyNominatedReg, true, []);
-      expect(resultNominated.action).toBe("Withdraw");
+      expect(resultNominated.action).toBe("Nominated");
       expect(resultNominated.spots).toBe("Nomination Active");
+
+      // Case 5b: Already nominated with nominations open (show Withdraw)
+      const nominatedOpenReg = {
+        id: 51,
+        playerName: "Sandeep Kamarapu",
+        nominatedTeamId: 99,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultNominatedOpen = computeCaptainItem(nominatedOpenReg, true, []);
+      expect(resultNominatedOpen.action).toBe("Withdraw");
+      expect(resultNominatedOpen.spots).toBe("Nomination Active");
 
       // Case 6: Confirmed Captain
       const confirmedCaptainReg = {
