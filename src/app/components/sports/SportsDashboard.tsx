@@ -523,7 +523,7 @@ function RegCard({
             </span>
           )}
         </div>
-        {item.spots && item.spots !== "Unlimited spots" && (
+        {item.spots && item.spots !== "Unlimited spots" && item.spots.toLowerCase() !== "registration closed" && (
           <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{item.spots}</div>
         )}
       </div>
@@ -1419,13 +1419,14 @@ export function SportsDashboard() {
         const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
         const activeRegId = (rawRegId && isActiveRegistrationStatus(rawRegStatus) && !isLocallyWithdrawn) ? rawRegId : undefined;
 
+        const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
           id: e.id,
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
-          spots: "Registration closed",
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "",
           progress: 100,
           progressColor: activeRegId ? "#10b981" : "#ef4444",
           dotColor: activeRegId ? "#10b981" : "#ef4444",
@@ -2667,7 +2668,7 @@ export function SportsDashboard() {
           {/* Footer: Spots indicator + Action Button(s) */}
           <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
             {/* Spots / Capacity text */}
-            {spotsText && spotsText !== "Unlimited spots" ? (
+            {spotsText && spotsText !== "Unlimited spots" && spotsText.toLowerCase() !== "registration closed" ? (
               <div className="min-w-0">
                 <div className="text-[10px] font-semibold text-slate-500 truncate flex items-center gap-1">
                   <span>{spotsText}</span>
@@ -3325,7 +3326,7 @@ export function SportsDashboard() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                      <div className={`grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
                         {sportEvents.map(renderCategoryCard)}
                       </div>
                     </div>
@@ -3333,7 +3334,7 @@ export function SportsDashboard() {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+              <div className={`grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
                 {gridEvents.map(renderCategoryCard)}
               </div>
             )}

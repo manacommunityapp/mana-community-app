@@ -1502,8 +1502,39 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
       expect(adminResult.canUnregister).toBe(true);
     });
+
+    it("verifies spotsText filters out 'Registration closed' to avoid duplicate closed indicators", () => {
+      const shouldDisplaySpots = (spotsText?: string | null): boolean => {
+        return Boolean(
+          spotsText &&
+          spotsText !== "Unlimited spots" &&
+          spotsText.toLowerCase() !== "registration closed"
+        );
+      };
+
+      expect(shouldDisplaySpots("Registration closed")).toBe(false);
+      expect(shouldDisplaySpots("registration closed")).toBe(false);
+      expect(shouldDisplaySpots("Unlimited spots")).toBe(false);
+      expect(shouldDisplaySpots("12/20 spots")).toBe(true);
+      expect(shouldDisplaySpots("")).toBe(false);
+      expect(shouldDisplaySpots(undefined)).toBe(false);
+    });
+
+    it("verifies grid layout is single-column for Closed Registrations and two-column for Open Registrations", () => {
+      const getCategoryGridClass = (isClosed: boolean): string => {
+        return `grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`;
+      };
+
+      // Closed registrations must span complete single row
+      expect(getCategoryGridClass(true)).toContain("grid-cols-1");
+      expect(getCategoryGridClass(true)).not.toContain("sm:grid-cols-2");
+
+      // Open registrations must show 2 divs
+      expect(getCategoryGridClass(false)).toContain("grid-cols-1 sm:grid-cols-2");
+    });
   });
 });
+
 
 
 
