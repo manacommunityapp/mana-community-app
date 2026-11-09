@@ -56,7 +56,14 @@ export interface ExportablePlayer {
 
 export function extractPartnerExportDetails(p: ExportablePlayer): { partnerName: string; partnerContact: string; partnerStatus: string } {
   const isOpenPool = Boolean((p as any).openPool || (p as any).isPoolPlayer || (p as any).needsPartner);
-  const partnerName = p.partnerName || p.partner?.fullName || p.partner?.name || p.partnerFamilyMember?.name || "";
+  const rawPartnerName = (p.partnerFamilyMember?.name || (p as any).partnerFamilyMemberName || p.partnerName || p.partner?.fullName || p.partner?.name || "").trim();
+  const primaryName = (p.playerName || p.fullName || p.user?.fullName || "").trim();
+  const partnerFamId = (p as any).partnerFamilyMemberId != null ? String((p as any).partnerFamilyMemberId) : (p.partnerFamilyMember as any)?.id != null ? String((p.partnerFamilyMember as any).id) : null;
+  const primaryFamId = (p as any).familyMemberId != null ? String((p as any).familyMemberId) : (p as any).familyMember?.id != null ? String((p as any).familyMember.id) : null;
+  const isSameFamId = Boolean(partnerFamId && primaryFamId && partnerFamId === primaryFamId);
+  const isSelfPartner = isSameFamId || Boolean(rawPartnerName && primaryName && rawPartnerName.toLowerCase() === primaryName.toLowerCase());
+  const partnerName = isSelfPartner ? "" : rawPartnerName;
+
   const flat = p.partnerFlatNumber || p.partner?.flatNo || "";
   const phone = p.partnerPhone || p.partner?.phone || "";
   const contactParts: string[] = [];

@@ -135,46 +135,43 @@ export function isRegistrationForMemberHelper(
   const pStatus = String(reg.partnerStatus || reg.partnerConfirmationStatus || "").toUpperCase().trim();
   const isPartnerConfirmed = pStatus === "CONFIRMED" || pStatus === "ACCEPTED";
 
-  // Check if current user is the partner on this registration
-  const isPartnerOnReg = Boolean(
-    (effectiveUserId != null && (
-      String(reg.partnerUserId) === String(effectiveUserId) ||
-      String(reg.partner?.id) === String(effectiveUserId)
-    )) ||
-    (reg.partnerName && targetFullName && reg.partnerName.trim().toLowerCase() === targetFullName.toLowerCase())
-  );
-
-  const isPrimaryUser = Boolean(
-    (effectiveUserId != null && (
-      String(reg.userId) === String(effectiveUserId) ||
-      String(reg.user?.id) === String(effectiveUserId)
-    )) ||
-    (regPlayerName && targetFullName && regPlayerName.toLowerCase() === targetFullName.toLowerCase()) ||
-    isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName)
-  );
-
   const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
   const targetId = normId(selectedMemberId);
+  const targetMember = !isSelfTarget ? familyMembersOnly.find(m => normId(m.id) === targetId) : undefined;
+  const targetMemberName = targetMember?.name ? targetMember.name.trim().toLowerCase() : "";
 
-  // If the user or their family member is the nominated partner on this registration (and not the primary registrant):
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 1. CHECK IF TARGET IS THE CONFIRMED PARTNER (PLAYER 2)
+  // ─────────────────────────────────────────────────────────────────────────────
   const regPartnerFamId = reg.partnerFamilyMemberId || reg.partnerFamilyMember?.id;
   const hasPartnerFam = regPartnerFamId != null && String(regPartnerFamId).trim() !== "";
 
-  if ((isPartnerOnReg || hasPartnerFam) && !isPrimaryUser) {
-    if (hasPartnerFam) {
-      // The partner participant is a specific family member, NOT the account owner ("Self")
-      if (isSelfTarget) {
-        return false;
-      }
-      return normId(regPartnerFamId) === targetId && isPartnerConfirmed;
-    }
+  if (isPartnerConfirmed) {
     if (isSelfTarget) {
-      // Confirmed partners are considered actively registered; pending/declined are NOT
-      return isPartnerConfirmed;
+      const isSelfPartner = !hasPartnerFam && Boolean(
+        (effectiveUserId != null && (
+          String(reg.partnerUserId) === String(effectiveUserId) ||
+          String(reg.partner?.id) === String(effectiveUserId)
+        )) ||
+        (reg.partnerName && targetFullName && reg.partnerName.trim().toLowerCase() === targetFullName.toLowerCase())
+      );
+      if (isSelfPartner) {
+        return true;
+      }
+    } else {
+      const isTargetFamPartner = Boolean(
+        (hasPartnerFam && normId(regPartnerFamId) === targetId) ||
+        (!hasPartnerFam && targetMemberName && reg.partnerName && reg.partnerName.trim().toLowerCase() === targetMemberName)
+      );
+      if (isTargetFamPartner) {
+        return true;
+      }
     }
-    return false;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2. CHECK IF TARGET IS THE PRIMARY REGISTRANT (PLAYER 1)
+  // ─────────────────────────────────────────────────────────────────────────────
   const isExplicitFamily = Boolean(
     (regFamilyMemberId && !isSelfRelationOrMember(undefined, regFamilyMemberId)) ||
     (regRelation && !isSelfRelationOrMember(regRelation))
@@ -185,49 +182,37 @@ export function isRegistrationForMemberHelper(
   );
 
   const isOtherUserReg = Boolean(
-    (effectiveUserId != null && reg.userId != null && String(reg.userId) !== String(effectiveUserId)) ||
-    (reg.partnerFamilyMemberId && !isPartnerOnReg)
+    effectiveUserId != null && reg.userId != null && String(reg.userId) !== String(effectiveUserId)
   );
 
-  // A registration belongs to Self if it's explicitly Self, OR not an explicit family member and not matching any family member's name
-  const isSelfReg =
+  // A registration belongs to Self as Player 1 if it's explicitly Self, OR
+  // (owned by this user AND not marked as an explicit family member AND not matching another family member's name)
+  const isSelfPrimary =
     isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName) ||
     (!isOtherUserReg && !isExplicitFamily && !matchesFamilyMemberName);
 
   if (isSelfTarget) {
-    return isSelfReg;
+    return isSelfPrimary;
   }
 
-  // When filtering by an actual family member, exclude Self registrations
-  if (isSelfReg) {
+  // When filtering by a genuine family member, exclude registrations where Player 1 is Self
+  if (isSelfPrimary) {
     return false;
   }
 
-  // 1. If registration explicitly contains a familyMemberId:
-  // It uniquely identifies which family member is registered.
+  // 2a. Match by familyMemberId on Player 1
   if (regFamilyMemberId != null && String(regFamilyMemberId).trim() !== "") {
     return normId(regFamilyMemberId) === targetId;
   }
 
-  // 2. Fallback resolution when no familyMemberId is stored on the registration
-  const targetMember = familyMembersOnly.find(m => normId(m.id) === targetId);
+  // 2b. Match by player name if present
+  if (regPlayerName && targetMemberName) {
+    return regPlayerName.toLowerCase() === targetMemberName;
+  }
+
+  // 2c. Fallback by unique relation
   if (targetMember) {
-    const targetMemberName = (targetMember.name || "").trim().toLowerCase();
     const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-
-    // 2a. Match by player name if present on the registration
-    if (regPlayerName) {
-      if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
-        return true;
-      }
-      // If the registration has a player name that doesn't match this target member,
-      // it belongs to someone else (e.g. another child/member) and MUST NOT match.
-      return false;
-    }
-
-    // 2b. Match by relation ONLY if no other family member shares this exact relation.
-    // When multiple family members share the same relation (e.g. 2 daughters, 2 sons, multiple children),
-    // relation alone is ambiguous and must NOT cause one member's registration to leak to another.
     if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
       const sameRelationMembers = familyMembersOnly.filter(m => {
         const r = String(m.relation || (m as any).relationship || "").trim().toUpperCase();

@@ -635,6 +635,12 @@ export const tournamentPaymentService = {
               partnerKey = `guest_${normPName}_${normPFlat}`;
             }
 
+            // Anti-self guard: partner cannot be the primary registrant
+            const primaryName = (reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
+            if (partnerKey === key || (primaryName && partnerName.toLowerCase().trim() === primaryName)) {
+              return;
+            }
+
             const partnerEventDetail = {
               eventId: event.id,
               eventName: (event as any).name || (event as any).categoryName || `Event #${event.id}`,

@@ -13,6 +13,7 @@ interface TournamentsListTabProps {
   handleAnnounce: (id: number, name: string) => void;
   handleViewPlayers: (id: number, forceReload?: boolean) => void;
   handleViewCaptains: (id: number, forceReload?: boolean) => void;
+  handleToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -55,6 +56,7 @@ export function TournamentsListTab({
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
+  handleToggleCaptainNomination,
   viewingEventId,
   viewMode,
   registrations,
@@ -168,6 +170,7 @@ export function TournamentsListTab({
             onAddEventToTournament={onAddEventToTournament}
             onViewPlayers={handleViewPlayers}
             onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
             viewingEventId={viewingEventId}
             viewMode={viewMode || undefined}
             registrations={registrations}
@@ -203,6 +206,7 @@ export function TournamentsListTab({
             onAnnounce={handleAnnounce}
             onViewPlayers={handleViewPlayers}
             onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
             viewingEventId={viewingEventId}
             viewMode={viewMode || undefined}
             registrations={registrations}
@@ -243,6 +247,7 @@ export function TournamentsListTab({
             onAddEventToTournament={onAddEventToTournament}
             onViewPlayers={handleViewPlayers}
             onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
             viewingEventId={viewingEventId}
             viewMode={viewMode || undefined}
             registrations={registrations}

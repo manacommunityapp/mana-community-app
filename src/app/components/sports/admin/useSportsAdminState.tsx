@@ -2085,6 +2085,49 @@ export function useSportsAdminState() {
     }
   };
 
+  const handleToggleCaptainNomination = async (eventId: number, open: boolean) => {
+    try {
+      await sportsService.setCaptainNominationOpen(eventId, open);
+      toast.success(`Captain nominations ${open ? "opened" : "closed"} successfully`);
+
+      const updateEvInList = (eventsList: any[]) =>
+        eventsList.map((t: any) => {
+          let updated = { ...t };
+          if (Number(t.id) === Number(eventId)) {
+            updated.captainNominationOpen = open;
+          }
+          if (t.sportsEvents && Array.isArray(t.sportsEvents)) {
+            updated.sportsEvents = t.sportsEvents.map((se: any) =>
+              Number(se.id) === Number(eventId) ? { ...se, captainNominationOpen: open } : se
+            );
+          }
+          if (t.events && Array.isArray(t.events)) {
+            updated.events = t.events.map((se: any) =>
+              Number(se.id) === Number(eventId) ? { ...se, captainNominationOpen: open } : se
+            );
+          }
+          if (t.event && Number(t.event.id) === Number(eventId)) {
+            updated.event = { ...t.event, captainNominationOpen: open };
+          }
+          return updated;
+        });
+
+      setDraftEvents(prev => updateEvInList(prev));
+      setLiveEvents(prev => updateEvInList(prev));
+      setCompletedEvents(prev => updateEvInList(prev));
+      setActiveEvents(prev =>
+        prev.map(ev => Number(ev.id) === Number(eventId) ? { ...ev, captainNominationOpen: open } : ev)
+      );
+
+      // Refresh data in background
+      refreshEvents();
+      refreshTournaments();
+    } catch (err: any) {
+      console.error("Failed to update captain nomination status:", err);
+      toast.error(err?.message || "Failed to update captain nominations");
+    }
+  };
+
   const handleConfirmRegistration = async (regId: number) => {
     try {
       await sportsService.confirmRegistration(regId);
@@ -2602,6 +2645,7 @@ export function useSportsAdminState() {
         contactEmail: e.contactEmail || "",
         otherContacts: parseOtherContacts(e.otherContacts),
         auctionEnabled: !!e.auctionEnabled,
+        captainNominationOpen: !!e.captainNominationOpen,
         adminApprovalRequired: e.adminApprovalRequired !== false,
         mandatoryMixedDoubles: e.mandatoryMixedDoubles !== false,
       }],
@@ -2968,6 +3012,7 @@ export function useSportsAdminState() {
               (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
             ) as any,
             auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+            captainNominationOpen: isTeam ? !!ev.captainNominationOpen : false,
             adminApprovalRequired: ev.adminApprovalRequired !== false,
             mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
             tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
@@ -3123,7 +3168,7 @@ export function useSportsAdminState() {
     // Registration
     viewingEventId, viewMode,
     registrations, nominatedCaptains, loadingRegs,
-    handleViewPlayers, handleViewCaptains,
+    handleViewPlayers, handleViewCaptains, handleToggleCaptainNomination,
     handleConfirmRegistration, handleRejectRegistration, handleConfirmCaptain,
 
     // Manual add player

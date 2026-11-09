@@ -662,6 +662,213 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       expect(details3.partnerContact).toBe("—");
       expect(details3.partnerStatus).toBe("—");
     });
+
+    it("comprehensively verifies all doubles partner resolution scenarios across users and family members", () => {
+      const currentUserId = 101;
+      const currentUserName = "Sandeep Kamarapu";
+      const familyMembers = [
+        { id: 501, name: "Sunita Kamarapu", relation: "Spouse" },
+        { id: 502, name: "Aarav Kamarapu", relation: "Son" },
+        { id: 503, name: "Ananya Kamarapu", relation: "Daughter" },
+      ];
+
+      // Helper simulating SportsDashboard partner resolution logic
+      const resolveDashboardPartner = (
+        r: any,
+        selectedMemberId: string | number | undefined
+      ) => {
+        const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
+        const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
+        const targetMember = !isSelectedSelf ? familyMembers.find(m => String(m.id) === selectedTargetId) : undefined;
+        const selectedTargetName = (isSelectedSelf ? currentUserName : (targetMember?.name || "")).trim().toLowerCase();
+
+        // Player 1
+        const p1FamId = r.familyMemberId != null ? String(r.familyMemberId).replace(/^fam-/, "").trim() : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
+        const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
+        const currentUid = currentUserId != null ? String(currentUserId) : null;
+
+        const isOtherUserPrimary = Boolean(
+          currentUid && p1UserId && p1UserId !== currentUid
+        );
+        const p1ExplicitSelf = isSelfRelationOrMember(r.relation, p1FamId, r.playerName, currentUserName);
+        const p1MatchesSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+        );
+        const p1HasNonSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+        );
+
+        const p1IsSelf = !p1FamId && (
+          p1ExplicitSelf ||
+          p1MatchesSelfName ||
+          (!isOtherUserPrimary && !p1HasNonSelfName && !r.relation)
+        );
+
+        const p1Name = (r.familyMember?.name || r.familyMemberName || r.playerName || (p1IsSelf ? currentUserName : "Primary Player")).trim();
+        const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
+        const p1Flat = (r.flatNumber || r.user?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        // Player 2
+        const p2FamId = r.partnerFamilyMemberId != null ? String(r.partnerFamilyMemberId).replace(/^fam-/, "").trim() : (r.partnerFamilyMember?.id != null ? String(r.partnerFamilyMember.id).replace(/^fam-/, "").trim() : null);
+        const p2UserId = r.partnerUserId != null ? String(r.partnerUserId) : (r.partner?.id != null ? String(r.partner.id) : null);
+        const p2IsSelf = Boolean(
+          (currentUid && p2UserId && String(p2UserId) === currentUid) ||
+          (!p2FamId && r.partnerName && currentUserName && r.partnerName.toLowerCase().trim() === currentUserName.toLowerCase().trim())
+        );
+        const p2Name = (
+          r.partnerFamilyMember?.name ||
+          r.partnerFamilyMemberName ||
+          (p2FamId != null ? "" : (r.partnerName || r.partner?.fullName || r.partner?.name || "")) ||
+          r.partnerName ||
+          ""
+        ).trim();
+        const p2Relation = (r.partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
+        const p2Flat = (r.partnerFlatNumber || r.partner?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        const isViewingAsPlayer2 = Boolean(
+          (isSelectedSelf && p2IsSelf && !p1IsSelf) ||
+          (!isSelectedSelf && p2FamId != null && p2FamId === selectedTargetId) ||
+          (!isSelectedSelf && p2Name && selectedTargetName && p2Name.toLowerCase() === selectedTargetName && (!p1FamId || p1FamId !== selectedTargetId))
+        );
+
+        let partnerDisplayName = isViewingAsPlayer2 ? p1Name : p2Name;
+        let partnerDisplayRelation = isViewingAsPlayer2 ? p1Relation : p2Relation;
+        let partnerDisplayFlat = isViewingAsPlayer2 ? p1Flat : p2Flat;
+        let partnerDisplayIsSelf = isViewingAsPlayer2 ? p1IsSelf : p2IsSelf;
+
+        // Anti-self-partner guard
+        if (partnerDisplayName) {
+          const normDisplayName = partnerDisplayName.toLowerCase().trim();
+          if (normDisplayName === selectedTargetName) {
+            const otherName = isViewingAsPlayer2 ? p2Name : p1Name;
+            if (otherName && otherName.toLowerCase().trim() !== selectedTargetName) {
+              partnerDisplayName = otherName;
+              partnerDisplayRelation = isViewingAsPlayer2 ? p2Relation : p1Relation;
+              partnerDisplayFlat = isViewingAsPlayer2 ? p2Flat : p1Flat;
+              partnerDisplayIsSelf = isViewingAsPlayer2 ? p2IsSelf : p1IsSelf;
+            } else {
+              partnerDisplayName = "";
+            }
+          }
+        }
+
+        return {
+          isViewingAsPlayer2,
+          partnerDisplayName,
+          partnerDisplayRelation,
+          partnerDisplayFlat,
+          partnerDisplayIsSelf,
+        };
+      };
+
+      // Scenario 1: Logged in user is partner to another Flat user (partnerUserId)
+      const reg1 = {
+        id: 101,
+        userId: 202,
+        playerName: "Rahul Sharma",
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg1, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res1 = resolveDashboardPartner(reg1, "self");
+      expect(res1.isViewingAsPlayer2).toBe(true);
+      expect(res1.partnerDisplayName).toBe("Rahul Sharma");
+      expect(res1.partnerDisplayFlat).toBe("101");
+      expect(res1.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 2: Logged in user is partner to another Flat's family member
+      const reg2 = {
+        id: 102,
+        userId: 202,
+        playerName: "Rohan Sharma",
+        familyMemberId: 801,
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg2, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res2 = resolveDashboardPartner(reg2, "self");
+      expect(res2.isViewingAsPlayer2).toBe(true);
+      expect(res2.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res2.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 3: Logged in user is partner to same Flat family member (husband & spouse)
+      // Sandeep registered with Sunita as partner
+      const reg3 = {
+        id: 103,
+        userId: currentUserId,
+        playerName: currentUserName,
+        familyMemberId: null,
+        flatNumber: "Flat 202",
+        partnerFamilyMemberId: 501,
+        partnerName: "Sunita Kamarapu",
+        partnerRelation: "Spouse",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sandeep views as "Self":
+      expect(isRegistrationForMemberHelper(reg3, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Self = resolveDashboardPartner(reg3, "self");
+      expect(res3Self.isViewingAsPlayer2).toBe(false);
+      expect(res3Self.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res3Self.partnerDisplayRelation).toBe("Spouse");
+      expect(res3Self.partnerDisplayName).not.toBe(currentUserName);
+
+      // When Sunita views (selectedMemberId: 501):
+      expect(isRegistrationForMemberHelper(reg3, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Spouse = resolveDashboardPartner(reg3, 501);
+      expect(res3Spouse.isViewingAsPlayer2).toBe(true);
+      expect(res3Spouse.partnerDisplayName).toBe(currentUserName);
+      expect(res3Spouse.partnerDisplayIsSelf).toBe(true);
+      expect(res3Spouse.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // Scenario 4: Logged in user family member (Aarav, 502) is partner to another Flat family member (Rohan, 902)
+      const reg4 = {
+        id: 104,
+        userId: currentUserId,
+        playerName: "Aarav Kamarapu",
+        familyMemberId: 502,
+        partnerFamilyMemberId: 902,
+        partnerName: "Rohan Sharma",
+        partnerFlatNumber: "Flat 101",
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg4, 502, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res4 = resolveDashboardPartner(reg4, 502);
+      expect(res4.isViewingAsPlayer2).toBe(false);
+      expect(res4.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res4.partnerDisplayFlat).toBe("101");
+      expect(res4.partnerDisplayName).not.toBe("Aarav Kamarapu");
+
+      // Scenario 5: Two family members from the same flat (mother and daughter)
+      const reg5 = {
+        id: 105,
+        userId: currentUserId,
+        playerName: "Sunita Kamarapu",
+        familyMemberId: 501,
+        partnerFamilyMemberId: 503,
+        partnerName: "Ananya Kamarapu",
+        partnerRelation: "Daughter",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sunita views:
+      expect(isRegistrationForMemberHelper(reg5, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Mother = resolveDashboardPartner(reg5, 501);
+      expect(res5Mother.partnerDisplayName).toBe("Ananya Kamarapu");
+      expect(res5Mother.partnerDisplayRelation).toBe("Daughter");
+      expect(res5Mother.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // When Ananya views:
+      expect(isRegistrationForMemberHelper(reg5, 503, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Daughter = resolveDashboardPartner(reg5, 503);
+      expect(res5Daughter.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res5Daughter.partnerDisplayName).not.toBe("Ananya Kamarapu");
+
+      // When Self (Sandeep) views: Neither is Self -> false
+      expect(isRegistrationForMemberHelper(reg5, "self", familyMembers, currentUserName, currentUserId)).toBe(false);
+    });
   });
 
   describe("Child and Family Member Registration Isolation", () => {

@@ -19,6 +19,7 @@ interface SportsEventTabProps {
   handleActivate: (id: number) => void;
   handleViewPlayers: (id: number, forceReload?: boolean) => void;
   handleViewCaptains: (id: number, forceReload?: boolean) => void;
+  handleToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -102,6 +103,7 @@ export function SportsEventTab({
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
+  handleToggleCaptainNomination,
   viewingEventId,
   viewMode,
   registrations,
@@ -232,6 +234,7 @@ export function SportsEventTab({
           handleAnnounce={handleAnnounce || (() => {})}
           handleViewPlayers={handleViewPlayers}
           handleViewCaptains={handleViewCaptains}
+          handleToggleCaptainNomination={handleToggleCaptainNomination}
           viewingEventId={viewingEventId}
           viewMode={viewMode}
           registrations={registrations}

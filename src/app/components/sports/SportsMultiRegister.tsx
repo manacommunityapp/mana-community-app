@@ -697,6 +697,7 @@ interface SportEventSelection {
   partnerUserId?: number | null;
   partnerInfo?: SelectedPartnerInfo | null;
   captainNomination?: boolean;
+  captainNominationOpen?: boolean;
   proposedTeamName?: string;
   minAge?: number | null;
   maxAge?: number | null;
@@ -1479,6 +1480,7 @@ export function SportsMultiRegister() {
               minAge: (ev as any).minAge ?? matchedCategory?.minAge ?? null,
               maxAge: (ev as any).maxAge ?? matchedCategory?.maxAge ?? null,
               allowHigherAgeCategory: (ev as any).allowHigherAgeCategory ?? true,
+              captainNominationOpen: Boolean((ev as any).captainNominationOpen ?? (ev as any).rawEvent?.captainNominationOpen),
             };
           });
           setEventSelections(initialSelections);
@@ -3396,14 +3398,22 @@ export function SportsMultiRegister() {
                                               <span className="text-[10px] font-bold text-slate-800">
                                                 Nominate as Team Captain
                                               </span>
-                                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                                Optional
-                                              </span>
+                                              {ev.captainNominationOpen ? (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                                  Optional
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                  Closed
+                                                </span>
+                                              )}
                                               <button
                                                 type="button"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  toast.info("Lead a team & participate in the player auction/draft");
+                                                  toast.info(ev.captainNominationOpen
+                                                    ? "Lead a team & participate in the player auction/draft"
+                                                    : "Captain nominations are currently closed for this event.");
                                                 }}
                                                 className="inline-flex text-slate-400 hover:text-amber-600 cursor-pointer p-0.5 active:scale-95"
                                                 title="Team Captain Information"
@@ -3415,29 +3425,35 @@ export function SportsMultiRegister() {
                                           </div>
                                         </div>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEventSelections(prev => prev.map(item => {
-                                              if (item.eventId === ev.eventId) {
-                                                return { ...item, captainNomination: !item.captainNomination };
-                                              }
-                                              return item;
-                                            }));
-                                          }}
-                                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                            ev.captainNomination ? "bg-amber-600" : "bg-slate-300"
-                                          }`}
-                                        >
-                                          <span
-                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                              ev.captainNomination ? "translate-x-4" : "translate-x-0"
+                                        {ev.captainNominationOpen ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEventSelections(prev => prev.map(item => {
+                                                if (item.eventId === ev.eventId) {
+                                                  return { ...item, captainNomination: !item.captainNomination };
+                                                }
+                                                return item;
+                                              }));
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                              ev.captainNomination ? "bg-amber-600" : "bg-slate-300"
                                             }`}
-                                          />
-                                        </button>
+                                          >
+                                            <span
+                                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                ev.captainNomination ? "translate-x-4" : "translate-x-0"
+                                              }`}
+                                            />
+                                          </button>
+                                        ) : (
+                                          <span className="text-[11px] font-medium text-slate-400 italic">
+                                            Nominations closed
+                                          </span>
+                                        )}
                                       </div>
 
-                                      {ev.captainNomination && (
+                                      {ev.captainNominationOpen && ev.captainNomination && (
                                         <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1.5">
                                           <label className="block text-xs font-bold text-slate-700">
                                             Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>

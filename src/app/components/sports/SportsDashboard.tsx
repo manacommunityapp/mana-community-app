@@ -2483,41 +2483,113 @@ export function SportsDashboard() {
             {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (r as any).partnerDeclineReason || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
               <div className="mt-1.5 flex flex-col gap-1">
                 {regs.map(r => {
-                  const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                  const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                  const isConfirmedPartner = isPartner || isPartnerFam;
+                  const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
+                  const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
+                  const selectedTargetName = (isSelectedSelf ? (user?.fullName || "") : (targetMember?.name || "")).trim().toLowerCase();
 
-                  const partnerFamName =
+                  // ─── Player 1 (Primary Registrant on record) ───
+                  const p1FamId = r.familyMemberId != null
+                    ? String(r.familyMemberId).replace(/^fam-/, "").trim()
+                    : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
+                  const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
+                  const currentUid = user?.userId != null ? String(user.userId) : (user?.id != null ? String(user.id) : null);
+
+                  const isOtherUserPrimary = Boolean(
+                    currentUid && p1UserId && p1UserId !== currentUid
+                  );
+                  const p1ExplicitSelf = isSelfRelationOrMember(r.relation, p1FamId, r.playerName, user?.fullName);
+                  const p1MatchesSelfName = Boolean(
+                    user?.fullName && r.playerName && r.playerName.trim().toLowerCase() === user.fullName.trim().toLowerCase()
+                  );
+                  const p1HasNonSelfName = Boolean(
+                    user?.fullName && r.playerName && r.playerName.trim().toLowerCase() !== user.fullName.trim().toLowerCase()
+                  );
+
+                  const p1IsSelf = !p1FamId && (
+                    p1ExplicitSelf ||
+                    p1MatchesSelfName ||
+                    (!isOtherUserPrimary && !p1HasNonSelfName && !r.relation)
+                  );
+
+                  const p1Name = (r.familyMember?.name || (r as any).familyMemberName || r.playerName || (p1IsSelf ? (user?.fullName || "Self") : "Primary Player")).trim();
+                  const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
+                  const p1Flat = (r.flatNumber || (r as any).flatNo || r.user?.flatNo || r.user?.flatNumber || (user as any)?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+                  // ─── Player 2 (Partner on record) ───
+                  const p2FamId = r.partnerFamilyMemberId != null
+                    ? String(r.partnerFamilyMemberId).replace(/^fam-/, "").trim()
+                    : (r.partnerFamilyMember?.id != null ? String(r.partnerFamilyMember.id).replace(/^fam-/, "").trim() : null);
+                  const p2UserId = r.partnerUserId != null ? String(r.partnerUserId) : (r.partner?.id != null ? String(r.partner.id) : null);
+                  const p2IsSelf = Boolean(
+                    (currentUid && p2UserId && String(p2UserId) === currentUid) ||
+                    (!p2FamId && r.partnerName && user?.fullName && r.partnerName.toLowerCase().trim() === user.fullName.toLowerCase().trim())
+                  );
+                  const p2Name = (
                     r.partnerFamilyMember?.name ||
                     (r as any).partnerFamilyMemberName ||
-                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.name : null);
-
-                  const pName =
-                    partnerFamName ||
+                    (p2FamId != null ? "" : (r.partnerName || r.partner?.fullName || r.partner?.name || (r as any).partnerUser?.fullName || "")) ||
                     r.partnerName ||
-                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.fullName) ||
-                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.name) ||
-                    (r as any).partner?.fullName ||
-                    (r as any).partner?.name;
+                    ""
+                  ).trim();
+                  const p2Relation = ((r as any).partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
+                  const p2Flat = (
+                    r.partnerFlatNumber ||
+                    (r as any).partnerFlat ||
+                    r.partner?.flatNo ||
+                    (r.partner as any)?.flatNumber ||
+                    (p2IsSelf ? ((user as any)?.flatNo || "") : "")
+                  ).replace(/^Flat\s+/i, "").trim();
 
-                  const pRelation =
-                    (r as any).partnerRelation ||
-                    r.partnerFamilyMember?.relation ||
-                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.relation : null);
+                  const isOpenPool = Boolean((r as any).openPool || (!p2Name && !p2UserId && !p2FamId));
 
-                  const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+                  // Determine if the current viewing member is Player 2
+                  const isViewingAsPlayer2 = Boolean(
+                    (isSelectedSelf && p2IsSelf && !p1IsSelf) ||
+                    (!isSelectedSelf && p2FamId != null && p2FamId === selectedTargetId) ||
+                    (!isSelectedSelf && p2Name && selectedTargetName && p2Name.toLowerCase() === selectedTargetName && (!p1FamId || p1FamId !== selectedTargetId))
+                  );
+
+                  // The partner to display is the OTHER player:
+                  let partnerDisplayName = isViewingAsPlayer2 ? p1Name : p2Name;
+                  let partnerDisplayRelation = isViewingAsPlayer2 ? p1Relation : p2Relation;
+                  let partnerDisplayFlat = isViewingAsPlayer2 ? p1Flat : p2Flat;
+                  let partnerDisplayIsSelf = isViewingAsPlayer2 ? p1IsSelf : p2IsSelf;
+                  let rawStatus = isViewingAsPlayer2 ? "CONFIRMED" : String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+
+                  // ─── Anti-Self-Partner Guard ───
+                  // Under no circumstances should the Doubles Partner be the same as the selected dropdown member!
+                  if (!isOpenPool && partnerDisplayName) {
+                    const normDisplayName = partnerDisplayName.toLowerCase().trim();
+                    if (
+                      (selectedTargetName && normDisplayName === selectedTargetName) ||
+                      (!isSelectedSelf && (isViewingAsPlayer2 ? p1FamId : p2FamId) === selectedTargetId)
+                    ) {
+                      // Swap to the other player
+                      const otherName = isViewingAsPlayer2 ? p2Name : p1Name;
+                      if (otherName && otherName.toLowerCase().trim() !== selectedTargetName) {
+                        partnerDisplayName = otherName;
+                        partnerDisplayRelation = isViewingAsPlayer2 ? p2Relation : p1Relation;
+                        partnerDisplayFlat = isViewingAsPlayer2 ? p2Flat : p1Flat;
+                        partnerDisplayIsSelf = isViewingAsPlayer2 ? p2IsSelf : p1IsSelf;
+                      } else {
+                        partnerDisplayName = "";
+                      }
+                    }
+                  }
+
                   const isConfirmed = rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED";
                   const isPending = rawStatus === "PENDING";
                   const isDeclined = rawStatus === "DECLINED" || rawStatus === "REJECTED";
-                  const isOpenPool = (r as any).openPool || (!pName && !r.partnerUserId && !r.partnerFamilyMemberId);
                   const isRegisteredFormat = (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE");
-                  if (!isRegisteredFormat && !pName && !isOpenPool) return null;
+                  if (!isRegisteredFormat && !partnerDisplayName && !isOpenPool) return null;
 
                   const rFmt = extractFormatStr(r.matchType || (r as any).format) || "Doubles";
                   const rFmtLabel = rFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-                  const partnerFlat = r.partnerFlatNumber || (r as any).partnerFlat || (r as any).partner?.flatNo || (r as any).partner?.flatNumber;
-                  const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+                  const cleanPartnerFlat = partnerDisplayFlat;
+                  const pName = partnerDisplayName;
+                  const pRelation = partnerDisplayRelation;
+                  const isConfirmedPartner = partnerDisplayIsSelf;
 
                   return (
                     <div

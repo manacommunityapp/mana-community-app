@@ -306,8 +306,8 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
           const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") || Boolean(r.partnerName || r.partner?.fullName);
           if (isDoubles) {
-            const pName = r.partnerName || r.partnerFamilyMember?.name || r.partner?.fullName;
-            if (pName) name = `${name} / ${pName}`;
+            const pName = (r.partnerFamilyMember?.name || (r as any).partnerFamilyMemberName || r.partnerName || r.partner?.fullName || "").trim();
+            if (pName && pName.toLowerCase() !== name.trim().toLowerCase()) name = `${name} / ${pName}`;
           }
           return {
             id: r.user?.id ?? r.id,
@@ -1022,7 +1022,12 @@ export function SportsSchedule() {
               status,
               statusColor: status === "CONFIRMED" || status === "REGISTERED" ? "#10b981" : "#f97316",
               playerName: registration.playerName || registration.familyMember?.name || registration.user?.fullName,
-              partnerName: registration.partnerName || registration.partnerFamilyMember?.name || registration.partner?.fullName,
+              partnerName: (() => {
+                const primary = (registration.playerName || registration.familyMember?.name || registration.user?.fullName || "").trim();
+                const partner = (registration.partnerFamilyMember?.name || (registration as any).partnerFamilyMemberName || registration.partnerName || registration.partner?.fullName || "").trim();
+                if (!partner || (primary && partner.toLowerCase() === primary.toLowerCase())) return undefined;
+                return partner;
+              })(),
               partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
               isDoubles,
               flatNumber: registration.flatNumber || registration.user?.community?.name || registration.user?.flatNo,

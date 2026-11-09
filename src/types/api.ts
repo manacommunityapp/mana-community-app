@@ -292,6 +292,7 @@ export interface SportsEventRequest {
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
   description?: string;
@@ -745,6 +746,7 @@ export interface SportFormEvent {
   contacts?: EventContact[];
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   adminApprovalRequired?: boolean;
   mandatoryMixedDoubles?: boolean;
   tournamentId?: number;
