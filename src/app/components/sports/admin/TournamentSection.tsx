@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2 } from "lucide-react";
+import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
@@ -34,6 +34,7 @@ interface TournamentSectionProps {
   onAnnounce?: (id: number, name: string) => void;
   onViewPlayers?: (eventId: number, forceReload?: boolean) => void;
   onViewCaptains?: (eventId: number, forceReload?: boolean) => void;
+  onToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewMode?: "players" | "captains";
   viewingEventId?: number | null;
   registrations?: TournamentRegistration[];
@@ -349,7 +350,7 @@ export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
   onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCloseEvent, onAnnounce,
   onStartEvent, onStartAllPendingEvents,
-  onViewPlayers, onViewCaptains, viewMode = "players",
+  onViewPlayers, onViewCaptains, onToggleCaptainNomination, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
   onAddParticipant, onImportParticipants, onEditEvent, onDeleteEvent, onAddEventToTournament,
@@ -360,6 +361,7 @@ export function TournamentSection({
   const [exportDropdownTournamentId, setExportDropdownTournamentId] = useState<number | null>(null);
   const [exportingTournamentId, setExportingTournamentId] = useState<number | null>(null);
   const [paymentModalTournament, setPaymentModalTournament] = useState<any | null>(null);
+  const [togglingCaptaincyId, setTogglingCaptaincyId] = useState<number | null>(null);
 
   const handleTournamentExport = async (
     tournamentItem: any,
@@ -495,6 +497,80 @@ export function TournamentSection({
       >
         <Users className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
         <span>Nominated Captains</span>
+      </button>
+    );
+  };
+
+  const CaptaincyBadge = ({ ev, sportName }: { ev: any; sportName: string }) => {
+    const isTeam = isTeamSport(sportName) || getDisplayEventFormats(ev).includes("TEAM");
+    if (!isTeam) return null;
+    const isOpen = Boolean(ev.captainNominationOpen || (ev as any).rawEvent?.captainNominationOpen);
+    return isOpen ? (
+      <span
+        className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs"
+        title="Captaincy Nominations are OPEN: Registered players can nominate as captain"
+      >
+        <Crown className="w-3 h-3 text-amber-600" />
+        <span>Captaincy Open</span>
+      </span>
+    ) : (
+      <span
+        className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+        title="Captaincy Nominations are CLOSED"
+      >
+        <Lock className="w-2.5 h-2.5 text-slate-400" />
+        <span>Captaincy Closed</span>
+      </span>
+    );
+  };
+
+  const CaptaincyToggleBtn = ({
+    ev,
+    sportName,
+    size = "sm",
+  }: {
+    ev: any;
+    sportName: string;
+    size?: "sm" | "xs";
+  }) => {
+    const isTeam = isTeamSport(sportName) || getDisplayEventFormats(ev).includes("TEAM");
+    if (!onToggleCaptainNomination || !isTeam) return null;
+    const isOpen = Boolean(ev.captainNominationOpen || (ev as any).rawEvent?.captainNominationOpen);
+    const isToggling = togglingCaptaincyId === ev.id;
+
+    return (
+      <button
+        type="button"
+        disabled={isToggling}
+        onClick={async () => {
+          setTogglingCaptaincyId(ev.id);
+          try {
+            await onToggleCaptainNomination(ev.id, !isOpen);
+          } finally {
+            setTogglingCaptaincyId(null);
+          }
+        }}
+        className={`${
+          size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"
+        } rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer font-medium ${
+          isOpen
+            ? "border border-amber-300 bg-amber-50/70 text-amber-700 hover:bg-amber-100/80"
+            : "border border-indigo-200 bg-indigo-50/70 text-indigo-700 hover:bg-indigo-100/80"
+        } ${isToggling ? "opacity-60 cursor-not-allowed" : ""}`}
+        title={
+          isOpen
+            ? "Stop accepting captain nominations for this event"
+            : "Open captain nominations for registered players"
+        }
+      >
+        {isToggling ? (
+          <Loader2 className={size === "xs" ? "w-2.5 h-2.5 animate-spin" : "w-3 h-3 animate-spin"} />
+        ) : isOpen ? (
+          <Lock className={size === "xs" ? "w-2.5 h-2.5 text-amber-600" : "w-3 h-3 text-amber-600"} />
+        ) : (
+          <Crown className={size === "xs" ? "w-2.5 h-2.5 text-indigo-600" : "w-3 h-3 text-indigo-600"} />
+        )}
+        <span>{isOpen ? "Close Captaincy" : "Open Captaincy"}</span>
       </button>
     );
   };
@@ -1051,6 +1127,7 @@ export function TournamentSection({
                                     {registrationStatus}
                                   </span>
                                 )}
+                                <CaptaincyBadge ev={ev} sportName={evSport || ""} />
                               {onEditEvent && (
                                 <button
                                   type="button"
@@ -1101,6 +1178,7 @@ export function TournamentSection({
                                 <>
                                   <PlayersBtn evId={ev.id} size="xs" />
                                   <CaptainsBtn evId={ev.id} sportName={ev.sport?.name || ""} size="xs" />
+                                  <CaptaincyToggleBtn ev={ev} sportName={ev.sport?.name || ""} size="xs" />
                                 </>
                               )}
                             </div>
@@ -1160,10 +1238,12 @@ export function TournamentSection({
                       {registrationStatus}
                     </span>
                   )}
+                  <CaptaincyBadge ev={ev} sportName={ev.sport?.name || ""} />
                   {hasRegistrationButtons && (
                     <>
                       <PlayersBtn evId={ev.id} />
                       <CaptainsBtn evId={ev.id} sportName={ev.sport?.name || ""} />
+                      <CaptaincyToggleBtn ev={ev} sportName={ev.sport?.name || ""} />
                     </>
                   )}
                   {showActivate && onActivate && (
@@ -1251,6 +1331,9 @@ export function TournamentSection({
           loadingCaptains={loadingRegs}
           onConfirmCaptain={(teamId) => onConfirmCaptain?.(teamId, true)}
           onRefresh={() => onViewCaptains?.(viewingEventId, true)}
+          onToggleNomination={(evId, open) => {
+            onToggleCaptainNomination?.(evId, open);
+          }}
         />
       )}
     </div>

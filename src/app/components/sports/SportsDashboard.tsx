@@ -523,7 +523,7 @@ function RegCard({
             </span>
           )}
         </div>
-        {item.spots && item.spots !== "Unlimited spots" && (
+        {item.spots && item.spots !== "Unlimited spots" && item.spots.toLowerCase() !== "registration closed" && (
           <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{item.spots}</div>
         )}
       </div>
@@ -541,6 +541,31 @@ function RegCard({
               (item.rawEvent as any)?.myRegistrationId
             );
 
+            if (item.action === "Nominations Closed") {
+              return (
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1 cursor-default opacity-85"
+                  title="Captain nominations are closed for this event"
+                >
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Nominations Closed</span>
+                </span>
+              );
+            }
+
+            if (String(item.action).startsWith("Nominate")) {
+              return (
+                <button
+                  type="button"
+                  onClick={() => onView(item)}
+                  className="text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-2xs active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>{item.action}</span>
+                  <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                </button>
+              );
+            }
+
             if (isClosed && !isAdmin) {
               if (isRegistered) {
                 return (
@@ -548,13 +573,6 @@ function RegCard({
                     <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Registered</span>
-                    </span>
-                    <span
-                      className="text-xs font-semibold px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                      title="Registration is closed for this event"
-                    >
-                      <Lock className="w-3 h-3 text-slate-400" />
-                      <span>Registration Closed</span>
                     </span>
                   </div>
                 );
@@ -1419,13 +1437,14 @@ export function SportsDashboard() {
         const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
         const activeRegId = (rawRegId && isActiveRegistrationStatus(rawRegStatus) && !isLocallyWithdrawn) ? rawRegId : undefined;
 
+        const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
           id: e.id,
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
-          spots: "Registration closed",
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "",
           progress: 100,
           progressColor: activeRegId ? "#10b981" : "#ef4444",
           dotColor: activeRegId ? "#10b981" : "#ef4444",
@@ -2339,6 +2358,10 @@ export function SportsDashboard() {
       const regs = getMemberRegsForEvent(item);
       const memberReg = regs[0];
       const isReg = regs.length > 0;
+      const isUserRegistered = isReg || Boolean(
+        (item.registrationId || (item.rawEvent as any)?.myRegistrationId) &&
+        !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId))
+      );
       const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
       const isBlocked = !elig.eligible;
       const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
@@ -2447,6 +2470,12 @@ export function SportsDashboard() {
                     </span>
                   );
                 })}
+                {isClosed && isUserRegistered && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Registered</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -2454,41 +2483,113 @@ export function SportsDashboard() {
             {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (r as any).partnerDeclineReason || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
               <div className="mt-1.5 flex flex-col gap-1">
                 {regs.map(r => {
-                  const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
-                  const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
-                  const isConfirmedPartner = isPartner || isPartnerFam;
+                  const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
+                  const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
+                  const selectedTargetName = (isSelectedSelf ? (user?.fullName || "") : (targetMember?.name || "")).trim().toLowerCase();
 
-                  const partnerFamName =
+                  // ─── Player 1 (Primary Registrant on record) ───
+                  const p1FamId = r.familyMemberId != null
+                    ? String(r.familyMemberId).replace(/^fam-/, "").trim()
+                    : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
+                  const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
+                  const currentUid = user?.userId != null ? String(user.userId) : (user?.id != null ? String(user.id) : null);
+
+                  const isOtherUserPrimary = Boolean(
+                    currentUid && p1UserId && p1UserId !== currentUid
+                  );
+                  const p1ExplicitSelf = isSelfRelationOrMember(r.relation, p1FamId, r.playerName, user?.fullName);
+                  const p1MatchesSelfName = Boolean(
+                    user?.fullName && r.playerName && r.playerName.trim().toLowerCase() === user.fullName.trim().toLowerCase()
+                  );
+                  const p1HasNonSelfName = Boolean(
+                    user?.fullName && r.playerName && r.playerName.trim().toLowerCase() !== user.fullName.trim().toLowerCase()
+                  );
+
+                  const p1IsSelf = !p1FamId && (
+                    p1ExplicitSelf ||
+                    p1MatchesSelfName ||
+                    (!isOtherUserPrimary && !p1HasNonSelfName && !r.relation)
+                  );
+
+                  const p1Name = (r.familyMember?.name || (r as any).familyMemberName || r.playerName || (p1IsSelf ? (user?.fullName || "Self") : "Primary Player")).trim();
+                  const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
+                  const p1Flat = (r.flatNumber || (r as any).flatNo || r.user?.flatNo || r.user?.flatNumber || (user as any)?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+                  // ─── Player 2 (Partner on record) ───
+                  const p2FamId = r.partnerFamilyMemberId != null
+                    ? String(r.partnerFamilyMemberId).replace(/^fam-/, "").trim()
+                    : (r.partnerFamilyMember?.id != null ? String(r.partnerFamilyMember.id).replace(/^fam-/, "").trim() : null);
+                  const p2UserId = r.partnerUserId != null ? String(r.partnerUserId) : (r.partner?.id != null ? String(r.partner.id) : null);
+                  const p2IsSelf = Boolean(
+                    (currentUid && p2UserId && String(p2UserId) === currentUid) ||
+                    (!p2FamId && r.partnerName && user?.fullName && r.partnerName.toLowerCase().trim() === user.fullName.toLowerCase().trim())
+                  );
+                  const p2Name = (
                     r.partnerFamilyMember?.name ||
                     (r as any).partnerFamilyMemberName ||
-                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.name : null);
-
-                  const pName =
-                    partnerFamName ||
+                    (p2FamId != null ? "" : (r.partnerName || r.partner?.fullName || r.partner?.name || (r as any).partnerUser?.fullName || "")) ||
                     r.partnerName ||
-                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.fullName) ||
-                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.name) ||
-                    (r as any).partner?.fullName ||
-                    (r as any).partner?.name;
+                    ""
+                  ).trim();
+                  const p2Relation = ((r as any).partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
+                  const p2Flat = (
+                    r.partnerFlatNumber ||
+                    (r as any).partnerFlat ||
+                    r.partner?.flatNo ||
+                    (r.partner as any)?.flatNumber ||
+                    (p2IsSelf ? ((user as any)?.flatNo || "") : "")
+                  ).replace(/^Flat\s+/i, "").trim();
 
-                  const pRelation =
-                    (r as any).partnerRelation ||
-                    r.partnerFamilyMember?.relation ||
-                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.relation : null);
+                  const isOpenPool = Boolean((r as any).openPool || (!p2Name && !p2UserId && !p2FamId));
 
-                  const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+                  // Determine if the current viewing member is Player 2
+                  const isViewingAsPlayer2 = Boolean(
+                    (isSelectedSelf && p2IsSelf && !p1IsSelf) ||
+                    (!isSelectedSelf && p2FamId != null && p2FamId === selectedTargetId) ||
+                    (!isSelectedSelf && p2Name && selectedTargetName && p2Name.toLowerCase() === selectedTargetName && (!p1FamId || p1FamId !== selectedTargetId))
+                  );
+
+                  // The partner to display is the OTHER player:
+                  let partnerDisplayName = isViewingAsPlayer2 ? p1Name : p2Name;
+                  let partnerDisplayRelation = isViewingAsPlayer2 ? p1Relation : p2Relation;
+                  let partnerDisplayFlat = isViewingAsPlayer2 ? p1Flat : p2Flat;
+                  let partnerDisplayIsSelf = isViewingAsPlayer2 ? p1IsSelf : p2IsSelf;
+                  let rawStatus = isViewingAsPlayer2 ? "CONFIRMED" : String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+
+                  // ─── Anti-Self-Partner Guard ───
+                  // Under no circumstances should the Doubles Partner be the same as the selected dropdown member!
+                  if (!isOpenPool && partnerDisplayName) {
+                    const normDisplayName = partnerDisplayName.toLowerCase().trim();
+                    if (
+                      (selectedTargetName && normDisplayName === selectedTargetName) ||
+                      (!isSelectedSelf && (isViewingAsPlayer2 ? p1FamId : p2FamId) === selectedTargetId)
+                    ) {
+                      // Swap to the other player
+                      const otherName = isViewingAsPlayer2 ? p2Name : p1Name;
+                      if (otherName && otherName.toLowerCase().trim() !== selectedTargetName) {
+                        partnerDisplayName = otherName;
+                        partnerDisplayRelation = isViewingAsPlayer2 ? p2Relation : p1Relation;
+                        partnerDisplayFlat = isViewingAsPlayer2 ? p2Flat : p1Flat;
+                        partnerDisplayIsSelf = isViewingAsPlayer2 ? p2IsSelf : p1IsSelf;
+                      } else {
+                        partnerDisplayName = "";
+                      }
+                    }
+                  }
+
                   const isConfirmed = rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED";
                   const isPending = rawStatus === "PENDING";
                   const isDeclined = rawStatus === "DECLINED" || rawStatus === "REJECTED";
-                  const isOpenPool = (r as any).openPool || (!pName && !r.partnerUserId && !r.partnerFamilyMemberId);
                   const isRegisteredFormat = (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE");
-                  if (!isRegisteredFormat && !pName && !isOpenPool) return null;
+                  if (!isRegisteredFormat && !partnerDisplayName && !isOpenPool) return null;
 
                   const rFmt = extractFormatStr(r.matchType || (r as any).format) || "Doubles";
                   const rFmtLabel = rFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-                  const partnerFlat = r.partnerFlatNumber || (r as any).partnerFlat || (r as any).partner?.flatNo || (r as any).partner?.flatNumber;
-                  const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+                  const cleanPartnerFlat = partnerDisplayFlat;
+                  const pName = partnerDisplayName;
+                  const pRelation = partnerDisplayRelation;
+                  const isConfirmedPartner = partnerDisplayIsSelf;
 
                   return (
                     <div
@@ -2667,7 +2768,7 @@ export function SportsDashboard() {
           {/* Footer: Spots indicator + Action Button(s) */}
           <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 mt-auto">
             {/* Spots / Capacity text */}
-            {spotsText && spotsText !== "Unlimited spots" ? (
+            {spotsText && spotsText !== "Unlimited spots" && spotsText.toLowerCase() !== "registration closed" ? (
               <div className="min-w-0">
                 <div className="text-[10px] font-semibold text-slate-500 truncate flex items-center gap-1">
                   <span>{spotsText}</span>
@@ -2696,14 +2797,11 @@ export function SportsDashboard() {
             {/* Action / Registration button */}
             <div className="shrink-0 ml-auto">
               {isFullyReg ? (
+                isClosed && !isSportsAdminUser ? null : (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {regs.length > 1 ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Registered</span>
-                      </span>
-                      {isRegClosed && (
+                      {isRegClosed && !isClosed && (
                         <span
                           className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
                           title="Registration is closed for this event"
@@ -2754,11 +2852,13 @@ export function SportsDashboard() {
                         const isConfirmedPartner = isPartner || isPartnerFam;
                         return (
                           <>
-                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
-                            </span>
-                            {isRegClosed && (
+                            {!isClosed && (
+                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
+                              </span>
+                            )}
+                            {isRegClosed && !isClosed && (
                               <span
                                 className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
                                 title="Registration is closed for this event"
@@ -2783,13 +2883,10 @@ export function SportsDashboard() {
                     </div>
                   )}
                 </div>
+                )
               ) : isPartiallyReg ? (
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Registered</span>
-                  </span>
-                  {isRegClosed && (
+                  {isRegClosed && !isClosed && (
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
                       title="Registration is closed for this event"
@@ -2923,19 +3020,14 @@ export function SportsDashboard() {
                 </div>
               ) : isRegClosed && !isSportsAdminUser ? (
                 (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span>Registered</span>
-                    </span>
-                    <span
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                      title="Registration is closed for this event"
-                    >
-                      <Lock className="w-2.5 h-2.5 text-slate-400" />
-                      <span>Registration Closed</span>
-                    </span>
-                  </div>
+                  !isClosed ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Registered</span>
+                      </span>
+                    </div>
+                  ) : null
                 ) : (
                   <button
                     type="button"
@@ -3325,7 +3417,7 @@ export function SportsDashboard() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                      <div className={`grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
                         {sportEvents.map(renderCategoryCard)}
                       </div>
                     </div>
@@ -3333,7 +3425,7 @@ export function SportsDashboard() {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+              <div className={`grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
                 {gridEvents.map(renderCategoryCard)}
               </div>
             )}
@@ -3865,6 +3957,20 @@ export function SportsDashboard() {
                       const regPersonName = reg.playerName || (isSelf ? (user?.fullName || "You") : "Member");
                       const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
 
+                      const matchingTeamEvent = adminTeamEvents.find(e => Number(e.id) === targetEventId)
+                        || openTournaments.flatMap(t => t.mappedEvents || []).find(e => Number(e.id) === targetEventId)
+                        || closedTournaments.flatMap(t => t.mappedEvents || []).find(e => Number(e.id) === targetEventId)
+                        || openRegs.find(e => Number(e.id) === targetEventId)
+                        || closedRegs.find(e => Number(e.id) === targetEventId);
+
+                      const isCaptainNominationOpen = Boolean(
+                        matchingTeamEvent?.captainNominationOpen ||
+                        (matchingTeamEvent?.rawEvent as any)?.captainNominationOpen ||
+                        reg.event?.captainNominationOpen ||
+                        (reg.event as any)?.rawEvent?.captainNominationOpen ||
+                        (reg as any).captainNominationOpen
+                      );
+
                       const rawDate = reg.event?.eventDateStart || reg.eventDateStart;
                       const formattedDate = rawDate && !isNaN(new Date(rawDate).getTime())
                         ? new Date(rawDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
@@ -3886,11 +3992,13 @@ export function SportsDashboard() {
                               ? "Confirmed Captain 🏆"
                               : isNominated
                                 ? (teamDisplay ? `Nominated: "${teamDisplay}"` : "Nomination Active")
-                                : "Available for Captaincy",
+                                : isCaptainNominationOpen
+                                  ? "Available for Captaincy"
+                                  : "Nominations Closed",
                             progress: isCaptainConfirmed ? 100 : (isNominated ? 50 : 0),
-                            progressColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                            dotColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : actionLabel) as any,
+                            progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+                            dotColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed") as any,
                             status: reg.event?.registrationStatus || reg.eventRegistrationStatus,
                           }}
                           onView={async () => {
@@ -3909,6 +4017,10 @@ export function SportsDashboard() {
                                 toast.error("Failed to withdraw nomination");
                               }
                             } else {
+                              if (!isCaptainNominationOpen) {
+                                toast.error("Captain nominations are currently closed for this event");
+                                return;
+                              }
                               setNominatingRegId(reg.id);
                               setSelectedCaptainEventId(targetEventId);
                               setSelectedCaptainEvent(reg.event || { id: targetEventId, name: reg.eventName || reg.event?.name });

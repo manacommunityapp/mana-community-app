@@ -662,6 +662,213 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       expect(details3.partnerContact).toBe("—");
       expect(details3.partnerStatus).toBe("—");
     });
+
+    it("comprehensively verifies all doubles partner resolution scenarios across users and family members", () => {
+      const currentUserId = 101;
+      const currentUserName = "Sandeep Kamarapu";
+      const familyMembers = [
+        { id: 501, name: "Sunita Kamarapu", relation: "Spouse" },
+        { id: 502, name: "Aarav Kamarapu", relation: "Son" },
+        { id: 503, name: "Ananya Kamarapu", relation: "Daughter" },
+      ];
+
+      // Helper simulating SportsDashboard partner resolution logic
+      const resolveDashboardPartner = (
+        r: any,
+        selectedMemberId: string | number | undefined
+      ) => {
+        const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
+        const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
+        const targetMember = !isSelectedSelf ? familyMembers.find(m => String(m.id) === selectedTargetId) : undefined;
+        const selectedTargetName = (isSelectedSelf ? currentUserName : (targetMember?.name || "")).trim().toLowerCase();
+
+        // Player 1
+        const p1FamId = r.familyMemberId != null ? String(r.familyMemberId).replace(/^fam-/, "").trim() : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
+        const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
+        const currentUid = currentUserId != null ? String(currentUserId) : null;
+
+        const isOtherUserPrimary = Boolean(
+          currentUid && p1UserId && p1UserId !== currentUid
+        );
+        const p1ExplicitSelf = isSelfRelationOrMember(r.relation, p1FamId, r.playerName, currentUserName);
+        const p1MatchesSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+        );
+        const p1HasNonSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+        );
+
+        const p1IsSelf = !p1FamId && (
+          p1ExplicitSelf ||
+          p1MatchesSelfName ||
+          (!isOtherUserPrimary && !p1HasNonSelfName && !r.relation)
+        );
+
+        const p1Name = (r.familyMember?.name || r.familyMemberName || r.playerName || (p1IsSelf ? currentUserName : "Primary Player")).trim();
+        const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
+        const p1Flat = (r.flatNumber || r.user?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        // Player 2
+        const p2FamId = r.partnerFamilyMemberId != null ? String(r.partnerFamilyMemberId).replace(/^fam-/, "").trim() : (r.partnerFamilyMember?.id != null ? String(r.partnerFamilyMember.id).replace(/^fam-/, "").trim() : null);
+        const p2UserId = r.partnerUserId != null ? String(r.partnerUserId) : (r.partner?.id != null ? String(r.partner.id) : null);
+        const p2IsSelf = Boolean(
+          (currentUid && p2UserId && String(p2UserId) === currentUid) ||
+          (!p2FamId && r.partnerName && currentUserName && r.partnerName.toLowerCase().trim() === currentUserName.toLowerCase().trim())
+        );
+        const p2Name = (
+          r.partnerFamilyMember?.name ||
+          r.partnerFamilyMemberName ||
+          (p2FamId != null ? "" : (r.partnerName || r.partner?.fullName || r.partner?.name || "")) ||
+          r.partnerName ||
+          ""
+        ).trim();
+        const p2Relation = (r.partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
+        const p2Flat = (r.partnerFlatNumber || r.partner?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        const isViewingAsPlayer2 = Boolean(
+          (isSelectedSelf && p2IsSelf && !p1IsSelf) ||
+          (!isSelectedSelf && p2FamId != null && p2FamId === selectedTargetId) ||
+          (!isSelectedSelf && p2Name && selectedTargetName && p2Name.toLowerCase() === selectedTargetName && (!p1FamId || p1FamId !== selectedTargetId))
+        );
+
+        let partnerDisplayName = isViewingAsPlayer2 ? p1Name : p2Name;
+        let partnerDisplayRelation = isViewingAsPlayer2 ? p1Relation : p2Relation;
+        let partnerDisplayFlat = isViewingAsPlayer2 ? p1Flat : p2Flat;
+        let partnerDisplayIsSelf = isViewingAsPlayer2 ? p1IsSelf : p2IsSelf;
+
+        // Anti-self-partner guard
+        if (partnerDisplayName) {
+          const normDisplayName = partnerDisplayName.toLowerCase().trim();
+          if (normDisplayName === selectedTargetName) {
+            const otherName = isViewingAsPlayer2 ? p2Name : p1Name;
+            if (otherName && otherName.toLowerCase().trim() !== selectedTargetName) {
+              partnerDisplayName = otherName;
+              partnerDisplayRelation = isViewingAsPlayer2 ? p2Relation : p1Relation;
+              partnerDisplayFlat = isViewingAsPlayer2 ? p2Flat : p1Flat;
+              partnerDisplayIsSelf = isViewingAsPlayer2 ? p2IsSelf : p1IsSelf;
+            } else {
+              partnerDisplayName = "";
+            }
+          }
+        }
+
+        return {
+          isViewingAsPlayer2,
+          partnerDisplayName,
+          partnerDisplayRelation,
+          partnerDisplayFlat,
+          partnerDisplayIsSelf,
+        };
+      };
+
+      // Scenario 1: Logged in user is partner to another Flat user (partnerUserId)
+      const reg1 = {
+        id: 101,
+        userId: 202,
+        playerName: "Rahul Sharma",
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg1, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res1 = resolveDashboardPartner(reg1, "self");
+      expect(res1.isViewingAsPlayer2).toBe(true);
+      expect(res1.partnerDisplayName).toBe("Rahul Sharma");
+      expect(res1.partnerDisplayFlat).toBe("101");
+      expect(res1.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 2: Logged in user is partner to another Flat's family member
+      const reg2 = {
+        id: 102,
+        userId: 202,
+        playerName: "Rohan Sharma",
+        familyMemberId: 801,
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg2, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res2 = resolveDashboardPartner(reg2, "self");
+      expect(res2.isViewingAsPlayer2).toBe(true);
+      expect(res2.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res2.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 3: Logged in user is partner to same Flat family member (husband & spouse)
+      // Sandeep registered with Sunita as partner
+      const reg3 = {
+        id: 103,
+        userId: currentUserId,
+        playerName: currentUserName,
+        familyMemberId: null,
+        flatNumber: "Flat 202",
+        partnerFamilyMemberId: 501,
+        partnerName: "Sunita Kamarapu",
+        partnerRelation: "Spouse",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sandeep views as "Self":
+      expect(isRegistrationForMemberHelper(reg3, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Self = resolveDashboardPartner(reg3, "self");
+      expect(res3Self.isViewingAsPlayer2).toBe(false);
+      expect(res3Self.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res3Self.partnerDisplayRelation).toBe("Spouse");
+      expect(res3Self.partnerDisplayName).not.toBe(currentUserName);
+
+      // When Sunita views (selectedMemberId: 501):
+      expect(isRegistrationForMemberHelper(reg3, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Spouse = resolveDashboardPartner(reg3, 501);
+      expect(res3Spouse.isViewingAsPlayer2).toBe(true);
+      expect(res3Spouse.partnerDisplayName).toBe(currentUserName);
+      expect(res3Spouse.partnerDisplayIsSelf).toBe(true);
+      expect(res3Spouse.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // Scenario 4: Logged in user family member (Aarav, 502) is partner to another Flat family member (Rohan, 902)
+      const reg4 = {
+        id: 104,
+        userId: currentUserId,
+        playerName: "Aarav Kamarapu",
+        familyMemberId: 502,
+        partnerFamilyMemberId: 902,
+        partnerName: "Rohan Sharma",
+        partnerFlatNumber: "Flat 101",
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg4, 502, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res4 = resolveDashboardPartner(reg4, 502);
+      expect(res4.isViewingAsPlayer2).toBe(false);
+      expect(res4.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res4.partnerDisplayFlat).toBe("101");
+      expect(res4.partnerDisplayName).not.toBe("Aarav Kamarapu");
+
+      // Scenario 5: Two family members from the same flat (mother and daughter)
+      const reg5 = {
+        id: 105,
+        userId: currentUserId,
+        playerName: "Sunita Kamarapu",
+        familyMemberId: 501,
+        partnerFamilyMemberId: 503,
+        partnerName: "Ananya Kamarapu",
+        partnerRelation: "Daughter",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sunita views:
+      expect(isRegistrationForMemberHelper(reg5, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Mother = resolveDashboardPartner(reg5, 501);
+      expect(res5Mother.partnerDisplayName).toBe("Ananya Kamarapu");
+      expect(res5Mother.partnerDisplayRelation).toBe("Daughter");
+      expect(res5Mother.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // When Ananya views:
+      expect(isRegistrationForMemberHelper(reg5, 503, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Daughter = resolveDashboardPartner(reg5, 503);
+      expect(res5Daughter.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res5Daughter.partnerDisplayName).not.toBe("Ananya Kamarapu");
+
+      // When Self (Sandeep) views: Neither is Self -> false
+      expect(isRegistrationForMemberHelper(reg5, "self", familyMembers, currentUserName, currentUserId)).toBe(false);
+    });
   });
 
   describe("Child and Family Member Registration Isolation", () => {
@@ -1435,8 +1642,8 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(computeRegCardAction(closedRegisteredEvent, false)).toBe("Registered");
     });
 
-    it("displays both 'Registered' and 'Registration Closed' status badges for registered users when registration is closed", () => {
-      // Simulate RegCard logic returning badges
+    it("hides action badges for registered users in closed registrations and shows 'Registered' on top beside format chips only when isClosed is true", () => {
+      // Simulate RegCard / CategoryCard action badge logic
       const computeRegCardBadges = (item: any, isAdmin: boolean) => {
         const isClosed = item.status === "REGISTRATION_CLOSED"
           || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
@@ -1455,7 +1662,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         if (isClosed && !isAdmin) {
           if (isRegistered) {
             return {
-              badges: ["Registered", "Registration Closed"],
+              badges: [],
               canRegister: false,
               canUnregister: false,
             };
@@ -1474,7 +1681,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         };
       };
 
-      // Case 1: Closed event where user is registered
+      // Case 1: Closed event where user is registered -> action badges hidden, Registered shown on top beside format
       const closedRegisteredEvent = {
         id: 101,
         status: "REGISTRATION_CLOSED",
@@ -1482,8 +1689,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         action: "Withdraw",
       };
       const result1 = computeRegCardBadges(closedRegisteredEvent, false);
-      expect(result1.badges).toContain("Registered");
-      expect(result1.badges).toContain("Registration Closed");
+      expect(result1.badges).toEqual([]);
       expect(result1.canRegister).toBe(false);
       expect(result1.canUnregister).toBe(false);
 
@@ -1501,9 +1707,204 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       // Case 3: Admin on closed registered event can still unregister
       const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
       expect(adminResult.canUnregister).toBe(true);
+
+      // Test top format header logic: "also show on top beside Singles/doubles /team squad only in Closed Registrations Div only"
+      const computeTopHeaderBadges = (isClosed: boolean, isUserRegistered: boolean, displayFormats: string[]) => {
+        const badges = [...displayFormats];
+        if (isClosed && isUserRegistered) {
+          badges.push("Registered");
+        }
+        return badges;
+      };
+
+      // In Closed Registrations with registered user: format + "Registered" on top
+      expect(computeTopHeaderBadges(true, true, ["Singles"])).toEqual(["Singles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Doubles"])).toEqual(["Doubles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Team Squad"])).toEqual(["Team Squad", "Registered"]);
+
+      // In Closed Registrations with unregistered user: only format on top
+      expect(computeTopHeaderBadges(true, false, ["Singles"])).toEqual(["Singles"]);
+
+      // In Open Registrations (isClosed === false): NEVER show Registered on top, even if registered
+      expect(computeTopHeaderBadges(false, true, ["Singles"])).toEqual(["Singles"]);
+      expect(computeTopHeaderBadges(false, false, ["Singles"])).toEqual(["Singles"]);
+    });
+
+    it("verifies spotsText filters out 'Registration closed' to avoid duplicate closed indicators", () => {
+      const shouldDisplaySpots = (spotsText?: string | null): boolean => {
+        return Boolean(
+          spotsText &&
+          spotsText !== "Unlimited spots" &&
+          spotsText.toLowerCase() !== "registration closed"
+        );
+      };
+
+      expect(shouldDisplaySpots("Registration closed")).toBe(false);
+      expect(shouldDisplaySpots("registration closed")).toBe(false);
+      expect(shouldDisplaySpots("Unlimited spots")).toBe(false);
+      expect(shouldDisplaySpots("12/20 spots")).toBe(true);
+      expect(shouldDisplaySpots("")).toBe(false);
+      expect(shouldDisplaySpots(undefined)).toBe(false);
+    });
+
+    it("verifies grid layout is single-column for Closed Registrations and two-column for Open Registrations", () => {
+      const getCategoryGridClass = (isClosed: boolean): string => {
+        return `grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`;
+      };
+
+      // Closed registrations must span complete single row
+      expect(getCategoryGridClass(true)).toContain("grid-cols-1");
+      expect(getCategoryGridClass(true)).not.toContain("sm:grid-cols-2");
+
+      // Open registrations must show 2 divs
+      expect(getCategoryGridClass(false)).toContain("grid-cols-1 sm:grid-cols-2");
+    });
+
+    it("verifies captaincy nomination state resolution and button action mapping", () => {
+      interface RegItem {
+        id: number;
+        playerName?: string;
+        event?: {
+          id: number;
+          name: string;
+          captainNominationOpen?: boolean;
+          registrationStatus?: string;
+        };
+        nominatedTeamId?: number | null;
+        captainConfirmed?: boolean;
+      }
+
+      const computeCaptainItem = (
+        reg: RegItem,
+        isSelf: boolean,
+        adminTeamEvents: Array<{ id: number; captainNominationOpen?: boolean }>
+      ) => {
+        const targetEventId = reg.event?.id || 0;
+        const matchingTeamEvent = adminTeamEvents.find(e => e.id === targetEventId);
+        const isCaptainNominationOpen = Boolean(
+          matchingTeamEvent?.captainNominationOpen ||
+          reg.event?.captainNominationOpen
+        );
+        const isNominated = Boolean(reg.nominatedTeamId);
+        const isCaptainConfirmed = Boolean(reg.captainConfirmed);
+        const regPersonName = reg.playerName || (isSelf ? "You" : "Member");
+        const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
+
+        return {
+          isCaptainNominationOpen,
+          spots: isCaptainConfirmed
+            ? "Confirmed Captain 🏆"
+            : isNominated
+              ? "Nomination Active"
+              : isCaptainNominationOpen
+                ? "Available for Captaincy"
+                : "Nominations Closed",
+          progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+          action: isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed",
+        };
+      };
+
+      // Case 1: Captain nominations open - Self
+      const openRegSelf = {
+        id: 1,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenSelf = computeCaptainItem(openRegSelf, true, []);
+      expect(resultOpenSelf.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenSelf.action).toBe("Nominate Me");
+      expect(resultOpenSelf.spots).toBe("Available for Captaincy");
+      expect(resultOpenSelf.progressColor).toBe("#6366f1");
+
+      // Case 2: Captain nominations open - Family Member
+      const openRegFamily = {
+        id: 2,
+        playerName: "Aarav Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenFamily = computeCaptainItem(openRegFamily, false, []);
+      expect(resultOpenFamily.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenFamily.action).toBe("Nominate Aarav Kamarapu");
+
+      // Case 3: Captain nominations CLOSED
+      const closedReg = {
+        id: 3,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 11, name: "Football League", captainNominationOpen: false },
+      };
+      const resultClosed = computeCaptainItem(closedReg, true, []);
+      expect(resultClosed.isCaptainNominationOpen).toBe(false);
+      expect(resultClosed.action).toBe("Nominations Closed");
+      expect(resultClosed.spots).toBe("Nominations Closed");
+      expect(resultClosed.progressColor).toBe("#94a3b8");
+
+      // Case 4: Event found in adminTeamEvents with captainNominationOpen true
+      const eventWithAdminFallback = {
+        id: 4,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 12, name: "Volleyball Tournament" },
+      };
+      const resultAdmin = computeCaptainItem(eventWithAdminFallback, true, [{ id: 12, captainNominationOpen: true }]);
+      expect(resultAdmin.isCaptainNominationOpen).toBe(true);
+      expect(resultAdmin.action).toBe("Nominate Me");
+
+      // Case 5: Already nominated
+      const alreadyNominatedReg = {
+        id: 5,
+        playerName: "Sandeep Kamarapu",
+        nominatedTeamId: 99,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultNominated = computeCaptainItem(alreadyNominatedReg, true, []);
+      expect(resultNominated.action).toBe("Withdraw");
+      expect(resultNominated.spots).toBe("Nomination Active");
+
+      // Case 6: Confirmed Captain
+      const confirmedCaptainReg = {
+        id: 6,
+        playerName: "Sandeep Kamarapu",
+        captainConfirmed: true,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultConfirmed = computeCaptainItem(confirmedCaptainReg, true, []);
+      expect(resultConfirmed.action).toBe("Confirmed");
+      expect(resultConfirmed.spots).toBe("Confirmed Captain 🏆");
+    });
+
+    it("verifies RegCard button styling matches Register button when nominating", () => {
+      const getActionElementConfig = (action: string, isClosed: boolean, isAdmin: boolean) => {
+        if (action === "Nominations Closed") {
+          return { type: "badge", text: "Nominations Closed", icon: "Lock" };
+        }
+        if (String(action).startsWith("Nominate")) {
+          return {
+            type: "button",
+            className: "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-2xs active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer",
+            icon: "ArrowUpRight",
+          };
+        }
+        if (isClosed && !isAdmin) {
+          return { type: "badge", text: "Registration Closed" };
+        }
+        return { type: "button", className: "default" };
+      };
+
+      // Even if event is closed, Nominate button must render gradient styling and not be blocked by isClosed
+      const nominateStyle = getActionElementConfig("Nominate Me", true, false);
+      expect(nominateStyle.type).toBe("button");
+      expect(nominateStyle.className).toContain("bg-gradient-to-r from-indigo-600 to-violet-600");
+      expect(nominateStyle.className).toContain("text-white");
+      expect(nominateStyle.icon).toBe("ArrowUpRight");
+
+      // When nominations are closed, must render lock badge
+      const closedStyle = getActionElementConfig("Nominations Closed", true, false);
+      expect(closedStyle.type).toBe("badge");
+      expect(closedStyle.text).toBe("Nominations Closed");
+      expect(closedStyle.icon).toBe("Lock");
     });
   });
 });
+
 
 
 

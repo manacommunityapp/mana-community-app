@@ -21,6 +21,21 @@ window.addEventListener("unhandledrejection", (event) => {
   log.error("Unhandled promise rejection", event.reason);
 });
 
+// Auto-recover if Vite fails to load a lazy chunk due to a new deployment replacing chunk hashes
+window.addEventListener("vite:preloadError", (event) => {
+  const PRELOAD_KEY = "mana_preload_error_ts";
+  const lastReload = Number(sessionStorage.getItem(PRELOAD_KEY) || 0);
+  const now = Date.now();
+
+  log.warn("Vite dynamic chunk preload failed (new deployment likely). Recovering...", event);
+
+  // Prevent rapid reload loops (allow at most once per 10 seconds)
+  if (now - lastReload > 10000) {
+    sessionStorage.setItem(PRELOAD_KEY, String(now));
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

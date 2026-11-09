@@ -33,6 +33,7 @@ export interface ViewCaptainsModalProps {
   loadingCaptains?: boolean;
   onConfirmCaptain?: (teamId: number) => void;
   onRefresh?: () => void;
+  onToggleNomination?: (eventId: number, open: boolean) => void;
 }
 
 export function ViewCaptainsModal({
@@ -43,6 +44,7 @@ export function ViewCaptainsModal({
   loadingCaptains = false,
   onConfirmCaptain,
   onRefresh,
+  onToggleNomination,
 }: ViewCaptainsModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING">("ALL");
@@ -62,6 +64,7 @@ export function ViewCaptainsModal({
       await sportsService.setCaptainNominationOpen(event.id, nextState);
       setIsNomOpen(nextState);
       toast.success(`Captain nominations ${nextState ? "opened" : "stopped"}`);
+      if (onToggleNomination) onToggleNomination(event.id, nextState);
       if (onRefresh) onRefresh();
     } catch {
       toast.error("Failed to update captain nominations status");

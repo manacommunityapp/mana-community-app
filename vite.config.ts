@@ -38,7 +38,22 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      babel({ presets: [reactCompilerPreset()] })
+      babel({ presets: [reactCompilerPreset()] }),
+      {
+        name: 'generate-version-json',
+        generateBundle() {
+          this.emitFile({
+            type: 'asset',
+            fileName: 'version.json',
+            source: JSON.stringify({
+              version: appVersion,
+              commit: gitCommit,
+              branch: gitBranch,
+              buildTime,
+            }, null, 2),
+          });
+        },
+      },
     ],
     server: {
       headers: {

@@ -3582,55 +3582,71 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             )}
 
             {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
-            {isTeamSport(event?.sport?.name || event?.name || "") && (
-              <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
-                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+            {isTeamSport(event?.sport?.name || event?.name || "") && (() => {
+              const isNomOpen = Boolean(event?.captainNominationOpen || (event as any)?.rawEvent?.captainNominationOpen);
+              return (
+                <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                        <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          Team Captain Nomination
+                        </h4>
+                        {isNomOpen ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                            Optional
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200">
+                            Closed
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSnackbarInfo({
+                              open: true,
+                              title: "Team Captain Nomination",
+                              message: isNomOpen
+                                ? "Are you interested in leading a team and participating in the player auction/draft?"
+                                : "Captain nominations are currently closed for this event by the community administrator.",
+                            });
+                          }}
+                          title="Team Captain Information"
+                          aria-label="Captain nomination information"
+                          className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                        Team Captain Nomination
-                      </h4>
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
-                        Optional
-                      </span>
+
+                    {/* Toggle Button */}
+                    {isNomOpen ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          setSnackbarInfo({
-                            open: true,
-                            title: "Team Captain Nomination",
-                            message: "Are you interested in leading a team and participating in the player auction/draft?",
-                          });
-                        }}
-                        title="Team Captain Information"
-                        aria-label="Captain nomination information"
-                        className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                        onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
+                        }`}
                       >
-                        <Info className="w-3.5 h-3.5" />
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            formData.captainNomination ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
                       </button>
-                    </div>
+                    ) : (
+                      <span className="text-[11px] font-medium text-slate-400 italic">
+                        Nominations closed
+                      </span>
+                    )}
                   </div>
 
-                  {/* Toggle Button */}
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.captainNomination ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {formData.captainNomination && (
+                  {isNomOpen && formData.captainNomination && (
                   <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
                     <label htmlFor="sports-reg-proposed-team" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
@@ -3651,7 +3667,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 )}
               </div>
-            )}
+            ); })()}
 
             {/* ── Current Event Ineligibility Banner ── */}
             {(() => {

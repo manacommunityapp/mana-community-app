@@ -470,5 +470,28 @@ describe("TournamentSection: getDisplayEventFormats and getFormatBadge", () => {
     expect(relayBadge.label).toBe("Relay");
     expect(relayBadge.color).toContain("cyan");
   });
+
+  it("accurately detects team sports vs individual sports for captaincy controls", () => {
+    const isTeam = (sportName: string, ev: any) => {
+      const formats = getDisplayEventFormats(ev);
+      return ["cricket", "football", "basketball", "volleyball", "kabaddi"].includes(sportName.toLowerCase()) || formats.includes("TEAM");
+    };
+
+    expect(isTeam("Cricket", {})).toBe(true);
+    expect(isTeam("Football", {})).toBe(true);
+    expect(isTeam("Tennis", { format: ["TEAM"] })).toBe(true);
+    expect(isTeam("Badminton", { format: ["SINGLES"] })).toBe(false);
+    expect(isTeam("Table Tennis", { format: ["DOUBLES"] })).toBe(false);
+  });
+
+  it("determines captaincy status from captainNominationOpen and rawEvent fallback", () => {
+    const getCaptaincyOpen = (ev: any) => Boolean(ev.captainNominationOpen || ev.rawEvent?.captainNominationOpen);
+
+    expect(getCaptaincyOpen({ captainNominationOpen: true })).toBe(true);
+    expect(getCaptaincyOpen({ captainNominationOpen: false })).toBe(false);
+    expect(getCaptaincyOpen({ rawEvent: { captainNominationOpen: true } })).toBe(true);
+    expect(getCaptaincyOpen({})).toBe(false);
+  });
 });
+
 

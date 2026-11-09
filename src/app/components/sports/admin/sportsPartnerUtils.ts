@@ -216,6 +216,22 @@ export function getPartnerDetails(
     Boolean((reg as any).openPool || (reg as any).isPoolPlayer || (reg as any).needsPartner)
   );
 
+  // Guard: Partner cannot be the same as the primary player on this registration
+  const primaryName = (reg.familyMember?.name || reg.playerName || reg.user?.fullName || "").trim();
+  const primaryFamId = reg.familyMember?.id != null ? reg.familyMember.id : (reg as any).familyMemberId != null ? Number((reg as any).familyMemberId) : null;
+  const primaryUserId = reg.user?.id != null ? reg.user.id : (reg as any).userId != null ? (reg as any).userId : null;
+  if (
+    (partnerFamId != null && primaryFamId != null && partnerFamId === primaryFamId) ||
+    (reg.partnerUserId != null && primaryUserId != null && primaryFamId == null && partnerFamId == null && String(reg.partnerUserId) === String(primaryUserId)) ||
+    (name && primaryName && name.toLowerCase() === primaryName.toLowerCase())
+  ) {
+    name = "";
+    relation = "";
+    flat = "";
+    phone = "";
+    email = "";
+  }
+
   const hasPartner = Boolean(name);
 
   // 6. Status determination

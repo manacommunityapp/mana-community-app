@@ -317,6 +317,24 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                           )}
                         />
                       </div>
+                      <div className="col-span-2 pt-1">
+                        <label className="flex items-center gap-2 p-2 rounded-lg border border-indigo-200 bg-indigo-50/50 cursor-pointer hover:bg-indigo-50 transition-colors select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!ev.captainNominationOpen}
+                            onChange={e => updateEventField(configuringSport.sportId, ev.id, "captainNominationOpen", e.target.checked)}
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                          />
+                          <div className="flex-1">
+                            <span className="text-xs font-bold text-indigo-950 flex items-center gap-1">
+                              👑 Allow Captaincy Nominations
+                            </span>
+                            <p className="text-[11px] text-slate-500 leading-tight">
+                              Allow registered players to nominate as team captain
+                            </p>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1 text-left">
