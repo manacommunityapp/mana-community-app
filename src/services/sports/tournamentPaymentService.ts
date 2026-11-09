@@ -638,7 +638,7 @@ export const tournamentPaymentService = {
             // Anti-self guard: partner cannot be the primary registrant
             const primaryName = (reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
             if (partnerKey === key || (primaryName && partnerName.toLowerCase().trim() === primaryName)) {
-              return;
+              continue;
             }
 
             const partnerEventDetail = {
