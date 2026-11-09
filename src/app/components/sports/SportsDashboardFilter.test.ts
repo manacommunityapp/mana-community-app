@@ -1909,6 +1909,155 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(closedStyle.icon).toBe("Lock");
     });
   });
+
+  describe("SportsDashboard - Specific Event and Format Registration Matching", () => {
+    const tableTennisDoublesCard = {
+      id: 202,
+      name: "Table Tennis — Mens",
+      categoryName: "Mens Above 19 - 60",
+      formats: ["DOUBLES"],
+      format: "DOUBLES",
+      isTeamSport: false,
+    } as any;
+
+    const tableTennisSinglesCard = {
+      id: 201,
+      name: "Table Tennis — Mens",
+      categoryName: "Mens Above 19 - 60",
+      formats: ["SINGLES"],
+      format: "SINGLES",
+      isTeamSport: false,
+    } as any;
+
+    it("does NOT match a Singles registration to a strictly Doubles event card sharing same title and category", () => {
+      const singlesReg = {
+        id: 901,
+        eventId: 201,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "SINGLES",
+        status: "CONFIRMED",
+      };
+
+      expect(isFormatCompatible(singlesReg, tableTennisDoublesCard)).toBe(false);
+      expect(isEventMatch(singlesReg, tableTennisDoublesCard)).toBe(false);
+
+      expect(isFormatCompatible(singlesReg, tableTennisSinglesCard)).toBe(true);
+      expect(isEventMatch(singlesReg, tableTennisSinglesCard)).toBe(true);
+    });
+
+    it("does NOT match a Doubles registration to a strictly Singles event card sharing same title and category", () => {
+      const doublesReg = {
+        id: 902,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+      };
+
+      expect(isFormatCompatible(doublesReg, tableTennisSinglesCard)).toBe(false);
+      expect(isEventMatch(doublesReg, tableTennisSinglesCard)).toBe(false);
+
+      expect(isFormatCompatible(doublesReg, tableTennisDoublesCard)).toBe(true);
+      expect(isEventMatch(doublesReg, tableTennisDoublesCard)).toBe(true);
+    });
+
+    it("does NOT match when category ID happens to equal a different event ID", () => {
+      const regWithCategoryId = {
+        id: 903,
+        eventId: 50,
+        eventName: "Badminton Open",
+        category: { id: 202, name: "Under-16 Boys" },
+        status: "CONFIRMED",
+      };
+
+      // Category ID is 202, event card ID is 202, but they are totally different!
+      expect(isEventMatch(regWithCategoryId, tableTennisDoublesCard)).toBe(false);
+    });
+
+    it("does NOT match when category IDs differ explicitly", () => {
+      const regWithCategory5 = {
+        id: 904,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        category: { id: 5, name: "Mens Above 19 - 60" },
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+      };
+
+      const cardWithCategory6 = {
+        ...tableTennisDoublesCard,
+        category: { id: 6, name: "Mens Above 19 - 60" },
+      };
+
+      expect(isEventMatch(regWithCategory5, cardWithCategory6)).toBe(false);
+    });
+
+    it("verifies isUserRegistered strictly equals isReg and does not falsely trigger from rawEvent.myRegistrationId", () => {
+      // Simulate card rendering helper logic
+      const computeCardState = (
+        card: any,
+        myRegs: any[],
+        selectedMember: string,
+        isClosed: boolean
+      ) => {
+        const regs = myRegs.filter(r =>
+          isEventMatch(r, card) &&
+          (selectedMember === "self" ? (!r.familyMemberId || r.relation === "SELF") : String(r.familyMemberId) === selectedMember) &&
+          isActiveRegistrationStatus(r.status)
+        );
+        const isReg = regs.length > 0;
+        const isUserRegistered = isReg; // Fixed logic: strictly isReg
+        const showRegisteredBadge = isClosed && isUserRegistered;
+        return { isReg, isUserRegistered, showRegisteredBadge };
+      };
+
+      const cardWithBackendRegId = {
+        ...tableTennisDoublesCard,
+        registrationId: 999, // Backend or tournament hydrated ID
+        rawEvent: { myRegistrationId: 999 },
+      };
+
+      // Scenario A: User only registered for Singles, viewing Doubles card
+      const onlySinglesRegs = [{
+        id: 901,
+        eventId: 201,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "SINGLES",
+        status: "CONFIRMED",
+        relation: "SELF",
+      }];
+
+      const stateA = computeCardState(cardWithBackendRegId, onlySinglesRegs, "self", true);
+      expect(stateA.isReg).toBe(false);
+      expect(stateA.isUserRegistered).toBe(false);
+      expect(stateA.showRegisteredBadge).toBe(false);
+
+      // Scenario B: User registered for Doubles as Self, viewing as Son (member ID "2")
+      const onlyDoublesRegs = [{
+        id: 902,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+        relation: "SELF",
+      }];
+
+      const stateB = computeCardState(cardWithBackendRegId, onlyDoublesRegs, "2", true);
+      expect(stateB.isReg).toBe(false);
+      expect(stateB.isUserRegistered).toBe(false);
+      expect(stateB.showRegisteredBadge).toBe(false);
+
+      // Scenario C: User registered for Doubles as Self, viewing as Self
+      const stateC = computeCardState(cardWithBackendRegId, onlyDoublesRegs, "self", true);
+      expect(stateC.isReg).toBe(true);
+      expect(stateC.isUserRegistered).toBe(true);
+      expect(stateC.showRegisteredBadge).toBe(true);
+    });
+  });
 });
 
 

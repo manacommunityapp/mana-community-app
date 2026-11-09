@@ -79,6 +79,7 @@ export const sportsService = {
   updateEventStatus: sportsEventService.updateEventStatus,
   setCaptainNominationOpen: sportsEventService.setCaptainNominationOpen,
   closeTournament: sportsEventService.closeTournament,
+  completeTournament: sportsEventService.completeTournament,
   closeSportsEvent: sportsEventService.closeSportsEvent,
   openSportsEvent: sportsEventService.openSportsEvent,
   getClosedTournaments: sportsEventService.getClosedTournaments,

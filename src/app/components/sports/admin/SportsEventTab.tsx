@@ -55,6 +55,7 @@ interface SportsEventTabProps {
   handleSportEdit: (sport: any) => void;
   handleSportDelete: (id: number) => void;
   handleCloseTournament?: (id: number) => void;
+  handleCompleteTournament?: (id: number) => void;
   handleCloseEvent?: (id: number) => void;
   handleStartEventRegistration?: (id: number, name?: string) => void;
   handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
@@ -97,6 +98,7 @@ export function SportsEventTab({
   handleDelete,
   handleActivate,
   handleCloseTournament,
+  handleCompleteTournament,
   handleCloseEvent,
   handleStartEventRegistration,
   handleStartAllPendingEvents,
@@ -255,6 +257,7 @@ export function SportsEventTab({
           handleSportEdit={onEditEventFromList}
           handleSportDelete={handleSportDelete}
           handleCloseTournament={handleCloseTournament}
+          handleCompleteTournament={handleCompleteTournament}
           handleCloseEvent={handleCloseEvent}
           handleStartEventRegistration={handleStartEventRegistration}
           handleStartAllPendingEvents={handleStartAllPendingEvents}

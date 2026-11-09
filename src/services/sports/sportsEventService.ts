@@ -213,6 +213,11 @@ export const sportsEventService = {
     return this.updateTournamentStatus(id, "REGISTRATION_CLOSED");
   },
 
+  /** Complete tournament: set status to COMPLETED (completely closed) */
+  async completeTournament(id: number): Promise<any> {
+    return this.updateTournamentStatus(id, "COMPLETED");
+  },
+
   /** Close sports event registration: set status to REGISTRATION_CLOSED */
   async closeSportsEvent(id: number): Promise<SportsEvent> {
     return this.updateEventStatus(id, "REGISTRATION_CLOSED");

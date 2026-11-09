@@ -177,8 +177,8 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
     .filter(Boolean);
 
   // Determine registration matchType/format
-  let rFmt = extractFormatStr(r.matchType) || extractFormatStr((r as any).format) || "";
-  if (!rFmt && ((r as any).partnerUserId || (r as any).partnerFamilyMemberId)) {
+  let rFmt = extractFormatStr(r.matchType) || extractFormatStr((r as any).format) || extractFormatStr((r as any).event?.format) || "";
+  if (!rFmt && ((r as any).partnerUserId || (r as any).partnerFamilyMemberId || (r as any).partnerName || (r as any).partner)) {
     rFmt = "DOUBLES";
   }
 
@@ -206,9 +206,14 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
     }
   }
 
-  // Check textual keywords in event / category name
-  const evStrictlyDoubles = (evName.includes("doubles") || evCatName.includes("doubles")) && !evName.includes("singles") && !evCatName.includes("singles");
-  const evStrictlySingles = (evName.includes("singles") || evCatName.includes("singles")) && !evName.includes("doubles") && !evCatName.includes("doubles");
+  const isEvStrictlyDoublesByFormat = evFormats.length > 0 && evFormats.every(f => f.includes("DOUBLES") && !f.includes("MIXED"));
+  const isEvStrictlySinglesByFormat = evFormats.length > 0 && evFormats.every(f => f.includes("SINGLES"));
+  const isEvStrictlyMixedByFormat = evFormats.length > 0 && evFormats.every(f => f.includes("MIXED"));
+
+  // Check textual keywords in event / category name AND explicit event formats
+  const evStrictlyDoubles = ((evName.includes("doubles") || evCatName.includes("doubles")) && !evName.includes("singles") && !evCatName.includes("singles")) || isEvStrictlyDoublesByFormat;
+  const evStrictlySingles = ((evName.includes("singles") || evCatName.includes("singles")) && !evName.includes("doubles") && !evCatName.includes("doubles")) || isEvStrictlySinglesByFormat;
+  const evStrictlyMixed = (evName.includes("mixed") || evCatName.includes("mixed")) || isEvStrictlyMixedByFormat;
 
   const rHasSingles = rFmt.includes("SINGLES");
   const rHasDoubles = rFmt.includes("DOUBLES") && !rFmt.includes("MIXED");
@@ -219,6 +224,7 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   if (rHasSingles && !rHasDoubles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlyDoubles) return false;
+    if (evStrictlyMixed) return false;
     if (evFormats.length > 0 && !evFormats.some(f => f.includes("SINGLES"))) {
       return false;
     }
@@ -228,6 +234,7 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   if (rHasDoubles && !rHasSingles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
+    if (evStrictlyMixed) return false;
     if (evFormats.length > 0 && !evFormats.some(f => f.includes("DOUBLES") && !f.includes("MIXED"))) {
       return false;
     }
@@ -237,6 +244,7 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   if (rHasMixed && !rHasSingles && !rHasDoubles && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
+    if (evStrictlyDoubles && !evStrictlyMixed) return false;
     if (evFormats.length > 0 && !evFormats.some(f => f.includes("MIXED"))) {
       return false;
     }
@@ -249,11 +257,16 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
     }
   }
 
-  // Vice versa: if ev is strictly Singles or Doubles and r keywords conflict
-  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles")) && !rName.includes("doubles") && !rCatName.includes("doubles")) {
+  // If ev is strictly Doubles, a registration that does not support doubles cannot match
+  if (evStrictlyDoubles && !rHasDoubles && (rHasSingles || ((rName.includes("singles") || rCatName.includes("singles")) && !rName.includes("doubles") && !rCatName.includes("doubles")))) {
     return false;
   }
-  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles")) && !rName.includes("singles") && !rCatName.includes("singles")) {
+  // If ev is strictly Singles, a registration that does not support singles cannot match
+  if (evStrictlySingles && !rHasSingles && (rHasDoubles || rHasMixed || ((rName.includes("doubles") || rCatName.includes("doubles")) && !rName.includes("singles") && !rCatName.includes("singles")))) {
+    return false;
+  }
+  // If ev is strictly Mixed Doubles, a registration without mixed cannot match
+  if (evStrictlyMixed && !rHasMixed && !rName.includes("mixed") && !rCatName.includes("mixed") && (rHasSingles || rHasDoubles)) {
     return false;
   }
 
@@ -280,6 +293,20 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
     ? String((r as any).eventUuid).trim()
     : ((r as any).uuid != null ? String((r as any).uuid).trim() : (r.event?.uuid != null ? String(r.event.uuid).trim() : null));
 
+  // Check explicit category IDs: if both have explicit category IDs and they differ, they cannot match
+  const rCatId = r.category?.id != null ? String(r.category.id).trim() : ((r as any).categoryId != null ? String((r as any).categoryId).trim() : null);
+  const evCatId = (ev as any).category?.id != null
+    ? String((ev as any).category.id).trim()
+    : ((ev as any).categoryId != null
+      ? String((ev as any).categoryId).trim()
+      : ((ev as any).rawEvent?.categoryId != null
+        ? String((ev as any).rawEvent.categoryId).trim()
+        : null));
+
+  if (rCatId && evCatId && rCatId !== evCatId) {
+    return false;
+  }
+
   // Match by numeric or string IDs
   if (rEvId && evId && rEvId === evId) return true;
   // Match by UUID
@@ -293,10 +320,6 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
 
   const evEventId = (ev as any).eventId != null ? String((ev as any).eventId).trim() : null;
   if (evEventId && rEvId && evEventId === rEvId) return true;
-
-  // Match category ID
-  const rCatId = r.category?.id != null ? String(r.category.id).trim() : ((r as any).categoryId != null ? String((r as any).categoryId).trim() : null);
-  if (rCatId && evId && rCatId === evId) return true;
 
   // If BOTH r and ev have explicit IDs, but they do NOT match:
   // prevent matching across different event IDs for generic categories (e.g. "Men's Above 19", "Under-16")
@@ -530,15 +553,21 @@ function RegCard({
       <div className="flex flex-col gap-1 flex-shrink-0 items-end">
         <div className="flex gap-1 justify-end">
           {(() => {
-            const isClosed = item.status === "REGISTRATION_CLOSED"
-              || (item.rawEvent as any)?.registrationStatus === "REGISTRATION_CLOSED"
-              || (item.rawEvent as any)?.status === "REGISTRATION_CLOSED"
+            const checkClosed = (st?: string | null) => {
+              if (!st) return false;
+              const s = String(st).toUpperCase().trim();
+              return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+            };
+            const isClosed = checkClosed(item.status)
+              || checkClosed((item.rawEvent as any)?.registrationStatus)
+              || checkClosed((item.rawEvent as any)?.status)
+              || checkClosed((item as any).eventRegistrationStatus)
+              || (item.isTeamSport && item.captainNominationOpen === false);
             const isRegistered = Boolean(
               item.registrationId ||
               item.action === "Withdraw" ||
               item.action === "Confirmed" ||
-              item.action === "Registered" ||
-              (item.rawEvent as any)?.myRegistrationId
+              item.action === "Registered"
             );
 
             if (item.action === "Nominations Closed") {
@@ -549,6 +578,17 @@ function RegCard({
                 >
                   <Lock className="w-3 h-3 text-slate-400" />
                   <span>Nominations Closed</span>
+                </span>
+              );
+            }
+
+            if (item.action === "Nominated") {
+              return (
+                <span
+                  className="text-xs font-bold px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 flex items-center gap-1 cursor-default shadow-2xs"
+                  title="Captaincy nomination is active (nominations are closed)"
+                >
+                  <span>Nominated</span>
                 </span>
               );
             }
@@ -1318,7 +1358,10 @@ export function SportsDashboard() {
           !isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId)
         );
 
-        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
+        const matchingRegByBackendId = e.myRegistrationId ? fetchedMyRegs.find(r => Number(r.id) === Number(e.myRegistrationId)) : undefined;
+        const isBackendIdValidForEvent = !matchingRegByBackendId || isEventMatch(matchingRegByBackendId, e);
+
+        const hasActiveBackendReg = Boolean(e.myRegistrationId && isBackendIdValidForEvent && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
 
         const rawRegId = hasActiveBackendReg ? e.myRegistrationId : (matchingReg && !isLocallyWithdrawn ? matchingReg.id : undefined);
         const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
@@ -1432,7 +1475,10 @@ export function SportsDashboard() {
           !isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId)
         );
 
-        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
+        const matchingRegByBackendId = e.myRegistrationId ? fetchedMyRegs.find(r => Number(r.id) === Number(e.myRegistrationId)) : undefined;
+        const isBackendIdValidForEvent = !matchingRegByBackendId || isEventMatch(matchingRegByBackendId, e);
+
+        const hasActiveBackendReg = Boolean(e.myRegistrationId && isBackendIdValidForEvent && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
         const rawRegId = hasActiveBackendReg ? e.myRegistrationId : (matchingReg && !isLocallyWithdrawn ? matchingReg.id : undefined);
         const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
         const activeRegId = (rawRegId && isActiveRegistrationStatus(rawRegStatus) && !isLocallyWithdrawn) ? rawRegId : undefined;
@@ -2105,21 +2151,32 @@ export function SportsDashboard() {
         const isWithdrawnInMyRegs = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isActiveRegistrationStatus(r.status));
         if (!isWithdrawnInMyRegs) {
           const matchingRegById = myRegistrations.find(r => Number(r.id) === Number(rawId));
-          const isTargetMember = matchingRegById
-            ? isRegistrationForMember(matchingRegById, selectedMemberId)
-            : (isSelf || !selectedMemberId || selectedMemberId === "self");
-          if (isTargetMember) {
-            const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-            const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
-            const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
-            return [{
-              id: rawId,
-              eventId: ev.id,
-              status: (ev as any).myRegistrationStatus || matchingRegById?.status || "CONFIRMED",
-              matchType: matchingRegById?.matchType || (ev as any).matchType || defaultFmt,
-              playerName: matchingRegById?.playerName || user?.fullName || "Self",
-              relation: matchingRegById?.relation || "SELF",
-            }];
+          if (matchingRegById) {
+            // Must strictly match event and format, and be for the selected member!
+            if (
+              isEventMatch(matchingRegById, ev) &&
+              isRegistrationForMember(matchingRegById, selectedMemberId) &&
+              isActiveRegistrationStatus(matchingRegById.status)
+            ) {
+              return [matchingRegById];
+            }
+          } else {
+            // rawId was populated directly from backend event DTO for the primary user
+            const isTargetMember = isSelf || !selectedMemberId || selectedMemberId === "self";
+            const evStatus = (ev as any).myRegistrationStatus || "CONFIRMED";
+            if (isTargetMember && isActiveRegistrationStatus(evStatus)) {
+              const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+              const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
+              const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+              return [{
+                id: rawId,
+                eventId: ev.id,
+                status: evStatus,
+                matchType: (ev as any).matchType || defaultFmt,
+                playerName: user?.fullName || "Self",
+                relation: "SELF",
+              }];
+            }
           }
         }
       }
@@ -2211,7 +2268,11 @@ export function SportsDashboard() {
         || checkClosed(t.registrationStatus)
         || checkClosed((t as any).status);
 
-      if (isRegClosed && !isSportsAdminUser) {
+      const isNomOpen = Boolean(item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen);
+      const isTeam = Boolean(item.isTeamSport || isTeamSport(item.category || item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
+      const isWithdrawDisabled = isRegClosed || isClosed || (isTeam && !isNomOpen);
+
+      if (isWithdrawDisabled && !isSportsAdminUser) {
         toast.error("Registration is closed for this event. Unregistering is not allowed.");
         return;
       }
@@ -2358,10 +2419,7 @@ export function SportsDashboard() {
       const regs = getMemberRegsForEvent(item);
       const memberReg = regs[0];
       const isReg = regs.length > 0;
-      const isUserRegistered = isReg || Boolean(
-        (item.registrationId || (item.rawEvent as any)?.myRegistrationId) &&
-        !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId))
-      );
+      const isUserRegistered = isReg;
       const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
       const isBlocked = !elig.eligible;
       const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
@@ -2470,10 +2528,10 @@ export function SportsDashboard() {
                     </span>
                   );
                 })}
-                {isClosed && isUserRegistered && (
+                {(isClosed || isRegClosed) && isUserRegistered && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
                     <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                    <span>Registered</span>
+                    <span>{isPartiallyReg ? `Registered (${regFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})` : "Registered"}</span>
                   </span>
                 )}
               </div>
@@ -3020,12 +3078,12 @@ export function SportsDashboard() {
                   )}
                 </div>
               ) : isRegClosed ? (
-                (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
+                isUserRegistered ? (
                   !isClosed ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Registered</span>
+                        <span>{isPartiallyReg ? `Registered (${regFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})` : "Registered"}</span>
                       </span>
                     </div>
                   ) : null
