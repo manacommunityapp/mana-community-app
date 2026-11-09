@@ -574,13 +574,6 @@ function RegCard({
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>Registered</span>
                     </span>
-                    <span
-                      className="text-xs font-semibold px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                      title="Registration is closed for this event"
-                    >
-                      <Lock className="w-3 h-3 text-slate-400" />
-                      <span>Registration Closed</span>
-                    </span>
                   </div>
                 );
               }
@@ -2365,6 +2358,10 @@ export function SportsDashboard() {
       const regs = getMemberRegsForEvent(item);
       const memberReg = regs[0];
       const isReg = regs.length > 0;
+      const isUserRegistered = isReg || Boolean(
+        (item.registrationId || (item.rawEvent as any)?.myRegistrationId) &&
+        !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId))
+      );
       const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
       const isBlocked = !elig.eligible;
       const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
@@ -2473,6 +2470,12 @@ export function SportsDashboard() {
                     </span>
                   );
                 })}
+                {isClosed && isUserRegistered && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Registered</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -2729,7 +2732,7 @@ export function SportsDashboard() {
                         <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                         <span>Registered</span>
                       </span>
-                      {isRegClosed && (
+                      {isRegClosed && !isClosed && (
                         <span
                           className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
                           title="Registration is closed for this event"
@@ -2784,7 +2787,7 @@ export function SportsDashboard() {
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                               <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
                             </span>
-                            {isRegClosed && (
+                            {isRegClosed && !isClosed && (
                               <span
                                 className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
                                 title="Registration is closed for this event"
@@ -2815,7 +2818,7 @@ export function SportsDashboard() {
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                     <span>Registered</span>
                   </span>
-                  {isRegClosed && (
+                  {isRegClosed && !isClosed && (
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
                       title="Registration is closed for this event"
@@ -2954,13 +2957,15 @@ export function SportsDashboard() {
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       <span>Registered</span>
                     </span>
-                    <span
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                      title="Registration is closed for this event"
-                    >
-                      <Lock className="w-2.5 h-2.5 text-slate-400" />
-                      <span>Registration Closed</span>
-                    </span>
+                    {!isClosed && (
+                      <span
+                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
+                        title="Registration is closed for this event"
+                      >
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                        <span>Registration Closed</span>
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <button

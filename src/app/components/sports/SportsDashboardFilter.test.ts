@@ -1435,7 +1435,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(computeRegCardAction(closedRegisteredEvent, false)).toBe("Registered");
     });
 
-    it("displays both 'Registered' and 'Registration Closed' status badges for registered users when registration is closed", () => {
+    it("displays only 'Registered' in action badges for registered users in closed registrations and shows 'Registered' on top beside format chips only when isClosed is true", () => {
       // Simulate RegCard logic returning badges
       const computeRegCardBadges = (item: any, isAdmin: boolean) => {
         const isClosed = item.status === "REGISTRATION_CLOSED"
@@ -1455,7 +1455,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         if (isClosed && !isAdmin) {
           if (isRegistered) {
             return {
-              badges: ["Registered", "Registration Closed"],
+              badges: ["Registered"],
               canRegister: false,
               canUnregister: false,
             };
@@ -1474,7 +1474,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         };
       };
 
-      // Case 1: Closed event where user is registered
+      // Case 1: Closed event where user is registered -> ONLY "Registered" in action badges
       const closedRegisteredEvent = {
         id: 101,
         status: "REGISTRATION_CLOSED",
@@ -1482,8 +1482,8 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         action: "Withdraw",
       };
       const result1 = computeRegCardBadges(closedRegisteredEvent, false);
-      expect(result1.badges).toContain("Registered");
-      expect(result1.badges).toContain("Registration Closed");
+      expect(result1.badges).toEqual(["Registered"]);
+      expect(result1.badges).not.toContain("Registration Closed");
       expect(result1.canRegister).toBe(false);
       expect(result1.canUnregister).toBe(false);
 
@@ -1501,6 +1501,27 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       // Case 3: Admin on closed registered event can still unregister
       const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
       expect(adminResult.canUnregister).toBe(true);
+
+      // Test top format header logic: "also show on top beside Singles/doubles /team squad only in Closed Registrations Div only"
+      const computeTopHeaderBadges = (isClosed: boolean, isUserRegistered: boolean, displayFormats: string[]) => {
+        const badges = [...displayFormats];
+        if (isClosed && isUserRegistered) {
+          badges.push("Registered");
+        }
+        return badges;
+      };
+
+      // In Closed Registrations with registered user: format + "Registered" on top
+      expect(computeTopHeaderBadges(true, true, ["Singles"])).toEqual(["Singles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Doubles"])).toEqual(["Doubles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Team Squad"])).toEqual(["Team Squad", "Registered"]);
+
+      // In Closed Registrations with unregistered user: only format on top
+      expect(computeTopHeaderBadges(true, false, ["Singles"])).toEqual(["Singles"]);
+
+      // In Open Registrations (isClosed === false): NEVER show Registered on top, even if registered
+      expect(computeTopHeaderBadges(false, true, ["Singles"])).toEqual(["Singles"]);
+      expect(computeTopHeaderBadges(false, false, ["Singles"])).toEqual(["Singles"]);
     });
 
     it("verifies spotsText filters out 'Registration closed' to avoid duplicate closed indicators", () => {
