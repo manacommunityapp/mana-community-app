@@ -1344,30 +1344,34 @@ export function SportsMultiRegister() {
             communityId: (rawTourney as any).communityId || targetTourney?.communityId || null,
             communityName: (rawTourney as any).community?.name || targetTourney?.communityName || null,
             events: childEvents && childEvents.length > 0
-              ? childEvents.map((ce: any) => ({
-                  id: ce.id,
-                  uuid: ce.uuid || null,
-                  name: ce.name,
-                  eventDateStart: ce.eventDateStart || null,
-                  eventDateEnd: ce.eventDateEnd || null,
-                  sportName: ce.sportName || ce.sport?.name || (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
-                  categoryName: ce.categoryName || ce.category?.name || null,
-                  venueName: ce.venueName || ce.venue?.name || null,
-                  maxParticipants: ce.maxParticipants || null,
-                  registrationStatus: ce.registrationStatus || ce.status || null,
-                  auctionStatus: ce.auctionStatus || null,
-                  teamSport: Boolean(ce.teamSport),
-                  format: ce.format || ce.formats || (rawTourney as any).format || (rawTourney as any).formats || null,
-                  formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
-                  myRegistrationId: ce.myRegistrationId || null,
-                  myRegistrationStatus: ce.myRegistrationStatus || null,
-                }))
-              : targetTourney?.events && targetTourney.events.length > 0
-                ? targetTourney.events.map(te => ({
-                    ...te,
-                    format: (rawTourney as any).format || (rawTourney as any).formats || (te as any).format || (te as any).formats || null,
-                    formats: (rawTourney as any).formats || (rawTourney as any).format || (te as any).formats || (te as any).format || null,
+              ? childEvents
+                  .filter((ce: any) => String(ce.registrationStatus || ce.status || "").toUpperCase().trim() !== "DRAFT")
+                  .map((ce: any) => ({
+                    id: ce.id,
+                    uuid: ce.uuid || null,
+                    name: ce.name,
+                    eventDateStart: ce.eventDateStart || null,
+                    eventDateEnd: ce.eventDateEnd || null,
+                    sportName: ce.sportName || ce.sport?.name || (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
+                    categoryName: ce.categoryName || ce.category?.name || null,
+                    venueName: ce.venueName || ce.venue?.name || null,
+                    maxParticipants: ce.maxParticipants || null,
+                    registrationStatus: ce.registrationStatus || ce.status || null,
+                    auctionStatus: ce.auctionStatus || null,
+                    teamSport: Boolean(ce.teamSport),
+                    format: ce.format || ce.formats || (rawTourney as any).format || (rawTourney as any).formats || null,
+                    formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
+                    myRegistrationId: ce.myRegistrationId || null,
+                    myRegistrationStatus: ce.myRegistrationStatus || null,
                   }))
+              : targetTourney?.events && targetTourney.events.length > 0
+                ? targetTourney.events
+                    .filter((te: any) => String(te.registrationStatus || te.status || "").toUpperCase().trim() !== "DRAFT")
+                    .map(te => ({
+                      ...te,
+                      format: (rawTourney as any).format || (rawTourney as any).formats || (te as any).format || (te as any).formats || null,
+                      formats: (rawTourney as any).formats || (rawTourney as any).format || (te as any).formats || (te as any).format || null,
+                    }))
                 : [{
                     id: rawTourney.id,
                     uuid: (rawTourney as any).uuid || null,

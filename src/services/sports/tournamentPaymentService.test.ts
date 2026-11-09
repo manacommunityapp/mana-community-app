@@ -99,7 +99,7 @@ describe("tournamentPaymentService.deduplicatePlayers", () => {
 
     expect(suresh).toBeDefined();
     expect(suresh.playerName).toBe("Suresh Kumar");
-    expect(suresh.flatNumber).toBe("B-202");
+    expect(suresh.flatNumber).toBe("Block B, Flat 202");
     expect(suresh.phone).toBe("9999922222");
     expect(suresh.isPartnerOnly).toBe(true);
     expect(suresh.paymentStatus).toBe("PAID");

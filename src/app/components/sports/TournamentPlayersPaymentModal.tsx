@@ -44,6 +44,7 @@ import {
   exportTournamentPaymentsToExcel,
   exportTournamentPaymentsToPDF,
 } from "../../../utils/sportsExportUtils";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { TournamentRegistration } from "../../../types/api";
 
@@ -1041,7 +1042,7 @@ export function TournamentPlayersPaymentModal({
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xs font-bold text-slate-900">
-                          Flat {group.flatNumber}
+                          {formatFlatLabel(group.flatNumber)}
                         </h3>
                         <span className="px-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] font-semibold text-slate-600">
                           {group.allMembers.length} {group.allMembers.length === 1 ? "Member" : "Members"}
@@ -1171,7 +1172,7 @@ export function TournamentPlayersPaymentModal({
                     {viewingEventsPlayer.flatNumber && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
                         <Home className="w-2.5 h-2.5 text-slate-400" />
-                        <span>Flat {viewingEventsPlayer.flatNumber}</span>
+                        <span>{formatFlatLabel(viewingEventsPlayer.flatNumber)}</span>
                       </span>
                     )}
                   </div>
@@ -1422,7 +1423,7 @@ export function TournamentPlayersPaymentModal({
                 {viewingPaymentDetailsPlayer.flatNumber && (
                   <div className="flex justify-between items-center p-2.5">
                     <span className="text-slate-500">Flat Number</span>
-                    <span className="font-bold text-slate-900">Flat {viewingPaymentDetailsPlayer.flatNumber}</span>
+                    <span className="font-bold text-slate-900">{formatFlatLabel(viewingPaymentDetailsPlayer.flatNumber)}</span>
                   </div>
                 )}
 

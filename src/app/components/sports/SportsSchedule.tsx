@@ -14,6 +14,7 @@ import { CREATE_EDIT_SPORTS_MAIN } from "../../../constants/permissions";
 import { showSuccess, showWarning, showError, showInfo } from "../../../utils/ToastUtils";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import { DatePicker } from "../ui/date-picker";
 import { TimePicker } from "../ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -1037,8 +1038,8 @@ export function SportsSchedule() {
               })(),
               partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
               isDoubles,
-              flatNumber: registration.flatNumber || registration.user?.community?.name || registration.user?.flatNo,
-              partnerFlat: registration.partnerFlat || registration.partnerFlatNumber || registration.partnerFamilyMember?.user?.flatNo || registration.partner?.flatNumber || registration.partner?.flatNo,
+              flatNumber: formatFlatLabel(registration.flatNumber || registration.user?.flatNo, (registration as any).user?.block || (registration as any).block),
+              partnerFlat: formatFlatLabel(registration.partnerFlat || registration.partnerFlatNumber || registration.partnerFamilyMember?.user?.flatNo || registration.partner?.flatNumber || registration.partner?.flatNo, (registration as any).partner?.block || (registration as any).partnerBlock),
             });
           });
 

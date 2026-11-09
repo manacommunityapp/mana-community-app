@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly, isRegForSportEvent } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly, isRegForSportEvent, isDraftSportEvent, isDraftTournament } from "./SportsDashboard";
 import { isTeamSport } from "./utils/sportsConstants";
 import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
@@ -639,7 +639,7 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       };
       const details1 = extractPartnerExportDetails(primaryPlayer as any);
       expect(details1.partnerName).toBe("Sandeep Kamarapu");
-      expect(details1.partnerContact).toBe("Flat Tower 2-401 · 9876543210");
+      expect(details1.partnerContact).toBe("Tower 2, Flat 401 · 9876543210");
       expect(details1.partnerStatus).toBe("Confirmed");
 
       // 2. Open pool participant
@@ -2067,6 +2067,106 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(stateC.isReg).toBe(true);
       expect(stateC.isUserRegistered).toBe(true);
       expect(stateC.showRegisteredBadge).toBe(true);
+    });
+  });
+
+  describe("SportsDashboard - DRAFT Sport Event Filtering in Open Registrations", () => {
+    it("correctly identifies DRAFT events across multiple status fields", () => {
+      // Event with registrationStatus = DRAFT
+      expect(isDraftSportEvent({ id: 1, registrationStatus: "DRAFT" })).toBe(true);
+      expect(isDraftSportEvent({ id: 2, registrationStatus: "draft" })).toBe(true);
+
+      // Event with status = DRAFT
+      expect(isDraftSportEvent({ id: 3, status: "DRAFT" })).toBe(true);
+
+      // Event with eventStatus = DRAFT
+      expect(isDraftSportEvent({ id: 4, eventStatus: "DRAFT" })).toBe(true);
+
+      // Event with nested rawEvent.registrationStatus = DRAFT
+      expect(isDraftSportEvent({ id: 5, rawEvent: { registrationStatus: "DRAFT" } })).toBe(true);
+
+      // Event with nested rawEvent.status = DRAFT
+      expect(isDraftSportEvent({ id: 6, rawEvent: { status: "DRAFT" } })).toBe(true);
+
+      // Active / Open events must NOT be identified as DRAFT
+      expect(isDraftSportEvent({ id: 7, registrationStatus: "REGISTRATION_OPEN" })).toBe(false);
+      expect(isDraftSportEvent({ id: 8, status: "ACTIVE" })).toBe(false);
+      expect(isDraftSportEvent({ id: 9, registrationStatus: "OPEN" })).toBe(false);
+      expect(isDraftSportEvent({ id: 10, registrationStatus: "REGISTRATION_CLOSED" })).toBe(false);
+      expect(isDraftSportEvent(null)).toBe(false);
+      expect(isDraftSportEvent(undefined)).toBe(false);
+    });
+
+    it("correctly identifies DRAFT tournaments", () => {
+      expect(isDraftTournament({ id: 1, registrationStatus: "DRAFT" })).toBe(true);
+      expect(isDraftTournament({ id: 2, status: "DRAFT" })).toBe(true);
+      expect(isDraftTournament({ id: 3, status: "draft" })).toBe(true);
+      expect(isDraftTournament({ id: 4, registrationStatus: "REGISTRATION_OPEN" })).toBe(false);
+      expect(isDraftTournament({ id: 5, status: "ACTIVE" })).toBe(false);
+      expect(isDraftTournament(null)).toBe(false);
+      expect(isDraftTournament(undefined)).toBe(false);
+    });
+
+    it("filters out DRAFT events from open tournament cards so they do not show in open registrations", () => {
+      const mockOpenTournamentsData = [
+        {
+          id: 100,
+          name: "Annual Badminton Championship",
+          registrationStatus: "REGISTRATION_OPEN",
+          events: [
+            { id: 101, name: "Men's Singles 18+", registrationStatus: "REGISTRATION_OPEN" },
+            { id: 102, name: "Men's Doubles 18+", registrationStatus: "DRAFT" },
+            { id: 103, name: "Mixed Doubles 30+", status: "DRAFT" },
+            { id: 104, name: "Women's Singles", registrationStatus: "OPEN" },
+          ],
+        },
+        {
+          id: 200,
+          name: "Upcoming Tennis Cup (All Drafts)",
+          registrationStatus: "REGISTRATION_OPEN",
+          events: [
+            { id: 201, name: "Tennis Singles", registrationStatus: "DRAFT" },
+            { id: 202, name: "Tennis Doubles", status: "DRAFT" },
+          ],
+        },
+        {
+          id: 300,
+          name: "Draft Tournament",
+          registrationStatus: "DRAFT",
+          events: [
+            { id: 301, name: "Cricket Event", registrationStatus: "REGISTRATION_OPEN" },
+          ],
+        },
+      ];
+
+      // Simulate dashboard open tournaments filtering logic
+      const filteredTournaments = mockOpenTournamentsData
+        .filter(t => !isDraftTournament(t))
+        .map(t => ({
+          ...t,
+          events: (t.events || []).filter(e => !isDraftSportEvent(e)),
+        }))
+        .filter(t => (t.events || []).length > 0);
+
+      // Tournament 300 (Draft tournament) must be excluded
+      expect(filteredTournaments.some(t => t.id === 300)).toBe(false);
+
+      // Tournament 200 (where all events are Draft) must be excluded
+      expect(filteredTournaments.some(t => t.id === 200)).toBe(false);
+
+      // Tournament 100 must be present, with ONLY non-draft events
+      expect(filteredTournaments.length).toBe(1);
+      const tournament100 = filteredTournaments[0];
+      expect(tournament100.id).toBe(100);
+      expect(tournament100.events.map(e => e.id)).toEqual([101, 104]);
+
+      // Open registrations flat list must ONLY contain non-draft events
+      const allOpenEvents = filteredTournaments.flatMap(t => t.events);
+      expect(allOpenEvents.map(e => e.id)).toEqual([101, 104]);
+      expect(allOpenEvents.some(e => e.id === 102)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 103)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 201)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 301)).toBe(false);
     });
   });
 });

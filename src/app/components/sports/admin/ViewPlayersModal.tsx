@@ -27,6 +27,7 @@ import {
 import { format } from "date-fns";
 import type { TournamentRegistration } from "../../../../types/api";
 import { getPartnerDetails } from "./sportsPartnerUtils";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "../SportsPartnerSelector";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
 import { sportsService } from "../../../../services/sports/sportsService";
@@ -749,7 +750,7 @@ export function ViewPlayersModal({
                             {((reg.familyMember?.age ?? reg.age) != null) && (
                               <span>Age: {reg.familyMember?.age ?? reg.age}</span>
                             )}
-                            {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
+                            {reg.flatNumber && <span>{formatFlatLabel(reg.flatNumber, (reg.user as any)?.block || (reg as any).block)}</span>}
                             {(reg.familyMember?.relation || reg.relation) && (
                               <span>({reg.familyMember?.relation || reg.relation})</span>
                             )}
@@ -852,7 +853,7 @@ export function ViewPlayersModal({
                                     {partnerInfo.flat && (
                                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-700 font-medium text-[11px] shadow-2xs">
                                         <Building className="w-3 h-3 text-slate-400" />
-                                        Flat {partnerInfo.flat}
+                                        {formatFlatLabel(partnerInfo.flat)}
                                       </span>
                                     )}
                                     {partnerInfo.phone && (
@@ -1181,7 +1182,7 @@ export function ViewPlayersModal({
                     </h3>
                     <p className="text-[11px] text-slate-500">
                       Primary: <strong className="font-semibold text-slate-800">{partnerModalState.registration.playerName || partnerModalState.registration.user?.fullName}</strong>
-                      {partnerModalState.registration.flatNumber ? ` (Flat ${partnerModalState.registration.flatNumber})` : ""}
+                      {partnerModalState.registration.flatNumber ? ` (${formatFlatLabel(partnerModalState.registration.flatNumber, (partnerModalState.registration.user as any)?.block || (partnerModalState.registration as any).block)})` : ""}
                     </p>
                   </div>
                 </div>

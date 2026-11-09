@@ -105,7 +105,14 @@ export function SportsTournamentBrowse() {
       sportsDashboardService.getClosedTournaments().catch(() => []),
       sportsService.getMyTournaments().catch(() => []),
     ]).then(([open, closed, my]) => {
-      setOpenTournaments(open);
+      const nonDraftOpen = open
+        .filter(t => String(t.registrationStatus || (t as any).status || "").toUpperCase().trim() !== "DRAFT")
+        .map(t => ({
+          ...t,
+          events: (t.events || []).filter(e => String(e.registrationStatus || (e as any).status || "").toUpperCase().trim() !== "DRAFT"),
+        }))
+        .filter(t => t.events.length > 0);
+      setOpenTournaments(nonDraftOpen);
       setClosedTournaments(closed);
       setMyRegistrations(my);
     }).finally(() => setLoading(false));

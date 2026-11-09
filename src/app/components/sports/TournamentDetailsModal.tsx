@@ -80,12 +80,6 @@ export function TournamentDetailsModal({
 
   const t = tournament as any;
 
-  // Real events list: prefer fullDetails sportsEvents if populated, else tournament events
-  const events: (DashboardEventCard | SportsEvent | any)[] =
-    (fullDetails?.sportsEvents && fullDetails.sportsEvents.length > 0)
-      ? fullDetails.sportsEvents
-      : (t.events || t.sportsEvents || []);
-
   const rawStart = fullDetails?.eventDateStart || t.eventDateStart || t.event?.eventDateStart;
   const rawEnd = fullDetails?.eventDateEnd || t.eventDateEnd || t.event?.eventDateEnd;
   const startDate = rawStart ? new Date(rawStart) : null;
@@ -98,6 +92,17 @@ export function TournamentDetailsModal({
   const status = fullDetails?.registrationStatus || t.registrationStatus || t.status || "OPEN";
   const isOpenRegistration = status === "OPEN" || status === "REGISTRATION_OPEN";
   const isCompleted = status === "COMPLETED" || status === "REGISTRATION_CLOSED";
+
+  // Real events list: prefer fullDetails sportsEvents if populated, else tournament events
+  // If tournament is open for registration, exclude DRAFT events
+  const rawEvents: (DashboardEventCard | SportsEvent | any)[] =
+    (fullDetails?.sportsEvents && fullDetails.sportsEvents.length > 0)
+      ? fullDetails.sportsEvents
+      : (t.events || t.sportsEvents || []);
+  const isDraftEv = (ev: any) => String(ev?.registrationStatus || ev?.status || "").toUpperCase().trim() === "DRAFT";
+  const events: (DashboardEventCard | SportsEvent | any)[] = isOpenRegistration
+    ? rawEvents.filter(e => !isDraftEv(e))
+    : rawEvents;
 
   const bannerImage = fullDetails?.bannerImage || t.bannerImage || t.event?.bannerImage;
   const communityName = fullDetails?.communityName || t.communityName || (tournament as any).community?.name;

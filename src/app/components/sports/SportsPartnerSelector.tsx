@@ -4,6 +4,7 @@ import { userService } from "../../../services/common/userService";
 import { getStoredUser, type StoredUser } from "../../../services/common/apiClient";
 import type { PartnerCandidateResponse } from "../../../services/common/userService";
 import type { FamilyMember, FamilyMemberSlim } from "../../../services/common/familyService";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 export interface SelectedPartnerInfo {
   userId: number | null;
@@ -210,9 +211,7 @@ export function SportsPartnerSelector({
   const handleSelectCandidate = (candidate: PartnerCandidateResponse) => {
     const isGenderMismatch = !!(targetPartnerGender && candidate.gender && candidate.gender.toUpperCase() !== targetPartnerGender);
     if (!candidate.eligible || isGenderMismatch) return;
-    const flat = candidate.block && candidate.flatNo
-      ? `${candidate.block}-${candidate.flatNo}`
-      : candidate.flatNo || candidate.block || undefined;
+    const flat = formatFlatLabel(candidate.flatNo, candidate.block) || undefined;
 
     const formattedGender = candidate.gender
       ? candidate.gender.charAt(0).toUpperCase() + candidate.gender.slice(1).toLowerCase()

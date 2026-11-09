@@ -1,4 +1,5 @@
 import type { TournamentRegistration } from "../../../../types/api";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 export interface PlayerPartnerInfo {
   hasPartner: boolean;
@@ -55,13 +56,20 @@ export function getPartnerDetails(
     ""
   ).trim();
 
-  let flat = (
+  const partnerBlock =
+    (reg.partnerFamilyMember?.user as any)?.block ||
+    (reg.partner as any)?.block ||
+    (reg as any).partnerBlock;
+
+  const rawPartnerFlat = (
     reg.partnerFlatNumber ||
     (reg.partnerFamilyMember?.user as any)?.flatNo ||
     reg.partner?.flatNo ||
     (reg.partner as any)?.flatNumber ||
     ""
   ).trim();
+
+  let flat = formatFlatLabel(rawPartnerFlat, partnerBlock);
 
   let phone = (
     reg.partnerPhone ||

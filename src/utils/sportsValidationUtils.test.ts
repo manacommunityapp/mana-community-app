@@ -8,6 +8,8 @@ import {
   validateAuctionBid,
   calculateRemainingPurse,
   evaluateRegistrationStatus,
+  formatFlatLabel,
+  formatUnitDisplay,
 } from "./sportsValidationUtils";
 import { checkCategoryEligibility } from "../app/components/sports/SportsRegister";
 
@@ -334,6 +336,43 @@ describe("sportsValidationUtils Test Suite", () => {
       expect(result.eligible).toBe(false);
       expect(result.isGenderMismatch).toBe(true);
       expect(result.warningMsg).toContain("Category requires Male participant, but selected profile is Female");
+    });
+  });
+
+  describe("6. Standardized Block & Flat Address Formatting", () => {
+    it("formats block and flat into standard 'Block B, Flat 1008'", () => {
+      expect(formatFlatLabel("1008", "Block B")).toBe("Block B, Flat 1008");
+      expect(formatFlatLabel("1008", "B")).toBe("Block B, Flat 1008");
+      expect(formatFlatLabel("401", "Tower 2")).toBe("Tower 2, Flat 401");
+      expect(formatFlatLabel("102", "Wing A")).toBe("Wing A, Flat 102");
+    });
+
+    it("preserves already formatted addresses without duplicate prefixes", () => {
+      expect(formatFlatLabel("Block B, Flat 1008")).toBe("Block B, Flat 1008");
+      expect(formatFlatLabel("Block B, Flat 1008", "Block B")).toBe("Block B, Flat 1008");
+      expect(formatFlatLabel("Villa 42")).toBe("Villa 42");
+      expect(formatFlatLabel("Row House 7")).toBe("Row House 7");
+    });
+
+    it("normalizes hyphenated and spaced unit strings", () => {
+      expect(formatFlatLabel("B-1008")).toBe("Block B, Flat 1008");
+      expect(formatFlatLabel("Tower 1-302")).toBe("Tower 1, Flat 302");
+      expect(formatFlatLabel("Block B 1008")).toBe("Block B, Flat 1008");
+    });
+
+    it("handles single-attribute cases cleanly", () => {
+      expect(formatFlatLabel("1008")).toBe("Flat 1008");
+      expect(formatFlatLabel("Flat 1008")).toBe("Flat 1008");
+      expect(formatFlatLabel(null, "Block B")).toBe("Block B");
+      expect(formatFlatLabel("", "")).toBe("");
+      expect(formatFlatLabel(null, null)).toBe("");
+    });
+
+    it("formatUnitDisplay eliminates double prefixes", () => {
+      expect(formatUnitDisplay("Flat Block B, Flat 1008")).toBe("Block B, Flat 1008");
+      expect(formatUnitDisplay("Flat Flat 1008")).toBe("Flat 1008");
+      expect(formatUnitDisplay("Flat Tower 2, Flat 401")).toBe("Tower 2, Flat 401");
+      expect(formatUnitDisplay("Flat 1008")).toBe("Flat 1008");
     });
   });
 });
