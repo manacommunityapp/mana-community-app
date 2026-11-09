@@ -23,6 +23,7 @@ import type { PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 import { inferGender } from "./SportsRegister";
 import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -809,15 +810,7 @@ export function SportsMultiRegister() {
   const userProfileFlat = useMemo(() => {
     const b = userBlock?.trim() || "";
     const f = (rawUserFlat?.trim() || flatNumber?.trim()) || "";
-    if (b && f) {
-      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
-        return f;
-      }
-      return `Block ${b}, Flat ${f}`;
-    }
-    if (f) return f;
-    if (b) return `Block ${b}`;
-    return "";
+    return formatFlatLabel(f, b);
   }, [userBlock, rawUserFlat, flatNumber]);
 
   const missingProfileFields = useMemo(() => {
@@ -1685,9 +1678,7 @@ export function SportsMultiRegister() {
     const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
     const block = resident.block || resident.tower || residentDetails.wing || "";
     const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
-    const residentFlat = block && flat
-      ? (flat.toUpperCase().includes(block.toUpperCase()) ? flat : `Block ${block}, Flat ${flat}`)
-      : flat || (block ? `Block ${block}` : "");
+    const residentFlat = formatFlatLabel(flat, block);
     const dob = resident.dateOfBirth || "";
     setSelectedCommunityResident(resident);
     setCommunitySearch("");
@@ -2508,7 +2499,7 @@ export function SportsMultiRegister() {
                         const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
                         const block = resident.block || resident.tower || residentDetails.wing || "";
                         const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
-                        const location = [block ? `Block ${block}` : "", flat ? `Flat ${flat}` : ""].filter(Boolean).join(" · ");
+                        const location = formatFlatLabel(flat, block);
                         return (
                           <button key={resident.id} type="button" onClick={() => void handleCommunityResidentSelect(resident)} className="flex w-full items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-indigo-50/60">
                             <span className="min-w-0">
@@ -2809,7 +2800,7 @@ export function SportsMultiRegister() {
                         Block & Flat
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
-                        {flatNumber || userProfileFlat || "Not specified"}
+                        {formatFlatLabel(flatNumber || userProfileFlat, userBlock) || "Not specified"}
                       </div>
                     </div>
                   </div>

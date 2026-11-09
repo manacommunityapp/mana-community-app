@@ -63,6 +63,7 @@ import { SportsTeamBalanceRadar } from "./SportsTeamBalanceRadar";
 import { SportsPlayerProfileCard } from "./SportsPlayerProfileCard";
 import { SportsAuctionDiscovery } from "./SportsAuctionDiscovery";
 import { validateAuctionBid, validateSelfBidding } from "./sportsValidation";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -2524,11 +2525,13 @@ export function SportsAuction() {
                       </tr>
                     </thead>
                     <tbody>
-                      {eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).map(reg => (
+                      {eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).map(reg => {
+                        const cleanFlat = formatFlatLabel(reg.flatNumber, (reg as any).user?.block || (reg as any).block);
+                        return (
                         <tr key={reg.id} className="border-b border-white/5">
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                             <div className="font-semibold text-[13px]">{reg.playerName || reg.user?.name}</div>
-                            <div className="text-xs text-[var(--muted)]">Age: {reg.age || 'N/A'} · {reg.flatNumber || 'External'}</div>
+                            <div className="text-xs text-[var(--muted)]">Age: {reg.age || 'N/A'} · {cleanFlat || 'External'}</div>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-[13px] hidden sm:table-cell">
                             {reg.role || 'All-rounder'}
@@ -2540,12 +2543,12 @@ export function SportsAuction() {
                             </span>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
-                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-xs min-h-[36px] sm:min-h-0" onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${reg.flatNumber || 'External'} · Status: ${reg.status}`)}>
+                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-xs min-h-[36px] sm:min-h-0" onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${cleanFlat || 'External'} · Status: ${reg.status}`)}>
                               View Profile
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      );})}
                     </tbody>
                   </table>
                 </div>
