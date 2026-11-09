@@ -440,6 +440,15 @@ import {
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
 
+// Kitty Party & Social Circles pages
+import { KittyPartyDashboard } from "./components/kitty/kittyPartyDashboard";
+import { KittyPartyCircleList } from "./components/kitty/kittyPartyCircleList";
+import { KittyPartyCreateCircle } from "./components/kitty/kittyPartyCreateCircle";
+import { KittyPartyCircleDetails } from "./components/kitty/kittyPartyCircleDetails";
+import { KittyPartyLedgerView } from "./components/kitty/kittyPartyLedgerView";
+import { KittyPartyHousieRoom } from "./components/kitty/kittyPartyHousieRoom";
+import { KittyPartyExpenseSplitView } from "./components/kitty/kittyPartyExpenseSplitView";
+
 function HealthSubRouteRedirect() {
   const { tab } = useParams();
   return <Navigate to={`/health?tab=${tab || 'doctors'}`} replace />;
@@ -1418,7 +1427,14 @@ export const router = createBrowserRouter([
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
       { path: "offers", element: <Navigate to="/deals" replace /> },
-      { path: "trips/flights", element: <Navigate to="/trips?tab=flights" replace /> },
+      // ── Mana Kitty Party & Social Circles ────────
+      { path: "kitty-party", element: <KittyPartyDashboard /> },
+      { path: "kitty-party/discover", element: <KittyPartyCircleList /> },
+      { path: "kitty-party/create", element: <KittyPartyCreateCircle /> },
+      { path: "kitty-party/:id", element: <KittyPartyCircleDetails /> },
+      { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
+      { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
+      { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },

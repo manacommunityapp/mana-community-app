@@ -505,6 +505,7 @@ export function Layout() {
         { to: "/events", icon: CalendarDays, label: "Events", menuKey: "events" },
         { to: "/movies", icon: Film, label: "Movie Night", badge: "Cinema", menuKey: "movies" },
         { to: "/trips", icon: Compass, label: "Community Trips", menuKey: "trips" },
+        { to: "/kitty-party", icon: Sparkles, label: "Kitty & Social Circles", badge: "New", menuKey: "kitty-party" },
         { to: "/split", icon: PieChart, label: "Mana Split", badge: "New", menuKey: "split-bill" },
         { to: "/pets", icon: Heart, label: "Pet Registry", menuKey: "pets" },
         { to: "/polls", icon: Vote, label: "Polls", menuKey: "polls" },
