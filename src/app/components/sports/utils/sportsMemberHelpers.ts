@@ -153,24 +153,26 @@ export function isRegistrationForMemberHelper(
     isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName)
   );
 
-  // If the user is on the registration as the partner (and not the primary registrant):
-  if (isPartnerOnReg && !isPrimaryUser) {
+  const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
+  const targetId = normId(selectedMemberId);
+
+  // If the user or their family member is the nominated partner on this registration (and not the primary registrant):
+  const regPartnerFamId = reg.partnerFamilyMemberId || reg.partnerFamilyMember?.id;
+  const hasPartnerFam = regPartnerFamId != null && String(regPartnerFamId).trim() !== "";
+
+  if ((isPartnerOnReg || hasPartnerFam) && !isPrimaryUser) {
+    if (hasPartnerFam) {
+      // The partner participant is a specific family member, NOT the account owner ("Self")
+      if (isSelfTarget) {
+        return false;
+      }
+      return normId(regPartnerFamId) === targetId && isPartnerConfirmed;
+    }
     if (isSelfTarget) {
       // Confirmed partners are considered actively registered; pending/declined are NOT
       return isPartnerConfirmed;
     }
     return false;
-  }
-
-  const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
-  const targetId = normId(selectedMemberId);
-
-  // Check if a family member is the partner on this registration
-  if (!isSelfTarget) {
-    const regPartnerFamId = reg.partnerFamilyMemberId || reg.partnerFamilyMember?.id;
-    if (regPartnerFamId != null && normId(regPartnerFamId) === targetId && isPartnerConfirmed) {
-      return true;
-    }
   }
 
   const isExplicitFamily = Boolean(

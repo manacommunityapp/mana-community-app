@@ -36,19 +36,28 @@ export function getPartnerDetails(
   allRegistrations: TournamentRegistration[] = [],
   event?: any
 ): PlayerPartnerInfo {
+  const partnerFamId =
+    reg.partnerFamilyMember?.id != null
+      ? reg.partnerFamilyMember.id
+      : (reg as any).partnerFamilyMemberId != null
+      ? Number((reg as any).partnerFamilyMemberId)
+      : null;
+
   // 1. Direct partner name resolution
   let name = (
-    reg.partnerName ||
-    reg.partner?.fullName ||
-    reg.partner?.name ||
     reg.partnerFamilyMember?.name ||
-    (reg as any).partnerPlayerName ||
-    (reg as any).partnerUser?.fullName ||
+    (partnerFamId != null ? "" : reg.partnerName) ||
+    (partnerFamId != null ? "" : reg.partner?.fullName) ||
+    (partnerFamId != null ? "" : reg.partner?.name) ||
+    (partnerFamId != null ? "" : (reg as any).partnerPlayerName) ||
+    (partnerFamId != null ? "" : (reg as any).partnerUser?.fullName) ||
+    reg.partnerName ||
     ""
   ).trim();
 
   let flat = (
     reg.partnerFlatNumber ||
+    (reg.partnerFamilyMember?.user as any)?.flatNo ||
     reg.partner?.flatNo ||
     (reg.partner as any)?.flatNumber ||
     ""
@@ -56,13 +65,17 @@ export function getPartnerDetails(
 
   let phone = (
     reg.partnerPhone ||
+    (reg.partnerFamilyMember as any)?.phone ||
+    (reg.partnerFamilyMember?.user as any)?.phone ||
     reg.partner?.phone ||
     ""
   ).trim();
 
   let email = (
-    reg.partner?.email ||
     (reg as any).partnerEmail ||
+    (reg.partnerFamilyMember as any)?.email ||
+    (reg.partnerFamilyMember?.user as any)?.email ||
+    reg.partner?.email ||
     ""
   ).trim();
 
@@ -89,11 +102,27 @@ export function getPartnerDetails(
 
   let isReciprocal = false;
 
-  // 2. Cross-reference by partnerUserId if present
-  if (reg.partnerUserId != null && allRegistrations.length > 0) {
+  // 2. Cross-reference by partnerFamilyMemberId or partnerUserId if present
+  if (partnerFamId != null && allRegistrations.length > 0) {
+    const matchedFam = allRegistrations.find(
+      (r) =>
+        (r.familyMember?.id != null && Number(r.familyMember.id) === partnerFamId) ||
+        ((r as any).familyMemberId != null && Number((r as any).familyMemberId) === partnerFamId)
+    );
+    if (matchedFam) {
+      if (!name) name = (matchedFam.familyMember?.name || matchedFam.playerName || "").trim();
+      if (!relation) relation = (matchedFam.familyMember?.relation || matchedFam.relation || "").trim();
+      if (matchedFam.flatNumber) flat = matchedFam.flatNumber.trim();
+      else if (!flat) flat = (matchedFam.user?.flatNo || "").trim();
+      if (matchedFam.phone) phone = matchedFam.phone.trim();
+      else if (!phone) phone = (matchedFam.user?.phone || "").trim();
+      if (matchedFam.email) email = matchedFam.email.trim();
+      else if (!email) email = (matchedFam.user?.email || "").trim();
+    }
+  } else if (reg.partnerUserId != null && allRegistrations.length > 0) {
     const matched = allRegistrations.find(
       (r) =>
-        (r.user?.id != null && r.user.id === reg.partnerUserId) ||
+        (r.user?.id != null && r.user.id === reg.partnerUserId && !r.familyMember?.id && !(r as any).familyMemberId) ||
         r.id === reg.partnerUserId
     );
     if (matched) {
@@ -107,12 +136,15 @@ export function getPartnerDetails(
   // 3. Reciprocal lookup: did another registered player name this player as their partner?
   if (!name && allRegistrations.length > 0) {
     const regUserId = reg.user?.id;
-    const regPlayerName = (reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
+    const regFamId = reg.familyMember?.id != null ? reg.familyMember.id : (reg as any).familyMemberId != null ? Number((reg as any).familyMemberId) : null;
+    const regPlayerName = (reg.familyMember?.name || reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
     const regPhone = (reg.phone || "").replace(/\D/g, "");
 
     const reciprocal = allRegistrations.find((other) => {
       if (other.id === reg.id) return false;
-      if (regUserId != null && other.partnerUserId === regUserId) return true;
+      const otherPartnerFamId = other.partnerFamilyMember?.id != null ? other.partnerFamilyMember.id : (other as any).partnerFamilyMemberId != null ? Number((other as any).partnerFamilyMemberId) : null;
+      if (regFamId != null && otherPartnerFamId != null && regFamId === otherPartnerFamId) return true;
+      if (regUserId != null && other.partnerUserId === regUserId && otherPartnerFamId == null) return true;
       if (
         regPlayerName &&
         other.partnerName &&
@@ -131,7 +163,8 @@ export function getPartnerDetails(
     });
 
     if (reciprocal) {
-      name = (reciprocal.playerName || reciprocal.user?.fullName || "").trim();
+      name = (reciprocal.familyMember?.name || reciprocal.playerName || reciprocal.user?.fullName || "").trim();
+      if (!relation) relation = (reciprocal.familyMember?.relation || reciprocal.relation || "").trim();
       if (!flat) flat = (reciprocal.flatNumber || "").trim();
       if (!phone) phone = (reciprocal.phone || "").trim();
       if (!email) email = (reciprocal.email || reciprocal.user?.email || "").trim();

@@ -203,6 +203,10 @@ export const sportsEventService = {
     return apiClient.put<SportsEvent>(`/sports/events/${id}/status?status=${status}`)
       .then((x: any) => this.mapEvent(x));
   },
+  async setCaptainNominationOpen(id: number, open: boolean): Promise<SportsEvent> {
+    return apiClient.put<SportsEvent>(`/sports/events/${id}/captain-nominations?open=${open}`)
+      .then((x: any) => this.mapEvent(x));
+  },
 
   /** Close tournament registration: set status to REGISTRATION_CLOSED */
   async closeTournament(id: number): Promise<any> {
@@ -352,11 +356,13 @@ export const sportsEventService = {
   async nominatePartner(
     registrationId: number,
     partnerUserId?: number | null,
-    partnerFamilyMemberId?: number | null
+    partnerFamilyMemberId?: number | null,
+    autoConfirm?: boolean | null
   ): Promise<EventRegistration> {
     const params = new URLSearchParams();
     if (partnerUserId != null) params.set("partnerUserId", String(partnerUserId));
     if (partnerFamilyMemberId != null) params.set("partnerFamilyMemberId", String(partnerFamilyMemberId));
+    if (autoConfirm != null) params.set("autoConfirm", String(autoConfirm));
     const qs = params.toString() ? `?${params.toString()}` : "";
     return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/nominate-partner${qs}`);
   },

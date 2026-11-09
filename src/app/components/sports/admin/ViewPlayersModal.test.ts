@@ -292,5 +292,71 @@ describe("sportsPartnerUtils: getPartnerDetails", () => {
     expect(details.phone).toBe("9870001122");
     expect(details.email).toBe("suresh@example.com");
   });
+
+  it("prioritizes partnerFamilyMember name over account holder partner.fullName", () => {
+    const reg: TournamentRegistration = {
+      id: 301,
+      playerName: "Karthika Punati",
+      status: "CONFIRMED",
+      partner: {
+        id: 11,
+        fullName: "Sandeep Kamarapu",
+        email: "sandeep@example.com",
+        phone: "9949646636",
+        flatNo: "907",
+      },
+      partnerFamilyMember: {
+        id: 19,
+        name: "Sindhuja Chinthala",
+        relation: "Spouse",
+        gender: "Female",
+        age: 33,
+      },
+      partnerConfirmationStatus: "CONFIRMED",
+    };
+
+    const details = getPartnerDetails(reg);
+    expect(details.hasPartner).toBe(true);
+    expect(details.name).toBe("Sindhuja Chinthala");
+    expect(details.relation).toBe("Spouse");
+    expect(details.age).toBe(33);
+    expect(details.gender).toBe("Female");
+    expect(details.isConfirmed).toBe(true);
+    expect(details.isFamilyMember).toBe(true);
+  });
+
+  it("cross-references partnerFamilyMemberId against allRegistrations to get family member name", () => {
+    const regHouseholdMember: TournamentRegistration = {
+      id: 401,
+      playerName: "Sindhuja Chinthala",
+      familyMemberId: 19,
+      relation: "Spouse",
+      flatNumber: "Block B, Flat 907",
+      phone: "9949646636",
+      status: "CONFIRMED",
+      user: { id: 11, fullName: "Sandeep Kamarapu", email: "sandeep@example.com", phone: "9949646636", role: "RESIDENT", kycStatus: "APPROVED" },
+    };
+
+    const regMain: TournamentRegistration = {
+      id: 402,
+      playerName: "Karthika Punati",
+      partnerUserId: 11,
+      partnerFamilyMemberId: 19,
+      partner: {
+        id: 11,
+        fullName: "Sandeep Kamarapu",
+        flatNo: "907",
+      },
+      status: "CONFIRMED",
+      partnerConfirmationStatus: "CONFIRMED",
+    };
+
+    const details = getPartnerDetails(regMain, [regHouseholdMember, regMain]);
+    expect(details.hasPartner).toBe(true);
+    expect(details.name).toBe("Sindhuja Chinthala");
+    expect(details.relation).toBe("Spouse");
+    expect(details.flat).toBe("Block B, Flat 907");
+    expect(details.isConfirmed).toBe(true);
+  });
 });
 

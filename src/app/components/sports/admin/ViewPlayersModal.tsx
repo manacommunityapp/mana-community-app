@@ -22,10 +22,12 @@ import {
   Mail,
   AlertCircle,
   Clock,
+  HeartHandshake,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration } from "../../../../types/api";
 import { getPartnerDetails } from "./sportsPartnerUtils";
+import { SportsPartnerSelector, type SelectedPartnerInfo } from "../SportsPartnerSelector";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
 import { sportsService } from "../../../../services/sports/sportsService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
@@ -106,6 +108,53 @@ export function ViewPlayersModal({
   const [expandedHistoryKeys, setExpandedHistoryKeys] = useState<Record<string, boolean>>({});
   const [lazyHistoryMap, setLazyHistoryMap] = useState<Record<number, TournamentRegistration[]>>({});
   const [loadingHistoryMap, setLoadingHistoryMap] = useState<Record<number, boolean>>({});
+  const [partnerModalState, setPartnerModalState] = useState<{
+    open: boolean;
+    registration: TournamentRegistration | null;
+    selectedPartner: SelectedPartnerInfo | null;
+    autoConfirm: boolean;
+    saving: boolean;
+  }>({
+    open: false,
+    registration: null,
+    selectedPartner: null,
+    autoConfirm: true,
+    saving: false,
+  });
+
+  const handleSaveAdminPartner = async () => {
+    if (!partnerModalState.registration) return;
+    const reg = partnerModalState.registration;
+    setPartnerModalState((prev) => ({ ...prev, saving: true }));
+    try {
+      const partnerUserId = partnerModalState.selectedPartner?.userId || null;
+      const partnerFamilyMemberId = partnerModalState.selectedPartner?.familyMemberId
+        ? Number(partnerModalState.selectedPartner.familyMemberId)
+        : null;
+      await sportsService.nominatePartner(
+        reg.id,
+        partnerUserId,
+        partnerFamilyMemberId,
+        partnerModalState.autoConfirm
+      );
+      showSuccess(
+        partnerUserId || partnerFamilyMemberId
+          ? `Doubles partner ${partnerModalState.autoConfirm ? "assigned & confirmed" : "invitation sent"} for ${reg.playerName || reg.user?.fullName || "player"}!`
+          : `Registration moved to Open Pairing Pool.`
+      );
+      setPartnerModalState({
+        open: false,
+        registration: null,
+        selectedPartner: null,
+        autoConfirm: true,
+        saving: false,
+      });
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      showError(err?.response?.data?.message || err?.message || "Failed to update doubles partner");
+      setPartnerModalState((prev) => ({ ...prev, saving: false }));
+    }
+  };
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -172,7 +221,7 @@ export function ViewPlayersModal({
 
       // Search query
       if (q) {
-        const pName = (reg.playerName || reg.user?.fullName || "").toLowerCase();
+        const pName = (reg.familyMember?.name || reg.playerName || reg.user?.fullName || "").toLowerCase();
         const flat = (reg.flatNumber || "").toLowerCase();
         const phone = (reg.phone || "").toLowerCase();
         const email = (reg.email || reg.user?.email || "").toLowerCase();
@@ -678,7 +727,7 @@ export function ViewPlayersModal({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="text-xs sm:text-sm font-bold text-slate-900 break-words">
-                              {reg.playerName || reg.user?.fullName || "—"}
+                              {reg.familyMember?.name || reg.playerName || reg.user?.fullName || "—"}
                             </span>
                             {reg.registrationSource === "GOOGLE_FORMS" && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
@@ -697,10 +746,16 @@ export function ViewPlayersModal({
                                 {reg.category.name}
                               </span>
                             )}
-                            {reg.age && <span>Age: {reg.age}</span>}
+                            {((reg.familyMember?.age ?? reg.age) != null) && (
+                              <span>Age: {reg.familyMember?.age ?? reg.age}</span>
+                            )}
                             {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
-                            {reg.relation && <span>({reg.relation})</span>}
-                            {reg.phone && <span>· Ph: {reg.phone}</span>}
+                            {(reg.familyMember?.relation || reg.relation) && (
+                              <span>({reg.familyMember?.relation || reg.relation})</span>
+                            )}
+                            {(reg.phone || (reg.familyMember as any)?.phone || reg.user?.phone) && (
+                              <span>· Ph: {reg.phone || (reg.familyMember as any)?.phone || reg.user?.phone}</span>
+                            )}
                             {reg.registeredAt && (
                               <span>
                                 · {format(new Date(reg.registeredAt), "MMM d, h:mm a")}
@@ -743,25 +798,50 @@ export function ViewPlayersModal({
                                       )}
                                     </div>
 
-                                    {/* Partner Confirmation Status Badge */}
-                                    <span
-                                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-2xs shrink-0 ${
-                                        partnerInfo.isConfirmed
-                                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                                          : partnerInfo.isDeclined
-                                          ? "bg-rose-50 text-rose-800 border-rose-300"
-                                          : "bg-amber-50 text-amber-800 border-amber-300"
-                                      }`}
-                                    >
-                                      {partnerInfo.isConfirmed ? (
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                      ) : partnerInfo.isDeclined ? (
-                                        <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
-                                      ) : (
-                                        <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                                      )}
-                                      <span>{partnerInfo.statusLabel}</span>
-                                    </span>
+                                    {/* Partner Confirmation Status Badge & Edit Action */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-2xs shrink-0 ${
+                                          partnerInfo.isConfirmed
+                                            ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                            : partnerInfo.isDeclined
+                                            ? "bg-rose-50 text-rose-800 border-rose-300"
+                                            : "bg-amber-50 text-amber-800 border-amber-300"
+                                        }`}
+                                      >
+                                        {partnerInfo.isConfirmed ? (
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        ) : partnerInfo.isDeclined ? (
+                                          <XCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                                        ) : (
+                                          <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                        )}
+                                        <span>{partnerInfo.statusLabel}</span>
+                                      </span>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPartnerModalState({
+                                            open: true,
+                                            registration: reg,
+                                            selectedPartner: partnerInfo.name ? {
+                                              userId: reg.partnerUserId || (reg as any).partner?.id || null,
+                                              familyMemberId: reg.partnerFamilyMemberId || (reg as any).partnerFamilyMember?.id || undefined,
+                                              name: partnerInfo.name,
+                                              mode: (reg.partnerFamilyMemberId || (reg as any).partnerFamilyMember?.id) ? "family" : "community",
+                                            } : null,
+                                            autoConfirm: true,
+                                            saving: false,
+                                          });
+                                        }}
+                                        className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer border border-indigo-200 shrink-0 shadow-2xs"
+                                        title="Reassign or edit doubles partner"
+                                      >
+                                        <HeartHandshake className="w-3 h-3 text-indigo-600" />
+                                        <span>Edit Partner</span>
+                                      </button>
+                                    </div>
                                   </div>
 
                                   {/* Body: Partner Name & Contact Details */}
@@ -828,9 +908,28 @@ export function ViewPlayersModal({
                                       Open Pairing Pool
                                     </span>
                                   </div>
-                                  <span className="text-[11px] text-purple-700">
-                                    Partner not assigned
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-purple-700">
+                                      Partner not assigned
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPartnerModalState({
+                                          open: true,
+                                          registration: reg,
+                                          selectedPartner: null,
+                                          autoConfirm: true,
+                                          saving: false,
+                                        });
+                                      }}
+                                      className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold rounded-md transition inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                                      title="Assign a doubles partner"
+                                    >
+                                      <HeartHandshake className="w-3.5 h-3.5" />
+                                      <span>Assign Partner</span>
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             }
@@ -957,7 +1056,7 @@ export function ViewPlayersModal({
                             <History className="w-3.5 h-3.5 text-slate-500" />
                             <span>
                               Registration History for{" "}
-                              {reg.playerName || reg.user?.fullName}
+                              {reg.familyMember?.name || reg.playerName || reg.user?.fullName}
                             </span>
                             <span className="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-bold">
                               {group.history.length} previous record
@@ -1066,6 +1165,96 @@ export function ViewPlayersModal({
             Close
           </button>
         </div>
+
+        {/* Admin Partner Assignment Modal */}
+        {partnerModalState.open && partnerModalState.registration && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-4 sm:p-5 space-y-4 max-h-[90vh] flex flex-col text-left">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
+                    <HeartHandshake className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Assign / Edit Doubles Partner
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Primary: <strong className="font-semibold text-slate-800">{partnerModalState.registration.playerName || partnerModalState.registration.user?.fullName}</strong>
+                      {partnerModalState.registration.flatNumber ? ` (Flat ${partnerModalState.registration.flatNumber})` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, autoConfirm: true, saving: false })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 pr-1 space-y-3">
+                <SportsPartnerSelector
+                  selectedPartner={partnerModalState.selectedPartner}
+                  onChange={(partner) => {
+                    setPartnerModalState((prev) => ({
+                      ...prev,
+                      selectedPartner: partner,
+                    }));
+                  }}
+                  matchType={partnerModalState.registration.matchType || (event as any)?.matchType || "DOUBLES"}
+                  currentGender={partnerModalState.registration.gender || partnerModalState.registration.user?.gender}
+                  currentUserId={partnerModalState.registration.user?.id}
+                  currentFamilyMemberId={partnerModalState.registration.familyMemberId || partnerModalState.registration.familyMember?.id}
+                  currentUserName={partnerModalState.registration.playerName || partnerModalState.registration.user?.fullName}
+                  communityId={event?.community?.id || event?.communityId}
+                  disabled={partnerModalState.saving}
+                  eventId={event?.id}
+                />
+
+                <div className="pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={partnerModalState.autoConfirm}
+                      onChange={(e) => setPartnerModalState((prev) => ({ ...prev, autoConfirm: e.target.checked }))}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <span>Automatically mark partnership as confirmed (Organizers direct assignment)</span>
+                  </label>
+                  <p className="text-[10px] text-slate-400 ml-6">
+                    When checked, the partnership is confirmed immediately without requiring resident acceptance.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, autoConfirm: true, saving: false })}
+                  disabled={partnerModalState.saving}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition disabled:opacity-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAdminPartner}
+                  disabled={partnerModalState.saving}
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition inline-flex items-center gap-1.5 disabled:opacity-50 shadow-2xs cursor-pointer"
+                >
+                  {partnerModalState.saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {partnerModalState.selectedPartner?.userId || partnerModalState.selectedPartner?.familyMemberId
+                      ? (partnerModalState.autoConfirm ? "Assign & Confirm Partner" : "Send Partner Invite")
+                      : "Save to Open Pool"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

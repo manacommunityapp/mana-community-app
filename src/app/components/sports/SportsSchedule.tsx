@@ -306,7 +306,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
           const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") || Boolean(r.partnerName || r.partner?.fullName);
           if (isDoubles) {
-            const pName = r.partnerName || r.partner?.fullName || r.partnerFamilyMember?.name;
+            const pName = r.partnerName || r.partnerFamilyMember?.name || r.partner?.fullName;
             if (pName) name = `${name} / ${pName}`;
           }
           return {
@@ -1028,12 +1028,12 @@ export function SportsSchedule() {
               category: registration.categoryName ?? registration.category?.name ?? "General category",
               status,
               statusColor: status === "CONFIRMED" || status === "REGISTERED" ? "#10b981" : "#f97316",
-              playerName: registration.playerName || registration.user?.fullName,
-              partnerName: registration.partnerName || registration.partner?.fullName,
+              playerName: registration.playerName || registration.familyMember?.name || registration.user?.fullName,
+              partnerName: registration.partnerName || registration.partnerFamilyMember?.name || registration.partner?.fullName,
               partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
               isDoubles,
               flatNumber: registration.flatNumber || registration.user?.community?.name || registration.user?.flatNo,
-              partnerFlat: registration.partnerFlat || registration.partner?.flatNumber || registration.partner?.flatNo,
+              partnerFlat: registration.partnerFlat || registration.partnerFlatNumber || registration.partnerFamilyMember?.user?.flatNo || registration.partner?.flatNumber || registration.partner?.flatNo,
             });
           });
 
