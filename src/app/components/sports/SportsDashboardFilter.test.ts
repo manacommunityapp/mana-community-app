@@ -1642,8 +1642,8 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(computeRegCardAction(closedRegisteredEvent, false)).toBe("Registered");
     });
 
-    it("displays only 'Registered' in action badges for registered users in closed registrations and shows 'Registered' on top beside format chips only when isClosed is true", () => {
-      // Simulate RegCard logic returning badges
+    it("hides action badges for registered users in closed registrations and shows 'Registered' on top beside format chips only when isClosed is true", () => {
+      // Simulate RegCard / CategoryCard action badge logic
       const computeRegCardBadges = (item: any, isAdmin: boolean) => {
         const isClosed = item.status === "REGISTRATION_CLOSED"
           || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
@@ -1662,7 +1662,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         if (isClosed && !isAdmin) {
           if (isRegistered) {
             return {
-              badges: ["Registered"],
+              badges: [],
               canRegister: false,
               canUnregister: false,
             };
@@ -1681,7 +1681,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         };
       };
 
-      // Case 1: Closed event where user is registered -> ONLY "Registered" in action badges
+      // Case 1: Closed event where user is registered -> action badges hidden, Registered shown on top beside format
       const closedRegisteredEvent = {
         id: 101,
         status: "REGISTRATION_CLOSED",
@@ -1689,8 +1689,7 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
         action: "Withdraw",
       };
       const result1 = computeRegCardBadges(closedRegisteredEvent, false);
-      expect(result1.badges).toEqual(["Registered"]);
-      expect(result1.badges).not.toContain("Registration Closed");
+      expect(result1.badges).toEqual([]);
       expect(result1.canRegister).toBe(false);
       expect(result1.canUnregister).toBe(false);
 

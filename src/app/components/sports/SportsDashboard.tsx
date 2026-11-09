@@ -2797,13 +2797,10 @@ export function SportsDashboard() {
             {/* Action / Registration button */}
             <div className="shrink-0 ml-auto">
               {isFullyReg ? (
+                isClosed && !isSportsAdminUser ? null : (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {regs.length > 1 ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        <span>Registered</span>
-                      </span>
                       {isRegClosed && !isClosed && (
                         <span
                           className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
@@ -2855,10 +2852,12 @@ export function SportsDashboard() {
                         const isConfirmedPartner = isPartner || isPartnerFam;
                         return (
                           <>
-                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
-                            </span>
+                            {!isClosed && (
+                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
+                              </span>
+                            )}
                             {isRegClosed && !isClosed && (
                               <span
                                 className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
@@ -2884,12 +2883,9 @@ export function SportsDashboard() {
                     </div>
                   )}
                 </div>
+                )
               ) : isPartiallyReg ? (
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>Registered</span>
-                  </span>
                   {isRegClosed && !isClosed && (
                     <span
                       className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1"
@@ -3024,21 +3020,14 @@ export function SportsDashboard() {
                 </div>
               ) : isRegClosed && !isSportsAdminUser ? (
                 (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span>Registered</span>
-                    </span>
-                    {!isClosed && (
-                      <span
-                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1"
-                        title="Registration is closed for this event"
-                      >
-                        <Lock className="w-2.5 h-2.5 text-slate-400" />
-                        <span>Registration Closed</span>
+                  !isClosed ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        <span>Registered</span>
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  ) : null
                 ) : (
                   <button
                     type="button"
