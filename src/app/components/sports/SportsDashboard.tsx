@@ -566,7 +566,7 @@ function RegCard({
               );
             }
 
-            if (isClosed && !isAdmin) {
+            if (isClosed) {
               if (isRegistered) {
                 return (
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -1100,7 +1100,7 @@ export function SportsDashboard() {
       targetEvent.status === "COMPLETED" ||
       targetEvent.status === "CANCELLED"
     );
-    if (isClosedTarget && !isSportsAdminUser) {
+    if (isClosedTarget) {
       toast.error("Registration for this event is closed.");
       return;
     }
@@ -2797,7 +2797,7 @@ export function SportsDashboard() {
             {/* Action / Registration button */}
             <div className="shrink-0 ml-auto">
               {isFullyReg ? (
-                isClosed && !isSportsAdminUser ? null : (
+                isClosed ? null : (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {regs.length > 1 ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -2953,7 +2953,7 @@ export function SportsDashboard() {
                         <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
                       </button>
                     </div>
-                  ) : isRegClosed && !isSportsAdminUser ? null : (
+                  ) : isRegClosed ? null : (
                     <button
                       type="button"
                       onClick={() => {
@@ -2993,7 +2993,7 @@ export function SportsDashboard() {
                     <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
                   </button>
                   {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
-                    isRegClosed && !isSportsAdminUser ? (
+                    isRegClosed ? (
                       <button
                         type="button"
                         disabled
@@ -3018,7 +3018,7 @@ export function SportsDashboard() {
                     )
                   )}
                 </div>
-              ) : isRegClosed && !isSportsAdminUser ? (
+              ) : isRegClosed ? (
                 (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
                   !isClosed ? (
                     <div className="flex items-center gap-1.5 flex-wrap">

@@ -1659,12 +1659,12 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
           item.rawEvent?.myRegistrationId
         );
 
-        if (isClosed && !isAdmin) {
+        if (isClosed) {
           if (isRegistered) {
             return {
               badges: [],
               canRegister: false,
-              canUnregister: false,
+              canUnregister: isAdmin,
             };
           }
           return {
@@ -1707,6 +1707,12 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       // Case 3: Admin on closed registered event can still unregister
       const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
       expect(adminResult.canUnregister).toBe(true);
+      expect(adminResult.canRegister).toBe(false);
+
+      // Case 4: Admin on closed unregistered event NEVER gets Register button
+      const adminUnregResult = computeRegCardBadges(closedUnregisteredEvent, true);
+      expect(adminUnregResult.canRegister).toBe(false);
+      expect(adminUnregResult.badges).toEqual(["Closed"]);
 
       // Test top format header logic: "also show on top beside Singles/doubles /team squad only in Closed Registrations Div only"
       const computeTopHeaderBadges = (isClosed: boolean, isUserRegistered: boolean, displayFormats: string[]) => {
