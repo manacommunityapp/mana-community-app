@@ -55,9 +55,9 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            sudo mkdir -p /var/www/mana-community
-            sudo rm -rf /var/www/mana-community/*
+            sudo mkdir -p /var/www/mana-community/assets
             sudo cp -r /tmp/frontend/dist/* /var/www/mana-community/
+            sudo find /var/www/mana-community/assets -type f -mtime +14 -delete 2>/dev/null || true
             sudo chown -R www-data:www-data /var/www/mana-community
             ls -lah /var/www/mana-community
             sudo nginx -t
