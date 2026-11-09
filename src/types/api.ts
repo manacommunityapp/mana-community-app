@@ -158,6 +158,7 @@ export interface AppUser {
   role: string;
   kycStatus: string;
   flatNumber?: string;
+  flatNo?: string;
   gender?: string;
   community?: Community;
 }
@@ -246,6 +247,7 @@ export interface SportsEvent {
   updatedAt?: string;
   auctionStatus?: string;
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;

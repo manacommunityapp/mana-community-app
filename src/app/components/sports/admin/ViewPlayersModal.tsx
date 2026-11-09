@@ -221,7 +221,7 @@ export function ViewPlayersModal({
 
       // Search query
       if (q) {
-        const pName = (reg.playerName || reg.user?.fullName || "").toLowerCase();
+        const pName = (reg.familyMember?.name || reg.playerName || reg.user?.fullName || "").toLowerCase();
         const flat = (reg.flatNumber || "").toLowerCase();
         const phone = (reg.phone || "").toLowerCase();
         const email = (reg.email || reg.user?.email || "").toLowerCase();
@@ -727,7 +727,7 @@ export function ViewPlayersModal({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="text-xs sm:text-sm font-bold text-slate-900 break-words">
-                              {reg.playerName || reg.user?.fullName || "—"}
+                              {reg.familyMember?.name || reg.playerName || reg.user?.fullName || "—"}
                             </span>
                             {reg.registrationSource === "GOOGLE_FORMS" && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
@@ -746,10 +746,16 @@ export function ViewPlayersModal({
                                 {reg.category.name}
                               </span>
                             )}
-                            {reg.age && <span>Age: {reg.age}</span>}
+                            {((reg.familyMember?.age ?? reg.age) != null) && (
+                              <span>Age: {reg.familyMember?.age ?? reg.age}</span>
+                            )}
                             {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
-                            {reg.relation && <span>({reg.relation})</span>}
-                            {reg.phone && <span>· Ph: {reg.phone}</span>}
+                            {(reg.familyMember?.relation || reg.relation) && (
+                              <span>({reg.familyMember?.relation || reg.relation})</span>
+                            )}
+                            {(reg.phone || (reg.familyMember as any)?.phone || reg.user?.phone) && (
+                              <span>· Ph: {reg.phone || (reg.familyMember as any)?.phone || reg.user?.phone}</span>
+                            )}
                             {reg.registeredAt && (
                               <span>
                                 · {format(new Date(reg.registeredAt), "MMM d, h:mm a")}
@@ -1050,7 +1056,7 @@ export function ViewPlayersModal({
                             <History className="w-3.5 h-3.5 text-slate-500" />
                             <span>
                               Registration History for{" "}
-                              {reg.playerName || reg.user?.fullName}
+                              {reg.familyMember?.name || reg.playerName || reg.user?.fullName}
                             </span>
                             <span className="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-bold">
                               {group.history.length} previous record

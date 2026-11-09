@@ -13,6 +13,8 @@ import {
   Coins,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { sportsService } from "../../../../services/sports/sportsService";
 import type { AuctionTeam } from "../../../../types/api";
 import { getSportEmoji } from "./ViewPlayersModal";
 import {
@@ -45,6 +47,28 @@ export function ViewCaptainsModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING">("ALL");
   const [confirmingTeamId, setConfirmingTeamId] = useState<number | null>(null);
+  const [isNomOpen, setIsNomOpen] = useState(Boolean(event?.captainNominationOpen));
+  const [isTogglingNom, setIsTogglingNom] = useState(false);
+
+  useEffect(() => {
+    setIsNomOpen(Boolean(event?.captainNominationOpen));
+  }, [event?.captainNominationOpen]);
+
+  const handleToggleNomOpen = async () => {
+    if (!event?.id) return;
+    setIsTogglingNom(true);
+    try {
+      const nextState = !isNomOpen;
+      await sportsService.setCaptainNominationOpen(event.id, nextState);
+      setIsNomOpen(nextState);
+      toast.success(`Captain nominations ${nextState ? "opened" : "stopped"}`);
+      if (onRefresh) onRefresh();
+    } catch {
+      toast.error("Failed to update captain nominations status");
+    } finally {
+      setIsTogglingNom(false);
+    }
+  };
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -227,6 +251,27 @@ export function ViewCaptainsModal({
             <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded font-bold bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30">
               {counts.total} captain{counts.total !== 1 ? "s" : ""}
             </span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border ${
+              isNomOpen
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-slate-100 text-slate-500 border-slate-200"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isNomOpen ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+              {isNomOpen ? "Nominations OPEN" : "Nominations STOPPED"}
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleNomOpen}
+              disabled={isTogglingNom}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                isNomOpen
+                  ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                  : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100"
+              }`}
+              title={isNomOpen ? "Stop captain nominations" : "Open captain nominations"}
+            >
+              {isTogglingNom ? "..." : isNomOpen ? "⏹ Stop Nominations" : "🏆 Open Nominations"}
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

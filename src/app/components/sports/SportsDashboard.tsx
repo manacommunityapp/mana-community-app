@@ -1325,6 +1325,7 @@ export function SportsDashboard() {
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
           registrationId: activeRegId,
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
+          captainNominationOpen: Boolean(e.captainNominationOpen ?? (e as any).rawEvent?.captainNominationOpen),
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
           gender: e.gender ?? (e as any).genderCategory ?? (e as any).category?.gender ?? (e as any).playerCategory?.gender ?? (e as any).categories?.[0]?.gender ?? undefined,
@@ -1435,6 +1436,7 @@ export function SportsDashboard() {
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
+          captainNominationOpen: Boolean(e.captainNominationOpen ?? (e as any).rawEvent?.captainNominationOpen),
           formats: e.formats ?? (e.format ? (Array.isArray(e.format) ? e.format : [e.format]) : undefined),
           format: e.format ?? e.formats,
           rawEvent: e,
@@ -2361,7 +2363,7 @@ export function SportsDashboard() {
 
       const pendingInvite = getPendingPartnerInviteForEvent(item);
       const isPendingInvite = Boolean(pendingInvite);
-      const invitingPlayerName = (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || (pendingInvite as any)?.playerName || "Partner";
+      const invitingPlayerName = (pendingInvite as any)?.familyMember?.name || (pendingInvite as any)?.playerName || (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || "Partner";
       const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
       const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
       const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
@@ -2456,7 +2458,24 @@ export function SportsDashboard() {
                   const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
                   const isConfirmedPartner = isPartner || isPartnerFam;
 
-                  const pName = r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name;
+                  const partnerFamName =
+                    r.partnerFamilyMember?.name ||
+                    (r as any).partnerFamilyMemberName ||
+                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.name : null);
+
+                  const pName =
+                    partnerFamName ||
+                    r.partnerName ||
+                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.fullName) ||
+                    (r.partnerFamilyMemberId ? "" : (r as any).partner?.name) ||
+                    (r as any).partner?.fullName ||
+                    (r as any).partner?.name;
+
+                  const pRelation =
+                    (r as any).partnerRelation ||
+                    r.partnerFamilyMember?.relation ||
+                    ((r as any).partnerFamilyMember && typeof (r as any).partnerFamilyMember === "object" ? (r as any).partnerFamilyMember.relation : null);
+
                   const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
                   const isConfirmed = rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED";
                   const isPending = rawStatus === "PENDING";
@@ -2487,6 +2506,11 @@ export function SportsDashboard() {
                         ) : pName ? (
                           <span className="text-slate-800 font-medium truncate flex items-center gap-1">
                             <span>{pName}</span>
+                            {pRelation && pRelation.toUpperCase() !== "SELF" && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0">
+                                {pRelation}
+                              </span>
+                            )}
                             {cleanPartnerFlat && (
                               <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-100/70 text-indigo-700 font-semibold shrink-0">
                                 🏠 {cleanPartnerFlat}
@@ -2555,6 +2579,89 @@ export function SportsDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Team Category Captaincy Status & Action Banner */}
+            {isReg && isItemTeamSport(item) && (() => {
+              const teamReg = regs[0];
+              const targetEventId = Number(teamReg?.eventId || item.id);
+              const capNom = captainRegistration.find(c => Number(c.eventId) === targetEventId);
+              const isNominated = Boolean(capNom?.captainNomination || teamReg?.captainNomination);
+              const isCaptainConfirmed = Boolean(capNom?.captainConfirmation || teamReg?.captainConfirmation);
+              const isSelf = isSelfRelationOrMember(teamReg?.relation, teamReg?.familyMemberId, teamReg?.playerName, user?.fullName);
+              const regPersonName = teamReg?.playerName || (isSelf ? (user?.fullName || "You") : "Member");
+              const teamDisplay = capNom?.teamName || teamReg?.proposedTeamName || teamReg?.teamName;
+              const isNomOpen = Boolean(item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen);
+
+              return (
+                <div className="mt-1.5 p-1.5 rounded-lg bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-2 text-[11px] animate-fade-in">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Trophy className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <div className="truncate leading-tight">
+                      <span className="font-bold text-slate-800">Captaincy: </span>
+                      {isCaptainConfirmed ? (
+                        <span className="text-emerald-700 font-bold">Confirmed Captain 🏆</span>
+                      ) : isNominated ? (
+                        <span className="text-orange-600 font-bold">
+                          Nominated{teamDisplay ? `: "${teamDisplay}"` : ""}
+                        </span>
+                      ) : isNomOpen ? (
+                        <span className="text-indigo-600 font-semibold">Nominations Open</span>
+                      ) : (
+                        <span className="text-slate-500 italic">Nominations Closed</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 flex items-center gap-1">
+                    {isCaptainConfirmed ? (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Appointed
+                      </span>
+                    ) : isNominated ? (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            if (teamReg?.id) {
+                              await sportsService.nominateCaptain(teamReg.id, false).catch(() => {});
+                            }
+                            if (targetEventId) {
+                              await auctionService.nominateCaptain(targetEventId, false).catch(() => {});
+                            }
+                            toast.success("Nomination withdrawn");
+                            fetchData();
+                          } catch {
+                            toast.error("Failed to withdraw nomination");
+                          }
+                        }}
+                        className="text-[9px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-800 hover:bg-orange-200 border border-orange-200 transition-colors cursor-pointer"
+                        title="Withdraw your captaincy nomination"
+                      >
+                        Withdraw
+                      </button>
+                    ) : isNomOpen ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNominatingRegId(teamReg?.id ?? null);
+                          setSelectedCaptainEventId(targetEventId);
+                          setSelectedCaptainEvent(teamReg?.event || item);
+                          setIsAdminNomination(false);
+                          setNominateTeamName(teamReg?.proposedTeamName || teamReg?.teamName || "");
+                          setIsNominateModalOpen(true);
+                        }}
+                        className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-2xs cursor-pointer"
+                        title={isSelf ? "Nominate yourself as captain" : `Nominate ${regPersonName} as captain`}
+                      >
+                        {isSelf ? "Nominate Me" : `Nominate ${regPersonName}`}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Footer: Spots indicator + Action Button(s) */}
@@ -2903,20 +3010,48 @@ export function SportsDashboard() {
                 {togglingId === item.id ? "..." : item.status === "REGISTRATION_OPEN" ? "Close Reg" : "Reopen Reg"}
               </button>
               {isItemTeamSport(item) && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await auctionService.updateStatus(item.id, "LIVE");
-                      navigate(`/sports/auction/${item.id}`);
-                    } catch {
-                      navigate(`/sports/auction/${item.id}`);
-                    }
-                  }}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer transition-all"
-                >
-                  Auction
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTogglingId(item.id);
+                      try {
+                        const currentOpen = Boolean(item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen);
+                        const newOpen = !currentOpen;
+                        await sportsService.setCaptainNominationOpen(item.id, newOpen);
+                        toast.success(`Captain nominations ${newOpen ? "opened" : "stopped"} for ${item.name}`);
+                        fetchData();
+                      } catch {
+                        toast.error("Failed to update captain nominations");
+                      } finally {
+                        setTogglingId(null);
+                      }
+                    }}
+                    disabled={togglingId === item.id}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                      (item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen)
+                        ? "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                        : "border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                    }`}
+                    title={(item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen) ? "Stop accepting captain nominations" : "Open captain nominations for registered players"}
+                  >
+                    {togglingId === item.id ? "..." : (item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen) ? "⏹ Stop Captaincy" : "🏆 Open Captaincy"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await auctionService.updateStatus(item.id, "LIVE");
+                        navigate(`/sports/auction/${item.id}`);
+                      } catch {
+                        navigate(`/sports/auction/${item.id}`);
+                      }
+                    }}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer transition-all"
+                  >
+                    Auction
+                  </button>
+                </>
               )}
               <button
                 type="button"

@@ -203,6 +203,10 @@ export const sportsEventService = {
     return apiClient.put<SportsEvent>(`/sports/events/${id}/status?status=${status}`)
       .then((x: any) => this.mapEvent(x));
   },
+  async setCaptainNominationOpen(id: number, open: boolean): Promise<SportsEvent> {
+    return apiClient.put<SportsEvent>(`/sports/events/${id}/captain-nominations?open=${open}`)
+      .then((x: any) => this.mapEvent(x));
+  },
 
   /** Close tournament registration: set status to REGISTRATION_CLOSED */
   async closeTournament(id: number): Promise<any> {
