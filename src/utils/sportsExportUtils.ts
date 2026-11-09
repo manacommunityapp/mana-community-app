@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { escapeHtml } from "./sanitize";
 import type { UniqueTournamentPlayer } from "../services/sports/tournamentPaymentService";
+import { formatFlatLabel } from "./sportsValidationUtils";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,10 +65,12 @@ export function extractPartnerExportDetails(p: ExportablePlayer): { partnerName:
   const isSelfPartner = isSameFamId || Boolean(rawPartnerName && primaryName && rawPartnerName.toLowerCase() === primaryName.toLowerCase());
   const partnerName = isSelfPartner ? "" : rawPartnerName;
 
-  const flat = p.partnerFlatNumber || p.partner?.flatNo || "";
+  const rawFlat = p.partnerFlatNumber || p.partner?.flatNo || "";
+  const partnerBlock = (p.partner as any)?.block || (p as any).partnerBlock;
+  const flat = formatFlatLabel(rawFlat, partnerBlock);
   const phone = p.partnerPhone || p.partner?.phone || "";
   const contactParts: string[] = [];
-  if (flat) contactParts.push(`Flat ${flat}`);
+  if (flat) contactParts.push(flat);
   if (phone) contactParts.push(phone);
   const partnerContact = contactParts.join(" · ") || (partnerName ? "—" : "—");
 

@@ -31,6 +31,7 @@ import { format, differenceInDays } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
+import { formatFlatLabel, formatUnitDisplay } from "../../../utils/sportsValidationUtils";
 import {
   TournamentSponsorBanner,
   TournamentSponsorShowcase,
@@ -405,6 +406,40 @@ export function isRegForSportEvent(
   }
 
   return false;
+}
+
+/**
+ * Helper to determine if a sports event is in DRAFT status.
+ * Checks registrationStatus, status, eventStatus, eventRegistrationStatus on the event object and nested rawEvent.
+ */
+export function isDraftSportEvent(ev: any): boolean {
+  if (!ev) return false;
+  const statusValues = [
+    ev.registrationStatus,
+    ev.status,
+    ev.eventStatus,
+    ev.eventRegistrationStatus,
+    ev.rawEvent?.registrationStatus,
+    ev.rawEvent?.status,
+    ev.rawEvent?.eventStatus,
+    ev.rawEvent?.eventRegistrationStatus,
+  ];
+  return statusValues.some(st => String(st || "").toUpperCase().trim() === "DRAFT");
+}
+
+/**
+ * Helper to determine if a tournament is in DRAFT status.
+ */
+export function isDraftTournament(t: any): boolean {
+  if (!t) return false;
+  const statusValues = [
+    t.registrationStatus,
+    t.status,
+    t.tournamentStatus,
+    (t as any).rawEvent?.registrationStatus,
+    (t as any).rawEvent?.status,
+  ];
+  return statusValues.some(st => String(st || "").toUpperCase().trim() === "DRAFT");
 }
 
 
@@ -1201,8 +1236,9 @@ export function SportsDashboard() {
 
     // 3. Team events from open tournaments
     for (const t of openTournaments) {
+      if (isDraftTournament(t)) continue;
       for (const ev of (t.mappedEvents || [])) {
-        if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+        if (!isDraftSportEvent(ev) && isItemTeamSport(ev) && !seenIds.has(ev.id)) {
           seenIds.add(ev.id);
           list.push(ev);
         }
@@ -1211,7 +1247,7 @@ export function SportsDashboard() {
 
     // 4. Team events from openRegs fallback
     for (const ev of openRegs) {
-      if (isItemTeamSport(ev) && !seenIds.has(ev.id)) {
+      if (!isDraftSportEvent(ev) && isItemTeamSport(ev) && !seenIds.has(ev.id)) {
         seenIds.add(ev.id);
         list.push(ev);
       }
@@ -1302,14 +1338,20 @@ export function SportsDashboard() {
         captainNomination: r.captainNomination,
         captainConfirmation: r.captainConfirmation,
         playerName: r.playerName || (r as any).user?.fullName,
-        flatNumber: r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber,
+        flatNumber: formatFlatLabel(
+          r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber,
+          (r as any).user?.block || (r as any).block
+        ),
         relation: r.relation,
         familyMemberId: r.familyMemberId || (r as any).familyMember?.id,
         partnerUserId: r.partnerUserId || (r as any).partner?.id || (r as any).partnerUserId,
         partnerFamilyMemberId: r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || (r as any).partnerFamilyMemberId,
         partnerName: r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name || (r as any).partnerPlayerName,
         partnerPhone: r.partnerPhone || (r as any).partner?.phone,
-        partnerFlatNumber: r.partnerFlatNumber || (r as any).partner?.flatNo || (r as any).partner?.flatNumber,
+        partnerFlatNumber: formatFlatLabel(
+          r.partnerFlatNumber || (r as any).partner?.flatNo || (r as any).partner?.flatNumber,
+          (r as any).partner?.block || (r as any).partnerFamilyMember?.user?.block || (r as any).partnerBlock
+        ),
         partnerStatus: r.partnerStatus || (r as any).partnerConfirmationStatus,
         partnerConfirmationStatus: (r as any).partnerConfirmationStatus || r.partnerStatus,
         partner: (r as any).partner,
@@ -1398,8 +1440,20 @@ export function SportsDashboard() {
       };
 
       // Grouped open tournaments with real database sponsors
+      let totalOpenNonDraftEvents = 0;
       if (openTournamentsData?.length) {
-        setOpenTournaments(openTournamentsData.map(t => {
+        // Exclude draft tournaments and draft events from open registrations
+        const nonDraftTournaments = openTournamentsData
+          .filter(t => !isDraftTournament(t))
+          .map(t => ({
+            ...t,
+            events: (t.events || []).filter(e => !isDraftSportEvent(e)),
+          }))
+          .filter(t => (t.events || []).length > 0);
+
+        totalOpenNonDraftEvents = nonDraftTournaments.flatMap(t => t.events).length;
+
+        setOpenTournaments(nonDraftTournaments.map(t => {
           const commTourney = (communityTournamentsData as any[])?.find(ct => ct?.id === t.id);
           return {
             ...t,
@@ -1416,8 +1470,8 @@ export function SportsDashboard() {
             sponsors: getSponsorsForTournament(t),
           };
         }));
-        setOpenRegs(openTournamentsData.flatMap(t => t.events).map(mapEventCard));
-        setExpandedTournaments(new Set(openTournamentsData.map(t => t.id)));
+        setOpenRegs(nonDraftTournaments.flatMap(t => t.events).map(mapEventCard));
+        setExpandedTournaments(new Set(nonDraftTournaments.map(t => t.id)));
       } else {
         setOpenTournaments([]);
         setOpenRegs([]);
@@ -1427,7 +1481,7 @@ export function SportsDashboard() {
       let activeSponsors: TournamentSponsor[] = [];
       let activeTourneyName = "";
 
-      for (const t of openTournamentsData) {
+      for (const t of (openTournamentsData?.length ? openTournamentsData.filter(t => !isDraftTournament(t)) : [])) {
         const tSponsors = getSponsorsForTournament(t);
         if (tSponsors.length > 0) {
           activeSponsors = tSponsors;
@@ -1851,7 +1905,7 @@ export function SportsDashboard() {
       setStats([
         { id: 1, value: activeRegCount, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
         { id: 2, value: statsData.liveEvents, label: "Live Events", badge: statsData.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
-        { id: 3, value: statsData.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
+        { id: 3, value: openTournamentsData ? totalOpenNonDraftEvents : statsData.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
         { id: 4, value: statsData.upcomingTournaments, label: "Upcoming Tournaments", badge: "Register", badgeType: "purple", color: "#8b5cf6", icon: Trophy },
       ] as any);
 
@@ -2087,7 +2141,7 @@ export function SportsDashboard() {
       }
     };
 
-    const totalCount = t.mappedEvents.length;
+    const totalCount = isClosed ? t.mappedEvents.length : t.mappedEvents.filter(ev => !isDraftSportEvent(ev)).length;
     const deadlineDays = t.eventDateStart ? differenceInDays(new Date(t.eventDateStart), new Date()) : null;
     const viewMode = tournamentViewMode[t.id] || "grid";
 
@@ -2373,11 +2427,14 @@ export function SportsDashboard() {
       return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item) || Boolean(getPendingPartnerInviteForEvent(item));
     };
 
-    const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
+    const totalEligibleCount = t.mappedEvents.filter(ev => (isClosed || !isDraftSportEvent(ev)) && isCategoryEligibleOrRegistered(ev)).length;
 
     // Group child events by sport (filtered when showEligibleOnly is active)
     const sportGroupMap = new Map<string, { emoji: string; events: OpenRegistration[] }>();
     t.mappedEvents.forEach(ev => {
+      if (!isClosed && isDraftSportEvent(ev)) {
+        return;
+      }
       if (showEligibleOnly && !isCategoryEligibleOrRegistered(ev)) {
         return;
       }
@@ -2387,11 +2444,15 @@ export function SportsDashboard() {
     });
     const sportEntries = Array.from(sportGroupMap.entries());
 
-    const gridEvents = showEligibleOnly
+    const gridEvents = (showEligibleOnly
       ? t.mappedEvents.filter(isCategoryEligibleOrRegistered)
-      : t.mappedEvents;
+      : t.mappedEvents
+    ).filter(ev => isClosed || !isDraftSportEvent(ev));
 
     const renderCategoryCard = (item: OpenRegistration) => {
+      if (!isClosed && isDraftSportEvent(item)) {
+        return null;
+      }
       const checkClosed = (st?: string | null) => {
         if (!st) return false;
         const s = String(st).toUpperCase().trim();
@@ -2439,7 +2500,7 @@ export function SportsDashboard() {
       const isPendingInvite = Boolean(pendingInvite);
       const invitingPlayerName = (pendingInvite as any)?.familyMember?.name || (pendingInvite as any)?.playerName || (pendingInvite as any)?.user?.fullName || (pendingInvite as any)?.user?.name || "Partner";
       const invitingFlatNumber = (pendingInvite as any)?.flatNumber || (pendingInvite as any)?.flatNo || (pendingInvite as any)?.user?.flatNo || (pendingInvite as any)?.user?.flatNumber;
-      const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
+      const cleanInvitingFlat = invitingFlatNumber ? formatFlatLabel(invitingFlatNumber, (pendingInvite as any)?.user?.block || (pendingInvite as any)?.block) : "";
       const inviteRawFmt = extractFormatStr((pendingInvite as any)?.matchType || (pendingInvite as any)?.format || "DOUBLES");
       const inviteFormatLabel = inviteRawFmt ? inviteRawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()) : "Doubles";
       const invitePartnerFam = (pendingInvite as any)?.partnerFamilyMember;
@@ -2565,7 +2626,10 @@ export function SportsDashboard() {
 
                   const p1Name = (r.familyMember?.name || (r as any).familyMemberName || r.playerName || (p1IsSelf ? (user?.fullName || "Self") : "Primary Player")).trim();
                   const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
-                  const p1Flat = (r.flatNumber || (r as any).flatNo || r.user?.flatNo || r.user?.flatNumber || (user as any)?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+                  const p1Flat = formatFlatLabel(
+                    r.flatNumber || (r as any).flatNo || r.user?.flatNo || r.user?.flatNumber || (user as any)?.flatNo || "",
+                    r.user?.block || (r as any).block || (p1IsSelf ? (user as any)?.block : undefined)
+                  );
 
                   // ─── Player 2 (Partner on record) ───
                   const p2FamId = r.partnerFamilyMemberId != null
@@ -2584,13 +2648,18 @@ export function SportsDashboard() {
                     ""
                   ).trim();
                   const p2Relation = ((r as any).partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
-                  const p2Flat = (
+                  const p2Flat = formatFlatLabel(
                     r.partnerFlatNumber ||
                     (r as any).partnerFlat ||
                     r.partner?.flatNo ||
                     (r.partner as any)?.flatNumber ||
-                    (p2IsSelf ? ((user as any)?.flatNo || "") : "")
-                  ).replace(/^Flat\s+/i, "").trim();
+                    (r as any).partnerFamilyMember?.user?.flatNo ||
+                    (p2IsSelf ? ((user as any)?.flatNo || "") : ""),
+                    r.partner?.block ||
+                    (r as any).partnerFamilyMember?.user?.block ||
+                    (r as any).partnerBlock ||
+                    (p2IsSelf ? (user as any)?.block : undefined)
+                  );
 
                   const isOpenPool = Boolean((r as any).openPool || (!p2Name && !p2UserId && !p2FamId));
 
@@ -3892,7 +3961,7 @@ export function SportsDashboard() {
               openTournaments.map((t, tIdx) => renderTournamentCard(t, tIdx, false))
             ) : (
               <div className="max-h-[290px] overflow-y-auto pr-1">
-                {openRegs.map((item, idx) => (
+                {openRegs.filter(item => !isDraftSportEvent(item)).map((item, idx) => (
                   <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                     <RegCard
                        item={item}
@@ -4406,7 +4475,7 @@ export function SportsDashboard() {
                                     </div>
                                     <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-2">
                                       {(selectedRegObject.flatNumber || (selectedRegObject as any).flatNo) && (
-                                        <span>Flat {selectedRegObject.flatNumber || (selectedRegObject as any).flatNo}</span>
+                                        <span>{formatFlatLabel(selectedRegObject.flatNumber || (selectedRegObject as any).flatNo, (selectedRegObject as any).user?.block || (selectedRegObject as any).block)}</span>
                                       )}
                                       {selectedRegObject.phone && <span>· Ph: {selectedRegObject.phone}</span>}
                                     </div>
@@ -4500,7 +4569,7 @@ export function SportsDashboard() {
                                                 )}
                                               </div>
                                               <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1.5 mt-0.5">
-                                                {flat && <span>Flat {flat}</span>}
+                                                {flat && <span>{formatFlatLabel(flat, (reg as any).user?.block || (reg as any).block)}</span>}
                                                 {reg.phone && <span>· {reg.phone}</span>}
                                                 {reg.proposedTeamName && (
                                                   <span className="text-amber-700 font-semibold truncate">

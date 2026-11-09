@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { analyticsService } from "../../../services/admin/analyticsService";
 import type { AnalyticsData } from "../../../services/admin/analyticsService";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 // ── Tooltip styles (shared across all charts) ────────────────────────────────
 const TOOLTIP_STYLE = {
@@ -1125,7 +1126,7 @@ export function SportsAnalytics() {
               </tr></thead>
               <tbody className="divide-y divide-border/50">
                 {visiblePaymentRows.map((payment) => <tr key={`${payment.tournamentId}-${payment.playerKey}`} className="hover:bg-muted/20">
-                  <td className="px-4 py-3"><p className="m-0 font-bold text-foreground">{payment.playerName}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.flatNumber ? `Flat ${payment.flatNumber}` : "No flat recorded"}</p></td>
+                  <td className="px-4 py-3"><p className="m-0 font-bold text-foreground">{payment.playerName}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.flatNumber ? formatFlatLabel(payment.flatNumber) : "No flat recorded"}</p></td>
                   <td className="px-4 py-3 font-medium text-foreground">{payment.tournament}</td>
                   <td className="px-4 py-3"><p className="m-0 font-semibold text-foreground">{payment.paymentMode}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.transactionRef || "No reference"}</p></td>
                   <td className="px-4 py-3 text-muted-foreground">{payment.paidAt && !Number.isNaN(Date.parse(payment.paidAt)) ? new Date(payment.paidAt).toLocaleString() : "—"}</td>

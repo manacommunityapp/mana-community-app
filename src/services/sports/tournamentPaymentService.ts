@@ -2,6 +2,7 @@ import { apiClient } from "../common/apiClient";
 import { safeStorage } from "../../utils/storage";
 import type { DashboardEventCard } from "./sportsDashboardService";
 import type { TournamentRegistration } from "../../types/api";
+import { formatFlatLabel } from "../../utils/sportsValidationUtils";
 
 export interface TournamentPlayerPayment {
   id?: number | string;
@@ -391,7 +392,7 @@ export const tournamentPaymentService = {
           const existing = userContactMap.get(uId) || {};
           userContactMap.set(uId, {
             name: reg.playerName || reg.user?.fullName || existing.name,
-            flatNumber: reg.flatNumber || (reg.user as any)?.flatNo || existing.flatNumber,
+            flatNumber: formatFlatLabel(reg.flatNumber || (reg.user as any)?.flatNo, (reg.user as any)?.block || (reg as any).block) || existing.flatNumber,
             phone: reg.phone || (reg.user as any)?.phone || existing.phone,
             email: reg.email || reg.user?.email || existing.email,
           });
@@ -403,7 +404,7 @@ export const tournamentPaymentService = {
           const existing = userContactMap.get(pUId) || {};
           userContactMap.set(pUId, {
             name: reg.partnerName || reg.partner?.fullName || reg.partner?.name || existing.name,
-            flatNumber: reg.partnerFlatNumber || reg.partner?.flatNo || (reg.partner as any)?.flatNumber || existing.flatNumber,
+            flatNumber: formatFlatLabel(reg.partnerFlatNumber || reg.partner?.flatNo || (reg.partner as any)?.flatNumber, (reg.partner as any)?.block || (reg as any).partnerBlock) || existing.flatNumber,
             phone: reg.partnerPhone || reg.partner?.phone || existing.phone,
             email: reg.partner?.email || (reg as any).partnerEmail || existing.email,
           });
@@ -415,7 +416,7 @@ export const tournamentPaymentService = {
           const existing = famContactMap.get(fId) || {};
           famContactMap.set(fId, {
             name: reg.playerName || reg.familyMember?.name || existing.name,
-            flatNumber: reg.flatNumber || existing.flatNumber,
+            flatNumber: formatFlatLabel(reg.flatNumber, (reg as any).user?.block || (reg as any).block) || existing.flatNumber,
             phone: reg.phone || existing.phone,
             email: reg.email || existing.email,
             relation: reg.relation || reg.familyMember?.relation || existing.relation,
@@ -428,7 +429,7 @@ export const tournamentPaymentService = {
           const existing = famContactMap.get(pFId) || {};
           famContactMap.set(pFId, {
             name: reg.partnerName || reg.partnerFamilyMember?.name || existing.name,
-            flatNumber: reg.partnerFlatNumber || existing.flatNumber,
+            flatNumber: formatFlatLabel(reg.partnerFlatNumber, (reg as any).partnerBlock || (reg.partner as any)?.block) || existing.flatNumber,
             phone: reg.partnerPhone || existing.phone,
             email: (reg as any).partnerEmail || existing.email,
             relation: reg.partnerFamilyMember?.relation || (reg as any).partnerRelation || existing.relation,
@@ -568,12 +569,19 @@ export const tournamentPaymentService = {
             ""
           ).trim();
 
-          let partnerFlat = (
+          const partnerBlock =
+            (reg.partner as any)?.block ||
+            (reg as any).partnerBlock ||
+            (reg.partnerFamilyMember?.user as any)?.block;
+
+          const rawPartnerFlat = (
             reg.partnerFlatNumber ||
             reg.partner?.flatNo ||
             (reg.partner as any)?.flatNumber ||
             ""
           ).trim();
+
+          let partnerFlat = formatFlatLabel(rawPartnerFlat, partnerBlock);
 
           let partnerPhone = (
             reg.partnerPhone ||

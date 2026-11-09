@@ -28,6 +28,7 @@ import type { PlayerCategory } from "../../../../types/api";
 import { familyService } from "../../../../services/common/familyService";
 import type { FamilyMemberSlim } from "../../../../services/common/familyService";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 const calculateAge = (dobString?: string): number | null => {
   if (!dobString) return null;
@@ -396,7 +397,7 @@ export function AddPlayerModal({
                                   </p>
                                   {friend.flatNo && (
                                     <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
-                                      {friend.block ? `${friend.block}-${friend.flatNo}` : `Flat ${friend.flatNo}`}
+                                      {formatFlatLabel(friend.flatNo, friend.block)}
                                     </span>
                                   )}
                                 </div>
@@ -664,7 +665,7 @@ export function AddPlayerModal({
                           </div>
                           {form.flatNumber && (
                             <span className="mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-center truncate max-w-full leading-3">
-                              Flat {form.flatNumber}
+                              {formatFlatLabel(form.flatNumber)}
                             </span>
                           )}
                         </div>
@@ -927,7 +928,7 @@ export function AddPlayerModal({
                                     </span>
                                   </div>
                                   {form.partnerFlatNumber && (
-                                    <p className="text-xs text-[#94a3b8]">Flat {form.partnerFlatNumber}</p>
+                                    <p className="text-xs text-[#94a3b8]">{formatFlatLabel(form.partnerFlatNumber)}</p>
                                   )}
                                 </div>
                               </div>
@@ -1017,7 +1018,7 @@ export function AddPlayerModal({
                                               partnerName: u.fullName || "Resident",
                                               partnerEmail: u.email || "",
                                               partnerPhone: u.phone || "",
-                                              partnerFlatNumber: u.flatNo || "",
+                                              partnerFlatNumber: formatFlatLabel(u.flatNo, (u as any).block) || "",
                                               partnerGender: u.gender || "",
                                               partnerMode: "community"
                                             } : p));
@@ -1028,7 +1029,7 @@ export function AddPlayerModal({
                                         >
                                           <div className="min-w-0">
                                             <p className="text-xs font-semibold text-[#f1f5f9] truncate">{u.fullName}</p>
-                                            <p className="text-xs text-[#94a3b8]">{u.flatNo ? `Flat ${u.flatNo}` : ""} {u.gender ? `· ${u.gender}` : ""}</p>
+                                            <p className="text-xs text-[#94a3b8]">{u.flatNo ? formatFlatLabel(u.flatNo, (u as any).block) : ""} {u.gender ? `· ${u.gender}` : ""}</p>
                                           </div>
                                           <span className="text-[10px] text-indigo-400 font-semibold flex-shrink-0">Select →</span>
                                         </button>

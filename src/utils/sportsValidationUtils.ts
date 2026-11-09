@@ -222,3 +222,79 @@ export function evaluateRegistrationStatus(params: RegistrationCapacityParams): 
 
   return "OPEN";
 }
+
+/**
+ * Formats block and flat into a clean, standard community address string.
+ * Examples:
+ * - ("1008", "Block B") => "Block B, Flat 1008"
+ * - ("1008", "B") => "Block B, Flat 1008"
+ * - ("401", "Tower 2") => "Tower 2, Flat 401"
+ * - ("B-1008") => "Block B, Flat 1008"
+ * - ("1008") => "Flat 1008"
+ * - ("Block B, Flat 1008") => "Block B, Flat 1008"
+ * - ("Villa 42") => "Villa 42"
+ */
+export function formatFlatLabel(flat?: string | null, block?: string | null): string {
+  if (!flat && !block) return "";
+  let f = (flat || "").trim();
+  let b = (block || "").trim();
+
+  if (!f && !b) return "";
+
+  // Already fully formatted e.g. "Block B, Flat 1008" or "Tower 2, Flat 401"
+  if (/^(?:block|tower|wing)\s+[a-z0-9_-]+,\s*flat\s+[a-z0-9_-]+$/i.test(f)) {
+    return f;
+  }
+
+  // Standalone villa/house
+  if (/^(?:villa|house|penthouse|row\s*house)\b/i.test(f)) {
+    return f;
+  }
+
+  // Hyphenated e.g. "B-1008" or "Tower 2-401"
+  const hyphenMatch = f.match(/^((?:(?:block|tower|wing)\s+)?[a-z0-9]+)\s*[-/]\s*([a-z0-9]+)$/i);
+  if (hyphenMatch) {
+    const extractedBlock = hyphenMatch[1].trim();
+    const extractedFlat = hyphenMatch[2].trim();
+    const cleanB = /^(?:block|tower|wing)\b/i.test(extractedBlock) ? extractedBlock : `Block ${extractedBlock}`;
+    return `${cleanB}, Flat ${extractedFlat}`;
+  }
+
+  // Spaced e.g. "Block B 1008"
+  const spacedMatch = f.match(/^((?:block|tower|wing)\s+[a-z0-9]+)\s+(?:flat\s+)?([a-z0-9]+)$/i);
+  if (spacedMatch) {
+    return `${spacedMatch[1]}, Flat ${spacedMatch[2]}`;
+  }
+
+  // Clean leading "Flat " from f if present
+  f = f.replace(/^flat\s+/i, "").trim();
+
+  if (b) {
+    const cleanB = /^(?:block|tower|wing)\b/i.test(b) ? b : `Block ${b}`;
+    if (!f) return cleanB;
+    if (f.toLowerCase() === cleanB.toLowerCase() || f.toLowerCase().startsWith(cleanB.toLowerCase() + " ")) {
+      return f;
+    }
+    if (f.toLowerCase() === b.toLowerCase() || f.toLowerCase().startsWith(b.toLowerCase() + " ")) {
+      return `${cleanB}${f.slice(b.length)}`;
+    }
+    return `${cleanB}, Flat ${f}`;
+  }
+
+  if (f) {
+    return `Flat ${f}`;
+  }
+
+  return "";
+}
+
+/**
+ * Removes double prefixes like "Flat Block B, Flat 1008" or "Flat Flat 1008"
+ * ensuring clean rendering anywhere a flat string is output.
+ */
+export function formatUnitDisplay(address?: string | null): string {
+  if (!address) return "";
+  const cleaned = address.trim();
+  // Strip duplicate leading "Flat " if followed by "Block " or "Tower " or "Flat "
+  return cleaned.replace(/^flat\s+(?=(?:block|tower|wing|flat|villa)\b)/i, "");
+}

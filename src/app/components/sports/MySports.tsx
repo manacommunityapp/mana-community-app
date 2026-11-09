@@ -48,6 +48,7 @@ import { sportsScheduleService, type EventListItem, type RegistrationListItem } 
 import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { communityService } from "../../../services/community/communityService";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import { venueService } from "../../../services/bookings/venueService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
@@ -574,7 +575,7 @@ export function MySports() {
             const invId = inv.id;
             const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
             const pFlat = inv.flatNumber || (inv as any).flatNo || inv.user?.flatNo || (inv as any).user?.flatNumber;
-            const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
+            const cleanPFlat = formatFlatLabel(pFlat, inv.user?.block || (inv as any).block);
             const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
             const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
             const catName = inv.categoryName || inv.category?.name;
@@ -604,7 +605,7 @@ export function MySports() {
                   </h4>
                   <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                     <strong className="text-slate-900 font-semibold">{inviterUser}</strong>
-                    {cleanPFlat ? ` (Flat ${cleanPFlat})` : ""}{" "}
+                    {cleanPFlat ? ` (${cleanPFlat})` : ""}{" "}
                     {primaryFamName && partnerFamName ? (
                       <>
                         invited your {partnerFamRel ? `${partnerFamRel} ` : ""}(
@@ -1137,7 +1138,7 @@ export function MySports() {
                                     )}
                                     {reg.flatNumber && (
                                       <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
-                                        Flat: {reg.flatNumber}
+                                        {formatFlatLabel(reg.flatNumber, (reg as any).user?.block || (reg as any).block)}
                                       </span>
                                     )}
                                     {reg.captainNomination && (
@@ -1155,13 +1156,13 @@ export function MySports() {
                                       {reg.partnerUserId || reg.partnerName ? (
                                         (() => {
                                           const partnerFlat = (reg as any).partnerFlatNumber || (reg as any).partner?.flatNo || (reg as any).partner?.flatNumber;
-                                          const cleanPartnerFlat = partnerFlat ? String(partnerFlat).replace(/^Flat\s+/i, "").trim() : "";
+                                          const cleanPartnerFlat = formatFlatLabel(partnerFlat, (reg as any).partner?.block || (reg as any).partnerBlock);
                                           return (
                                             <div className="flex items-center gap-1.5">
                                               <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
                                                 <Users className="w-3 h-3" />
                                                 <span>
-                                                  Partner: <strong>{reg.partnerName || "Partner"}</strong>{cleanPartnerFlat ? ` (Flat ${cleanPartnerFlat})` : ""}
+                                                  Partner: <strong>{reg.partnerName || "Partner"}</strong>{cleanPartnerFlat ? ` (${cleanPartnerFlat})` : ""}
                                                 </span>
                                                 <span className="text-[10px] font-medium opacity-80">
                                                   ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})

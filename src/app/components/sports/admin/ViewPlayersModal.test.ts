@@ -168,7 +168,7 @@ describe("sportsPartnerUtils: getPartnerDetails", () => {
     const details = getPartnerDetails(reg);
     expect(details.hasPartner).toBe(true);
     expect(details.name).toBe("Kavita Rao");
-    expect(details.flat).toBe("E-502");
+    expect(details.flat).toBe("Block E, Flat 502");
     expect(details.phone).toBe("9876543210");
     expect(details.status).toBe("CONFIRMED");
     expect(details.statusLabel).toBe("Partner Confirmed");

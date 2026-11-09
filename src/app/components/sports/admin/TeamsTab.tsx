@@ -9,6 +9,7 @@ import { auctionService } from "../../../../services/sports/auctionService";
 import { automationService } from "../../../../services/automation/automationService";
 import { showSuccess, showError, showInfo } from "../../../../utils/ToastUtils";
 import type { SportsTournament, AuctionTeam, EventRegistration, SportsEvent } from "../../../../types/api";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -297,7 +298,7 @@ function PendingRegistrationCard({
           </div>
           <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
             {reg.user?.fullName && <span>{reg.user.fullName} · </span>}
-            {reg.flatNumber && <span>Flat {reg.flatNumber} · </span>}
+            {reg.flatNumber && <span>{formatFlatLabel(reg.flatNumber, reg.user?.block || (reg as any).block)} · </span>}
             {reg.registeredAt && (
               <span>{new Date(reg.registeredAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
             )}

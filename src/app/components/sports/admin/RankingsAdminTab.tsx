@@ -23,6 +23,7 @@ import { sportsMetaService } from "../../../../services/sports/sportsMetaService
 import { userService } from "../../../../services/common/userService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import type { SportsPlayerRanking, SportMeta, UserResponse } from "../../../../types/api";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 interface Props {
   communityId?: number | null;
@@ -851,7 +852,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                         <div className="text-sm font-semibold text-slate-800">{u.fullName}</div>
                         <div className="text-xs text-slate-400">
                           {u.email}
-                          {u.flatNo ? ` · Flat ${u.flatNo}` : ""}
+                          {u.flatNo ? ` · ${formatFlatLabel(u.flatNo, (u as any).block)}` : ""}
                         </div>
                       </div>
                       <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
@@ -1057,7 +1058,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                                   <div className="font-semibold text-slate-800">{r.matchedUser.fullName}</div>
                                   <div className="text-xs text-slate-400">
                                     {r.matchedUser.email}
-                                    {r.matchedUser.flatNo ? ` · Flat ${r.matchedUser.flatNo}` : ""}
+                                    {r.matchedUser.flatNo ? ` · ${formatFlatLabel(r.matchedUser.flatNo, (r.matchedUser as any).block)}` : ""}
                                   </div>
                                 </div>
                               ) : (
@@ -1182,7 +1183,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                     </div>
                     <div className="font-bold text-slate-900 text-base">{topPodium.first.player.fullName}</div>
                     <div className="text-xs text-slate-500">
-                      {topPodium.first.player.flatNo ? `Flat ${topPodium.first.player.flatNo} · ` : ""}
+                      {topPodium.first.player.flatNo ? `${formatFlatLabel(topPodium.first.player.flatNo, (topPodium.first.player as any).block)} · ` : ""}
                       {topPodium.first.player.email}
                     </div>
                   </div>
@@ -1217,7 +1218,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                     </div>
                     <div className="font-bold text-slate-900 text-base">{topPodium.second.player.fullName}</div>
                     <div className="text-xs text-slate-500">
-                      {topPodium.second.player.flatNo ? `Flat ${topPodium.second.player.flatNo} · ` : ""}
+                      {topPodium.second.player.flatNo ? `${formatFlatLabel(topPodium.second.player.flatNo, (topPodium.second.player as any).block)} · ` : ""}
                       {topPodium.second.player.email}
                     </div>
                   </div>
@@ -1252,7 +1253,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                     </div>
                     <div className="font-bold text-slate-900 text-base">{topPodium.third.player.fullName}</div>
                     <div className="text-xs text-slate-500">
-                      {topPodium.third.player.flatNo ? `Flat ${topPodium.third.player.flatNo} · ` : ""}
+                      {topPodium.third.player.flatNo ? `${formatFlatLabel(topPodium.third.player.flatNo, (topPodium.third.player as any).block)} · ` : ""}
                       {topPodium.third.player.email}
                     </div>
                   </div>
@@ -1402,7 +1403,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                                 <div className="font-semibold text-slate-800">{r.player.fullName}</div>
                                 <div className="text-xs text-slate-400">
                                   {r.player.email ?? ""}
-                                  {r.player.flatNo ? ` · Flat ${r.player.flatNo}` : ""}
+                                  {r.player.flatNo ? ` · ${formatFlatLabel(r.player.flatNo, (r.player as any).block)}` : ""}
                                 </div>
                               </div>
                             </div>
