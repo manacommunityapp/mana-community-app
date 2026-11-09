@@ -566,7 +566,7 @@ function RegCard({
               );
             }
 
-            if (isClosed && !isAdmin) {
+            if (isClosed) {
               if (isRegistered) {
                 return (
                   <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -1100,7 +1100,7 @@ export function SportsDashboard() {
       targetEvent.status === "COMPLETED" ||
       targetEvent.status === "CANCELLED"
     );
-    if (isClosedTarget && !isSportsAdminUser) {
+    if (isClosedTarget) {
       toast.error("Registration for this event is closed.");
       return;
     }
@@ -2485,14 +2485,15 @@ export function SportsDashboard() {
                 {regs.map(r => {
                   const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
                   const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
-                  const selectedTargetName = (isSelectedSelf ? (user?.fullName || "") : (targetMember?.name || "")).trim().toLowerCase();
+                  const selectedTargetMember = !isSelectedSelf ? familyMembers.find(m => String(m.id) === selectedTargetId) : undefined;
+                  const selectedTargetName = (isSelectedSelf ? (user?.fullName || "") : (selectedTargetMember?.name || "")).trim().toLowerCase();
 
                   // ─── Player 1 (Primary Registrant on record) ───
                   const p1FamId = r.familyMemberId != null
                     ? String(r.familyMemberId).replace(/^fam-/, "").trim()
                     : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
                   const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
-                  const currentUid = user?.userId != null ? String(user.userId) : (user?.id != null ? String(user.id) : null);
+                  const currentUid = user?.userId != null ? String(user.userId) : ((user as any)?.id != null ? String((user as any).id) : null);
 
                   const isOtherUserPrimary = Boolean(
                     currentUid && p1UserId && p1UserId !== currentUid
@@ -2797,7 +2798,7 @@ export function SportsDashboard() {
             {/* Action / Registration button */}
             <div className="shrink-0 ml-auto">
               {isFullyReg ? (
-                isClosed && !isSportsAdminUser ? null : (
+                isClosed ? null : (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {regs.length > 1 ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -2953,7 +2954,7 @@ export function SportsDashboard() {
                         <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : `Accept ${inviteFormatLabel}`)}</span>
                       </button>
                     </div>
-                  ) : isRegClosed && !isSportsAdminUser ? null : (
+                  ) : isRegClosed ? null : (
                     <button
                       type="button"
                       onClick={() => {
@@ -2993,7 +2994,7 @@ export function SportsDashboard() {
                     <span>{respondingInviteId === Number(pendingInvite.id) ? "Confirming..." : (invitePartnerFamName ? `Accept for ${invitePartnerFamName}` : "Accept")}</span>
                   </button>
                   {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
-                    isRegClosed && !isSportsAdminUser ? (
+                    isRegClosed ? (
                       <button
                         type="button"
                         disabled
@@ -3018,7 +3019,7 @@ export function SportsDashboard() {
                     )
                   )}
                 </div>
-              ) : isRegClosed && !isSportsAdminUser ? (
+              ) : isRegClosed ? (
                 (item.registrationId || (item.rawEvent as any)?.myRegistrationId) && !withdrawnRegistrationIds.has(Number(item.registrationId || (item.rawEvent as any)?.myRegistrationId)) ? (
                   !isClosed ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
