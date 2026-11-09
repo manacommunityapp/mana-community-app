@@ -2628,7 +2628,7 @@ export function SportsDashboard() {
                   const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
                   const p1Flat = formatFlatLabel(
                     r.flatNumber || (r as any).flatNo || r.user?.flatNo || r.user?.flatNumber || (user as any)?.flatNo || "",
-                    r.user?.block || (r as any).block || (p1IsSelf ? (user as any)?.block : undefined)
+                    (r.user as any)?.block || (r as any).block || (p1IsSelf ? (user as any)?.block : undefined)
                   );
 
                   // ─── Player 2 (Partner on record) ───

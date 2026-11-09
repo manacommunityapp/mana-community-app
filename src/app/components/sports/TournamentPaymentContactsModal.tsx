@@ -20,6 +20,7 @@ import { tournamentPaymentService } from "../../../services/sports/tournamentPay
 import { userService } from "../../../services/common/userService";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { SportsTournament, UserResponse } from "../../../types/api";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 export interface PaymentCoordinator {
   id: string;
@@ -157,8 +158,8 @@ export function TournamentPaymentContactsModal({
 
     // Auto-fill details (Flat, Block, Phone)
     const detailParts: string[] = [];
-    if (u.flatNo) detailParts.push(`Flat ${u.flatNo}`);
-    if (u.block) detailParts.push(`Block ${u.block}`);
+    const formattedFlat = formatFlatLabel(u.flatNo, u.block);
+    if (formattedFlat) detailParts.push(formattedFlat);
     if (u.phone) detailParts.push(`Ph: ${u.phone}`);
     setNewDetail(detailParts.join(", "));
   };
@@ -544,8 +545,7 @@ export function TournamentPaymentContactsModal({
                                     {u.fullName}
                                   </div>
                                   <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                                    {u.flatNo && <span>Flat {u.flatNo}</span>}
-                                    {u.block && <span>• Block {u.block}</span>}
+                                    {(u.flatNo || u.block) && <span>{formatFlatLabel(u.flatNo, u.block)}</span>}
                                     {u.phone && <span>• {u.phone}</span>}
                                   </div>
                                 </div>
@@ -577,7 +577,7 @@ export function TournamentPaymentContactsModal({
                       <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                       <span className="text-[11px] text-indigo-950 truncate">
                         Selected <strong>{selectedUser.fullName}</strong>
-                        {selectedUser.flatNo ? ` (Flat ${selectedUser.flatNo})` : ""} — details auto-filled. You can also edit manually below.
+                        {selectedUser.flatNo || selectedUser.block ? ` (${formatFlatLabel(selectedUser.flatNo, selectedUser.block)})` : ""} — details auto-filled. You can also edit manually below.
                       </span>
                     </div>
                     <button

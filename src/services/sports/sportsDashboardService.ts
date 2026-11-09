@@ -142,6 +142,9 @@ export const sportsDashboardService = {
   async getClosedTournaments(): Promise<DashboardTournamentCard[]> {
     return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/closed-tournaments");
   },
+  async getCompletedTournaments(): Promise<DashboardTournamentCard[]> {
+    return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/completed-tournaments");
+  },
   async getMyRegistrations(): Promise<DashboardMyRegistration[]> {
     return apiClient.get<DashboardMyRegistration[]>("/sports/dashboard/my-registrations");
   },

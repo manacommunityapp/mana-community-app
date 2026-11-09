@@ -298,7 +298,7 @@ function PendingRegistrationCard({
           </div>
           <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
             {reg.user?.fullName && <span>{reg.user.fullName} · </span>}
-            {reg.flatNumber && <span>{formatFlatLabel(reg.flatNumber, reg.user?.block || (reg as any).block)} · </span>}
+            {reg.flatNumber && <span>{formatFlatLabel(reg.flatNumber, (reg.user as any)?.block || (reg as any).block)} · </span>}
             {reg.registeredAt && (
               <span>{new Date(reg.registeredAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
             )}

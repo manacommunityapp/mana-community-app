@@ -237,6 +237,15 @@ export const sportsEventService = {
     return this.getClosedTournaments();
   },
 
+  /** GET /api/sports/tournaments/completed — all COMPLETED tournaments */
+  async getCompletedTournaments(): Promise<SportsEvent[]> {
+    return apiClient.get<SportsEvent[]>("/sports/tournaments/completed")
+      .then((res: any) => res.map((x: any) => this.mapEvent(x)));
+  },
+  async getCompletedEvents(): Promise<SportsEvent[]> {
+    return this.getCompletedTournaments();
+  },
+
   /** POST /api/sports/register — register authenticated user for a tournament */
   async registerForTournament(data: RegistrationRequest): Promise<TournamentRegistration> {
     if (!data.eventId) {
