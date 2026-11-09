@@ -2112,9 +2112,7 @@ export function useSportsAdminState() {
           return updated;
         });
 
-      setDraftEvents(prev => updateEvInList(prev));
-      setLiveEvents(prev => updateEvInList(prev));
-      setCompletedEvents(prev => updateEvInList(prev));
+      setActiveTournaments(prev => updateEvInList(prev));
       setActiveEvents(prev =>
         prev.map(ev => Number(ev.id) === Number(eventId) ? { ...ev, captainNominationOpen: open } : ev)
       );

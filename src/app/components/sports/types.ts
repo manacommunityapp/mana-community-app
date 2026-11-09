@@ -13,6 +13,7 @@ export interface SportEventState {
   maxAge?: number;
   adminApprovalRequired?: boolean;
   mandatoryMixedDoubles?: boolean;
+  captainNominationOpen?: boolean;
 }
 
 export interface SportFormEvent {
@@ -37,6 +38,7 @@ export interface SportFormEvent {
   auctionEnabled?: boolean;
   adminApprovalRequired?: boolean;
   mandatoryMixedDoubles?: boolean;
+  captainNominationOpen?: boolean;
 }
 
 export interface SportFormEntry {
