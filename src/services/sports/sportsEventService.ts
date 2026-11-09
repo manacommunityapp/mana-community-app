@@ -352,11 +352,13 @@ export const sportsEventService = {
   async nominatePartner(
     registrationId: number,
     partnerUserId?: number | null,
-    partnerFamilyMemberId?: number | null
+    partnerFamilyMemberId?: number | null,
+    autoConfirm?: boolean | null
   ): Promise<EventRegistration> {
     const params = new URLSearchParams();
     if (partnerUserId != null) params.set("partnerUserId", String(partnerUserId));
     if (partnerFamilyMemberId != null) params.set("partnerFamilyMemberId", String(partnerFamilyMemberId));
+    if (autoConfirm != null) params.set("autoConfirm", String(autoConfirm));
     const qs = params.toString() ? `?${params.toString()}` : "";
     return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/nominate-partner${qs}`);
   },
