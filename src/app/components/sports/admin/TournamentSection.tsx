@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2, Crown } from "lucide-react";
+import { Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Megaphone, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, Play, AlertTriangle, Download, FileSpreadsheet, FileText, Printer, Loader2, Crown, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
@@ -28,6 +28,7 @@ interface TournamentSectionProps {
   onActivate?: (id: number) => void;
   showActivate?: boolean;
   onCloseTournament?: (id: number) => void;
+  onCompleteTournament?: (id: number) => void;
   onCloseEvent?: (id: number) => void;
   onStartEvent?: (id: number, name?: string) => void;
   onStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
@@ -348,7 +349,7 @@ export function getEventCategorySignature(ev: any): string {
 
 export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
-  onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCloseEvent, onAnnounce,
+  onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCompleteTournament, onCloseEvent, onAnnounce,
   onStartEvent, onStartAllPendingEvents,
   onViewPlayers, onViewCaptains, onToggleCaptainNomination, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
@@ -703,6 +704,16 @@ export function TournamentSection({
                     {onCloseTournament && (item.registrationStatus === "LIVE" || item.registrationStatus === "REGISTRATION_OPEN" || item.status === "LIVE" || item.status === "REGISTRATION_OPEN") && (
                       <button onClick={() => onCloseTournament(item.id)} className="text-xs px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
                         <Lock className="w-3 h-3" /> Close Reg
+                      </button>
+                    )}
+                    {onCompleteTournament && (item.registrationStatus !== "COMPLETED" && item.status !== "COMPLETED") && (item.registrationStatus !== "DRAFT" && item.status !== "DRAFT") && (
+                      <button
+                        type="button"
+                        onClick={() => onCompleteTournament(item.id)}
+                        className="text-xs px-2.5 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                        title="Mark Tournament as Completed"
+                      >
+                        <CheckCircle className="w-3 h-3" /> Complete
                       </button>
                     )}
                     {onAnnounce && (
@@ -1254,6 +1265,16 @@ export function TournamentSection({
                   {onCloseTournament && (registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN") && (
                     <button onClick={() => onCloseTournament(targetId)} className="text-xs px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
                       <Lock className="w-3 h-3" /> Close Reg
+                    </button>
+                  )}
+                  {onCompleteTournament && registrationStatus !== "COMPLETED" && registrationStatus !== "DRAFT" && (
+                    <button
+                      type="button"
+                      onClick={() => onCompleteTournament(targetId)}
+                      className="text-xs px-2.5 py-1.5 bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                      title="Mark Tournament as Completed"
+                    >
+                      <CheckCircle className="w-3 h-3" /> Complete
                     </button>
                   )}
                   {onAnnounce && (

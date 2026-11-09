@@ -83,6 +83,7 @@ export function SportsAdmin() {
                 handleDelete={s.handleDelete}
                 handleActivate={s.handleActivate}
                 handleCloseTournament={s.handleCloseTournament}
+                handleCompleteTournament={s.handleCompleteTournament}
                 handleCloseEvent={s.handleCloseEvent}
                 handleStartEventRegistration={s.handleStartEventRegistration}
                 handleStartAllPendingEvents={s.handleStartAllPendingEvents}

@@ -1944,6 +1944,28 @@ export function useSportsAdminState() {
     }
   };
 
+  const handleCompleteTournament = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const name = tourney?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Complete Tournament",
+      text: `Are you sure you want to mark "${name}" as COMPLETED? This tournament and its events will be completely closed and moved to Completed.`,
+      confirmButtonText: "Mark Completed",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#3b82f6",
+      icon: "question",
+    });
+    if (!confirmed) return;
+    try {
+      await sportsService.completeTournament(id);
+      toast.success("Tournament marked as completed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to complete tournament");
+    }
+  };
+
   const handleDelete = async (id: number) => {
     const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
     const events = getTournamentEvents(id);
@@ -3156,7 +3178,7 @@ export function useSportsAdminState() {
     // Tournament data
     activeTournaments, activeEvents,
     draftEvents, liveEvents, completedEvents,
-    handleEdit, handleDelete, handleActivate, handleCloseTournament,
+    handleEdit, handleDelete, handleActivate, handleCloseTournament, handleCompleteTournament,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
     announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
