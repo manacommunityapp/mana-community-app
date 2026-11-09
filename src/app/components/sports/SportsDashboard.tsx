@@ -2806,6 +2806,7 @@ export function SportsDashboard() {
                               if (isConfirmedPartner) {
                                 const primaryFlat = r.flatNumber || (r as any).flatNo || (r as any).user?.flatNo || (r as any).user?.flatNumber;
                                 const cleanPrimaryFlat = primaryFlat ? String(primaryFlat).replace(/^Flat\s+/i, "").trim() : "";
+                                const partnerChildName = r.partnerFamilyMemberName || (r as any).partnerFamilyMember?.name;
                                 return (
                                   <div
                                     key={`partner-${r.id}`}
@@ -2813,7 +2814,16 @@ export function SportsDashboard() {
                                   >
                                     <Users className="w-3 h-3 text-emerald-600 shrink-0" />
                                     <span className="truncate">
-                                      Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
+                                      {partnerChildName ? (
+                                        <>
+                                          <strong className="font-semibold text-emerald-950">{partnerChildName}</strong> playing with{" "}
+                                          <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
+                                        </>
+                                      ) : (
+                                        <>
+                                          Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong>
+                                        </>
+                                      )}
                                       {cleanPrimaryFlat ? <span className="font-medium text-emerald-800"> (Flat {cleanPrimaryFlat})</span> : null}{" "}
                                       (Confirmed Partner)
                                     </span>

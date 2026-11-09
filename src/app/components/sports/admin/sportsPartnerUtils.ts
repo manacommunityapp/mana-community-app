@@ -38,10 +38,10 @@ export function getPartnerDetails(
 ): PlayerPartnerInfo {
   // 1. Direct partner name resolution
   let name = (
+    reg.partnerFamilyMember?.name ||
     reg.partnerName ||
     reg.partner?.fullName ||
     reg.partner?.name ||
-    reg.partnerFamilyMember?.name ||
     (reg as any).partnerPlayerName ||
     (reg as any).partnerUser?.fullName ||
     ""
@@ -51,12 +51,14 @@ export function getPartnerDetails(
     reg.partnerFlatNumber ||
     reg.partner?.flatNo ||
     (reg.partner as any)?.flatNumber ||
+    (reg.partnerFamilyMember?.user as any)?.flatNo ||
     ""
   ).trim();
 
   let phone = (
     reg.partnerPhone ||
     reg.partner?.phone ||
+    (reg.partnerFamilyMember?.user as any)?.phone ||
     ""
   ).trim();
 
@@ -107,12 +109,15 @@ export function getPartnerDetails(
   // 3. Reciprocal lookup: did another registered player name this player as their partner?
   if (!name && allRegistrations.length > 0) {
     const regUserId = reg.user?.id;
+    const regFamId = reg.familyMember?.id != null ? reg.familyMember.id : (reg as any).familyMemberId != null ? Number((reg as any).familyMemberId) : null;
     const regPlayerName = (reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
     const regPhone = (reg.phone || "").replace(/\D/g, "");
 
     const reciprocal = allRegistrations.find((other) => {
       if (other.id === reg.id) return false;
-      if (regUserId != null && other.partnerUserId === regUserId) return true;
+      const otherPartnerFamId = other.partnerFamilyMember?.id != null ? other.partnerFamilyMember.id : (other as any).partnerFamilyMemberId != null ? Number((other as any).partnerFamilyMemberId) : null;
+      if (regFamId != null && otherPartnerFamId != null && regFamId === otherPartnerFamId) return true;
+      if (regUserId != null && other.partnerUserId === regUserId && otherPartnerFamId == null) return true;
       if (
         regPlayerName &&
         other.partnerName &&
