@@ -618,16 +618,7 @@ function RegCard({
                 );
               }
               if (item.action === "Register") {
-                return (
-                  <button
-                    disabled
-                    title="Registration is closed for this event"
-                    className="text-xs px-2.5 py-1 rounded-lg font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75 flex items-center gap-1"
-                  >
-                    <Lock className="w-3 h-3 text-slate-400" />
-                    <span>Closed</span>
-                  </button>
-                );
+                return null;
               }
               return (
                 <button
@@ -2416,6 +2407,8 @@ export function SportsDashboard() {
       const sportName = (item.category?.split(" · ")[0]) || "Sport";
       const emoji = item.sportEmoji || getSportEmoji(sportName);
       const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
+      const isNomOpen = Boolean(item.captainNominationOpen || (item.rawEvent as any)?.captainNominationOpen);
+      const isWithdrawDisabled = isRegClosed || isClosed || (isTeam && !isNomOpen);
       const regs = getMemberRegsForEvent(item);
       const memberReg = regs[0];
       const isReg = regs.length > 0;
@@ -2778,29 +2771,35 @@ export function SportsDashboard() {
                         Appointed
                       </span>
                     ) : isNominated ? (
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            if (teamReg?.id) {
-                              await sportsService.nominateCaptain(teamReg.id, false).catch(() => {});
+                      isNomOpen && !isRegClosed && !isClosed ? (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              if (teamReg?.id) {
+                                await sportsService.nominateCaptain(teamReg.id, false).catch(() => {});
+                              }
+                              if (targetEventId) {
+                                await auctionService.nominateCaptain(targetEventId, false).catch(() => {});
+                              }
+                              toast.success("Nomination withdrawn");
+                              fetchData();
+                            } catch {
+                              toast.error("Failed to withdraw nomination");
                             }
-                            if (targetEventId) {
-                              await auctionService.nominateCaptain(targetEventId, false).catch(() => {});
-                            }
-                            toast.success("Nomination withdrawn");
-                            fetchData();
-                          } catch {
-                            toast.error("Failed to withdraw nomination");
-                          }
-                        }}
-                        className="text-[9px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-800 hover:bg-orange-200 border border-orange-200 transition-colors cursor-pointer"
-                        title="Withdraw your captaincy nomination"
-                      >
-                        Withdraw
-                      </button>
-                    ) : isNomOpen ? (
+                          }}
+                          className="text-[9px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-800 hover:bg-orange-200 border border-orange-200 transition-colors cursor-pointer"
+                          title="Withdraw your captaincy nomination"
+                        >
+                          Withdraw
+                        </button>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">
+                          Nominated
+                        </span>
+                      )
+                    ) : isNomOpen && !isRegClosed && !isClosed ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -2887,7 +2886,7 @@ export function SportsDashboard() {
                                 Partner
                               </span>
                             )}
-                            {(!isRegClosed || isSportsAdminUser) && (
+                            {!isWithdrawDisabled && (
                               <button
                                 type="button"
                                 onClick={() => handleUnregisterCategory(item, Number(r.id))}
@@ -2926,7 +2925,7 @@ export function SportsDashboard() {
                                 <span>Registration Closed</span>
                               </span>
                             )}
-                            {(!isRegClosed || isSportsAdminUser) && (
+                            {!isWithdrawDisabled && (
                               <button
                                 type="button"
                                 onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
@@ -2972,7 +2971,7 @@ export function SportsDashboard() {
                             Partner
                           </span>
                         )}
-                        {(!isRegClosed || isSportsAdminUser) && (
+                        {!isWithdrawDisabled && (
                           <button
                             type="button"
                             onClick={() => handleUnregisterCategory(item, Number(r.id))}
@@ -3053,15 +3052,17 @@ export function SportsDashboard() {
                   </button>
                   {unregFormats.filter(f => !inviteRawFmt.includes(f)).length > 0 && (
                     isRegClosed ? (
-                      <button
-                        type="button"
-                        disabled
-                        title="Registration is closed for this event"
-                        className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 flex items-center gap-1"
-                      >
-                        <Lock className="w-2.5 h-2.5 text-slate-400" />
-                        <span>Closed</span>
-                      </button>
+                      !isClosed ? (
+                        <button
+                          type="button"
+                          disabled
+                          title="Registration is closed for this event"
+                          className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 flex items-center gap-1"
+                        >
+                          <Lock className="w-2.5 h-2.5 text-slate-400" />
+                          <span>Closed</span>
+                        </button>
+                      ) : null
                     ) : (
                       <button
                         type="button"
@@ -3087,7 +3088,7 @@ export function SportsDashboard() {
                       </span>
                     </div>
                   ) : null
-                ) : (
+                ) : isClosed ? null : (
                   <button
                     type="button"
                     disabled
@@ -3742,53 +3743,75 @@ export function SportsDashboard() {
                         onShowInfo={(infoEv) => setActiveInfoEvent(infoEv)}
                         onClick={() => setActiveInfoEvent(ev)}
                       />
-                      {isConfirmed && isTeamReg && !ev.isScheduledMatch && (
-                        <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-b-lg border-x border-b -mt-1 bg-indigo-50/25 border-indigo-100/80"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
-                            <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
-                              {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
-                            </span>
+                      {isConfirmed && isTeamReg && !ev.isScheduledMatch && (() => {
+                        const isCapNomOpen = Boolean(ev.captainNominationOpen || (ev as any)?.rawEvent?.captainNominationOpen);
+                        const checkClosed = (st?: string | null) => {
+                          if (!st) return false;
+                          const s = String(st).toUpperCase().trim();
+                          return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                        };
+                        const isEvClosed = checkClosed(ev.status) || checkClosed((ev as any)?.rawEvent?.status);
+                        const isNomAllowed = isCapNomOpen && !isEvClosed;
+
+                        return (
+                          <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-b-lg border-x border-b -mt-1 bg-indigo-50/25 border-indigo-100/80">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
+                              <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
+                                {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : isNomAllowed ? 'Not Nominated' : 'Nominations Closed'}
+                              </span>
+                            </div>
+                            {myReg?.captainConfirmation ? (
+                              <span className="text-xs px-2 py-0.5 rounded border bg-emerald-50 text-emerald-600 border-emerald-200 font-semibold cursor-default">
+                                Confirmed
+                              </span>
+                            ) : isNominated ? (
+                              isNomAllowed ? (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await auctionService.nominateCaptain(ev.id, false);
+                                      toast.success("Nomination withdrawn");
+                                      fetchData();
+                                    } catch {
+                                      toast.error("Failed to update nomination");
+                                    }
+                                  }}
+                                  className="text-xs px-2 py-0.5 rounded border bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer font-medium"
+                                  title="Withdraw Captaincy Nomination"
+                                >
+                                  Withdraw Nomination
+                                </button>
+                              ) : (
+                                <span className="text-xs px-2 py-0.5 rounded border bg-orange-50 text-[#f97316] border-orange-200 font-semibold cursor-default">
+                                  Nominated
+                                </span>
+                              )
+                            ) : isNomAllowed ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNominatingRegId(myReg?.id ?? null);
+                                  setSelectedCaptainEventId(ev.id);
+                                  setNominateTeamName(myReg?.proposedTeamName || myReg?.teamName || "");
+                                  setIsAdminNomination(false);
+                                  setIsNominateModalOpen(true);
+                                }}
+                                className="text-xs px-2 py-0.5 rounded border bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer font-medium"
+                              >
+                                {isSelfNomination ? 'Nominate Me as Captain' : `Nominate ${regPersonName} as Captain`}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-medium italic">
+                                Closed
+                              </span>
+                            )}
                           </div>
-                          <button
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (myReg?.captainConfirmation) return;
-                              if (isNominated) {
-                                try {
-                                  await auctionService.nominateCaptain(ev.id, false);
-                                  toast.success("Nomination withdrawn");
-                                  fetchData();
-                                } catch {
-                                  toast.error("Failed to update nomination");
-                                }
-                              } else {
-                                setNominatingRegId(myReg?.id ?? null);
-                                setSelectedCaptainEventId(ev.id);
-                                setNominateTeamName(myReg?.proposedTeamName || myReg?.teamName || "");
-                                setIsAdminNomination(false);
-                                setIsNominateModalOpen(true);
-                              }
-                            }}
-                            disabled={myReg?.captainConfirmation}
-                            className={`text-xs px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
-                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
-                              : isNominated
-                                ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
-                                : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
-                              }`}
-                          >
-                            {myReg?.captainConfirmation
-                              ? 'Confirmed'
-                              : isNominated
-                                ? 'Withdraw Nomination'
-                                : isSelfNomination
-                                  ? 'Nominate Me as Captain'
-                                  : `Nominate ${regPersonName} as Captain`}
-                          </button>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -4022,13 +4045,25 @@ export function SportsDashboard() {
                         || openRegs.find(e => Number(e.id) === targetEventId)
                         || closedRegs.find(e => Number(e.id) === targetEventId);
 
+                      const checkClosed = (st?: string | null) => {
+                        if (!st) return false;
+                        const s = String(st).toUpperCase().trim();
+                        return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                      };
+                      const isEventClosed = checkClosed(matchingTeamEvent?.status)
+                        || checkClosed((matchingTeamEvent?.rawEvent as any)?.registrationStatus)
+                        || checkClosed((matchingTeamEvent?.rawEvent as any)?.status)
+                        || checkClosed(reg.event?.registrationStatus)
+                        || checkClosed(reg.event?.status)
+                        || checkClosed(reg.eventRegistrationStatus);
+
                       const isCaptainNominationOpen = Boolean(
                         matchingTeamEvent?.captainNominationOpen ||
                         (matchingTeamEvent?.rawEvent as any)?.captainNominationOpen ||
                         reg.event?.captainNominationOpen ||
                         (reg.event as any)?.rawEvent?.captainNominationOpen ||
                         (reg as any).captainNominationOpen
-                      );
+                      ) && !isEventClosed;
 
                       const rawDate = reg.event?.eventDateStart || reg.eventDateStart;
                       const formattedDate = rawDate && !isNaN(new Date(rawDate).getTime())
@@ -4057,12 +4092,22 @@ export function SportsDashboard() {
                             progress: isCaptainConfirmed ? 100 : (isNominated ? 50 : 0),
                             progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
                             dotColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
-                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed") as any,
+                            action: (isCaptainConfirmed
+                              ? "Confirmed"
+                              : isNominated
+                                ? (isCaptainNominationOpen ? "Withdraw" : "Nominated")
+                                : isCaptainNominationOpen
+                                  ? actionLabel
+                                  : "Nominations Closed") as any,
                             status: reg.event?.registrationStatus || reg.eventRegistrationStatus,
                           }}
                           onView={async () => {
                             if (isCaptainConfirmed) return;
                             if (isNominated) {
+                              if (!isCaptainNominationOpen) {
+                                toast.error("Captain nominations are closed for this event");
+                                return;
+                              }
                               try {
                                 if (reg.id) {
                                   await sportsService.nominateCaptain(reg.id, false).catch(() => {});
