@@ -1532,6 +1532,149 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       // Open registrations must show 2 divs
       expect(getCategoryGridClass(false)).toContain("grid-cols-1 sm:grid-cols-2");
     });
+
+    it("verifies captaincy nomination state resolution and button action mapping", () => {
+      interface RegItem {
+        id: number;
+        playerName?: string;
+        event?: {
+          id: number;
+          name: string;
+          captainNominationOpen?: boolean;
+          registrationStatus?: string;
+        };
+        nominatedTeamId?: number | null;
+        captainConfirmed?: boolean;
+      }
+
+      const computeCaptainItem = (
+        reg: RegItem,
+        isSelf: boolean,
+        adminTeamEvents: Array<{ id: number; captainNominationOpen?: boolean }>
+      ) => {
+        const targetEventId = reg.event?.id || 0;
+        const matchingTeamEvent = adminTeamEvents.find(e => e.id === targetEventId);
+        const isCaptainNominationOpen = Boolean(
+          matchingTeamEvent?.captainNominationOpen ||
+          reg.event?.captainNominationOpen
+        );
+        const isNominated = Boolean(reg.nominatedTeamId);
+        const isCaptainConfirmed = Boolean(reg.captainConfirmed);
+        const regPersonName = reg.playerName || (isSelf ? "You" : "Member");
+        const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
+
+        return {
+          isCaptainNominationOpen,
+          spots: isCaptainConfirmed
+            ? "Confirmed Captain 🏆"
+            : isNominated
+              ? "Nomination Active"
+              : isCaptainNominationOpen
+                ? "Available for Captaincy"
+                : "Nominations Closed",
+          progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+          action: isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed",
+        };
+      };
+
+      // Case 1: Captain nominations open - Self
+      const openRegSelf = {
+        id: 1,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenSelf = computeCaptainItem(openRegSelf, true, []);
+      expect(resultOpenSelf.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenSelf.action).toBe("Nominate Me");
+      expect(resultOpenSelf.spots).toBe("Available for Captaincy");
+      expect(resultOpenSelf.progressColor).toBe("#6366f1");
+
+      // Case 2: Captain nominations open - Family Member
+      const openRegFamily = {
+        id: 2,
+        playerName: "Aarav Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenFamily = computeCaptainItem(openRegFamily, false, []);
+      expect(resultOpenFamily.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenFamily.action).toBe("Nominate Aarav Kamarapu");
+
+      // Case 3: Captain nominations CLOSED
+      const closedReg = {
+        id: 3,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 11, name: "Football League", captainNominationOpen: false },
+      };
+      const resultClosed = computeCaptainItem(closedReg, true, []);
+      expect(resultClosed.isCaptainNominationOpen).toBe(false);
+      expect(resultClosed.action).toBe("Nominations Closed");
+      expect(resultClosed.spots).toBe("Nominations Closed");
+      expect(resultClosed.progressColor).toBe("#94a3b8");
+
+      // Case 4: Event found in adminTeamEvents with captainNominationOpen true
+      const eventWithAdminFallback = {
+        id: 4,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 12, name: "Volleyball Tournament" },
+      };
+      const resultAdmin = computeCaptainItem(eventWithAdminFallback, true, [{ id: 12, captainNominationOpen: true }]);
+      expect(resultAdmin.isCaptainNominationOpen).toBe(true);
+      expect(resultAdmin.action).toBe("Nominate Me");
+
+      // Case 5: Already nominated
+      const alreadyNominatedReg = {
+        id: 5,
+        playerName: "Sandeep Kamarapu",
+        nominatedTeamId: 99,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultNominated = computeCaptainItem(alreadyNominatedReg, true, []);
+      expect(resultNominated.action).toBe("Withdraw");
+      expect(resultNominated.spots).toBe("Nomination Active");
+
+      // Case 6: Confirmed Captain
+      const confirmedCaptainReg = {
+        id: 6,
+        playerName: "Sandeep Kamarapu",
+        captainConfirmed: true,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultConfirmed = computeCaptainItem(confirmedCaptainReg, true, []);
+      expect(resultConfirmed.action).toBe("Confirmed");
+      expect(resultConfirmed.spots).toBe("Confirmed Captain 🏆");
+    });
+
+    it("verifies RegCard button styling matches Register button when nominating", () => {
+      const getActionElementConfig = (action: string, isClosed: boolean, isAdmin: boolean) => {
+        if (action === "Nominations Closed") {
+          return { type: "badge", text: "Nominations Closed", icon: "Lock" };
+        }
+        if (String(action).startsWith("Nominate")) {
+          return {
+            type: "button",
+            className: "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-2xs active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer",
+            icon: "ArrowUpRight",
+          };
+        }
+        if (isClosed && !isAdmin) {
+          return { type: "badge", text: "Registration Closed" };
+        }
+        return { type: "button", className: "default" };
+      };
+
+      // Even if event is closed, Nominate button must render gradient styling and not be blocked by isClosed
+      const nominateStyle = getActionElementConfig("Nominate Me", true, false);
+      expect(nominateStyle.type).toBe("button");
+      expect(nominateStyle.className).toContain("bg-gradient-to-r from-indigo-600 to-violet-600");
+      expect(nominateStyle.className).toContain("text-white");
+      expect(nominateStyle.icon).toBe("ArrowUpRight");
+
+      // When nominations are closed, must render lock badge
+      const closedStyle = getActionElementConfig("Nominations Closed", true, false);
+      expect(closedStyle.type).toBe("badge");
+      expect(closedStyle.text).toBe("Nominations Closed");
+      expect(closedStyle.icon).toBe("Lock");
+    });
   });
 });
 

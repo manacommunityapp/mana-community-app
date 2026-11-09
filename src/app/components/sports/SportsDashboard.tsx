@@ -541,6 +541,31 @@ function RegCard({
               (item.rawEvent as any)?.myRegistrationId
             );
 
+            if (item.action === "Nominations Closed") {
+              return (
+                <span
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 flex items-center gap-1 cursor-default opacity-85"
+                  title="Captain nominations are closed for this event"
+                >
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span>Nominations Closed</span>
+                </span>
+              );
+            }
+
+            if (String(item.action).startsWith("Nominate")) {
+              return (
+                <button
+                  type="button"
+                  onClick={() => onView(item)}
+                  className="text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-2xs active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <span>{item.action}</span>
+                  <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />
+                </button>
+              );
+            }
+
             if (isClosed && !isAdmin) {
               if (isRegistered) {
                 return (
@@ -3866,6 +3891,20 @@ export function SportsDashboard() {
                       const regPersonName = reg.playerName || (isSelf ? (user?.fullName || "You") : "Member");
                       const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
 
+                      const matchingTeamEvent = adminTeamEvents.find(e => Number(e.id) === targetEventId)
+                        || openTournaments.flatMap(t => t.mappedEvents || []).find(e => Number(e.id) === targetEventId)
+                        || closedTournaments.flatMap(t => t.mappedEvents || []).find(e => Number(e.id) === targetEventId)
+                        || openRegs.find(e => Number(e.id) === targetEventId)
+                        || closedRegs.find(e => Number(e.id) === targetEventId);
+
+                      const isCaptainNominationOpen = Boolean(
+                        matchingTeamEvent?.captainNominationOpen ||
+                        (matchingTeamEvent?.rawEvent as any)?.captainNominationOpen ||
+                        reg.event?.captainNominationOpen ||
+                        (reg.event as any)?.rawEvent?.captainNominationOpen ||
+                        (reg as any).captainNominationOpen
+                      );
+
                       const rawDate = reg.event?.eventDateStart || reg.eventDateStart;
                       const formattedDate = rawDate && !isNaN(new Date(rawDate).getTime())
                         ? new Date(rawDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
@@ -3887,11 +3926,13 @@ export function SportsDashboard() {
                               ? "Confirmed Captain 🏆"
                               : isNominated
                                 ? (teamDisplay ? `Nominated: "${teamDisplay}"` : "Nomination Active")
-                                : "Available for Captaincy",
+                                : isCaptainNominationOpen
+                                  ? "Available for Captaincy"
+                                  : "Nominations Closed",
                             progress: isCaptainConfirmed ? 100 : (isNominated ? 50 : 0),
-                            progressColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                            dotColor: isCaptainConfirmed ? "#10b981" : "#f97316",
-                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : actionLabel) as any,
+                            progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+                            dotColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+                            action: (isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : isCaptainNominationOpen ? actionLabel : "Nominations Closed") as any,
                             status: reg.event?.registrationStatus || reg.eventRegistrationStatus,
                           }}
                           onView={async () => {
@@ -3910,6 +3951,10 @@ export function SportsDashboard() {
                                 toast.error("Failed to withdraw nomination");
                               }
                             } else {
+                              if (!isCaptainNominationOpen) {
+                                toast.error("Captain nominations are currently closed for this event");
+                                return;
+                              }
                               setNominatingRegId(reg.id);
                               setSelectedCaptainEventId(targetEventId);
                               setSelectedCaptainEvent(reg.event || { id: targetEventId, name: reg.eventName || reg.event?.name });
