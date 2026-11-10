@@ -129,10 +129,10 @@ export function LeaveManagement() {
     setActionLoading(true);
     try {
       if (actionDialog.action === "approve") {
-        await hrmService.approveLeave(actionDialog.id, remarks);
+        await hrmService.approveLeave(actionDialog.id, orgId, remarks);
         showSuccess("Leave approved");
       } else {
-        await hrmService.rejectLeave(actionDialog.id, remarks);
+        await hrmService.rejectLeave(actionDialog.id, orgId, remarks);
         showSuccess("Leave rejected");
       }
       setActionDialog(null);

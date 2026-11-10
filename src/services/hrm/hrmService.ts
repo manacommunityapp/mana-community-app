@@ -106,14 +106,16 @@ export const hrmService = {
   },
 
   // ── Leaves ──
-  async applyLeave(data: ApplyLeaveRequest): Promise<LeaveRequest> {
-    return apiClient.post(`${BASE}/leaves/apply`, data);
+  async applyLeave(orgId: number, data: ApplyLeaveRequest): Promise<LeaveRequest> {
+    return apiClient.post(`${BASE}/leaves/apply?orgId=${orgId}`, data);
   },
-  async getLeaveBalance(): Promise<LeaveBalance[]> {
-    return apiClient.get(`${BASE}/leaves/balance`);
+  async getLeaveBalance(orgId: number, year?: number): Promise<LeaveBalance[]> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
+    if (year !== undefined) sp.set("year", String(year));
+    return apiClient.get(`${BASE}/leaves/balance?${sp}`);
   },
-  async getMyLeaveRequests(params?: { page?: number; size?: number }): Promise<PageResponse<LeaveRequest>> {
-    const sp = new URLSearchParams();
+  async getMyLeaveRequests(orgId: number, params?: { page?: number; size?: number }): Promise<PageResponse<LeaveRequest>> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
     if (params?.page !== undefined) sp.set("page", String(params.page));
     if (params?.size !== undefined) sp.set("size", String(params.size));
     return apiClient.get(`${BASE}/leaves/my-requests?${sp}`);
@@ -125,14 +127,14 @@ export const hrmService = {
     if (params?.size !== undefined) sp.set("size", String(params.size));
     return apiClient.get(`${BASE}/leaves/organizations/${orgId}/requests?${sp}`);
   },
-  async approveLeave(id: number, remarks?: string): Promise<LeaveRequest> {
-    return apiClient.post(`${BASE}/leaves/${id}/approve`, { approverRemarks: remarks });
+  async approveLeave(id: number, orgId: number, remarks?: string): Promise<LeaveRequest> {
+    return apiClient.post(`${BASE}/leaves/${id}/approve?orgId=${orgId}`, { approverRemarks: remarks });
   },
-  async rejectLeave(id: number, remarks?: string): Promise<LeaveRequest> {
-    return apiClient.post(`${BASE}/leaves/${id}/reject`, { approverRemarks: remarks });
+  async rejectLeave(id: number, orgId: number, remarks?: string): Promise<LeaveRequest> {
+    return apiClient.post(`${BASE}/leaves/${id}/reject?orgId=${orgId}`, { approverRemarks: remarks });
   },
-  async cancelLeave(id: number): Promise<void> {
-    return apiClient.post(`${BASE}/leaves/${id}/cancel`);
+  async cancelLeave(id: number, orgId: number): Promise<void> {
+    return apiClient.post(`${BASE}/leaves/${id}/cancel?orgId=${orgId}`);
   },
 
   // ── Leave Types ──

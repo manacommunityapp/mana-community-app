@@ -99,8 +99,8 @@ export function EmployeeProfile() {
       // Note: getLeaveBalance and getMyLeaveRequests return the logged-in user's data.
       // For viewing another employee's leave, HR managers need a dedicated endpoint (future).
       const [balances, requests] = await Promise.all([
-        hrmService.getLeaveBalance(),
-        hrmService.getMyLeaveRequests({ page: 0, size: 10 }),
+        hrmService.getLeaveBalance(orgId!),
+        hrmService.getMyLeaveRequests(orgId!, { page: 0, size: 10 }),
       ]);
       setLeaveBalances(balances);
       setLeaveRequests(requests.content);
