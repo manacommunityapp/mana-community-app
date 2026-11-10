@@ -732,3 +732,77 @@ export interface HelpDeskTicket {
   resolvedAt?: string;
   createdAt: string;
 }
+
+// ── Security & Compliance ──
+export interface HrmRole {
+  id: number;
+  employeeId: number;
+  employeeName?: string;
+  role: 'HR_ADMIN' | 'HR_MANAGER' | 'MANAGER' | 'EMPLOYEE';
+  grantedBy?: number;
+  isActive: boolean;
+  grantedAt: string;
+}
+
+export interface HrAuditLog {
+  id: number;
+  organizationId: number;
+  actorUserId: number;
+  actorName?: string;
+  action: string;
+  entityType: string;
+  entityId?: number;
+  entityDescription?: string;
+  beforeSnapshot?: string;
+  afterSnapshot?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface HrComplianceAlert {
+  id: number;
+  organizationId: number;
+  employee?: { id: number; fullName: string };
+  alertType: 'PROBATION_ENDING' | 'CONTRACT_EXPIRY' | 'DOCUMENT_EXPIRY' | 'VISA_EXPIRY' | 'BIRTHDAY' | 'WORK_ANNIVERSARY';
+  title: string;
+  description?: string;
+  dueDate: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
+  acknowledgedAt?: string;
+  createdAt: string;
+}
+
+export interface HrAnalyticsDashboard {
+  totalEmployees: number;
+  activeEmployees: number;
+  newHiresThisMonth: number;
+  attritionThisMonth: number;
+  attritionRate: number;
+  avgTenureMonths: number;
+  departmentBreakdown: { department: string; count: number }[];
+  genderRatio: { male: number; female: number; other: number };
+}
+
+export interface HrTrendPoint {
+  label: string;
+  value: number;
+}
+
+export interface HrWorkforceMetrics {
+  attendanceRatePercent: number;
+  leaveUtilizationPercent: number;
+  avgOvertimeHoursPerMonth: number;
+  absenteeismIndex: number;
+  departmentAttendance: { department: string; rate: number }[];
+}
+
+export interface HrReportConfig {
+  id: number;
+  name: string;
+  reportType: string;
+  filtersJson?: string;
+  columnsJson?: string;
+  createdBy: number;
+  createdAt: string;
+}

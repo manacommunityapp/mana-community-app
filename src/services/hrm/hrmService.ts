@@ -56,6 +56,13 @@ import type {
   HrTask,
   HrAnnouncement,
   HelpDeskTicket,
+  HrmRole,
+  HrAuditLog,
+  HrComplianceAlert,
+  HrAnalyticsDashboard,
+  HrTrendPoint,
+  HrWorkforceMetrics,
+  HrReportConfig,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -563,5 +570,73 @@ export const hrmService = {
   },
   async getOpenTickets(orgId: number, page = 0, size = 20): Promise<PageResponse<HelpDeskTicket>> {
     return apiClient.get(`${BASE}/operations/organizations/${orgId}/tickets/open?page=${page}&size=${size}`);
+  },
+
+  // ── RBAC ──
+  async getRoleAssignments(orgId: number): Promise<HrmRole[]> {
+    return apiClient.get(`${BASE}/rbac/${orgId}/roles`);
+  },
+  async grantRole(orgId: number, data: { employeeId: number; role: string }): Promise<HrmRole> {
+    return apiClient.post(`${BASE}/rbac/${orgId}/roles`, data);
+  },
+  async revokeRole(orgId: number, roleId: number): Promise<void> {
+    return apiClient.delete(`${BASE}/rbac/${orgId}/roles/${roleId}`);
+  },
+
+  // ── Audit ──
+  async getAuditLogs(orgId: number, params?: { page?: number; size?: number; entityType?: string }): Promise<PageResponse<HrAuditLog>> {
+    const query = new URLSearchParams();
+    if (params?.page !== undefined) query.set("page", String(params.page));
+    if (params?.size !== undefined) query.set("size", String(params.size));
+    if (params?.entityType) query.set("entityType", params.entityType);
+    return apiClient.get(`${BASE}/audit/${orgId}/logs?${query}`);
+  },
+
+  // ── Compliance ──
+  async getComplianceAlerts(orgId: number): Promise<HrComplianceAlert[]> {
+    return apiClient.get(`${BASE}/compliance/${orgId}/alerts`);
+  },
+  async generateComplianceAlerts(orgId: number): Promise<{ generated: number }> {
+    return apiClient.post(`${BASE}/compliance/${orgId}/alerts/generate`);
+  },
+  async acknowledgeAlert(orgId: number, alertId: number): Promise<HrComplianceAlert> {
+    return apiClient.put(`${BASE}/compliance/${orgId}/alerts/${alertId}/acknowledge`);
+  },
+  async resolveAlert(orgId: number, alertId: number): Promise<HrComplianceAlert> {
+    return apiClient.put(`${BASE}/compliance/${orgId}/alerts/${alertId}/resolve`);
+  },
+  async dismissAlert(orgId: number, alertId: number): Promise<HrComplianceAlert> {
+    return apiClient.put(`${BASE}/compliance/${orgId}/alerts/${alertId}/dismiss`);
+  },
+
+  // ── Analytics ──
+  async getHrAnalyticsDashboard(orgId: number): Promise<HrAnalyticsDashboard> {
+    return apiClient.get(`${BASE}/analytics/${orgId}/dashboard`);
+  },
+  async getAttritionTrend(orgId: number, months = 12): Promise<HrTrendPoint[]> {
+    return apiClient.get(`${BASE}/analytics/${orgId}/attrition-trend?months=${months}`);
+  },
+  async getHeadcountTrend(orgId: number, months = 12): Promise<HrTrendPoint[]> {
+    return apiClient.get(`${BASE}/analytics/${orgId}/headcount-trend?months=${months}`);
+  },
+  async getDepartmentBreakdown(orgId: number): Promise<{ department: string; count: number }[]> {
+    return apiClient.get(`${BASE}/analytics/${orgId}/department-breakdown`);
+  },
+  async getWorkforceMetrics(orgId: number): Promise<HrWorkforceMetrics> {
+    return apiClient.get(`${BASE}/analytics/${orgId}/workforce-metrics`);
+  },
+
+  // ── Reports ──
+  async getReportConfigs(orgId: number): Promise<HrReportConfig[]> {
+    return apiClient.get(`${BASE}/reports/${orgId}/configs`);
+  },
+  async saveReportConfig(orgId: number, data: Partial<HrReportConfig>): Promise<HrReportConfig> {
+    return apiClient.post(`${BASE}/reports/${orgId}/configs`, data);
+  },
+  async deleteReportConfig(orgId: number, configId: number): Promise<void> {
+    return apiClient.delete(`${BASE}/reports/${orgId}/configs/${configId}`);
+  },
+  async exportReport(orgId: number, reportType: string): Promise<Blob> {
+    return apiClient.get(`${BASE}/reports/${orgId}/export?reportType=${reportType}`, { responseType: "blob" });
   },
 };

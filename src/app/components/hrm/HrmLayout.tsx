@@ -18,6 +18,11 @@ import {
   Package,
   CheckSquare,
   HelpCircle,
+  BarChart3,
+  AlertTriangle,
+  ScrollText,
+  Shield,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -35,6 +40,11 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/assets",       icon: Package,         label: "Assets" },
   { to: "/hrm/tasks",        icon: CheckSquare,     label: "Tasks" },
   { to: "/hrm/helpdesk",     icon: HelpCircle,      label: "Help Desk" },
+  { to: "/hrm/analytics",   icon: BarChart3,       label: "Analytics" },
+  { to: "/hrm/compliance",  icon: AlertTriangle,   label: "Compliance" },
+  { to: "/hrm/audit",       icon: ScrollText,      label: "Audit Trail" },
+  { to: "/hrm/roles",       icon: Shield,          label: "Roles" },
+  { to: "/hrm/reports",     icon: FileBarChart,    label: "Reports" },
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 
