@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer } from 'lucide-react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -19,6 +19,12 @@ import { ScheduleSaveFooter } from './ScheduleSaveFooter';
 import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
 import { FixturesListView } from './FixturesListView';
 import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
+import {
+  type DoublesTeamPair,
+  partitionDoublesRegistrations,
+  pairOpenPoolPlayers,
+  getRegistrationPlayerName,
+} from './doublesPairingUtils';
 import {
   exportScheduleToCSV,
   exportScheduleToExcel,
@@ -408,6 +414,39 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string }>>([]);
   const [confirmedRegistrations, setConfirmedRegistrations] = useState<EventRegistration[]>([]);
   const [allPlayersConfirmed, setAllPlayersConfirmed] = useState(true);
+  const [openPoolPairs, setOpenPoolPairs] = useState<DoublesTeamPair[]>([]);
+  const [unpairedPoolPlayers, setUnpairedPoolPlayers] = useState<EventRegistration[]>([]);
+  const [savingPairsToDb, setSavingPairsToDb] = useState(false);
+
+  const selectedEventObj = useMemo(() => {
+    return events.find(e => e.id.toString() === selectedEvent);
+  }, [events, selectedEvent]);
+
+  const isDoublesEvent = useMemo(() => {
+    if (!selectedEventObj) return false;
+    const rawFmt = selectedEventObj.formats || selectedEventObj.format;
+    const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+    return (
+      fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+      Boolean(selectedEventObj.minPlayers === 2 && selectedEventObj.maxPlayers === 2) ||
+      Boolean(selectedEventObj.name && selectedEventObj.name.toLowerCase().includes('doubles'))
+    );
+  }, [selectedEventObj]);
+
+  const isMixedDoublesEvent = useMemo(() => {
+    if (!selectedEventObj) return false;
+    const rawFmt = selectedEventObj.formats || selectedEventObj.format;
+    const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+    return (
+      fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+      Boolean(selectedEventObj.name && selectedEventObj.name.toLowerCase().includes('mixed'))
+    );
+  }, [selectedEventObj]);
+
+  const fixedDoublesPairs = useMemo(() => {
+    if (!isDoublesEvent || !selectedEventObj) return [];
+    return partitionDoublesRegistrations(confirmedRegistrations, selectedEventObj).fixedPairs;
+  }, [isDoublesEvent, selectedEventObj, confirmedRegistrations]);
 
   // Match Editing State
   const [matchOverrides, setMatchOverrides] = useState<Record<string, any>>({});
@@ -821,7 +860,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       );
       setConfirmedRegistrations(confirmed);
 
-      // If format is doubles and reciprocal registrations exist, adjust participants count to unique pairs
+      // If format is doubles, partition into fixed pairs and open pool, and auto-pair open pool
       const rawFmt = ev?.formats || ev?.format;
       const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
       const isEvDoubles = fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
@@ -829,27 +868,25 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         Boolean(ev?.name && ev.name.toLowerCase().includes('doubles'));
 
       if (isEvDoubles && confirmed.length > 0) {
-        const processed = new Set<number>();
-        let pairCount = 0;
-        for (const r of confirmed) {
-          if (processed.has(r.id)) continue;
-          processed.add(r.id);
-          if (r.partnerUserId != null) {
-            const reciprocal = confirmed.find(
-              o => o.id !== r.id &&
-                ((o.user?.id != null && o.user.id === r.partnerUserId) || o.id === r.partnerUserId) &&
-                (o.partnerUserId === r.user?.id || o.partnerUserId === r.id)
-            );
-            if (reciprocal) processed.add(reciprocal.id);
-          }
-          pairCount++;
+        const isMixed = fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+          Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+        const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmed, ev);
+        const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed });
+        setOpenPoolPairs(pairedTeams);
+        setUnpairedPoolPlayers(unpairedPlayers);
+
+        const totalTeams = fixedPairs.length + pairedTeams.length;
+        if (totalTeams > 0) {
+          setParticipants(String(totalTeams));
         }
-        if (pairCount > 0) {
-          setParticipants(String(pairCount));
-        }
+      } else {
+        setOpenPoolPairs([]);
+        setUnpairedPoolPlayers([]);
       }
     } else {
       setConfirmedRegistrations([]);
+      setOpenPoolPairs([]);
+      setUnpairedPoolPlayers([]);
     }
 
     // Associate existing tournament config if one already exists for this event
@@ -858,6 +895,71 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setCurrentConfigId(existingConfig.id);
     } else {
       setCurrentConfigId(null);
+    }
+  };
+
+  const handleReshuffleOpenPool = () => {
+    if (!selectedEventObj || confirmedRegistrations.length === 0) return;
+    const { openPool, fixedPairs } = partitionDoublesRegistrations(confirmedRegistrations, selectedEventObj);
+    const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, {
+      isMixedDoubles: isMixedDoublesEvent,
+    });
+    setOpenPoolPairs(pairedTeams);
+    setUnpairedPoolPlayers(unpairedPlayers);
+
+    const totalTeams = fixedPairs.length + pairedTeams.length;
+    setParticipants(String(totalTeams));
+
+    const allDoublesTeams = [...fixedPairs, ...pairedTeams];
+    const newParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+    for (let i = 0; i < totalTeams; i++) {
+      const team = allDoublesTeams[i];
+      newParts.push({
+        id: `P${i + 1}`,
+        name: team.name,
+        flatNumber: team.flatNumber,
+        rating: team.rating,
+      });
+    }
+    setAllParticipantOptions(newParts);
+
+    if (generatedGroups.length > 0) {
+      setGeneratedGroups(prev =>
+        prev.map((g, gIdx) => ({
+          ...g,
+          participants: newParts.filter((_, idx) => idx % prev.length === gIdx),
+        }))
+      );
+    }
+
+    showSuccess(`Randomly paired ${openPool.length} open pool players into ${pairedTeams.length} doubles team(s)!`);
+  };
+
+  const handleSavePairsToEvent = async () => {
+    if (openPoolPairs.length === 0) return;
+    setSavingPairsToDb(true);
+    let successCount = 0;
+    try {
+      for (const pair of openPoolPairs) {
+        if (pair.player1?.id && pair.player2?.user?.id) {
+          try {
+            await sportsService.nominatePartner(
+              pair.player1.id,
+              pair.player2.user.id,
+              null,
+              true
+            );
+            successCount++;
+          } catch (e) {
+            console.warn(`Could not nominate partner for reg ${pair.player1.id}:`, e);
+          }
+        }
+      }
+      showSuccess(`Successfully synced ${successCount} auto-paired team(s) to tournament registrations!`);
+    } catch (err: any) {
+      showError('Failed to save some partner pairs: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingPairsToDb(false);
     }
   };
 
@@ -1022,8 +1124,36 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const fmt = ev ? formatParticipantFormat(ev) : '';
     const isDoubles = fmt.toLowerCase().includes('doubles') || Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2);
 
-    // If doubles, deduplicate reciprocal pairs (when Player A registered with B, and B registered with A)
-    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, isDoubles);
+    if (isDoubles) {
+      const isMixed = fmt.toLowerCase().includes('mixed') || Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+      const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmedRegistrations, ev);
+      const activeOpenPairs = openPoolPairs.length > 0
+        ? openPoolPairs
+        : pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed }).pairedTeams;
+      const allDoublesTeams = [...fixedPairs, ...activeOpenPairs];
+
+      for (let i = 0; i < count; i++) {
+        if (customLines[i]) {
+          allParts.push({
+            id: `P${i + 1}`,
+            name: customLines[i],
+          });
+        } else if (i < allDoublesTeams.length) {
+          const team = allDoublesTeams[i];
+          allParts.push({
+            id: `P${i + 1}`,
+            name: team.name,
+            flatNumber: team.flatNumber,
+            rating: team.rating ?? null,
+          });
+        } else {
+          allParts.push({ id: `P${i + 1}`, name: `Team ${i + 1}` });
+        }
+      }
+      return allParts;
+    }
+
+    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, false);
 
     for (let i = 0; i < count; i++) {
       if (customLines[i]) {
@@ -1033,8 +1163,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         });
       } else if (i < effectiveRegistrations.length) {
         const reg = effectiveRegistrations[i];
-        const partnerInfo = isDoubles ? getPartnerDetails(reg as any, confirmedRegistrations as any, ev) : { hasPartner: false, isOpenPool: false } as any;
-        const { displayName, flatDisplay } = formatParticipantDisplayName(reg, partnerInfo, isDoubles, i + 1);
+        const { displayName, flatDisplay } = formatParticipantDisplayName(reg, { hasPartner: false, isOpenPool: false } as any, false, i + 1);
 
         allParts.push({
           id: `P${i + 1}`,
@@ -2495,6 +2624,133 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 placeholder="Number of Participants"
               />
             </div>
+
+            {/* Doubles Open Pool Auto-Pairing Card */}
+            {isDoublesEvent && selectedEvent && (
+              <div className="flex flex-col gap-3 p-4 rounded-xl bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 border border-indigo-200/80 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#4f46e5]/10 flex items-center justify-center text-[#4f46e5] shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        {isMixedDoublesEvent ? 'Mixed Doubles Open Pool Pairing' : 'Doubles Open Pool Auto-Pairing'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Solo / unpartnered players are matched into balanced 2v2 doubles teams.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReshuffleOpenPool}
+                      title="Randomly redraw open pool pairings"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-indigo-200 text-[#4f46e5] hover:bg-indigo-50 active:scale-95 transition-all shadow-2xs cursor-pointer"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                      Re-Shuffle
+                    </button>
+                    {openPoolPairs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleSavePairsToEvent}
+                        disabled={savingPairsToDb}
+                        title="Save these partner pairings back to the event registrations in database"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#4f46e5] text-white hover:bg-[#4338ca] active:scale-95 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        {savingPairsToDb ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            Sync to Event
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pairing Stats Pills */}
+                <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px]">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium">
+                    <UserCheck className="w-3 h-3 text-emerald-600" />
+                    {fixedDoublesPairs.length} Fixed Pair{fixedDoublesPairs.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-medium">
+                    <Users className="w-3 h-3 text-indigo-600" />
+                    {openPoolPairs.length} Auto-Paired Team{openPoolPairs.length === 1 ? '' : 's'}
+                  </span>
+                  {unpairedPoolPlayers.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-medium">
+                      <AlertTriangle className="w-3 h-3 text-amber-600" />
+                      {unpairedPoolPlayers.length} Standby Player
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-medium ml-auto">
+                    Total: {participants} Doubles Teams
+                  </span>
+                </div>
+
+                {/* Unpaired Standby Alert if odd number of players */}
+                {unpairedPoolPlayers.length > 0 && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50/90 border border-amber-200 text-amber-800 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold">
+                        {unpairedPoolPlayers.length} unpartnered player on standby:
+                      </p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        {unpairedPoolPlayers.map(p => getRegistrationPlayerName(p)).join(', ')} — An odd number of open pool registrants prevents forming another complete pair. They will not be scheduled unless another player joins or is assigned.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-Paired Teams Preview */}
+                {openPoolPairs.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Auto-Paired Doubles Teams Preview
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {openPoolPairs.map((pair, idx) => (
+                        <div
+                          key={`auto-pair-${idx}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white/90 border border-indigo-100 shadow-2xs hover:border-indigo-300 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                                #{idx + 1}
+                              </span>
+                              <p className="text-xs font-semibold text-slate-800 truncate" title={pair.name}>
+                                {pair.name}
+                              </p>
+                            </div>
+                            {pair.flatNumber && (
+                              <p className="text-[10px] text-slate-500 truncate pl-6">
+                                Flat: {pair.flatNumber}
+                              </p>
+                            )}
+                          </div>
+                          {pair.rating != null && (
+                            <span className="ml-2 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                              ⭐ {pair.rating}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Custom Participant Names / Paste Roster (Inspired by Playinga) */}
             <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/80 border border-slate-200">
