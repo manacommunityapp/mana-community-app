@@ -144,6 +144,13 @@ export function SportsAdmin() {
                 tournamentEndDate={tourneyEnd}
                 sportsEventSubTab={s.sportsEventSubTab}
                 setSportsEventSubTab={s.setSportsEventSubTab}
+                selectedEventIds={s.selectedBatchEventIds}
+                onToggleSelectEvent={s.handleToggleSelectEvent}
+                onSelectAllEvents={s.handleSelectAllEvents}
+                onClearSelectedEvents={s.handleClearSelectedEvents}
+                onBatchStartEvents={s.handleBatchStartEvents}
+                onBatchCloseEvents={s.handleBatchCloseEvents}
+                onBatchDeleteEvents={s.handleBatchDeleteEvents}
               />
             );
           })()}
