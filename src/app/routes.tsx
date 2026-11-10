@@ -1,4 +1,12 @@
 import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
+import { HrmLayout } from "./components/hrm/HrmLayout";
+import { HrmDashboard } from "./components/hrm/HrmDashboard";
+import { EmployeeDirectory } from "./components/hrm/EmployeeDirectory";
+import { EmployeeProfile } from "./components/hrm/EmployeeProfile";
+import { AttendanceManagement } from "./components/hrm/AttendanceManagement";
+import { LeaveManagement } from "./components/hrm/LeaveManagement";
+import { ShiftManagement } from "./components/hrm/ShiftManagement";
+import { HrmSettings } from "./components/hrm/HrmSettings";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -436,6 +444,7 @@ import {
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
   VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
   VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
+  VIEW_HRM,
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
@@ -1421,6 +1430,20 @@ export const router = createBrowserRouter([
           { path: "resolutions", element: <ResolutionsBoard /> },
           { path: "vault", element: <DigitalVault /> },
           { path: "committee", element: <CommitteeAndElections /> },
+        ],
+      },
+      // ── Mana HRM (Human Resource Management) ────────
+      {
+        path: "hrm",
+        element: <PermissionGuard permission={VIEW_HRM} requiredModule="HRM"><HrmLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <HrmDashboard /> },
+          { path: "employees", element: <EmployeeDirectory /> },
+          { path: "employees/:employeeId", element: <EmployeeProfile /> },
+          { path: "attendance", element: <AttendanceManagement /> },
+          { path: "leaves", element: <LeaveManagement /> },
+          { path: "shifts", element: <ShiftManagement /> },
+          { path: "settings", element: <HrmSettings /> },
         ],
       },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────

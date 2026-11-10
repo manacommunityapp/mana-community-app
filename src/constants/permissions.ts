@@ -700,6 +700,16 @@ export const ROLE_TICKET_CHECKER      = "TICKET_CHECKER";
 export const ROLE_FUNDRAISING_MANAGER = "FUNDRAISING_MANAGER";
 export const ROLE_MEDIA_TEAM          = "MEDIA_TEAM";
 
+// ──── HRM (Human Resource Management) ────
+export const VIEW_HRM               = "View HRM";
+export const MANAGE_HRM             = "Manage HRM";
+export const MANAGE_HR_EMPLOYEES    = "Manage HR Employees";
+export const MANAGE_HR_ATTENDANCE   = "Manage HR Attendance";
+export const MANAGE_HR_LEAVES       = "Manage HR Leaves";
+export const MANAGE_HR_SHIFTS       = "Manage HR Shifts";
+export const VIEW_HR_REPORTS        = "View HR Reports";
+export const MANAGE_HR_SETTINGS     = "Manage HR Settings";
+
 /**
  * Minimal permissions granted to a USER (newly registered / unverified member).
  * An admin can upgrade the user to MEMBER, STAFF, CASHIER, VENDOR, etc.
