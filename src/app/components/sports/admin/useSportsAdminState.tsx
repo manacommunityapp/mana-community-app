@@ -603,6 +603,7 @@ export function useSportsAdminState() {
   const [customSportName, setCustomSportName] = useState("");
   const [customSportFormat, setCustomSportFormat] = useState<MatchFormat>("SINGLES");
   const [customSportIcon, setCustomSportIcon] = useState("🏆");
+  const [selectedBatchEventIds, setSelectedBatchEventIds] = useState<number[]>([]);
 
   useEffect(() => {
     setCustomSportName(sportPickerSearch);
@@ -2870,6 +2871,139 @@ export function useSportsAdminState() {
     }
   };
 
+  const handleToggleSelectEvent = useCallback((id: number) => {
+    setSelectedBatchEventIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleSelectAllEvents = useCallback((ids: number[], select: boolean) => {
+    setSelectedBatchEventIds((prev) => {
+      if (!select) {
+        return prev.filter((id) => !ids.includes(id));
+      }
+      const set = new Set([...prev, ...ids]);
+      return Array.from(set);
+    });
+  }, []);
+
+  const handleClearSelectedEvents = useCallback(() => {
+    setSelectedBatchEventIds([]);
+  }, []);
+
+  const handleBatchStartEvents = async (ids?: number[]) => {
+    const targetIds = ids && ids.length > 0 ? ids : selectedBatchEventIds;
+    if (targetIds.length === 0) {
+      toast.info("Please select one or more sports events to start registration.");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Start Selected Events Registration",
+      text: `Are you sure you want to open registration for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}? Participants will be able to register immediately.`,
+      confirmButtonText: `Open ${targetIds.length} Event${targetIds.length > 1 ? "s" : ""}`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#10b981",
+      icon: "question",
+    });
+    if (!confirmed) return;
+
+    try {
+      await sportsService.batchOpenSportsEvents(targetIds);
+      toast.success(`Registration opened successfully for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}!`);
+      setSelectedBatchEventIds((prev) => prev.filter((id) => !targetIds.includes(id)));
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to start events registration");
+    }
+  };
+
+  const handleBatchCloseEvents = async (ids?: number[]) => {
+    const targetIds = ids && ids.length > 0 ? ids : selectedBatchEventIds;
+    if (targetIds.length === 0) {
+      toast.info("Please select one or more sports events to close registration.");
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Close Selected Events Registration",
+      text: `Are you sure you want to close registration for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}? No more participants will be able to register.`,
+      confirmButtonText: `Close ${targetIds.length} Event${targetIds.length > 1 ? "s" : ""}`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      await sportsService.batchCloseSportsEvents(targetIds);
+      toast.success(`Registration closed successfully for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}!`);
+      setSelectedBatchEventIds((prev) => prev.filter((id) => !targetIds.includes(id)));
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to close events registration");
+    }
+  };
+
+  const handleBatchDeleteEvents = async (ids?: number[]) => {
+    const targetIds = ids && ids.length > 0 ? ids : selectedBatchEventIds;
+    if (targetIds.length === 0) {
+      toast.info("Please select one or more sports events to delete.");
+      return;
+    }
+
+    // Check if any selected event has active registrations
+    const eventsWithRegs: { name: string; count: number }[] = [];
+    for (const id of targetIds) {
+      let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+      if (!targetEvent) {
+        for (const t of activeTournaments) {
+          const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+          if (found) { targetEvent = found; break; }
+          if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+        }
+      }
+      const count = await checkEventRegistrations(id, targetEvent);
+      if (count > 0) {
+        eventsWithRegs.push({ name: targetEvent?.name || `Event #${id}`, count });
+      }
+    }
+
+    if (eventsWithRegs.length > 0) {
+      const summary = eventsWithRegs.map(e => `"${e.name}" (${e.count} registration${e.count > 1 ? "s" : ""})`).join(", ");
+      await confirmAction({
+        title: "Cannot Delete Some Selected Events",
+        text: `The following events have active registrations and cannot be deleted: ${summary}. Please close registration for them instead.`,
+        confirmButtonText: "OK",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: "Delete Selected Sports Events",
+      text: `Are you sure you want to permanently delete ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}? This action cannot be undone.`,
+      confirmButtonText: `Delete ${targetIds.length} Event${targetIds.length > 1 ? "s" : ""}`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      await sportsService.batchDeleteSportsEvents(targetIds);
+      toast.success(`Successfully deleted ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""}!`);
+      setSelectedBatchEventIds((prev) => prev.filter((id) => !targetIds.includes(id)));
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to delete selected sports events");
+    }
+  };
+
   const handleSportSave = async () => {
     if (isSportSavingRef.current) return;
     for (const form of sportForms) {
@@ -3229,6 +3363,9 @@ export function useSportsAdminState() {
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
     updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
     handleStartEventRegistration, handleStartAllPendingEvents,
+    selectedBatchEventIds, setSelectedBatchEventIds,
+    handleToggleSelectEvent, handleSelectAllEvents, handleClearSelectedEvents,
+    handleBatchStartEvents, handleBatchCloseEvents, handleBatchDeleteEvents,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,

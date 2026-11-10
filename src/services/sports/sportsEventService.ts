@@ -228,6 +228,44 @@ export const sportsEventService = {
     return this.updateEventStatus(id, "REGISTRATION_OPEN");
   },
 
+  /** Batch update event status (PUT /api/sports/events/batch/status) */
+  async batchUpdateEventStatus(eventIds: number[], status: string): Promise<SportsEvent[]> {
+    if (!eventIds || eventIds.length === 0) return [];
+    return apiClient.put<SportsEvent[]>("/sports/events/batch/status", { eventIds, status })
+      .then((res: any) => (Array.isArray(res) ? res.map((x: any) => this.mapEvent(x)) : []))
+      .catch(async (err: any) => {
+        // Fallback to sequential/concurrent single updates if batch endpoint is not available
+        if (err?.response?.status === 404 || err?.status === 404) {
+          const results = await Promise.all(eventIds.map((id) => this.updateEventStatus(id, status)));
+          return results;
+        }
+        throw err;
+      });
+  },
+
+  /** Batch open sports events registration */
+  async batchOpenSportsEvents(eventIds: number[]): Promise<SportsEvent[]> {
+    return this.batchUpdateEventStatus(eventIds, "REGISTRATION_OPEN");
+  },
+
+  /** Batch close sports events registration */
+  async batchCloseSportsEvents(eventIds: number[]): Promise<SportsEvent[]> {
+    return this.batchUpdateEventStatus(eventIds, "REGISTRATION_CLOSED");
+  },
+
+  /** Batch delete sports events (POST /api/sports/events/batch/delete) */
+  async batchDeleteSportsEvents(eventIds: number[]): Promise<void> {
+    if (!eventIds || eventIds.length === 0) return;
+    return apiClient.post<void>("/sports/events/batch/delete", { eventIds })
+      .catch(async (err: any) => {
+        if (err?.response?.status === 404 || err?.status === 404) {
+          await Promise.all(eventIds.map((id) => this.deleteEvent(id)));
+          return;
+        }
+        throw err;
+      });
+  },
+
   /** GET /api/sports/tournaments/closed — all REGISTRATION_CLOSED tournaments */
   async getClosedTournaments(): Promise<SportsEvent[]> {
     return apiClient.get<SportsEvent[]>("/sports/tournaments/closed")

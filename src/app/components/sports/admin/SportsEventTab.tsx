@@ -82,6 +82,13 @@ interface SportsEventTabProps {
   tournamentEndDate?: Date;
   sportsEventSubTab?: "list" | "config";
   setSportsEventSubTab?: (tab: "list" | "config") => void;
+  selectedEventIds?: number[];
+  onToggleSelectEvent?: (id: number) => void;
+  onSelectAllEvents?: (ids: number[], select: boolean) => void;
+  onClearSelectedEvents?: () => void;
+  onBatchStartEvents?: (ids?: number[]) => void;
+  onBatchCloseEvents?: (ids?: number[]) => void;
+  onBatchDeleteEvents?: (ids?: number[]) => void;
 }
 
 export function SportsEventTab({
@@ -159,6 +166,13 @@ export function SportsEventTab({
   tournamentEndDate,
   sportsEventSubTab: controlledSubTab,
   setSportsEventSubTab: setControlledSubTab,
+  selectedEventIds,
+  onToggleSelectEvent,
+  onSelectAllEvents,
+  onClearSelectedEvents,
+  onBatchStartEvents,
+  onBatchCloseEvents,
+  onBatchDeleteEvents,
 }: SportsEventTabProps) {
   const [internalSubTab, setInternalSubTab] = useState<"list" | "config">("list");
   const sportsEventSubTab = controlledSubTab ?? internalSubTab;
@@ -261,6 +275,13 @@ export function SportsEventTab({
           handleCloseEvent={handleCloseEvent}
           handleStartEventRegistration={handleStartEventRegistration}
           handleStartAllPendingEvents={handleStartAllPendingEvents}
+          selectedEventIds={selectedEventIds}
+          onToggleSelectEvent={onToggleSelectEvent}
+          onSelectAllEvents={onSelectAllEvents}
+          onClearSelectedEvents={onClearSelectedEvents}
+          onBatchStartEvents={onBatchStartEvents}
+          onBatchCloseEvents={onBatchCloseEvents}
+          onBatchDeleteEvents={onBatchDeleteEvents}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();

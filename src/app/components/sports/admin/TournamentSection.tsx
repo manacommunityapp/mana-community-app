@@ -49,6 +49,9 @@ interface TournamentSectionProps {
   onEditEvent?: (ev: any) => void;
   onDeleteEvent?: (id: number, tournamentId?: number) => void;
   onAddEventToTournament?: (tournamentId: number, tournamentName: string) => void;
+  selectedEventIds?: number[];
+  onToggleSelectEvent?: (id: number) => void;
+  onSelectAllEvents?: (ids: number[], select: boolean) => void;
 }
 
 export interface GroupedPlayerRegistration {
@@ -355,6 +358,7 @@ export function TournamentSection({
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
   onAddParticipant, onImportParticipants, onEditEvent, onDeleteEvent, onAddEventToTournament,
+  selectedEventIds, onToggleSelectEvent, onSelectAllEvents,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
   const [shareTournament, setShareTournament] = useState<any | null>(null);
@@ -893,6 +897,20 @@ export function TournamentSection({
                           <div className="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs shrink-0">
                             Showing <span className="font-bold text-slate-700">{filteredSportsEvents.length}</span> of {item.sportsEvents.length}
                           </div>
+                          {onSelectAllEvents && filteredSportsEvents.length > 0 && (
+                            <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs cursor-pointer select-none hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={filteredSportsEvents.length > 0 && filteredSportsEvents.every((e: any) => selectedEventIds?.includes(e.id))}
+                                onChange={(e) => {
+                                  const targetIds = filteredSportsEvents.map((ev: any) => ev.id);
+                                  onSelectAllEvents(targetIds, e.target.checked);
+                                }}
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
+                              <span>Select All ({filteredSportsEvents.length})</span>
+                            </label>
+                          )}
                         </div>
                       </div>
 
@@ -1050,70 +1068,85 @@ export function TournamentSection({
                         const sig = getEventCategorySignature(ev);
                         const isDuplicateCategory = Boolean(sig && (signatureCounts[sig] || 0) > 1);
                         const duplicateCount = sig ? signatureCounts[sig] || 0 : 0;
+                        const isSelected = Boolean(selectedEventIds?.includes(ev.id));
 
                         return (
                           <div key={ev.id} className="space-y-2">
                             <div
                               className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg transition-all ${
-                                isDuplicateCategory
+                                isSelected
+                                  ? "bg-indigo-50/70 border-2 border-indigo-500 shadow-xs ring-1 ring-indigo-300/50"
+                                  : isDuplicateCategory
                                   ? "bg-amber-50/70 border-2 border-amber-400/80 shadow-xs ring-1 ring-amber-300/40"
                                   : "bg-white border border-slate-200/60 shadow-sm"
                               }`}
                             >
-                              <div className="min-w-0 flex-1 text-left">
-                                <div className="text-xs font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
-                                  <span>{ev.name}</span>
-                                  {evSport && (
-                                    <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold uppercase tracking-wide">
-                                      {evSport}
-                                    </span>
-                                  )}
-                                  {evCat && (
-                                    <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
-                                      {evCat}
-                                    </span>
-                                  )}
-                                  {evAge && (
-                                    <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
-                                      {evAge}
-                                    </span>
-                                  )}
-                                  {evFormats.map((fmt) => {
-                                    const badge = getFormatBadge(fmt);
-                                    return (
-                                      <span
-                                        key={fmt}
-                                        className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
-                                        title={`Participant Format: ${badge.label}`}
-                                      >
-                                        {badge.label}
+                              <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1 text-left">
+                                {onToggleSelectEvent && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => onToggleSelectEvent(ev.id)}
+                                    className="w-4 h-4 mt-0.5 sm:mt-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                                    title={`Select ${ev.name}`}
+                                    aria-label={`Select ${ev.name}`}
+                                  />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
+                                    <span>{ev.name}</span>
+                                    {evSport && (
+                                      <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold uppercase tracking-wide">
+                                        {evSport}
                                       </span>
-                                    );
-                                  })}
-                                  {isDuplicateCategory && (
-                                    <span
-                                      className="text-[10px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-2xs tracking-wide"
-                                      title={`Duplicate Category: ${duplicateCount} events in this tournament share the same Sport (${evSport || "—"}), Category (${evCat || "—"}), Gender (${ev.gender || "ALL"}), and Format`}
-                                    >
-                                      <AlertTriangle className="w-3 h-3 text-white shrink-0" />
-                                      <span>Duplicate Category ({duplicateCount})</span>
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                                  {ev.gender && <span>Gender: {ev.gender}</span>}
-                                  {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
-                                  {evFormats.length > 0 && (
-                                    <span>
-                                      Format: <span className="font-semibold text-slate-700">{evFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
-                                    </span>
-                                  )}
-                                  {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
-                                  {isDuplicateCategory && (
-                                    <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-200/80 px-1.5 py-0.2 rounded">
-                                      Matches another event with identical Sport, Category, Gender & Format
-                                    </span>
-                                  )}
+                                    )}
+                                    {evCat && (
+                                      <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
+                                        {evCat}
+                                      </span>
+                                    )}
+                                    {evAge && (
+                                      <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
+                                        {evAge}
+                                      </span>
+                                    )}
+                                    {evFormats.map((fmt) => {
+                                      const badge = getFormatBadge(fmt);
+                                      return (
+                                        <span
+                                          key={fmt}
+                                          className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
+                                          title={`Participant Format: ${badge.label}`}
+                                        >
+                                          {badge.label}
+                                        </span>
+                                      );
+                                    })}
+                                    {isDuplicateCategory && (
+                                      <span
+                                        className="text-[10px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-2xs tracking-wide"
+                                        title={`Duplicate Category: ${duplicateCount} events in this tournament share the same Sport (${evSport || "—"}), Category (${evCat || "—"}), Gender (${ev.gender || "ALL"}), and Format`}
+                                      >
+                                        <AlertTriangle className="w-3 h-3 text-white shrink-0" />
+                                        <span>Duplicate Category ({duplicateCount})</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                    {ev.gender && <span>Gender: {ev.gender}</span>}
+                                    {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
+                                    {evFormats.length > 0 && (
+                                      <span>
+                                        Format: <span className="font-semibold text-slate-700">{evFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
+                                      </span>
+                                    )}
+                                    {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                                    {isDuplicateCategory && (
+                                      <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-200/80 px-1.5 py-0.2 rounded">
+                                        Matches another event with identical Sport, Category, Gender & Format
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1210,37 +1243,56 @@ export function TournamentSection({
           const targetId = ev.tournamentId || ev.id;
           const registrationStatus = ev.registrationStatus || ev.status;
           const evFallbackFormats = getDisplayEventFormats(ev);
+          const isSelected = Boolean(selectedEventIds?.includes(ev.id));
 
           return (
             <div key={item.id} className="space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="text-sm font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
-                    <span>{ev.name}</span>
-                    {evFallbackFormats.map((fmt) => {
-                      const badge = getFormatBadge(fmt);
-                      return (
-                        <span
-                          key={fmt}
-                          className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
-                          title={`Participant Format: ${badge.label}`}
-                        >
-                          {badge.label}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <span>
-                      {ev.eventDateStart && ev.eventDateEnd
-                        ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
-                        : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
-                    </span>
-                    {evFallbackFormats.length > 0 && (
+              <div
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl transition-all ${
+                  isSelected
+                    ? "bg-indigo-50/70 border-2 border-indigo-500 shadow-xs ring-1 ring-indigo-300/50"
+                    : "bg-slate-50 border border-slate-200/60 shadow-sm"
+                }`}
+              >
+                <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1 text-left">
+                  {onToggleSelectEvent && (
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSelectEvent(ev.id)}
+                      className="w-4 h-4 mt-0.5 sm:mt-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0"
+                      title={`Select ${ev.name}`}
+                      aria-label={`Select ${ev.name}`}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
+                      <span>{ev.name}</span>
+                      {evFallbackFormats.map((fmt) => {
+                        const badge = getFormatBadge(fmt);
+                        return (
+                          <span
+                            key={fmt}
+                            className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
+                            title={`Participant Format: ${badge.label}`}
+                          >
+                            {badge.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span>
-                        Format: <span className="font-semibold text-slate-700">{evFallbackFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
+                        {ev.eventDateStart && ev.eventDateEnd
+                          ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
+                          : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
                       </span>
-                    )}
+                      {evFallbackFormats.length > 0 && (
+                        <span>
+                          Format: <span className="font-semibold text-slate-700">{evFallbackFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
