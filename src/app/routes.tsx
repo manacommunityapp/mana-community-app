@@ -9,6 +9,9 @@ import { LeaveManagement } from "./components/hrm/LeaveManagement";
 import { ShiftManagement } from "./components/hrm/ShiftManagement";
 import { HrmSettings } from "./components/hrm/HrmSettings";
 import { OrgHierarchy } from "./components/hrm/OrgHierarchy";
+import { RecruitmentBoard } from "./components/hrm/RecruitmentBoard";
+import { PerformanceManagement } from "./components/hrm/PerformanceManagement";
+import { LearningDevelopment } from "./components/hrm/LearningDevelopment";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -149,6 +152,51 @@ function OrgChartPage() {
   }, []);
   if (!orgId) return null;
   return <OrgHierarchy orgId={orgId} />;
+}
+
+function HrmRecruitmentPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <RecruitmentBoard orgId={orgId} />;
+}
+
+function HrmPerformancePage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => {
+        if (orgs.length > 0) {
+          setOrgId(orgs[0].id);
+          hrmService.getMyProfile(orgs[0].id).then(emp => setEmployeeId(emp.id));
+        }
+      })
+    );
+  }, []);
+  if (!orgId || !employeeId) return null;
+  return <PerformanceManagement orgId={orgId} employeeId={employeeId} />;
+}
+
+function HrmLearningPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => {
+        if (orgs.length > 0) {
+          setOrgId(orgs[0].id);
+          hrmService.getMyProfile(orgs[0].id).then(emp => setEmployeeId(emp.id));
+        }
+      })
+    );
+  }, []);
+  if (!orgId || !employeeId) return null;
+  return <LearningDevelopment orgId={orgId} employeeId={employeeId} />;
 }
 import {
   MatchDetailPage,
@@ -1456,6 +1504,9 @@ export const router = createBrowserRouter([
           { path: "attendance", element: <AttendanceManagement /> },
           { path: "leaves", element: <LeaveManagement /> },
           { path: "shifts", element: <ShiftManagement /> },
+          { path: "recruitment", element: <HrmRecruitmentPage /> },
+          { path: "performance", element: <HrmPerformancePage /> },
+          { path: "learning", element: <HrmLearningPage /> },
           { path: "settings", element: <HrmSettings /> },
           { path: "org-chart", element: <OrgChartPage /> },
         ],

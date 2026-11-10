@@ -10,6 +10,9 @@ import {
   Menu,
   X,
   ChevronRight,
+  Briefcase,
+  TrendingUp,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -18,8 +21,11 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/employees",  icon: Users,           label: "Employees" },
   { to: "/hrm/attendance", icon: Clock,           label: "Attendance" },
   { to: "/hrm/leaves",     icon: CalendarDays,    label: "Leaves" },
-  { to: "/hrm/shifts",     icon: Timer,           label: "Shifts" },
-  { to: "/hrm/settings",   icon: Settings,        label: "Settings" },
+  { to: "/hrm/shifts",       icon: Timer,           label: "Shifts" },
+  { to: "/hrm/recruitment",  icon: Briefcase,       label: "Recruitment" },
+  { to: "/hrm/performance",  icon: TrendingUp,      label: "Performance" },
+  { to: "/hrm/learning",     icon: BookOpen,        label: "Learning" },
+  { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 
 export function HrmLayout() {

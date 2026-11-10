@@ -28,6 +28,22 @@ import type {
   AttendanceCorrectionRequest,
   Timesheet,
   ShiftSwapRequest,
+  JobPosting,
+  Applicant,
+  Interview,
+  Offer,
+  AppraisalCycle,
+  Goal,
+  AppraisalForm,
+  Okr,
+  OkrKeyResult,
+  FeedbackRequest,
+  FeedbackResponse,
+  TrainingProgram,
+  TrainingEnrollment,
+  Certification,
+  CareerPath,
+  Recognition,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -290,5 +306,132 @@ export const hrmService = {
   },
   async getPendingSwapApprovals(orgId: number): Promise<ShiftSwapRequest[]> {
     return apiClient.get(`${BASE}/shifts/swap/organizations/${orgId}/pending`);
+  },
+
+  // ── Recruitment ──
+  async getJobPostings(orgId: number, status?: string): Promise<PageResponse<JobPosting>> {
+    const sp = new URLSearchParams();
+    if (status) sp.set("status", status);
+    return apiClient.get(`${BASE}/recruitment/organizations/${orgId}/postings?${sp}`);
+  },
+  async createJobPosting(orgId: number, data: Partial<JobPosting>): Promise<JobPosting> {
+    return apiClient.post(`${BASE}/recruitment/organizations/${orgId}/postings`, data);
+  },
+  async updatePostingStatus(orgId: number, postingId: number, status: string): Promise<JobPosting> {
+    return apiClient.patch(`${BASE}/recruitment/organizations/${orgId}/postings/${postingId}/status?status=${encodeURIComponent(status)}`);
+  },
+  async getApplicants(orgId: number, postingId: number, status?: string): Promise<PageResponse<Applicant>> {
+    const sp = new URLSearchParams();
+    if (status) sp.set("status", status);
+    return apiClient.get(`${BASE}/recruitment/organizations/${orgId}/postings/${postingId}/applicants?${sp}`);
+  },
+  async addApplicant(orgId: number, postingId: number, data: Partial<Applicant>): Promise<Applicant> {
+    return apiClient.post(`${BASE}/recruitment/organizations/${orgId}/postings/${postingId}/applicants`, data);
+  },
+  async updateApplicantStatus(orgId: number, applicantId: number, status: string, notes?: string): Promise<Applicant> {
+    const sp = new URLSearchParams({ status });
+    if (notes) sp.set("notes", notes);
+    return apiClient.patch(`${BASE}/recruitment/organizations/${orgId}/applicants/${applicantId}/status?${sp}`);
+  },
+  async scheduleInterview(orgId: number, applicantId: number, data: Partial<Interview>): Promise<Interview> {
+    return apiClient.post(`${BASE}/recruitment/organizations/${orgId}/applicants/${applicantId}/interviews`, data);
+  },
+  async getInterviews(orgId: number, applicantId: number): Promise<Interview[]> {
+    return apiClient.get(`${BASE}/recruitment/organizations/${orgId}/applicants/${applicantId}/interviews`);
+  },
+  async createOffer(orgId: number, applicantId: number, data: Partial<Offer>): Promise<Offer> {
+    return apiClient.post(`${BASE}/recruitment/organizations/${orgId}/applicants/${applicantId}/offers`, data);
+  },
+
+  // ── Performance: Appraisal Cycles ──
+  async getAppraisalCycles(orgId: number): Promise<AppraisalCycle[]> {
+    return apiClient.get(`${BASE}/performance/organizations/${orgId}/cycles`);
+  },
+  async createAppraisalCycle(orgId: number, data: Partial<AppraisalCycle>): Promise<AppraisalCycle> {
+    return apiClient.post(`${BASE}/performance/organizations/${orgId}/cycles`, data);
+  },
+  async activateCycle(orgId: number, cycleId: number): Promise<AppraisalCycle> {
+    return apiClient.patch(`${BASE}/performance/organizations/${orgId}/cycles/${cycleId}/activate`);
+  },
+
+  // ── Performance: Goals ──
+  async getGoals(employeeId: number, cycleId?: number): Promise<Goal[]> {
+    const sp = new URLSearchParams();
+    if (cycleId !== undefined) sp.set("cycleId", String(cycleId));
+    return apiClient.get(`${BASE}/performance/employees/${employeeId}/goals?${sp}`);
+  },
+  async createGoal(orgId: number, employeeId: number, data: Partial<Goal>): Promise<Goal> {
+    return apiClient.post(`${BASE}/performance/organizations/${orgId}/employees/${employeeId}/goals`, data);
+  },
+  async updateGoalProgress(goalId: number, achievementPercent: number): Promise<Goal> {
+    return apiClient.patch(`${BASE}/performance/goals/${goalId}/progress?achievementPercent=${achievementPercent}`);
+  },
+
+  // ── Performance: Appraisal Forms ──
+  async submitSelfAppraisal(employeeId: number, cycleId: number, rating: number, comments: string): Promise<AppraisalForm> {
+    return apiClient.post(`${BASE}/performance/employees/${employeeId}/self-appraisal`, { cycleId, rating, comments });
+  },
+  async submitManagerReview(formId: number, rating: number, comments: string): Promise<AppraisalForm> {
+    return apiClient.post(`${BASE}/performance/forms/${formId}/manager-review`, { rating, comments });
+  },
+  async getCycleForms(orgId: number, cycleId: number): Promise<AppraisalForm[]> {
+    return apiClient.get(`${BASE}/performance/organizations/${orgId}/cycles/${cycleId}/forms`);
+  },
+
+  // ── Performance: OKRs ──
+  async getOkrs(employeeId: number): Promise<Okr[]> {
+    return apiClient.get(`${BASE}/performance/employees/${employeeId}/okrs`);
+  },
+  async createOkr(orgId: number, data: { objective: string; quarter?: string; year?: number; keyResults: Partial<OkrKeyResult>[] }): Promise<Okr> {
+    return apiClient.post(`${BASE}/performance/organizations/${orgId}/okrs`, data);
+  },
+  async updateKeyResult(keyResultId: number, progressPercent: number, currentValue?: string): Promise<OkrKeyResult> {
+    return apiClient.patch(`${BASE}/performance/key-results/${keyResultId}/progress`, { progressPercent, currentValue });
+  },
+
+  // ── Performance: 360 Feedback ──
+  async createFeedbackRequest(orgId: number, data: { subjectEmployeeId: number; cycleId?: number; deadline?: string; isAnonymous?: boolean }): Promise<FeedbackRequest> {
+    return apiClient.post(`${BASE}/performance/organizations/${orgId}/feedback-requests`, data);
+  },
+  async submitFeedback(requestId: number, data: Partial<FeedbackResponse>): Promise<FeedbackResponse> {
+    return apiClient.post(`${BASE}/performance/feedback-requests/${requestId}/respond`, data);
+  },
+
+  // ── Learning: Training ──
+  async getTrainingPrograms(orgId: number): Promise<PageResponse<TrainingProgram>> {
+    return apiClient.get(`${BASE}/learning/organizations/${orgId}/programs`);
+  },
+  async createTrainingProgram(orgId: number, data: Partial<TrainingProgram>): Promise<TrainingProgram> {
+    return apiClient.post(`${BASE}/learning/organizations/${orgId}/programs`, data);
+  },
+  async enrollInTraining(orgId: number, employeeId: number, programId: number): Promise<TrainingEnrollment> {
+    return apiClient.post(`${BASE}/learning/organizations/${orgId}/programs/${programId}/enroll?employeeId=${employeeId}`);
+  },
+  async getMyEnrollments(employeeId: number): Promise<TrainingEnrollment[]> {
+    return apiClient.get(`${BASE}/learning/employees/${employeeId}/enrollments`);
+  },
+
+  // ── Learning: Certifications ──
+  async getMyCertifications(employeeId: number): Promise<Certification[]> {
+    return apiClient.get(`${BASE}/learning/employees/${employeeId}/certifications`);
+  },
+  async addCertification(orgId: number, employeeId: number, data: Partial<Certification>): Promise<Certification> {
+    return apiClient.post(`${BASE}/learning/organizations/${orgId}/employees/${employeeId}/certifications`, data);
+  },
+
+  // ── Learning: Career Path ──
+  async getCareerPath(employeeId: number): Promise<CareerPath | null> {
+    return apiClient.get(`${BASE}/learning/employees/${employeeId}/career-path`);
+  },
+  async saveCareerPath(orgId: number, employeeId: number, data: Partial<CareerPath>): Promise<CareerPath> {
+    return apiClient.post(`${BASE}/learning/organizations/${orgId}/employees/${employeeId}/career-path`, data);
+  },
+
+  // ── Learning: Recognition ──
+  async getPublicRecognitions(orgId: number): Promise<PageResponse<Recognition>> {
+    return apiClient.get(`${BASE}/learning/organizations/${orgId}/recognitions`);
+  },
+  async giveRecognition(orgId: number, data: { receiverEmployeeId: number; recognitionType: string; message: string; points?: number; isPublic?: boolean; category?: string }): Promise<Recognition> {
+    return apiClient.post(`${BASE}/learning/organizations/${orgId}/recognitions`, data);
   },
 };
