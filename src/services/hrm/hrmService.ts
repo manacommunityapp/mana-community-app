@@ -163,9 +163,9 @@ export const hrmService = {
   },
 
   async grantCompOff(orgId: number, employeeId: number, workedDate: string, reason?: string): Promise<void> {
-    const sp = new URLSearchParams({ orgId: String(orgId), employeeId: String(employeeId), workedDate });
+    const sp = new URLSearchParams({ employeeId: String(employeeId), workedDate });
     if (reason) sp.set("reason", reason);
-    return apiClient.post(`${BASE}/leaves/comp-off?${sp}`);
+    return apiClient.post(`${BASE}/leaves/organizations/${orgId}/comp-off?${sp}`);
   },
 
   // ── Shifts ──
