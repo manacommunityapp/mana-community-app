@@ -74,7 +74,9 @@ export function ShiftManagement() {
   async function loadShifts(id: number) {
     try {
       setShifts(await hrmService.getShifts(id));
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("Failed to load shifts:", err);
+    }
   }
 
   async function loadSchedule() {
@@ -83,14 +85,18 @@ export function ShiftManagement() {
       const we = endOfWeek(weekStart, { weekStartsOn: 1 });
       const data = await hrmService.getShiftSchedule(orgId, format(weekStart, "yyyy-MM-dd"), format(we, "yyyy-MM-dd"));
       setSchedule(data);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("Failed to load schedule:", err);
+    }
   }
 
   async function loadEmployeeList(id: number) {
     try {
       const res = await hrmService.getEmployees(id, { page: 0, size: 100, status: "ACTIVE" });
       setEmployees(res.content);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("Failed to load employee list:", err);
+    }
   }
 
   async function handleAddShift() {

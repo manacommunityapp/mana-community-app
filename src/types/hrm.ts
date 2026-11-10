@@ -192,7 +192,7 @@ export interface CreateEmployeeRequest {
   branchId?: number;
   departmentId?: number;
   designationId?: number;
-  manaUserId?: number;
+  manaUserId: number;
   employeeCode?: string;
   firstName: string;
   lastName: string;

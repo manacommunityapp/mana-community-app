@@ -85,24 +85,27 @@ export function EmployeeProfile() {
     try {
       const now = new Date();
       const from = format(startOfMonth(now), "yyyy-MM-dd");
-      const to = format(endOfMonth(now), "yyyy-MM-dd");
-      const data = await hrmService.getMyAttendance(from, to);
-      setAttendance(data);
-    } catch {
-      // silently fail
+      // Use the org-level attendance report endpoint so we get the viewed employee's data, not the caller's
+      const page = await hrmService.getAttendanceReport(orgId, { date: from, page: 0, size: 31 });
+      const empId = Number(employeeId);
+      setAttendance(page.content.filter((a) => a.employeeId === empId));
+    } catch (err) {
+      console.error("Failed to load attendance:", err);
     }
   }
 
   async function loadLeaveData() {
     try {
+      // Note: getLeaveBalance and getMyLeaveRequests return the logged-in user's data.
+      // For viewing another employee's leave, HR managers need a dedicated endpoint (future).
       const [balances, requests] = await Promise.all([
         hrmService.getLeaveBalance(),
         hrmService.getMyLeaveRequests({ page: 0, size: 10 }),
       ]);
       setLeaveBalances(balances);
       setLeaveRequests(requests.content);
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("Failed to load leave data:", err);
     }
   }
 
@@ -111,8 +114,8 @@ export function EmployeeProfile() {
     try {
       const docs = await hrmService.getEmployeeDocuments(orgId, Number(employeeId));
       setDocuments(docs);
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error("Failed to load documents:", err);
     }
   }
 

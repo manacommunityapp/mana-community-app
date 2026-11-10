@@ -80,6 +80,17 @@ export function EmployeeForm({ open, onClose, onCreated, orgId }: EmployeeFormPr
         </SheetHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="emp-manaUserId">Mana User ID *</Label>
+            <Input
+              id="emp-manaUserId"
+              type="number"
+              {...register("manaUserId", { required: "Mana User ID is required", valueAsNumber: true })}
+              placeholder="Linked Mana account ID"
+            />
+            {errors.manaUserId && <p className="text-xs text-destructive">{errors.manaUserId.message}</p>}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="emp-firstName">First Name *</Label>

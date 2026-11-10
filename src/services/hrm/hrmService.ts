@@ -86,14 +86,14 @@ export const hrmService = {
   },
 
   // ── Attendance ──
-  async checkIn(data: { latitude?: number; longitude?: number; deviceId?: string }): Promise<AttendanceRecord> {
-    return apiClient.post(`${BASE}/attendance/check-in`, data);
+  async checkIn(orgId: number, data: { latitude?: number; longitude?: number; deviceId?: string }): Promise<AttendanceRecord> {
+    return apiClient.post(`${BASE}/attendance/check-in?orgId=${orgId}`, data);
   },
-  async checkOut(data: { latitude?: number; longitude?: number; deviceId?: string }): Promise<AttendanceRecord> {
-    return apiClient.post(`${BASE}/attendance/check-out`, data);
+  async checkOut(orgId: number, data: { latitude?: number; longitude?: number; deviceId?: string }): Promise<AttendanceRecord> {
+    return apiClient.post(`${BASE}/attendance/check-out?orgId=${orgId}`, data);
   },
-  async getMyAttendance(from: string, to: string): Promise<AttendanceRecord[]> {
-    return apiClient.get(`${BASE}/attendance/my?from=${from}&to=${to}`);
+  async getMyAttendance(orgId: number, from: string, to: string): Promise<AttendanceRecord[]> {
+    return apiClient.get(`${BASE}/attendance/my?orgId=${orgId}&from=${from}&to=${to}`);
   },
   async getAttendanceReport(orgId: number, params: { date: string; page?: number; size?: number }): Promise<PageResponse<AttendanceRecord & { employeeName?: string; employeeCode?: string }>> {
     const sp = new URLSearchParams({ date: params.date });
