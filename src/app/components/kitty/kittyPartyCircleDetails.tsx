@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
 import { kittyPartyService } from "../../../services/kittyPartyService";
 import type { KittyPartyCircleSummary, KittyPartyMember } from "../../../types/kittyPartyTypes";
+import { hasPermission, isAdminOrOwner as checkAdminOrOwner, getRoleLabel, getRoleBadgeColor } from "../../../utils/kittyPartyPermissions";
 import { KittyPartyEventView } from "./kittyPartyEventView";
 import { KittyPartyFeedView } from "./kittyPartyFeedView";
 import { KittyPartyLeaderboardView } from "./kittyPartyLeaderboardView";
@@ -91,8 +92,9 @@ export const KittyPartyCircleDetails: React.FC = () => {
     );
   }
 
-  const isMember = !!circle.currentUserRole;
-  const isAdminOrOwner = circle.currentUserRole === "OWNER" || circle.currentUserRole === "ADMIN";
+  const currentUserRole = circle.currentUserRole;
+  const isMember = !!currentUserRole;
+  const isAdminOrOwner = checkAdminOrOwner(currentUserRole);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -231,9 +233,9 @@ export const KittyPartyCircleDetails: React.FC = () => {
 
       {/* Tab Contents */}
       {activeTab === "FEED" ? (
-        <KittyPartyFeedView circleId={circleId} isAdmin={isAdminOrOwner} />
+        <KittyPartyFeedView circleId={circleId} currentUserRole={currentUserRole} />
       ) : activeTab === "EVENTS" ? (
-        <KittyPartyEventView circleId={circleId} isAdmin={isAdminOrOwner} />
+        <KittyPartyEventView circleId={circleId} currentUserRole={currentUserRole} />
       ) : activeTab === "LEADERBOARD" ? (
         <KittyPartyLeaderboardView circleId={circleId} />
       ) : activeTab === "VENDORS" ? (

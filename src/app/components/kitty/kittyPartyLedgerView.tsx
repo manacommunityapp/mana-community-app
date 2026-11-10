@@ -7,6 +7,7 @@ import type {
   KittyPartyCircleSummary,
   KittyPartyMember,
 } from "../../../types/kittyPartyTypes";
+import { hasPermission, isAdminOrOwner, isFinanceRole } from "../../../utils/kittyPartyPermissions";
 import { KittyPartyAuditTrailModal } from "./kittyPartyAuditTrailModal";
 import { KittyPartyDisputeModal } from "./kittyPartyDisputeModal";
 import { KittyPartyUpiModal } from "./kittyPartyUpiModal";
@@ -59,8 +60,9 @@ export const KittyPartyLedgerView: React.FC = () => {
   const [isReminding, setIsReminding] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const isAdmin = circle?.currentUserRole === "OWNER" || circle?.currentUserRole === "ADMIN";
-  const isTreasurer = isAdmin || circle?.currentUserRole === "TREASURER";
+  const currentUserRole = circle?.currentUserRole;
+  const isAdmin = isAdminOrOwner(currentUserRole);
+  const isTreasurer = isFinanceRole(currentUserRole);
 
   useEffect(() => {
     if (circleId) {
@@ -258,14 +260,16 @@ export const KittyPartyLedgerView: React.FC = () => {
               </button>
 
               {/* Feature 8: Immutable Financial Audit Trail */}
-              <button
-                onClick={() => setShowAuditModal(true)}
-                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
-                title="View cryptographic SHA-256 audit history"
-              >
-                <span>🔒</span>
-                Audit Trail
-              </button>
+              {hasPermission(currentUserRole, 'VIEW_AUDIT_TRAIL') && (
+                <button
+                  onClick={() => setShowAuditModal(true)}
+                  className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
+                  title="View cryptographic SHA-256 audit history"
+                >
+                  <span>🔒</span>
+                  Audit Trail
+                </button>
+              )}
 
               {/* Feature 6: Dispute & Complaint Management */}
               <button
@@ -278,7 +282,7 @@ export const KittyPartyLedgerView: React.FC = () => {
               </button>
 
               {/* Feature 3: Payment Reminders */}
-              {isTreasurer && (
+              {hasPermission(currentUserRole, 'SEND_REMINDERS') && (
                 <button
                   onClick={handleSendReminders}
                   disabled={isReminding}
@@ -291,7 +295,7 @@ export const KittyPartyLedgerView: React.FC = () => {
               )}
 
               {/* Feature 5: Member Replacement */}
-              {isAdmin && (
+              {hasPermission(currentUserRole, 'REPLACE_MEMBER_IN_CYCLE') && (
                 <button
                   onClick={() => setShowReplaceModal(true)}
                   className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
@@ -337,12 +341,14 @@ export const KittyPartyLedgerView: React.FC = () => {
           <p className="text-xs text-gray-500 max-w-md mx-auto mt-1">
             Organize a 12-month or custom rotating savings pool for this circle. Members contribute periodically and take turns as the monthly beneficiary.
           </p>
-          <button
-            onClick={() => setShowCreateCycle(true)}
-            className="mt-5 px-6 py-2.5 bg-pink-600 text-white text-sm font-bold rounded-xl shadow hover:bg-pink-700"
-          >
-            Initialize Kitty Cycle
-          </button>
+          {hasPermission(currentUserRole, 'CREATE_CYCLE') && (
+            <button
+              onClick={() => setShowCreateCycle(true)}
+              className="mt-5 px-6 py-2.5 bg-pink-600 text-white text-sm font-bold rounded-xl shadow hover:bg-pink-700"
+            >
+              Initialize Kitty Cycle
+            </button>
+          )}
         </div>
       ) : (
         <>
@@ -481,7 +487,7 @@ export const KittyPartyLedgerView: React.FC = () => {
                     <strong>Late Payment Warning:</strong> {cycle.overdueContributionsCount} contribution(s) amounting to ₹{cycle.overdueContributionsAmount?.toLocaleString()} have exceeded the period grace deadline.
                   </span>
                 </div>
-                {isTreasurer && (
+                {hasPermission(currentUserRole, 'SEND_REMINDERS') && (
                   <button
                     onClick={handleSendReminders}
                     className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold text-[11px]"
@@ -507,7 +513,7 @@ export const KittyPartyLedgerView: React.FC = () => {
                   Sequential rotation order for all cycle months. Admins can swap planned turns upon mutual member consent.
                 </p>
               </div>
-              {isAdmin && (
+              {hasPermission(currentUserRole, 'SWAP_ROTATION') && (
                 <button
                   onClick={() => setShowSwapModal(true)}
                   className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 self-start"

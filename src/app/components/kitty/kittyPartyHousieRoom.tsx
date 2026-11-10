@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import { kittyPartyService } from "../../../services/kittyPartyService";
-import type { KittyPartyGameRoom, KittyPartyTicket, KittyPartyWinnerClaim } from "../../../types/kittyPartyTypes";
+import type { KittyPartyGameRoom, KittyPartyTicket, KittyPartyWinnerClaim, KittyPartyCircleSummary, MemberRole } from "../../../types/kittyPartyTypes";
+import { hasPermission, isGameHost } from "../../../utils/kittyPartyPermissions";
 
 export const KittyPartyHousieRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ export const KittyPartyHousieRoom: React.FC = () => {
   const [allowGuestPlayers, setAllowGuestPlayers] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isCalling, setIsCalling] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<MemberRole | undefined>();
 
   useEffect(() => {
     if (circleId) {
@@ -26,6 +28,10 @@ export const KittyPartyHousieRoom: React.FC = () => {
   const loadGame = async () => {
     try {
       setLoading(true);
+      try {
+        const circleData = await kittyPartyService.getCircleDetails(circleId);
+        setCurrentUserRole(circleData?.currentUserRole);
+      } catch { /* ignore */ }
       try {
         const rooms = await kittyPartyService.getCircleRooms(circleId);
         if (rooms?.length > 0) {
@@ -201,7 +207,7 @@ export const KittyPartyHousieRoom: React.FC = () => {
               </button>
             )}
 
-            {room.status === "WAITING" && (
+            {room.status === "WAITING" && hasPermission(currentUserRole, 'START_GAME') && (
               <button
                 onClick={handleStartGame}
                 className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs shadow hover:bg-green-700"
@@ -210,7 +216,7 @@ export const KittyPartyHousieRoom: React.FC = () => {
               </button>
             )}
 
-            {room.status === "IN_PROGRESS" && (
+            {room.status === "IN_PROGRESS" && hasPermission(currentUserRole, 'CALL_NUMBERS') && (
               <button
                 onClick={handleCallNumber}
                 disabled={isCalling}
@@ -231,7 +237,8 @@ export const KittyPartyHousieRoom: React.FC = () => {
 
       {!room ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {/* Create Room */}
+          {/* Create Room — Game Hosts only */}
+          {hasPermission(currentUserRole, 'CREATE_GAME_ROOM') ? (
           <div className="bg-white rounded-2xl p-6 text-center border border-gray-100 shadow-sm flex flex-col justify-between">
             <div>
               <div className="text-4xl mb-2">🎟️</div>
@@ -271,6 +278,13 @@ export const KittyPartyHousieRoom: React.FC = () => {
               </form>
             </div>
           </div>
+          ) : (
+          <div className="bg-white rounded-2xl p-6 text-center border border-gray-100 shadow-sm flex flex-col justify-center items-center">
+            <div className="text-4xl mb-2">🎟️</div>
+            <h3 className="text-lg font-bold text-gray-800">Housie / Tambola</h3>
+            <p className="text-xs text-gray-500 mt-1">Join an existing game room using a 6-digit PIN shared by the host.</p>
+          </div>
+          )}
 
           {/* Join By PIN */}
           <div className="bg-white rounded-2xl p-6 text-center border border-gray-100 shadow-sm flex flex-col justify-between">

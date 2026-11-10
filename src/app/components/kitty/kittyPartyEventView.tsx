@@ -5,15 +5,17 @@ import type {
   KittyPartyRsvp,
   KittyPartyRsvpResponse,
   KittyPartyAttendance,
+  MemberRole,
 } from "../../../types/kittyPartyTypes";
+import { hasPermission } from "../../../utils/kittyPartyPermissions";
 import { KittyPartyEventCreateModal } from "./kittyPartyEventCreateModal";
 
 interface Props {
   circleId: number;
-  isAdmin: boolean;
+  currentUserRole?: MemberRole;
 }
 
-export const KittyPartyEventView: React.FC<Props> = ({ circleId, isAdmin }) => {
+export const KittyPartyEventView: React.FC<Props> = ({ circleId, currentUserRole }) => {
   const [events, setEvents] = useState<KittyPartyEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,12 +163,14 @@ export const KittyPartyEventView: React.FC<Props> = ({ circleId, isAdmin }) => {
             Schedule recurring kitty meets, track RSVPs, manage potluck themes, and record member attendance.
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0"
-        >
-          <span>+</span> Schedule Gathering
-        </button>
+        {hasPermission(currentUserRole, 'CREATE_EVENT') && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0"
+          >
+            <span>+</span> Schedule Gathering
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -180,12 +184,14 @@ export const KittyPartyEventView: React.FC<Props> = ({ circleId, isAdmin }) => {
           <p className="text-xs text-gray-500 max-w-md mx-auto mt-1 mb-4">
             Organize your circle's next monthly meetup, food tasting, or games evening.
           </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow"
-          >
-            Plan First Gathering
-          </button>
+          {hasPermission(currentUserRole, 'CREATE_EVENT') && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow"
+            >
+              Plan First Gathering
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -498,7 +504,7 @@ export const KittyPartyEventView: React.FC<Props> = ({ circleId, isAdmin }) => {
                         )}
                       </div>
 
-                      {isAdmin && (
+                      {hasPermission(currentUserRole, 'CHECK_IN_ATTENDEES') && (
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => handleMarkAttendance(viewAttendeesEvent.id, rsvp.userId, "PRESENT")}

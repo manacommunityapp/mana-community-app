@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { kittyPartyService } from "../../../services/kittyPartyService";
-import type { KittyPartyPost, KittyPartyPostComment } from "../../../types/kittyPartyTypes";
+import type { KittyPartyPost, KittyPartyPostComment, MemberRole } from "../../../types/kittyPartyTypes";
+import { hasPermission, isAdminOrOwner } from "../../../utils/kittyPartyPermissions";
 import { KittyPartyPostCreateModal } from "./kittyPartyPostCreateModal";
 
 interface Props {
   circleId: number;
-  isAdmin: boolean;
+  currentUserRole?: MemberRole;
 }
 
-export const KittyPartyFeedView: React.FC<Props> = ({ circleId, isAdmin }) => {
+export const KittyPartyFeedView: React.FC<Props> = ({ circleId, currentUserRole }) => {
   const [posts, setPosts] = useState<KittyPartyPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -210,7 +211,7 @@ export const KittyPartyFeedView: React.FC<Props> = ({ circleId, isAdmin }) => {
                       {post.postType}
                     </span>
 
-                    {isAdmin && (
+                    {hasPermission(currentUserRole, 'PIN_POST') && (
                       <button
                         onClick={() => handleTogglePin(post.id)}
                         className={`text-xs p-1 rounded-md transition ${
@@ -224,7 +225,7 @@ export const KittyPartyFeedView: React.FC<Props> = ({ circleId, isAdmin }) => {
                       </button>
                     )}
 
-                    {isAdmin && (
+                    {hasPermission(currentUserRole, 'DELETE_ANY_POST') && (
                       <button
                         onClick={() => handleDeletePost(post.id)}
                         className="text-xs p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"
@@ -391,7 +392,7 @@ export const KittyPartyFeedView: React.FC<Props> = ({ circleId, isAdmin }) => {
       <KittyPartyPostCreateModal
         circleId={circleId}
         isOpen={showCreateModal}
-        isAdmin={isAdmin}
+        currentUserRole={currentUserRole}
         onClose={() => setShowCreateModal(false)}
         onSuccess={loadPosts}
       />

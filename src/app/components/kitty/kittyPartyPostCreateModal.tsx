@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { kittyPartyService } from "../../../services/kittyPartyService";
-import type { CreateKittyPartyPostRequest, KittyPartyPostType } from "../../../types/kittyPartyTypes";
+import type { CreateKittyPartyPostRequest, KittyPartyPostType, MemberRole } from "../../../types/kittyPartyTypes";
+import { hasPermission } from "../../../utils/kittyPartyPermissions";
 
 interface Props {
   circleId: number;
   isOpen: boolean;
-  isAdmin: boolean;
+  currentUserRole?: MemberRole;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -13,7 +14,7 @@ interface Props {
 export const KittyPartyPostCreateModal: React.FC<Props> = ({
   circleId,
   isOpen,
-  isAdmin,
+  currentUserRole,
   onClose,
   onSuccess,
 }) => {
@@ -54,7 +55,7 @@ export const KittyPartyPostCreateModal: React.FC<Props> = ({
         content: content.trim(),
         postType,
         attachmentUrl: attachmentUrl.trim() || undefined,
-        isPinned: isAdmin ? isPinned : false,
+        isPinned: hasPermission(currentUserRole, 'PIN_POST') ? isPinned : false,
         pollOptions: postType === "POLL" ? validOptions : undefined,
       };
 
@@ -222,7 +223,7 @@ export const KittyPartyPostCreateModal: React.FC<Props> = ({
             />
           </div>
 
-          {isAdmin && (
+          {hasPermission(currentUserRole, 'PIN_POST') && (
             <div className="flex items-center gap-2 p-3 bg-purple-50/70 border border-purple-100 rounded-xl">
               <input
                 type="checkbox"
