@@ -25,6 +25,9 @@ import type {
   OffboardingTask,
   SelfServiceUpdateRequest,
   OrgHierarchyNode,
+  AttendanceCorrectionRequest,
+  Timesheet,
+  ShiftSwapRequest,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -232,5 +235,60 @@ export const hrmService = {
   // ── Org Hierarchy ──
   async getOrgHierarchy(orgId: number): Promise<OrgHierarchyNode[]> {
     return apiClient.get(`${BASE}/organizations/${orgId}/employees/hierarchy`);
+  },
+
+  // ── Attendance Correction ──
+  async correctAttendance(orgId: number, attendanceId: number, data: AttendanceCorrectionRequest): Promise<AttendanceRecord> {
+    return apiClient.post(`${BASE}/attendance/${attendanceId}/correct?orgId=${orgId}`, data);
+  },
+
+  // ── Overtime ──
+  async approveOvertime(orgId: number, attendanceId: number): Promise<AttendanceRecord> {
+    return apiClient.post(`${BASE}/attendance/${attendanceId}/approve-overtime?orgId=${orgId}`);
+  },
+
+  // ── Timesheets ──
+  async generateTimesheet(orgId: number, weekDate?: string): Promise<Timesheet> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
+    if (weekDate) sp.set("weekDate", weekDate);
+    return apiClient.post(`${BASE}/timesheets/generate?${sp}`);
+  },
+  async getMyTimesheets(orgId: number): Promise<Timesheet[]> {
+    return apiClient.get(`${BASE}/timesheets/my?orgId=${orgId}`);
+  },
+  async submitTimesheet(orgId: number, timesheetId: number): Promise<Timesheet> {
+    return apiClient.post(`${BASE}/timesheets/${timesheetId}/submit?orgId=${orgId}`);
+  },
+  async approveTimesheet(orgId: number, timesheetId: number, remarks?: string): Promise<Timesheet> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
+    if (remarks) sp.set("remarks", remarks);
+    return apiClient.post(`${BASE}/timesheets/${timesheetId}/approve?${sp}`);
+  },
+  async getPendingTimesheets(orgId: number): Promise<PageResponse<Timesheet>> {
+    return apiClient.get(`${BASE}/timesheets/organizations/${orgId}/pending`);
+  },
+
+  // ── Shift Swaps ──
+  async requestShiftSwap(orgId: number, data: { targetEmployeeId: number; requesterShiftDate: string; targetShiftDate: string; reason?: string }): Promise<ShiftSwapRequest> {
+    return apiClient.post(`${BASE}/shifts/swap/request?orgId=${orgId}`, data);
+  },
+  async respondToSwap(orgId: number, swapId: number, accepted: boolean, rejectionReason?: string): Promise<ShiftSwapRequest> {
+    const sp = new URLSearchParams({ orgId: String(orgId), accepted: String(accepted) });
+    if (rejectionReason) sp.set("rejectionReason", rejectionReason);
+    return apiClient.post(`${BASE}/shifts/swap/${swapId}/colleague-respond?${sp}`);
+  },
+  async managerApproveSwap(orgId: number, swapId: number, approved: boolean, reason?: string): Promise<ShiftSwapRequest> {
+    const sp = new URLSearchParams({ orgId: String(orgId), approved: String(approved) });
+    if (reason) sp.set("reason", reason);
+    return apiClient.post(`${BASE}/shifts/swap/${swapId}/manager-approve?${sp}`);
+  },
+  async getMySwapRequests(orgId: number): Promise<ShiftSwapRequest[]> {
+    return apiClient.get(`${BASE}/shifts/swap/my?orgId=${orgId}`);
+  },
+  async getIncomingSwapRequests(orgId: number): Promise<ShiftSwapRequest[]> {
+    return apiClient.get(`${BASE}/shifts/swap/incoming?orgId=${orgId}`);
+  },
+  async getPendingSwapApprovals(orgId: number): Promise<ShiftSwapRequest[]> {
+    return apiClient.get(`${BASE}/shifts/swap/organizations/${orgId}/pending`);
   },
 };

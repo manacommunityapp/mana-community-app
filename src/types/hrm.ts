@@ -91,6 +91,8 @@ export interface AttendanceRecord {
   totalWorkMinutes: number;
   attendanceStatus: string;
   remarks?: string;
+  overtimeMinutes?: number;
+  overtimeApproved?: boolean;
 }
 
 export interface AttendanceSummary {
@@ -305,4 +307,48 @@ export interface OrgHierarchyNode {
   designation?: string;
   department?: string;
   directReports: OrgHierarchyNode[];
+}
+
+export interface AttendanceCorrection {
+  id: number;
+  correctedCheckIn?: string;
+  correctedCheckOut?: string;
+  correctedStatus?: string;
+  reason: string;
+  correctedBy: number;
+  originalCheckIn?: string;
+  originalCheckOut?: string;
+  createdAt: string;
+}
+
+export interface AttendanceCorrectionRequest {
+  correctedCheckIn?: string;
+  correctedCheckOut?: string;
+  correctedStatus?: string;
+  reason: string;
+}
+
+export interface Timesheet {
+  id: number;
+  weekStartDate: string;
+  weekEndDate: string;
+  totalMinutes: number;
+  totalOvertimeMinutes: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  submittedAt?: string;
+  approvedBy?: number;
+  approvedAt?: string;
+  remarks?: string;
+}
+
+export interface ShiftSwapRequest {
+  id: number;
+  requesterEmployee: { id: number; firstName: string; lastName?: string; employeeCode: string };
+  targetEmployee: { id: number; firstName: string; lastName?: string; employeeCode: string };
+  requesterShiftDate: string;
+  targetShiftDate: string;
+  reason?: string;
+  status: 'PENDING_COLLEAGUE' | 'PENDING_MANAGER' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
+  createdAt: string;
 }
