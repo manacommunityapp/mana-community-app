@@ -20,6 +20,11 @@ import type {
   CreateEmployeeRequest,
   ApplyLeaveRequest,
   PageResponse,
+  EmploymentHistory,
+  OnboardingTask,
+  OffboardingTask,
+  SelfServiceUpdateRequest,
+  OrgHierarchyNode,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -193,5 +198,39 @@ export const hrmService = {
   // ── Dashboard ──
   async getDashboard(orgId: number): Promise<HrDashboardData> {
     return apiClient.get(`${BASE}/dashboard/organizations/${orgId}`);
+  },
+
+  // ── Employment History ──
+  async getEmploymentHistory(orgId: number, employeeId: number): Promise<EmploymentHistory[]> {
+    return apiClient.get(`${BASE}/organizations/${orgId}/employees/${employeeId}/history`);
+  },
+
+  // ── Self-service ──
+  async updateMyProfile(orgId: number, data: SelfServiceUpdateRequest): Promise<HrEmployee> {
+    return apiClient.patch(`${BASE}/employees/me?orgId=${orgId}`, data);
+  },
+
+  // ── Onboarding ──
+  async getOnboardingTasks(orgId: number, employeeId: number): Promise<OnboardingTask[]> {
+    return apiClient.get(`${BASE}/onboarding/employees/${employeeId}/tasks?orgId=${orgId}`);
+  },
+  async completeOnboardingTask(orgId: number, taskId: number): Promise<OnboardingTask> {
+    return apiClient.post(`${BASE}/onboarding/tasks/${taskId}/complete?orgId=${orgId}`);
+  },
+  async getPendingOnboarding(orgId: number): Promise<OnboardingTask[]> {
+    return apiClient.get(`${BASE}/onboarding/organizations/${orgId}/pending`);
+  },
+
+  // ── Offboarding ──
+  async getOffboardingTasks(orgId: number, employeeId: number): Promise<OffboardingTask[]> {
+    return apiClient.get(`${BASE}/offboarding/employees/${employeeId}/tasks?orgId=${orgId}`);
+  },
+  async completeOffboardingTask(orgId: number, taskId: number): Promise<OffboardingTask> {
+    return apiClient.post(`${BASE}/offboarding/tasks/${taskId}/complete?orgId=${orgId}`);
+  },
+
+  // ── Org Hierarchy ──
+  async getOrgHierarchy(orgId: number): Promise<OrgHierarchyNode[]> {
+    return apiClient.get(`${BASE}/organizations/${orgId}/employees/hierarchy`);
   },
 };

@@ -1,4 +1,5 @@
 import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
+import { useState, useEffect } from "react";
 import { HrmLayout } from "./components/hrm/HrmLayout";
 import { HrmDashboard } from "./components/hrm/HrmDashboard";
 import { EmployeeDirectory } from "./components/hrm/EmployeeDirectory";
@@ -7,6 +8,7 @@ import { AttendanceManagement } from "./components/hrm/AttendanceManagement";
 import { LeaveManagement } from "./components/hrm/LeaveManagement";
 import { ShiftManagement } from "./components/hrm/ShiftManagement";
 import { HrmSettings } from "./components/hrm/HrmSettings";
+import { OrgHierarchy } from "./components/hrm/OrgHierarchy";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -136,6 +138,17 @@ function TeamRegisterPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   return <SportsTeamRegistration eventId={Number(eventId)} onClose={() => navigate(-1)} />;
+}
+
+function OrgChartPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <OrgHierarchy orgId={orgId} />;
 }
 import {
   MatchDetailPage,
@@ -1444,6 +1457,7 @@ export const router = createBrowserRouter([
           { path: "leaves", element: <LeaveManagement /> },
           { path: "shifts", element: <ShiftManagement /> },
           { path: "settings", element: <HrmSettings /> },
+          { path: "org-chart", element: <OrgChartPage /> },
         ],
       },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────

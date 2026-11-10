@@ -25,8 +25,8 @@ import {
 } from "../ui/table";
 import { hrmService } from "../../../services/hrm/hrmService";
 import { showError } from "../../../utils/ToastUtils";
-import type { HrEmployee, AttendanceRecord, LeaveBalance, LeaveRequest, HrEmployeeDocument } from "../../../types/hrm";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import type { HrEmployee, AttendanceRecord, LeaveBalance, LeaveRequest, HrEmployeeDocument, EmploymentHistory, OnboardingTask, OffboardingTask } from "../../../types/hrm";
+import { format, startOfMonth } from "date-fns";
 
 function InfoRow({ label, value, icon: Icon }: { label: string; value?: string | null; icon?: React.ElementType }) {
   return (
@@ -51,6 +51,9 @@ export function EmployeeProfile() {
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [documents, setDocuments] = useState<HrEmployeeDocument[]>([]);
+  const [history, setHistory] = useState<EmploymentHistory[]>([]);
+  const [onboardingTasks, setOnboardingTasks] = useState<OnboardingTask[]>([]);
+  const [offboardingTasks, setOffboardingTasks] = useState<OffboardingTask[]>([]);
 
   useEffect(() => {
     loadOrg();
@@ -119,6 +122,56 @@ export function EmployeeProfile() {
     }
   }
 
+  async function loadHistory() {
+    if (!orgId) return;
+    try {
+      const data = await hrmService.getEmploymentHistory(orgId, Number(employeeId));
+      setHistory(data);
+    } catch (err) {
+      console.error("Failed to load employment history:", err);
+    }
+  }
+
+  async function loadOnboarding() {
+    if (!orgId) return;
+    try {
+      const data = await hrmService.getOnboardingTasks(orgId, Number(employeeId));
+      setOnboardingTasks(data);
+    } catch (err) {
+      console.error("Failed to load onboarding tasks:", err);
+    }
+  }
+
+  async function loadOffboarding() {
+    if (!orgId) return;
+    try {
+      const data = await hrmService.getOffboardingTasks(orgId, Number(employeeId));
+      setOffboardingTasks(data);
+    } catch (err) {
+      console.error("Failed to load offboarding tasks:", err);
+    }
+  }
+
+  async function handleCompleteOnboarding(taskId: number) {
+    if (!orgId) return;
+    try {
+      await hrmService.completeOnboardingTask(orgId, taskId);
+      setOnboardingTasks(prev => prev.map(t => t.id === taskId ? { ...t, isCompleted: true } : t));
+    } catch (err) {
+      console.error("Failed to complete task:", err);
+    }
+  }
+
+  async function handleCompleteOffboarding(taskId: number) {
+    if (!orgId) return;
+    try {
+      await hrmService.completeOffboardingTask(orgId, taskId);
+      setOffboardingTasks(prev => prev.map(t => t.id === taskId ? { ...t, isCompleted: true } : t));
+    } catch (err) {
+      console.error("Failed to complete task:", err);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -171,6 +224,9 @@ export function EmployeeProfile() {
           <TabsTrigger value="attendance" onClick={loadAttendance}>Attendance</TabsTrigger>
           <TabsTrigger value="leaves" onClick={loadLeaveData}>Leaves</TabsTrigger>
           <TabsTrigger value="documents" onClick={loadDocuments}>Documents</TabsTrigger>
+          <TabsTrigger value="history" onClick={loadHistory}>History</TabsTrigger>
+          <TabsTrigger value="onboarding" onClick={loadOnboarding}>Onboarding</TabsTrigger>
+          <TabsTrigger value="offboarding" onClick={loadOffboarding}>Offboarding</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -315,6 +371,130 @@ export function EmployeeProfile() {
                       <Badge variant={doc.isVerified ? "default" : "outline"}>
                         {doc.isVerified ? "Verified" : "Pending"}
                       </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Employment History</CardTitle></CardHeader>
+            <CardContent>
+              {history.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No employment history recorded yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((h) => (
+                    <div key={h.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-medium text-sm">{h.changeType.replace(/_/g, " ")}</span>
+                          {h.newDesignation && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {h.previousDesignation && <span className="line-through text-red-400">{h.previousDesignation}</span>}
+                              {h.previousDesignation && " → "}
+                              <span className="text-green-600">{h.newDesignation}</span>
+                            </p>
+                          )}
+                          {h.newDepartment && (
+                            <p className="text-sm text-muted-foreground">
+                              Dept: {h.previousDepartment && <span className="line-through text-red-400">{h.previousDepartment}</span>}
+                              {h.previousDepartment && " → "}<span className="text-green-600">{h.newDepartment}</span>
+                            </p>
+                          )}
+                          {h.newBranch && (
+                            <p className="text-sm text-muted-foreground">
+                              Branch: {h.previousBranch && <span className="line-through text-red-400">{h.previousBranch}</span>}
+                              {h.previousBranch && " → "}<span className="text-green-600">{h.newBranch}</span>
+                            </p>
+                          )}
+                          {h.reason && <p className="text-xs text-muted-foreground mt-1">{h.reason}</p>}
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0 ml-4">
+                          {format(new Date(h.effectiveDate), "dd MMM yyyy")}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="onboarding" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Onboarding Checklist
+                {onboardingTasks.length > 0 && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {onboardingTasks.filter(t => t.isCompleted).length}/{onboardingTasks.length} completed
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {onboardingTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No onboarding tasks assigned.</p>
+              ) : (
+                <div className="space-y-2">
+                  {onboardingTasks.map((task) => (
+                    <div key={task.id} className={`flex items-center gap-3 p-3 border rounded-lg ${task.isCompleted ? "bg-green-50 border-green-200" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={task.isCompleted}
+                        onChange={() => !task.isCompleted && handleCompleteOnboarding(task.id)}
+                        disabled={task.isCompleted}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <p className={`text-sm font-medium ${task.isCompleted ? "line-through text-muted-foreground" : ""}`}>{task.taskTitle}</p>
+                        <p className="text-xs text-muted-foreground">{task.category}{task.dueDate ? ` · Due: ${format(new Date(task.dueDate), "dd MMM yyyy")}` : ""}</p>
+                      </div>
+                      {task.isCompleted && <span className="text-xs text-green-600">✓ Done</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="offboarding" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Offboarding Checklist
+                {offboardingTasks.length > 0 && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {offboardingTasks.filter(t => t.isCompleted).length}/{offboardingTasks.length} completed
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {offboardingTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No offboarding tasks assigned.</p>
+              ) : (
+                <div className="space-y-2">
+                  {offboardingTasks.map((task) => (
+                    <div key={task.id} className={`flex items-center gap-3 p-3 border rounded-lg ${task.isCompleted ? "bg-green-50 border-green-200" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={task.isCompleted}
+                        onChange={() => !task.isCompleted && handleCompleteOffboarding(task.id)}
+                        disabled={task.isCompleted}
+                        className="w-4 h-4 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <p className={`text-sm font-medium ${task.isCompleted ? "line-through text-muted-foreground" : ""}`}>{task.taskTitle}</p>
+                        <p className="text-xs text-muted-foreground">{task.category}{task.dueDate ? ` · Due: ${format(new Date(task.dueDate), "dd MMM yyyy")}` : ""}</p>
+                      </div>
+                      {task.isCompleted && <span className="text-xs text-green-600">✓ Done</span>}
                     </div>
                   ))}
                 </div>
