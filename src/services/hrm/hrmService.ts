@@ -21,6 +21,7 @@ import type {
   ApplyLeaveRequest,
   PageResponse,
 } from "../../types/hrm";
+// LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
 const BASE = "/api/v1/hr";
 
@@ -141,8 +142,30 @@ export const hrmService = {
   async getLeaveTypes(orgId: number): Promise<LeaveType[]> {
     return apiClient.get(`${BASE}/organizations/${orgId}/leave-types`);
   },
-  async createLeaveType(orgId: number, data: { leaveTypeName: string; defaultBalance: number; isPaid?: boolean; isCarryForward?: boolean; maxCarryForward?: number }): Promise<LeaveType> {
+  async createLeaveType(orgId: number, data: {
+    leaveTypeName: string;
+    defaultBalance: number;
+    isPaid?: boolean;
+    isCarryForward?: boolean;
+    maxCarryForward?: number;
+    approvalLevels?: number;
+    requiresHrApproval?: boolean;
+    minNoticeDays?: number;
+    maxConsecutiveDays?: number;
+    maxPerYear?: number;
+    allowNegativeBalance?: boolean;
+  }): Promise<LeaveType> {
     return apiClient.post(`${BASE}/organizations/${orgId}/leave-types`, data);
+  },
+
+  async l2ApproveLeave(id: number, orgId: number, remarks?: string): Promise<LeaveRequest> {
+    return apiClient.post(`${BASE}/leaves/${id}/l2-approve?orgId=${orgId}`, { approverRemarks: remarks });
+  },
+
+  async grantCompOff(orgId: number, employeeId: number, workedDate: string, reason?: string): Promise<void> {
+    const sp = new URLSearchParams({ orgId: String(orgId), employeeId: String(employeeId), workedDate });
+    if (reason) sp.set("reason", reason);
+    return apiClient.post(`${BASE}/leaves/comp-off?${sp}`);
   },
 
   // ── Shifts ──

@@ -101,11 +101,30 @@ export interface AttendanceSummary {
   totalWorkingDays: number;
 }
 
+export type LeaveSession = 'FIRST_HALF' | 'SECOND_HALF' | 'FULL_DAY';
+
+export type LeaveApprovalStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'L1_APPROVED'
+  | 'L1_REJECTED';
+
 export interface LeaveType {
   id: number;
   leaveTypeName: string;
   defaultBalance: number;
   isPaid: boolean;
+  isCarryForward?: boolean;
+  maxCarryForward?: number;
+  isActive?: boolean;
+  approvalLevels?: number;
+  requiresHrApproval?: boolean;
+  minNoticeDays?: number;
+  maxConsecutiveDays?: number;
+  maxPerYear?: number;
+  allowNegativeBalance?: boolean;
 }
 
 export interface LeaveBalance {
@@ -124,9 +143,16 @@ export interface LeaveRequest {
   toDate: string;
   totalDays: number;
   reason?: string;
-  approvalStatus: string;
+  approvalStatus: LeaveApprovalStatus;
   approverRemarks?: string;
+  approvedAt?: string;
   createdAt: string;
+  halfDay?: boolean;
+  leaveSession?: LeaveSession;
+  approvalLevel?: number;
+  l1ApprovedBy?: number;
+  l1ApprovedAt?: string;
+  l1Remarks?: string;
 }
 
 export interface HrShift {
@@ -212,6 +238,8 @@ export interface ApplyLeaveRequest {
   toDate: string;
   totalDays: number;
   reason?: string;
+  halfDay?: boolean;
+  leaveSession?: LeaveSession;
 }
 
 export interface PageResponse<T> {
