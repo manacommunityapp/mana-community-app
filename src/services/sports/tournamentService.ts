@@ -1,5 +1,5 @@
 import { apiClient } from "../common/apiClient";
-import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../../app/components/scheduler/playoffSchedule";
+import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
 
 export interface TournamentTypeInfo {
@@ -44,6 +44,8 @@ export interface EventInfo {
   maxPlayers?: number;
 }
 
+import type { TournamentBreak } from "../../app/components/scheduler/breakScheduleUtils";
+
 export interface ConfigInfo {
   id: number;
   tournamentName: string;
@@ -59,6 +61,10 @@ export interface ConfigInfo {
   swissRounds?: number;
   matchDurationMinutes?: number;
   breakBetweenMatchesMinutes?: number;
+  breaksConfig?: TournamentBreak[];
+  endTime?: string;
+  matchDays?: number[];
+  roundTimings?: Record<string, RoundTimingAnchor>;
   venueId?: number;
   pointsForWin?: number;
   pointsForDraw?: number;

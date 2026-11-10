@@ -35,6 +35,21 @@ export type PlayoffMatchDraft = {
   conflicts?: string[];
 };
 
+import type { TournamentBreak } from './breakScheduleUtils';
+import {
+  parseTimeToMinutes,
+  formatMinutesToTime,
+  getNextAvailableSlotAfterBreaks,
+  advanceDateToAllowedDay,
+  isMatchExceedingDayEnd,
+} from './breakScheduleUtils';
+
+export type RoundTimingAnchor = {
+  date: string;
+  startTime?: string;
+  courtIds?: number[];
+};
+
 export type PlayoffScheduleInput = {
   numGroups: number;
   proceedersPerGroup: number;
@@ -42,8 +57,10 @@ export type PlayoffScheduleInput = {
   thirdPlaceMatch: boolean;
   startDate: string;
   startTime: string;
+  endTime?: string;
   matchDurationMinutes: number;
   breakMinutes: number;
+  breaks?: TournamentBreak[];
   venueId: number | null;
   courtId: string | number | null;
   /** Seeded players for the player-aware knockout draw (knockout-only). */
@@ -51,6 +68,7 @@ export type PlayoffScheduleInput = {
   /** Selected court IDs for parallel allocation (Rule 4). */
   courtIds?: number[];
   matchDays?: number[];
+  roundTimings?: Record<string, RoundTimingAnchor>;
 };
 
 export function parseBreakMinutes(breakTime: string): number {
@@ -202,28 +220,99 @@ export function addDaysToDateString(dateStr: string, days: number): string {
     ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
     : new Date(dateStr);
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-function createScheduleCursor(
+export interface ScheduleCursor {
+  (): { date: string; time: string };
+  next(): { date: string; time: string };
+  anchor(newDate?: string, newTime?: string): void;
+  currentDate(): string;
+}
+
+export function createScheduleCursor(
   startDate: string,
   startTime: string,
   matchDurationMinutes: number,
-  breakMinutes: number
-) {
-  let slotDate = startDate;
+  breakMinutes: number,
+  breaks?: TournamentBreak[],
+  endTime?: string,
+  matchDays?: number[]
+): ScheduleCursor {
+  let slotDate = advanceDateToAllowedDay(startDate, matchDays);
   let slotTime = startTime;
   const dayStartTime = startTime;
+  const enabledBreaks = breaks?.filter(b => b.enabled) || [];
+  const endMin = (endTime && endTime.trim()) ? parseTimeToMinutes(endTime) : 1440;
 
-  return () => {
+  const rollToNextDay = () => {
+    slotDate = advanceDateToAllowedDay(addDaysToDateString(slotDate, 1), matchDays);
+    slotTime = dayStartTime;
+    if (enabledBreaks.length > 0) {
+      const startMins = parseTimeToMinutes(slotTime);
+      const { nextTimeMin } = getNextAvailableSlotAfterBreaks(startMins, matchDurationMinutes, enabledBreaks);
+      if (nextTimeMin !== startMins) {
+        slotTime = formatMinutesToTime(nextTimeMin);
+      }
+    }
+  };
+
+  const nextSlot = () => {
+    // 1. If slotTime overlaps with any break, advance past the break
+    if (enabledBreaks.length > 0) {
+      const curMins = parseTimeToMinutes(slotTime);
+      const { nextTimeMin } = getNextAvailableSlotAfterBreaks(curMins, matchDurationMinutes, enabledBreaks);
+      if (nextTimeMin !== curMins) {
+        slotTime = formatMinutesToTime(nextTimeMin);
+      }
+    }
+
+    if (isMatchExceedingDayEnd(parseTimeToMinutes(slotTime), matchDurationMinutes, endMin)) {
+      rollToNextDay();
+    }
+
     const current = { date: slotDate, time: slotTime };
+
+    // Advance for next match
     slotTime = addMinutesToTime(slotTime, matchDurationMinutes + breakMinutes);
-    if (parseTime12h(slotTime).hours < 6) {
-      slotDate = addDaysToDateString(slotDate, 1);
-      slotTime = dayStartTime;
+
+    // If next slot lands inside a break or would overlap it, push it past
+    if (enabledBreaks.length > 0) {
+      const nextMins = parseTimeToMinutes(slotTime);
+      const { nextTimeMin } = getNextAvailableSlotAfterBreaks(nextMins, matchDurationMinutes, enabledBreaks);
+      if (nextTimeMin !== nextMins) {
+        slotTime = formatMinutesToTime(nextTimeMin);
+      }
+    }
+
+    if (isMatchExceedingDayEnd(parseTimeToMinutes(slotTime), matchDurationMinutes, endMin) || parseTime12h(slotTime).hours < 6) {
+      rollToNextDay();
     }
     return current;
   };
+
+  return Object.assign(nextSlot, {
+    next: nextSlot,
+    anchor(newDate?: string, newTime?: string) {
+      if (newDate && newDate.trim()) {
+        slotDate = advanceDateToAllowedDay(newDate, matchDays);
+      }
+      if (newTime && newTime.trim()) {
+        slotTime = newTime;
+        if (enabledBreaks.length > 0) {
+          const curMins = parseTimeToMinutes(slotTime);
+          const { nextTimeMin } = getNextAvailableSlotAfterBreaks(curMins, matchDurationMinutes, enabledBreaks);
+          if (nextTimeMin !== curMins) {
+            slotTime = formatMinutesToTime(nextTimeMin);
+          }
+        }
+      }
+    },
+    currentDate: () => slotDate,
+  });
 }
 
 function roundLabel(type: PlayoffRoundType | string, indexInRound: number): string {
@@ -289,9 +378,35 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
     breakMinutes,
     venueId,
     courtId,
+    endTime,
+    matchDays,
+    roundTimings,
   } = input;
 
-  const scheduleSlot = createScheduleCursor(startDate, startTime, matchDurationMinutes, breakMinutes);
+  const scheduleSlot = createScheduleCursor(
+    startDate,
+    startTime,
+    matchDurationMinutes,
+    breakMinutes,
+    input.breaks,
+    endTime,
+    matchDays
+  );
+
+  const anchorRound = (roundName: string) => {
+    if (roundTimings && roundTimings[roundName]) {
+      const timing = roundTimings[roundName];
+      scheduleSlot.anchor(timing.date, timing.startTime);
+    }
+  };
+
+  const getCourtId = (roundName: string) => {
+    if (roundTimings?.[roundName]?.courtIds?.length) {
+      return String(roundTimings[roundName].courtIds![0]);
+    }
+    return courtId ? String(courtId) : null;
+  };
+
   const base = {
     duration: matchDurationMinutes,
     venueId,
@@ -313,8 +428,12 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
   const sf1Id = 'playoff-sf1';
   const sf2Id = 'playoff-sf2';
   const finalId = 'playoff-final';
+
+  anchorRound('SEMI_FINAL');
   const s1 = scheduleSlot();
   const s2 = scheduleSlot();
+
+  anchorRound('FINAL');
   const sFinal = scheduleSlot();
 
   const matches: PlayoffMatchDraft[] = [
@@ -328,6 +447,7 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
       date: s1.date,
       time: s1.time,
       ...base,
+      courtId: getCourtId('SEMI_FINAL'),
     },
     {
       id: sf2Id,
@@ -339,6 +459,7 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
       date: s2.date,
       time: s2.time,
       ...base,
+      courtId: getCourtId('SEMI_FINAL'),
     },
     {
       id: finalId,
@@ -350,10 +471,12 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
       date: sFinal.date,
       time: sFinal.time,
       ...base,
+      courtId: getCourtId('FINAL'),
     },
   ];
 
   if (thirdPlaceMatch) {
+    anchorRound('THIRD_PLACE');
     const s3 = scheduleSlot();
     matches.push({
       id: 'playoff-third-place',
@@ -365,6 +488,7 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
       date: s3.date,
       time: s3.time,
       ...base,
+      courtId: getCourtId('THIRD_PLACE'),
     });
   }
 
@@ -390,8 +514,25 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
     input.startDate,
     input.startTime,
     input.matchDurationMinutes,
-    input.breakMinutes
+    input.breakMinutes,
+    input.breaks,
+    input.endTime,
+    input.matchDays
   );
+
+  const anchorRound = (roundName: string) => {
+    if (input.roundTimings && input.roundTimings[roundName]) {
+      const timing = input.roundTimings[roundName];
+      scheduleSlot.anchor(timing.date, timing.startTime);
+    }
+  };
+
+  const getCourtId = (roundName: string) => {
+    if (input.roundTimings?.[roundName]?.courtIds?.length) {
+      return String(input.roundTimings[roundName].courtIds![0]);
+    }
+    return input.courtId ? String(input.courtId) : null;
+  };
 
   const matches: PlayoffMatchDraft[] = [];
   let currentRoundParticipants: PlayoffParticipantRef[] = [...seeds];
@@ -399,6 +540,7 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
 
   while (currentRoundParticipants.length > 1) {
     const roundType = roundTypeForTeamCount(power, roundIndex, totalRounds);
+    anchorRound(roundType);
     const numMatchesInRound = Math.floor(currentRoundParticipants.length / 2);
     const nextRoundParticipants: PlayoffParticipantRef[] = [];
 
@@ -420,7 +562,7 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
         time,
         duration: input.matchDurationMinutes,
         venueId: input.venueId,
-        courtId: input.courtId ? String(input.courtId) : null,
+        courtId: getCourtId(roundType),
         moveSubsMatches: false,
       });
 
@@ -436,6 +578,7 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
   }
 
   if (input.thirdPlaceMatch) {
+    anchorRound('THIRD_PLACE');
     const semiMatches = matches.filter(m => m.round === 'SEMI_FINAL');
     if (semiMatches.length >= 2) {
       const { date, time } = scheduleSlot();
@@ -450,7 +593,7 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
         time,
         duration: input.matchDurationMinutes,
         venueId: input.venueId,
-        courtId: input.courtId ? String(input.courtId) : null,
+        courtId: getCourtId('THIRD_PLACE'),
         moveSubsMatches: false,
       });
     }
@@ -486,11 +629,29 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
     input.startDate,
     input.startTime,
     input.matchDurationMinutes,
-    input.breakMinutes
+    input.breakMinutes,
+    input.breaks,
+    input.endTime,
+    input.matchDays
   );
+
+  const anchorRound = (roundName: string) => {
+    if (input.roundTimings && input.roundTimings[roundName]) {
+      const timing = input.roundTimings[roundName];
+      scheduleSlot.anchor(timing.date, timing.startTime);
+    }
+  };
+
+  const getCourtId = (roundName: string) => {
+    if (input.roundTimings?.[roundName]?.courtIds?.length) {
+      return String(input.roundTimings[roundName].courtIds![0]);
+    }
+    return input.courtId ? String(input.courtId) : null;
+  };
 
   while (pending.length > 1) {
     const roundType = roundTypeForTeamCount(teamCount, roundIndex, totalRounds);
+    anchorRound(roundType);
     const winners: PlayoffParticipantRef[] = [];
 
     pending.forEach((pair, matchIdx) => {
@@ -509,7 +670,7 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
         time,
         duration: input.matchDurationMinutes,
         venueId: input.venueId,
-        courtId: input.courtId ? String(input.courtId) : null,
+        courtId: getCourtId(roundType),
         moveSubsMatches: false,
       });
 
@@ -528,6 +689,7 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
   }
 
   if (pending.length === 1) {
+    anchorRound('FINAL');
     const pair = pending[0];
     const name = 'Final';
     const id = 'playoff-final';
@@ -543,12 +705,13 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
       time,
       duration: input.matchDurationMinutes,
       venueId: input.venueId,
-      courtId: input.courtId ? String(input.courtId) : null,
+      courtId: getCourtId('FINAL'),
       moveSubsMatches: false,
     });
   }
 
   if (input.thirdPlaceMatch) {
+    anchorRound('THIRD_PLACE');
     const semiMatches = matches.filter(m => m.round === 'SEMI_FINAL');
     if (semiMatches.length >= 2) {
       const { date, time } = scheduleSlot();
@@ -563,7 +726,7 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
         time,
         duration: input.matchDurationMinutes,
         venueId: input.venueId,
-        courtId: input.courtId ? String(input.courtId) : null,
+        courtId: getCourtId('THIRD_PLACE'),
         moveSubsMatches: false,
       });
     }

@@ -18,9 +18,11 @@ import {
 import { format, parseISO } from 'date-fns';
 import type { FixtureTableRow } from './FixturesTableView';
 import { rankStage, exportListViewToPDF } from '../../../utils/sportsExportUtils';
+import type { TournamentBreak } from './breakScheduleUtils';
 
 export interface FixturesListViewProps {
   fixtures: FixtureTableRow[];
+  breaks?: TournamentBreak[];
   onEditMatch: (fixture: FixtureTableRow) => void;
   onExportPDF?: () => void;
   sportName?: string;
@@ -334,6 +336,7 @@ export function getRoundTheme(stageName: string): RoundTheme {
 
 export function FixturesListView({
   fixtures,
+  breaks,
   onEditMatch,
   onExportPDF,
   sportName = 'Match',
@@ -521,6 +524,24 @@ export function FixturesListView({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Active Tournament Breaks Bar */}
+        {breaks && breaks.some(b => b.enabled) && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs text-slate-500">
+            <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider flex items-center gap-1">
+              <span>🥪</span> Scheduled Breaks:
+            </span>
+            {breaks.filter(b => b.enabled).map(b => (
+              <span
+                key={b.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold"
+              >
+                <span>{b.name}</span>
+                <span className="text-amber-600 font-normal">({b.startTime} - {b.endTime})</span>
+              </span>
+            ))}
           </div>
         )}
       </div>

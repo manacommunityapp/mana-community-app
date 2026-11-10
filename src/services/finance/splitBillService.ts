@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export type SplitType = "EQUAL" | "CUSTOM" | "PERCENTAGE";
 export interface SplitMember { user_id: string; name: string; flat?: string; share_amount: number; status: "PENDING" | "PAID" | "DECLINED"; paid_at?: string; }

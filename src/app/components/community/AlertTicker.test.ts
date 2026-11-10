@@ -44,7 +44,7 @@ describe("AlertTicker - Date Filtering & Status Determination", () => {
 
   it("returns false for future dates or general notifications", () => {
     expect(
-      isNotificationDatePast("Diwali Deepotsavam celebrations on November 8, 2026.")
+      isNotificationDatePast("Christmas celebrations on December 25, 2026.")
     ).toBe(false);
 
     expect(

@@ -23,8 +23,11 @@ export interface FixtureTableRow {
   rawMatch: any;
 }
 
+import { type TournamentBreak, getBreakVisualTheme, parseTimeToMinutes } from './breakScheduleUtils';
+
 interface FixturesTableViewProps {
   fixtures: FixtureTableRow[];
+  breaks?: TournamentBreak[];
   onEditMatch: (fixture: FixtureTableRow) => void;
   onExportCSV?: () => void;
   onExportExcel?: () => void;
@@ -51,6 +54,7 @@ function formatDateSafely(dateStr: string): string {
 
 export function FixturesTableView({
   fixtures,
+  breaks,
   onEditMatch,
   onExportCSV,
   onExportExcel,
@@ -304,17 +308,63 @@ export function FixturesTableView({
                 </td>
               </tr>
             ) : (
-              filteredFixtures.map(f => {
-                const hasConflict = f.conflicts && f.conflicts.length > 0;
-                const isBye = f.home.id === 'bye' || f.away.id === 'bye' || f.home.name === 'BYE' || f.away.name === 'BYE';
+              (() => {
+                const enabledBreaks = (breaks || []).filter(b => b.enabled);
+                const renderedBreaks = new Set<string>();
 
-                return (
-                  <tr
-                    key={f.key}
-                    className={'hover:bg-slate-50/70 transition-colors ' + (
-                      hasConflict ? 'bg-amber-50/30' : ''
-                    )}
-                  >
+                return filteredFixtures.map(f => {
+                  const hasConflict = f.conflicts && f.conflicts.length > 0;
+                  const isBye = f.home.id === 'bye' || f.away.id === 'bye' || f.home.name === 'BYE' || f.away.name === 'BYE';
+                  const matchTimeMin = parseTimeToMinutes(f.time);
+
+                  // Check if any enabled break on this date starts before or at this match and hasn't been displayed yet
+                  const dueBreaks = !isBye
+                    ? enabledBreaks.filter(b => {
+                        const breakKey = `${f.date}-${b.id}`;
+                        if (renderedBreaks.has(breakKey)) return false;
+                        const bStart = parseTimeToMinutes(b.startTime);
+                        return matchTimeMin >= bStart;
+                      })
+                    : [];
+
+                  dueBreaks.forEach(b => renderedBreaks.add(`${f.date}-${b.id}`));
+
+                  return (
+                    <React.Fragment key={f.key}>
+                      {dueBreaks.map(brk => {
+                        const theme = getBreakVisualTheme(brk.type);
+                        return (
+                          <tr
+                            key={`break-${f.date}-${brk.id}`}
+                            className="bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border-y border-amber-200"
+                          >
+                            <td colSpan={8} className="py-2.5 px-4">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base">{theme.icon}</span>
+                                  <span className="text-xs font-bold text-amber-900 tracking-wider uppercase">
+                                    {brk.name}
+                                  </span>
+                                  <span className="text-[11px] text-amber-800 font-semibold">
+                                    {brk.startTime} – {brk.endTime}
+                                  </span>
+                                  <span className="text-[10px] text-amber-700 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                                    {brk.durationMinutes}m pause
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide bg-white/80 px-2.5 py-0.5 rounded-md border border-amber-200">
+                                  All Courts Paused · Tournament Break
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr
+                        className={'hover:bg-slate-50/70 transition-colors ' + (
+                          hasConflict ? 'bg-amber-50/30' : ''
+                        )}
+                      >
                     {/* Match Number */}
                     <td className="py-2 px-3 text-center font-bold text-slate-500">
                       M{f.matchNumber}
@@ -435,8 +485,10 @@ export function FixturesTableView({
                       </button>
                     </td>
                   </tr>
-                );
-              })
+                </React.Fragment>
+                  );
+                });
+              })()
             )}
           </tbody>
         </table>

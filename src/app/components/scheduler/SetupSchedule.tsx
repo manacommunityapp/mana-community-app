@@ -36,7 +36,19 @@ import {
   parseBreakMinutes,
   buildPlayoffBracket,
 } from './playoffSchedule';
-import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder } from './playoffSchedule';
+import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
+import {
+  type TournamentBreak,
+  type BreakType,
+  DEFAULT_TOURNAMENT_BREAKS,
+  calcBreakDuration,
+  formatMinutesToTime,
+  getNextAvailableSlotAfterBreaks,
+  isSlotOverlappingBreak,
+  getBreakVisualTheme,
+  advanceDateToAllowedDay,
+  isMatchExceedingDayEnd,
+} from './breakScheduleUtils';
 
 const TIME_OPTIONS = [
   '06:00 AM','07:00 AM','08:00 AM','09:00 AM','10:00 AM','11:00 AM','12:00 PM',
@@ -337,8 +349,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [usePlayoffDays, setUsePlayoffDays] = useState(false);
   const [playoffDays, setPlayoffDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [playoffRoundDates, setPlayoffRoundDates] = useState<Record<string, string>>({});
+  const [playoffRoundTimes, setPlayoffRoundTimes] = useState<Record<string, string>>({});
   const [maxMatchesPerDay, setMaxMatchesPerDay] = useState('2');
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Scheduled Breaks & Meals Config (Lunch, Dinner, Drinks, Maintenance)
+  const [tournamentBreaks, setTournamentBreaks] = useState<TournamentBreak[]>(DEFAULT_TOURNAMENT_BREAKS);
+  const [showAddCustomBreakModal, setShowAddCustomBreakModal] = useState(false);
+  const [newCustomBreakName, setNewCustomBreakName] = useState('');
+  const [newCustomBreakType, setNewCustomBreakType] = useState<BreakType>('CUSTOM');
+  const [newCustomBreakStart, setNewCustomBreakStart] = useState('03:00 PM');
+  const [newCustomBreakEnd, setNewCustomBreakEnd] = useState('03:30 PM');
 
   // Venue Config
   const [selectedVenues, setSelectedVenues] = useState<number[]>([]);
@@ -945,9 +966,25 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endDate: endDate || null,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakBetweenMatchesMinutes: parseInt(breakTime) || 10,
+      breaksConfig: tournamentBreaks,
+      endTime: endTime || null,
       matchDays: matchDays.length < 7 ? matchDays : null,
       playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
       playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
+      playoffRoundTimes: Object.keys(playoffRoundTimes).length > 0 ? playoffRoundTimes : null,
+      roundTimings: (() => {
+        const timings: Record<string, { date: string; startTime?: string }> = {};
+        const allKeys = new Set([...Object.keys(playoffRoundDates), ...Object.keys(playoffRoundTimes)]);
+        allKeys.forEach(k => {
+          if (playoffRoundDates[k] || playoffRoundTimes[k]) {
+            timings[k] = {
+              date: playoffRoundDates[k] || startDate,
+              startTime: playoffRoundTimes[k] || startTime,
+            };
+          }
+        });
+        return Object.keys(timings).length > 0 ? timings : null;
+      })(),
       venueId: selectedVenues.length > 0 ? selectedVenues[0] : null,
       pointsForWin: Number(ptsWin),
       pointsForDraw: Number(ptsDraw),
@@ -1230,7 +1267,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (days.length === 0 || days.length === 7) return date;
     const d = new Date(date);
     let guard = 0;
-    while (!days.includes(d.getDay()) && guard < 7) {
+    while (!days.includes(d.getDay()) && guard < 14) {
       d.setDate(d.getDate() + 1);
       guard++;
     }
@@ -1253,13 +1290,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       const defaultVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
       const defaultCourtId = resolveCourtId(defaultVenueId, groupIdx + mIdx);
 
+      const rawTime = override?.time || startTime;
+      const matchDur = override?.duration || Number(matchDuration) || 30;
+      let finalTime = rawTime;
+
+      if (!override?.time) {
+        const curMins = parseTimeToMinutes(rawTime);
+        const enabledBreaks = tournamentBreaks.filter(b => b.enabled);
+        const { nextTimeMin } = getNextAvailableSlotAfterBreaks(curMins, matchDur, enabledBreaks);
+        if (nextTimeMin !== curMins) {
+          finalTime = formatMinutesToTime(nextTimeMin);
+        }
+      }
+
       return {
         name: override?.name || `G${groupIdx + 1} Match ${mIdx + 1}`,
         home: override?.home || m.home,
         away: override?.away || m.away,
         date: override?.date || defaultDateStr,
-        time: override?.time || startTime,
-        duration: override?.duration || Number(matchDuration) || 30,
+        time: finalTime,
+        duration: matchDur,
         venueId: override?.venueId ?? defaultVenueId,
         courtId: override?.courtId ?? defaultCourtId,
         moveSubsMatches: override?.moveSubsMatches || false,
@@ -1386,6 +1436,24 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       ? (startTime || '08:00 AM')
       : addMinutesToTime(groupEnd.time, breakMins);
 
+    const roundTimings: Record<string, RoundTimingAnchor> = {};
+    const allRoundKeys = new Set([...Object.keys(playoffRoundDates), ...Object.keys(playoffRoundTimes)]);
+    allRoundKeys.forEach(round => {
+      const date = playoffRoundDates[round] || groupEnd.date;
+      const roundStartTime = playoffRoundTimes[round] || initialStartTime;
+      if (date) {
+        roundTimings[round] = {
+          date,
+          startTime: roundStartTime,
+          courtIds: selectedCourtIds(defaultVenueId),
+        };
+      }
+    });
+
+    const effectiveMatchDays = usePlayoffDays && playoffDays.length < 7
+      ? playoffDays
+      : (matchDays.length < 7 ? matchDays : undefined);
+
     return {
       numGroups,
       proceedersPerGroup,
@@ -1393,13 +1461,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
       startDate: groupEnd.date,
       startTime: initialStartTime,
+      endTime: endTime || undefined,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakMinutes: breakMins,
+      breaks: tournamentBreaks.filter(b => b.enabled),
       venueId: defaultVenueId,
       courtId: numericCourtId,
       participants: playerParticipants,
       courtIds: selectedCourtIds(defaultVenueId),
-      matchDays: matchDays.length < 7 ? matchDays : undefined,
+      matchDays: effectiveMatchDays,
+      roundTimings: Object.keys(roundTimings).length > 0 ? roundTimings : undefined,
     };
   };
 
@@ -1445,15 +1516,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
     if (isKnockoutOnly) {
       let koMatches = applyPlayoffOverrides(matches, matchOverrides);
-      if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+      if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0 || Object.keys(playoffRoundTimes).length > 0) {
         koMatches = koMatches.map(m => {
           const roundDate = playoffRoundDates[m.round];
-          if (roundDate) return { ...m, date: roundDate };
-          if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
-            const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
-            return { ...m, date: d.toISOString().split('T')[0] };
+          const roundTime = playoffRoundTimes[m.round];
+          let updated = { ...m };
+          if (roundDate) updated.date = roundDate;
+          if (roundTime) updated.time = roundTime;
+          if (!roundDate && usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && updated.date) {
+            const d = advanceToAllowedDay(new Date(updated.date + 'T00:00:00'), playoffDays);
+            updated.date = d.toISOString().split('T')[0];
           }
-          return m;
+          return updated;
         });
       }
       return koMatches;
@@ -1468,15 +1542,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       courtId: resolveCourtId(playoffVenueId, idx),
     }));
 
-    if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+    if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0 || Object.keys(playoffRoundTimes).length > 0) {
       matches = matches.map(m => {
         const roundDate = playoffRoundDates[m.round];
-        if (roundDate) return { ...m, date: roundDate };
-        if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
-          const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
-          return { ...m, date: d.toISOString().split('T')[0] };
+        const roundTime = playoffRoundTimes[m.round];
+        let updated = { ...m };
+        if (roundDate) updated.date = roundDate;
+        if (roundTime) updated.time = roundTime;
+        if (!roundDate && usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && updated.date) {
+          const d = advanceToAllowedDay(new Date(updated.date + 'T00:00:00'), playoffDays);
+          updated.date = d.toISOString().split('T')[0];
         }
-        return m;
+        return updated;
       });
     }
 
@@ -1739,6 +1816,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       duration: number;
       venueId: number | null;
       courtId: string | number | null;
+      isPlayoff: boolean;
     }> = [];
 
     // Group matches
@@ -1755,6 +1833,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             duration: m.duration || 30,
             venueId: m.venueId,
             courtId: m.courtId,
+            isPlayoff: false,
           });
         });
       });
@@ -1773,6 +1852,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           duration: m.duration || 30,
           venueId: m.venueId,
           courtId: m.courtId,
+          isPlayoff: true,
         });
       });
     }
@@ -1839,8 +1919,74 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
     }
 
+    // 3. Break Conflict (Match overlapping an enabled Lunch, Dinner, Drinks, or Custom break)
+    const activeBreaks = tournamentBreaks.filter(b => b.enabled);
+    if (activeBreaks.length > 0) {
+      list.forEach(m => {
+        if (!m.date || !m.time) return;
+        const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+        if (isBye) return;
+
+        const mStart = parseTimeToMinutes(m.time);
+        const mDur = m.duration || 30;
+        const conflictBreak = isSlotOverlappingBreak(mStart, mDur, activeBreaks);
+        if (conflictBreak) {
+          addConflict(m.key, `Break Conflict: Scheduled during ${conflictBreak.name} (${conflictBreak.startTime} - ${conflictBreak.endTime})`);
+        }
+      });
+    }
+
+    // 4. End Time / Daily Bounds Conflict
+    if (endTime && endTime.trim()) {
+      const dayEndMin = parseTimeToMinutes(endTime);
+      list.forEach(m => {
+        if (!m.date || !m.time) return;
+        const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+        if (isBye) return;
+
+        const mStart = parseTimeToMinutes(m.time);
+        const mDur = m.duration || 30;
+        if (isMatchExceedingDayEnd(mStart, mDur, dayEndMin)) {
+          addConflict(m.key, `End Time Conflict: Match ends at ${formatMinutesToTime(mStart + mDur)}, exceeding day end time ${endTime}`);
+        }
+      });
+    }
+
+    // 5. Allowed Days Conflict
+    list.forEach(m => {
+      if (!m.date) return;
+      const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+      if (isBye) return;
+
+      const days = (m.isPlayoff && usePlayoffDays && playoffDays.length < 7) ? playoffDays : (matchDays.length < 7 ? matchDays : null);
+      if (days && days.length > 0) {
+        const parts = m.date.split('-');
+        const d = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(m.date);
+        if (!days.includes(d.getDay())) {
+          const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+          addConflict(m.key, `Disallowed Day Conflict: Scheduled on ${dayName} (${m.date}), which is not an allowed match day`);
+        }
+      }
+    });
+
     return conflictsMap;
-  }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, matchOverrides, playoffDraft]);
+  }, [
+    generatedGroups,
+    isGroupKnockout,
+    isRoundRobin,
+    isKnockoutOnly,
+    playoffsGenerated,
+    venues,
+    matchOverrides,
+    playoffDraft,
+    tournamentBreaks,
+    endTime,
+    matchDays,
+    playoffDays,
+    usePlayoffDays,
+    playoffRoundDates,
+    playoffRoundTimes,
+  ]);
 
   const allFixturesTableRows = useMemo<FixtureTableRow[]>(() => {
     const rows: FixtureTableRow[] = [];
@@ -2553,6 +2699,140 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </div>
             </div>
 
+            {/* Scheduled Breaks & Meals (Lunch, Dinner, Drinks, Maintenance) */}
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 p-3.5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🥪</span>
+                    <label className="text-xs font-bold text-slate-800 tracking-wide uppercase">
+                      Scheduled Breaks & Meals
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Matches will automatically pause and skip these windows (e.g. Lunch 1–2 PM).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomBreakModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Break</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {tournamentBreaks.map(brk => {
+                  const theme = getBreakVisualTheme(brk.type);
+                  return (
+                    <div
+                      key={brk.id}
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border transition-all ${
+                        brk.enabled
+                          ? 'bg-white border-indigo-200/80 shadow-xs'
+                          : 'bg-slate-50/80 border-slate-200/60 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-[160px]">
+                        <input
+                          type="checkbox"
+                          id={`break-${brk.id}`}
+                          checked={brk.enabled}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setTournamentBreaks(prev =>
+                              prev.map(b => (b.id === brk.id ? { ...b, enabled: checked } : b))
+                            );
+                          }}
+                          className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                        />
+                        <label
+                          htmlFor={`break-${brk.id}`}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 cursor-pointer select-none"
+                        >
+                          <span>{theme.icon}</span>
+                          <span>{brk.name}</span>
+                        </label>
+                      </div>
+
+                      {brk.enabled && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <span className="text-[10px] text-slate-400">From</span>
+                            <select
+                              value={brk.startTime}
+                              onChange={e => {
+                                const newStart = e.target.value;
+                                setTournamentBreaks(prev =>
+                                  prev.map(b =>
+                                    b.id === brk.id
+                                      ? {
+                                          ...b,
+                                          startTime: newStart,
+                                          durationMinutes: calcBreakDuration(newStart, b.endTime),
+                                        }
+                                      : b
+                                  )
+                                );
+                              }}
+                              className="text-xs py-1 px-2 border border-slate-200 rounded-md bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                            >
+                              {TIME_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <span className="text-[10px] text-slate-400">To</span>
+                            <select
+                              value={brk.endTime}
+                              onChange={e => {
+                                const newEnd = e.target.value;
+                                setTournamentBreaks(prev =>
+                                  prev.map(b =>
+                                    b.id === brk.id
+                                      ? {
+                                          ...b,
+                                          endTime: newEnd,
+                                          durationMinutes: calcBreakDuration(b.startTime, newEnd),
+                                        }
+                                      : b
+                                  )
+                                );
+                              }}
+                              className="text-xs py-1 px-2 border border-slate-200 rounded-md bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                            >
+                              {TIME_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {brk.durationMinutes}m pause
+                          </span>
+
+                          {!['break-lunch', 'break-drinks', 'break-dinner'].includes(brk.id) && (
+                            <button
+                              type="button"
+                              onClick={() => setTournamentBreaks(prev => prev.filter(b => b.id !== brk.id))}
+                              className="text-slate-400 hover:text-red-500 p-1 transition-colors cursor-pointer"
+                              title="Delete custom break"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Limit Matches Per Day */}
             <div className="flex items-center gap-3">
               <input type="checkbox" checked={limitMatchesPerDay} onChange={e => setLimitMatchesPerDay(e.target.checked)} className="w-4 h-4 accent-[#4f46e5] rounded" id="limitPerDay" />
@@ -2683,10 +2963,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       </div>
                     </div>
 
-                    {/* Specific round dates */}
+                    {/* Specific round dates & start times */}
                     <div>
                       <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
-                        Pin Round to Specific Date <span className="normal-case font-normal">(optional)</span>
+                        Pin Round to Specific Date & Start Time <span className="normal-case font-normal">(optional)</span>
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
                         {([
@@ -2695,28 +2975,50 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           { round: 'FINAL', label: 'Final' },
                           { round: 'THIRD_PLACE', label: '3rd Place' },
                         ] as const).map(r => (
-                          <div key={r.round} className="flex items-center gap-2">
-                            <span className="text-[11px] text-[#6b7094] w-20 sm:w-24 shrink-0">{r.label}</span>
-                            <input
-                              type="date"
-                              value={playoffRoundDates[r.round] || ''}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setPlayoffRoundDates(prev => {
-                                  if (!val) {
-                                    const next = { ...prev };
-                                    delete next[r.round];
-                                    return next;
-                                  }
-                                  return { ...prev, [r.round]: val };
-                                });
-                              }}
-                              className="flex-1 min-w-0 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
-                            />
+                          <div key={r.round} className="flex flex-col gap-1 bg-[#fafbff] border border-[rgba(99,102,241,0.12)] p-2 rounded-lg">
+                            <span className="text-[11px] font-semibold text-[#0d0d2b]">{r.label}</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="date"
+                                value={playoffRoundDates[r.round] || ''}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setPlayoffRoundDates(prev => {
+                                    if (!val) {
+                                      const next = { ...prev };
+                                      delete next[r.round];
+                                      return next;
+                                    }
+                                    return { ...prev, [r.round]: val };
+                                  });
+                                }}
+                                className="flex-1 min-w-0 bg-white border border-[rgba(99,102,241,0.15)] rounded px-1.5 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                              />
+                              <select
+                                value={playoffRoundTimes[r.round] || ''}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setPlayoffRoundTimes(prev => {
+                                    if (!val) {
+                                      const next = { ...prev };
+                                      delete next[r.round];
+                                      return next;
+                                    }
+                                    return { ...prev, [r.round]: val };
+                                  });
+                                }}
+                                className="w-24 bg-white border border-[rgba(99,102,241,0.15)] rounded px-1 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                              >
+                                <option value="">Time...</option>
+                                {TIME_OPTIONS.map(t => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      <p className="text-[9px] text-[#6b7094] mt-1">Set a fixed date for any round. Leave blank to use day-of-week rules above.</p>
+                      <p className="text-[9px] text-[#6b7094] mt-1">Set a fixed date and start time for any round (e.g. QF Sat 10:00 AM, Final Sun 04:00 PM). Leave blank to use day-of-week rules and auto-progression.</p>
                     </div>
                   </div>
                 )}
@@ -3391,6 +3693,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             <div className="mt-4">
               <FixturesTableView
                 fixtures={allFixturesTableRows}
+                breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 onExportCSV={handleExportCSV}
                 onExportExcel={handleExportExcel}
@@ -3405,6 +3708,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             <div className="mt-4">
               <FixturesListView
                 fixtures={allFixturesTableRows}
+                breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
               />
@@ -4495,6 +4799,111 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <span>₹850</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add Custom Break Modal */}
+      {showAddCustomBreakModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⏸️</span>
+                <h3 className="text-sm font-bold text-slate-900">Add Tournament Break</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomBreakModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Break Name</label>
+                <input
+                  type="text"
+                  value={newCustomBreakName}
+                  onChange={e => setNewCustomBreakName(e.target.value)}
+                  placeholder="e.g. Court Maintenance / Prayer / Ceremony"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
+                <select
+                  value={newCustomBreakType}
+                  onChange={e => setNewCustomBreakType(e.target.value as BreakType)}
+                  className={inputCls}
+                >
+                  <option value="LUNCH">🥪 Lunch Break</option>
+                  <option value="DINNER">🍽️ Dinner Break</option>
+                  <option value="DRINKS">☕ Tea / Drinks Break</option>
+                  <option value="MAINTENANCE">🧹 Court Maintenance</option>
+                  <option value="CEREMONY">🎉 Ceremony / Presentation</option>
+                  <option value="CUSTOM">⏸️ Other / Custom Break</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">Start Time</label>
+                  <select
+                    value={newCustomBreakStart}
+                    onChange={e => setNewCustomBreakStart(e.target.value)}
+                    className={inputCls}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">End Time</label>
+                  <select
+                    value={newCustomBreakEnd}
+                    onChange={e => setNewCustomBreakEnd(e.target.value)}
+                    className={inputCls}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomBreakModal(false)}
+                className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = newCustomBreakName.trim() || 'Custom Break';
+                  const duration = calcBreakDuration(newCustomBreakStart, newCustomBreakEnd);
+                  const newBreak: TournamentBreak = {
+                    id: `break-custom-${Date.now()}`,
+                    name,
+                    type: newCustomBreakType,
+                    startTime: newCustomBreakStart,
+                    endTime: newCustomBreakEnd,
+                    durationMinutes: duration,
+                    enabled: true,
+                  };
+                  setTournamentBreaks(prev => [...prev, newBreak]);
+                  setNewCustomBreakName('');
+                  setShowAddCustomBreakModal(false);
+                  showSuccess(`Added break "${name}" (${newCustomBreakStart} - ${newCustomBreakEnd})`);
+                }}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs cursor-pointer"
+              >
+                Add Break
+              </button>
             </div>
           </div>
         </div>

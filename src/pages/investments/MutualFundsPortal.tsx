@@ -50,7 +50,7 @@ export function MutualFundsPortal() {
 
   async function handleCancelSip(sipId: string) {
     if (!window.confirm("Cancel this SIP?")) return;
-    try { await fetch(`http://localhost:8080/api/v1/mf/sips/${sipId}/cancel`, { method: "DELETE" }); showSuccess("SIP cancelled."); loadSips(); }
+    try { await fetch(`/api/v1/mf/sips/${sipId}/cancel`, { method: "DELETE" }); showSuccess("SIP cancelled."); loadSips(); }
     catch { showError("Could not cancel SIP."); }
   }
 
