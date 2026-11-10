@@ -12,6 +12,11 @@ import { OrgHierarchy } from "./components/hrm/OrgHierarchy";
 import { RecruitmentBoard } from "./components/hrm/RecruitmentBoard";
 import { PerformanceManagement } from "./components/hrm/PerformanceManagement";
 import { LearningDevelopment } from "./components/hrm/LearningDevelopment";
+import PayrollManagement from "./components/hrm/PayrollManagement";
+import ExpenseManagement from "./components/hrm/ExpenseManagement";
+import AssetManagement from "./components/hrm/AssetManagement";
+import TasksBoard from "./components/hrm/TasksBoard";
+import HelpDesk from "./components/hrm/HelpDesk";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -198,6 +203,62 @@ function HrmLearningPage() {
   if (!orgId || !employeeId) return null;
   return <LearningDevelopment orgId={orgId} employeeId={employeeId} />;
 }
+
+function HrmPayrollPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <PayrollManagement orgId={orgId} isHrAdmin />;
+}
+
+function HrmExpensePage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <ExpenseManagement orgId={orgId} isHrAdmin />;
+}
+
+function HrmAssetPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <AssetManagement orgId={orgId} isHrAdmin />;
+}
+
+function HrmTasksPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <TasksBoard orgId={orgId} isHrAdmin />;
+}
+
+function HrmHelpDeskPage() {
+  const [orgId, setOrgId] = useState<number | null>(null);
+  useEffect(() => {
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
+    );
+  }, []);
+  if (!orgId) return null;
+  return <HelpDesk orgId={orgId} isHrAdmin />;
+}
+
 import {
   MatchDetailPage,
   MatchLivePage,
@@ -1507,6 +1568,11 @@ export const router = createBrowserRouter([
           { path: "recruitment", element: <HrmRecruitmentPage /> },
           { path: "performance", element: <HrmPerformancePage /> },
           { path: "learning", element: <HrmLearningPage /> },
+          { path: "payroll", element: <HrmPayrollPage /> },
+          { path: "expenses", element: <HrmExpensePage /> },
+          { path: "assets", element: <HrmAssetPage /> },
+          { path: "tasks", element: <HrmTasksPage /> },
+          { path: "helpdesk", element: <HrmHelpDeskPage /> },
           { path: "settings", element: <HrmSettings /> },
           { path: "org-chart", element: <OrgChartPage /> },
         ],

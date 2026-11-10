@@ -538,3 +538,197 @@ export interface Recognition {
   category?: string;
   createdAt: string;
 }
+
+// ── Payroll ──
+export interface SalaryComponent {
+  id: number;
+  organizationId: number;
+  name: string;
+  code: string;
+  componentType: 'EARNING' | 'DEDUCTION';
+  calculationType: string;
+  defaultValue?: number;
+  isTaxable: boolean;
+  isStatutory: boolean;
+  statutoryCode?: string;
+  isActive: boolean;
+  sequenceOrder: number;
+}
+
+export interface SalaryStructure {
+  id: number;
+  organizationId: number;
+  employee: { id: number; firstName: string; lastName?: string };
+  ctcAnnual: number;
+  basicMonthly: number;
+  hraMonthly: number;
+  daMonthly: number;
+  specialAllowanceMonthly: number;
+  otherAllowancesMonthly: number;
+  pfEmployeeMonthly: number;
+  pfEmployerMonthly: number;
+  esiEmployeeMonthly: number;
+  esiEmployerMonthly: number;
+  professionalTaxMonthly: number;
+  tdsMonthly: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  createdAt: string;
+}
+
+export interface PayrollRun {
+  id: number;
+  organizationId: number;
+  payrollMonth: number;
+  payrollYear: number;
+  status: 'DRAFT' | 'PROCESSED' | 'APPROVED' | 'PAID';
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  employeeCount: number;
+  processedAt?: string;
+  approvedAt?: string;
+  createdAt: string;
+}
+
+export interface Payslip {
+  id: number;
+  organizationId: number;
+  employee: { id: number; firstName: string; lastName?: string; employeeCode?: string };
+  payrollRun: { id: number; payrollMonth: number; payrollYear: number };
+  workingDays: number;
+  paidDays: number;
+  lossOfPayDays: number;
+  basicSalary: number;
+  hra: number;
+  da: number;
+  specialAllowance: number;
+  otherAllowances: number;
+  grossSalary: number;
+  pfEmployee: number;
+  pfEmployer: number;
+  esiEmployee: number;
+  esiEmployer: number;
+  professionalTax: number;
+  tds: number;
+  totalDeductions: number;
+  netSalary: number;
+  isPublished: boolean;
+  publishedAt?: string;
+  createdAt: string;
+}
+
+// ── Expenses ──
+export interface ExpenseClaim {
+  id: number;
+  organizationId: number;
+  employee: { id: number; firstName: string; lastName?: string };
+  claimTitle: string;
+  claimType: string;
+  totalAmount: number;
+  approvedAmount?: number;
+  claimDate: string;
+  description?: string;
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'REIMBURSED';
+  rejectionReason?: string;
+  createdAt: string;
+}
+
+export interface ExpenseItem {
+  id: number;
+  description: string;
+  amount: number;
+  expenseDate?: string;
+  receiptUrl?: string;
+  category?: string;
+}
+
+export interface TravelRequest {
+  id: number;
+  organizationId: number;
+  employee: { id: number; firstName: string; lastName?: string };
+  destination: string;
+  purpose: string;
+  travelFrom: string;
+  travelTo: string;
+  modeOfTravel?: string;
+  estimatedCost?: number;
+  advanceRequested: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
+  createdAt: string;
+}
+
+// ── Assets ──
+export interface HrAsset {
+  id: number;
+  organizationId: number;
+  assetName: string;
+  assetType: string;
+  assetCode?: string;
+  serialNumber?: string;
+  make?: string;
+  model?: string;
+  purchaseDate?: string;
+  purchaseValue?: number;
+  currentValue?: number;
+  warrantyExpiry?: string;
+  status: 'AVAILABLE' | 'ASSIGNED' | 'UNDER_REPAIR' | 'RETIRED';
+  notes?: string;
+}
+
+export interface AssetAssignment {
+  id: number;
+  organizationId: number;
+  asset: HrAsset;
+  employee: { id: number; firstName: string; lastName?: string };
+  assignedDate: string;
+  returnDate?: string;
+  conditionAtAssignment?: string;
+  conditionAtReturn?: string;
+  isActive: boolean;
+}
+
+// ── Tasks ──
+export interface HrTask {
+  id: number;
+  organizationId: number;
+  assignedTo: { id: number; firstName: string; lastName?: string };
+  assignedBy?: { id: number; firstName: string; lastName?: string };
+  title: string;
+  description?: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  status: 'OPEN' | 'IN_PROGRESS' | 'DONE';
+  dueDate?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+// ── Communications ──
+export interface HrAnnouncement {
+  id: number;
+  organizationId: number;
+  title: string;
+  body: string;
+  targetType: 'ALL' | 'DEPARTMENT' | 'INDIVIDUAL';
+  isPinned: boolean;
+  publishedAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface HelpDeskTicket {
+  id: number;
+  organizationId: number;
+  employee: { id: number; firstName: string; lastName?: string };
+  ticketNumber: string;
+  category: 'PAYROLL' | 'LEAVE' | 'IT' | 'ATTENDANCE' | 'GENERAL';
+  subject: string;
+  description: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  assignedTo?: { id: number; firstName: string; lastName?: string };
+  resolution?: string;
+  resolvedAt?: string;
+  createdAt: string;
+}

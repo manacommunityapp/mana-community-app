@@ -13,6 +13,11 @@ import {
   Briefcase,
   TrendingUp,
   BookOpen,
+  DollarSign,
+  Receipt,
+  Package,
+  CheckSquare,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -25,6 +30,11 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/recruitment",  icon: Briefcase,       label: "Recruitment" },
   { to: "/hrm/performance",  icon: TrendingUp,      label: "Performance" },
   { to: "/hrm/learning",     icon: BookOpen,        label: "Learning" },
+  { to: "/hrm/payroll",      icon: DollarSign,      label: "Payroll" },
+  { to: "/hrm/expenses",     icon: Receipt,         label: "Expenses" },
+  { to: "/hrm/assets",       icon: Package,         label: "Assets" },
+  { to: "/hrm/tasks",        icon: CheckSquare,     label: "Tasks" },
+  { to: "/hrm/helpdesk",     icon: HelpCircle,      label: "Help Desk" },
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 

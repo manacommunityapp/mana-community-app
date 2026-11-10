@@ -44,6 +44,18 @@ import type {
   Certification,
   CareerPath,
   Recognition,
+  SalaryComponent,
+  SalaryStructure,
+  PayrollRun,
+  Payslip,
+  ExpenseClaim,
+  ExpenseItem,
+  TravelRequest,
+  HrAsset,
+  AssetAssignment,
+  HrTask,
+  HrAnnouncement,
+  HelpDeskTicket,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -433,5 +445,123 @@ export const hrmService = {
   },
   async giveRecognition(orgId: number, data: { receiverEmployeeId: number; recognitionType: string; message: string; points?: number; isPublic?: boolean; category?: string }): Promise<Recognition> {
     return apiClient.post(`${BASE}/learning/organizations/${orgId}/recognitions`, data);
+  },
+
+  // ── Payroll ──
+  async getPayrollRuns(orgId: number): Promise<PayrollRun[]> {
+    return apiClient.get(`${BASE}/payroll/organizations/${orgId}/runs`);
+  },
+  async createPayrollRun(orgId: number, month: number, year: number): Promise<PayrollRun> {
+    return apiClient.post(`${BASE}/payroll/organizations/${orgId}/runs`, { month, year });
+  },
+  async processPayrollRun(orgId: number, runId: number): Promise<PayrollRun> {
+    return apiClient.post(`${BASE}/payroll/organizations/${orgId}/runs/${runId}/process`, {});
+  },
+  async approvePayrollRun(orgId: number, runId: number): Promise<PayrollRun> {
+    return apiClient.post(`${BASE}/payroll/organizations/${orgId}/runs/${runId}/approve`, {});
+  },
+  async publishPayslips(orgId: number, runId: number): Promise<void> {
+    return apiClient.post(`${BASE}/payroll/organizations/${orgId}/runs/${runId}/publish`, {});
+  },
+  async getRunPayslips(orgId: number, runId: number): Promise<Payslip[]> {
+    return apiClient.get(`${BASE}/payroll/organizations/${orgId}/runs/${runId}/payslips`);
+  },
+  async getMyPayslips(orgId: number): Promise<Payslip[]> {
+    return apiClient.get(`${BASE}/payroll/my-payslips?orgId=${orgId}`);
+  },
+  async setSalaryStructure(orgId: number, employeeId: number, data: Partial<SalaryStructure>): Promise<SalaryStructure> {
+    return apiClient.post(`${BASE}/payroll/organizations/${orgId}/employees/${employeeId}/salary-structure`, data);
+  },
+  async getSalaryHistory(orgId: number, employeeId: number): Promise<SalaryStructure[]> {
+    return apiClient.get(`${BASE}/payroll/employees/${employeeId}/salary-history?orgId=${orgId}`);
+  },
+  async getSalaryComponents(orgId: number): Promise<SalaryComponent[]> {
+    return apiClient.get(`${BASE}/payroll/organizations/${orgId}/components`);
+  },
+
+  // ── Expenses ──
+  async createExpenseClaim(orgId: number, data: Partial<ExpenseClaim> & { items?: ExpenseItem[] }): Promise<ExpenseClaim> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/claims`, data);
+  },
+  async submitExpenseClaim(orgId: number, claimId: number): Promise<ExpenseClaim> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/claims/${claimId}/submit`, {});
+  },
+  async approveExpenseClaim(orgId: number, claimId: number, approvedAmount?: number): Promise<ExpenseClaim> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/claims/${claimId}/approve`, { approvedAmount });
+  },
+  async rejectExpenseClaim(orgId: number, claimId: number, reason: string): Promise<ExpenseClaim> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/claims/${claimId}/reject`, { reason });
+  },
+  async getMyClaims(orgId: number, page = 0, size = 20): Promise<PageResponse<ExpenseClaim>> {
+    return apiClient.get(`${BASE}/expenses/my-claims?orgId=${orgId}&page=${page}&size=${size}`);
+  },
+  async getPendingClaims(orgId: number, page = 0, size = 20): Promise<PageResponse<ExpenseClaim>> {
+    return apiClient.get(`${BASE}/expenses/organizations/${orgId}/pending?page=${page}&size=${size}`);
+  },
+  async createTravelRequest(orgId: number, data: Partial<TravelRequest>): Promise<TravelRequest> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/travel`, data);
+  },
+  async approveTravelRequest(orgId: number, requestId: number): Promise<TravelRequest> {
+    return apiClient.post(`${BASE}/expenses/organizations/${orgId}/travel/${requestId}/approve`, {});
+  },
+  async getMyTravelRequests(orgId: number, page = 0, size = 20): Promise<PageResponse<TravelRequest>> {
+    return apiClient.get(`${BASE}/expenses/my-travel?orgId=${orgId}&page=${page}&size=${size}`);
+  },
+
+  // ── Assets ──
+  async getAssets(orgId: number, status?: string, page = 0, size = 20): Promise<PageResponse<HrAsset>> {
+    const q = status ? `&status=${status}` : '';
+    return apiClient.get(`${BASE}/operations/organizations/${orgId}/assets?page=${page}&size=${size}${q}`);
+  },
+  async createAsset(orgId: number, data: Partial<HrAsset>): Promise<HrAsset> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/assets`, data);
+  },
+  async assignAsset(orgId: number, assetId: number, employeeId: number, condition?: string): Promise<AssetAssignment> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/assets/${assetId}/assign`, { employeeId, condition });
+  },
+  async returnAsset(orgId: number, assignmentId: number, condition?: string): Promise<AssetAssignment> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/assignments/${assignmentId}/return`, { condition });
+  },
+  async getEmployeeAssets(orgId: number, employeeId: number): Promise<AssetAssignment[]> {
+    return apiClient.get(`${BASE}/operations/employees/${employeeId}/assets?orgId=${orgId}`);
+  },
+
+  // ── Tasks ──
+  async createTask(orgId: number, data: { assignedToId: number; title: string; description?: string; priority?: string; dueDate?: string }): Promise<HrTask> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/tasks`, data);
+  },
+  async updateTaskStatus(orgId: number, taskId: number, status: string): Promise<HrTask> {
+    return apiClient.patch(`${BASE}/operations/tasks/${taskId}/status?orgId=${orgId}`, { status });
+  },
+  async getMyTasks(orgId: number): Promise<{ content: HrTask[] }> {
+    return apiClient.get(`${BASE}/operations/my-tasks?orgId=${orgId}`).then((data: HrTask[]) => ({ content: data }));
+  },
+  async getAllTasks(orgId: number, page = 0, size = 50): Promise<{ content: HrTask[] }> {
+    return apiClient.get(`${BASE}/operations/organizations/${orgId}/tasks?page=${page}&size=${size}`);
+  },
+
+  // ── Announcements ──
+  async getAnnouncements(orgId: number): Promise<HrAnnouncement[]> {
+    return apiClient.get(`${BASE}/operations/organizations/${orgId}/announcements`);
+  },
+  async createAnnouncement(orgId: number, data: Partial<HrAnnouncement>): Promise<HrAnnouncement> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/announcements`, data);
+  },
+
+  // ── Help Desk ──
+  async createTicket(orgId: number, data: Partial<HelpDeskTicket>): Promise<HelpDeskTicket> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/tickets`, data);
+  },
+  async assignTicket(orgId: number, ticketId: number, assignedToEmployeeId: number): Promise<HelpDeskTicket> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/tickets/${ticketId}/assign`, { assignedToEmployeeId });
+  },
+  async resolveTicket(orgId: number, ticketId: number, resolution: string): Promise<HelpDeskTicket> {
+    return apiClient.post(`${BASE}/operations/organizations/${orgId}/tickets/${ticketId}/resolve`, { resolution });
+  },
+  async getMyTickets(orgId: number, page = 0, size = 20): Promise<PageResponse<HelpDeskTicket>> {
+    return apiClient.get(`${BASE}/operations/my-tickets?orgId=${orgId}&page=${page}&size=${size}`);
+  },
+  async getOpenTickets(orgId: number, page = 0, size = 20): Promise<PageResponse<HelpDeskTicket>> {
+    return apiClient.get(`${BASE}/operations/organizations/${orgId}/tickets/open?page=${page}&size=${size}`);
   },
 };
