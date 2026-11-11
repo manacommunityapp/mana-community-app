@@ -1,4 +1,6 @@
 import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useHrmOrg } from "../contexts/HrmOrgContext";
 import { HrmLayout } from "./components/hrm/HrmLayout";
 import { HrmDashboard } from "./components/hrm/HrmDashboard";
 import { EmployeeDirectory } from "./components/hrm/EmployeeDirectory";
@@ -7,6 +9,26 @@ import { AttendanceManagement } from "./components/hrm/AttendanceManagement";
 import { LeaveManagement } from "./components/hrm/LeaveManagement";
 import { ShiftManagement } from "./components/hrm/ShiftManagement";
 import { HrmSettings } from "./components/hrm/HrmSettings";
+import { OrgHierarchy } from "./components/hrm/OrgHierarchy";
+import { RecruitmentBoard } from "./components/hrm/RecruitmentBoard";
+import { PerformanceManagement } from "./components/hrm/PerformanceManagement";
+import { LearningDevelopment } from "./components/hrm/LearningDevelopment";
+import PayrollManagement from "./components/hrm/PayrollManagement";
+import ExpenseManagement from "./components/hrm/ExpenseManagement";
+import AssetManagement from "./components/hrm/AssetManagement";
+import TasksBoard from "./components/hrm/TasksBoard";
+import HelpDesk from "./components/hrm/HelpDesk";
+import HrAnalyticsDashboard from "./components/hrm/HrAnalyticsDashboard";
+import ComplianceAlerts from "./components/hrm/ComplianceAlerts";
+import AuditTrailViewer from "./components/hrm/AuditTrailViewer";
+import RoleManagement from "./components/hrm/RoleManagement";
+import CustomReportBuilder from "./components/hrm/CustomReportBuilder";
+import SkillPassport from "./components/hrm/SkillPassport";
+import WorkforcePool from "./components/hrm/WorkforcePool";
+import JobBoard from "./components/hrm/JobBoard";
+import DutyHandover from "./components/hrm/DutyHandover";
+import IntegrationSettings from "./components/hrm/IntegrationSettings";
+import ForecastDashboard from "./components/hrm/ForecastDashboard";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -137,6 +159,129 @@ function TeamRegisterPage() {
   const navigate = useNavigate();
   return <SportsTeamRegistration eventId={Number(eventId)} onClose={() => navigate(-1)} />;
 }
+
+function OrgChartPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <OrgHierarchy orgId={activeOrgId} />;
+}
+
+function HrmRecruitmentPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RecruitmentBoard orgId={activeOrgId} />;
+}
+
+function HrmPerformancePage() {
+  const { activeOrgId } = useHrmOrg();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeOrgId) return;
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
+    );
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <PerformanceManagement orgId={activeOrgId} employeeId={employeeId} />;
+}
+
+function HrmLearningPage() {
+  const { activeOrgId } = useHrmOrg();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeOrgId) return;
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
+    );
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <LearningDevelopment orgId={activeOrgId} employeeId={employeeId} />;
+}
+
+function HrmPayrollPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <PayrollManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmExpensePage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ExpenseManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmAssetPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AssetManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmTasksPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <TasksBoard orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmHelpDeskPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HelpDesk orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmAnalyticsPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HrAnalyticsDashboard orgId={activeOrgId} />;
+}
+
+function HrmCompliancePage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ComplianceAlerts orgId={activeOrgId} />;
+}
+
+function HrmAuditPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AuditTrailViewer orgId={activeOrgId} />;
+}
+
+function HrmRolesPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RoleManagement orgId={activeOrgId} />;
+}
+
+function HrmReportsPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <CustomReportBuilder orgId={activeOrgId} />;
+}
+
+function HrmSkillPassportPage() {
+  return <SkillPassport />;
+}
+
+function HrmWorkforcePoolPage() {
+  return <WorkforcePool />;
+}
+
+function HrmJobBoardPage() {
+  return <JobBoard />;
+}
+
+function HrmDutyHandoverPage() {
+  return <DutyHandover />;
+}
+
+function HrmIntegrationsPage() {
+  return <IntegrationSettings />;
+}
+
+function HrmForecastingPage() {
+  return <ForecastDashboard />;
+}
+
 import {
   MatchDetailPage,
   MatchLivePage,
@@ -1443,7 +1588,27 @@ export const router = createBrowserRouter([
           { path: "attendance", element: <AttendanceManagement /> },
           { path: "leaves", element: <LeaveManagement /> },
           { path: "shifts", element: <ShiftManagement /> },
+          { path: "recruitment", element: <HrmRecruitmentPage /> },
+          { path: "performance", element: <HrmPerformancePage /> },
+          { path: "learning", element: <HrmLearningPage /> },
+          { path: "payroll", element: <HrmPayrollPage /> },
+          { path: "expenses", element: <HrmExpensePage /> },
+          { path: "assets", element: <HrmAssetPage /> },
+          { path: "tasks", element: <HrmTasksPage /> },
+          { path: "helpdesk", element: <HrmHelpDeskPage /> },
+          { path: "analytics", element: <HrmAnalyticsPage /> },
+          { path: "compliance", element: <HrmCompliancePage /> },
+          { path: "audit", element: <HrmAuditPage /> },
+          { path: "roles", element: <HrmRolesPage /> },
+          { path: "reports", element: <HrmReportsPage /> },
+          { path: "skill-passport",  element: <HrmSkillPassportPage /> },
+          { path: "workforce-pool",  element: <HrmWorkforcePoolPage /> },
+          { path: "job-board",       element: <HrmJobBoardPage /> },
+          { path: "duty-handover",   element: <HrmDutyHandoverPage /> },
+          { path: "integrations",    element: <HrmIntegrationsPage /> },
+          { path: "forecasting",     element: <HrmForecastingPage /> },
           { path: "settings", element: <HrmSettings /> },
+          { path: "org-chart", element: <OrgChartPage /> },
         ],
       },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────

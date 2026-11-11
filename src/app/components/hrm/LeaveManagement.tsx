@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   CalendarDays,
   Check,
@@ -33,7 +34,7 @@ import {
 } from "../ui/table";
 import { hrmService } from "../../../services/hrm/hrmService";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
-import type { LeaveRequest, LeaveType, HrHoliday, PageResponse } from "../../../types/hrm";
+import type { LeaveRequest, LeaveType, HrHoliday, PageResponse, LeaveApprovalStatus, LeaveSession } from "../../../types/hrm";
 import { format } from "date-fns";
 
 const APPROVAL_BADGE: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -41,10 +42,21 @@ const APPROVAL_BADGE: Record<string, "default" | "secondary" | "destructive" | "
   APPROVED: "default",
   REJECTED: "destructive",
   CANCELLED: "outline",
+  L1_APPROVED: "secondary",
+  L1_REJECTED: "destructive",
+};
+
+const APPROVAL_CLASS: Record<string, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800",
+  APPROVED: "bg-green-100 text-green-800",
+  REJECTED: "bg-red-100 text-red-800",
+  CANCELLED: "bg-gray-100 text-gray-800",
+  L1_APPROVED: "bg-blue-100 text-blue-800",
+  L1_REJECTED: "bg-orange-100 text-orange-800",
 };
 
 export function LeaveManagement() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId: orgId } = useHrmOrg();
   const [loading, setLoading] = useState(true);
 
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([]);
@@ -61,8 +73,25 @@ export function LeaveManagement() {
   const [remarks, setRemarks] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applyForm, setApplyForm] = useState({ leaveTypeId: 0, fromDate: "", toDate: "", reason: "" });
+  const [halfDay, setHalfDay] = useState(false);
+  const [leaveSession, setLeaveSession] = useState<'FIRST_HALF' | 'SECOND_HALF'>('FIRST_HALF');
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyLeaveTypes, setApplyLeaveTypes] = useState<LeaveType[]>([]);
+
   const [addLeaveTypeOpen, setAddLeaveTypeOpen] = useState(false);
-  const [newLeaveType, setNewLeaveType] = useState({ leaveTypeName: "", defaultBalance: 12 });
+  const [newLeaveType, setNewLeaveType] = useState({
+    leaveTypeName: "",
+    defaultBalance: 12,
+    isPaid: true,
+    isCarryForward: false,
+    approvalLevels: 1,
+    requiresHrApproval: false,
+    minNoticeDays: 0,
+    maxConsecutiveDays: undefined as number | undefined,
+    allowNegativeBalance: false,
+  });
   const [savingLeaveType, setSavingLeaveType] = useState(false);
 
   const [addHolidayOpen, setAddHolidayOpen] = useState(false);
@@ -70,22 +99,10 @@ export function LeaveManagement() {
   const [savingHoliday, setSavingHoliday] = useState(false);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await loadAll(orgs[0].id);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load");
-    } finally {
-      setLoading(false);
+    if (orgId) {
+      loadAll(orgId).finally(() => setLoading(false));
     }
-  }
+  }, [orgId]);
 
   async function loadAll(id: number) {
     await Promise.all([
@@ -114,8 +131,10 @@ export function LeaveManagement() {
 
   async function loadLeaveTypes(id: number) {
     try {
-      setLeaveTypes(await hrmService.getLeaveTypes(id));
-    } catch { /* ignore */ }
+      const types = await hrmService.getLeaveTypes(id);
+      setLeaveTypes(types);
+      setApplyLeaveTypes(types);
+    } catch (err) { console.error('Failed to load leave types', err); }
   }
 
   async function loadHolidays(id: number) {
@@ -145,6 +164,46 @@ export function LeaveManagement() {
     }
   }
 
+  async function handleApplyLeave() {
+    if (!orgId || !applyForm.leaveTypeId || !applyForm.fromDate || !applyForm.toDate) return;
+    setApplyLoading(true);
+    try {
+      const from = new Date(applyForm.fromDate);
+      const to = new Date(applyForm.toDate);
+      const days = halfDay ? 0.5 : Math.ceil((to.getTime() - from.getTime()) / 86400000) + 1;
+      await hrmService.applyLeave(orgId, {
+        leaveTypeId: applyForm.leaveTypeId,
+        fromDate: applyForm.fromDate,
+        toDate: halfDay ? applyForm.fromDate : applyForm.toDate,
+        totalDays: days,
+        reason: applyForm.reason || undefined,
+        halfDay: halfDay || undefined,
+        leaveSession: halfDay ? leaveSession : undefined,
+      });
+      showSuccess("Leave request submitted");
+      setApplyDialogOpen(false);
+      setApplyForm({ leaveTypeId: 0, fromDate: "", toDate: "", reason: "" });
+      setHalfDay(false);
+      await loadAllRequests(orgId, 0);
+    } catch (err: any) {
+      showError(err.message || "Failed to submit leave");
+    } finally {
+      setApplyLoading(false);
+    }
+  }
+
+  async function handleL2Approve(id: number) {
+    if (!orgId) return;
+    try {
+      await hrmService.l2ApproveLeave(id, orgId);
+      showSuccess("Leave approved (HR level)");
+      await loadPending(orgId, pendingPage);
+      await loadAllRequests(orgId, allPage);
+    } catch (err: any) {
+      showError(err.message || "HR approval failed");
+    }
+  }
+
   async function handleAddLeaveType() {
     if (!orgId || !newLeaveType.leaveTypeName.trim()) return;
     setSavingLeaveType(true);
@@ -152,7 +211,17 @@ export function LeaveManagement() {
       await hrmService.createLeaveType(orgId, newLeaveType);
       showSuccess("Leave type created");
       setAddLeaveTypeOpen(false);
-      setNewLeaveType({ leaveTypeName: "", defaultBalance: 12 });
+      setNewLeaveType({
+        leaveTypeName: "",
+        defaultBalance: 12,
+        isPaid: true,
+        isCarryForward: false,
+        approvalLevels: 1,
+        requiresHrApproval: false,
+        minNoticeDays: 0,
+        maxConsecutiveDays: undefined,
+        allowNegativeBalance: false,
+      });
       await loadLeaveTypes(orgId);
     } catch (err: any) {
       showError(err.message || "Failed to create leave type");
@@ -190,12 +259,17 @@ export function LeaveManagement() {
       <h1 className="text-2xl font-bold text-foreground">Leave Management</h1>
 
       <Tabs defaultValue="pending">
-        <TabsList>
-          <TabsTrigger value="pending">Pending Approvals</TabsTrigger>
-          <TabsTrigger value="all">All Requests</TabsTrigger>
-          <TabsTrigger value="types">Leave Types</TabsTrigger>
-          <TabsTrigger value="holidays">Holidays</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-2">
+          <TabsList>
+            <TabsTrigger value="pending">Pending Approvals</TabsTrigger>
+            <TabsTrigger value="all">All Requests</TabsTrigger>
+            <TabsTrigger value="types">Leave Types</TabsTrigger>
+            <TabsTrigger value="holidays">Holidays</TabsTrigger>
+          </TabsList>
+          <Button size="sm" onClick={() => setApplyDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Apply Leave
+          </Button>
+        </div>
 
         {/* Pending Approvals */}
         <TabsContent value="pending" className="mt-4">
@@ -231,13 +305,20 @@ export function LeaveManagement() {
                             <TableCell>{r.totalDays}</TableCell>
                             <TableCell className="hidden md:table-cell max-w-[200px] truncate">{r.reason || "—"}</TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="sm" variant="default" onClick={() => setActionDialog({ id: r.id, action: "approve" })}>
-                                  <Check className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => setActionDialog({ id: r.id, action: "reject" })}>
-                                  <X className="h-3.5 w-3.5" />
-                                </Button>
+                              <div className="flex gap-1 flex-wrap">
+                                {r.approvalStatus === 'PENDING' && <>
+                                  <Button size="sm" variant="default" onClick={() => setActionDialog({ id: r.id, action: "approve" })}>
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="sm" variant="destructive" onClick={() => setActionDialog({ id: r.id, action: "reject" })}>
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>}
+                                {r.approvalStatus === 'L1_APPROVED' && (
+                                  <Button size="sm" variant="default" className="bg-blue-600 hover:bg-blue-700 text-xs" onClick={() => handleL2Approve(r.id)}>
+                                    HR Approve
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -293,7 +374,10 @@ export function LeaveManagement() {
                             <TableCell>{format(new Date(r.toDate), "dd MMM")}</TableCell>
                             <TableCell>{r.totalDays}</TableCell>
                             <TableCell>
-                              <Badge variant={APPROVAL_BADGE[r.approvalStatus] || "outline"}>{r.approvalStatus}</Badge>
+                              <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${APPROVAL_CLASS[r.approvalStatus] || "bg-gray-100 text-gray-800"}`}>
+                                {r.approvalStatus.replace(/_/g, " ")}
+                                {r.halfDay && " (½)"}
+                              </span>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -337,7 +421,12 @@ export function LeaveManagement() {
                     <div key={lt.id} className="flex items-center justify-between p-3 rounded-lg border">
                       <div>
                         <p className="text-sm font-medium">{lt.leaveTypeName}</p>
-                        <p className="text-xs text-muted-foreground">{lt.defaultBalance} days/year · {lt.isPaid ? "Paid" : "Unpaid"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {lt.defaultBalance} days/year · {lt.isPaid ? "Paid" : "Unpaid"}
+                          {lt.isCarryForward && " · Carry Forward"}
+                          {lt.approvalLevels && lt.approvalLevels > 1 && " · 2-Level Approval"}
+                          {lt.minNoticeDays ? ` · ${lt.minNoticeDays}d notice` : ""}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -378,6 +467,74 @@ export function LeaveManagement() {
         </TabsContent>
       </Tabs>
 
+      {/* Apply Leave Dialog */}
+      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Apply Leave</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Leave Type *</Label>
+              <select
+                className="w-full border rounded-md px-3 py-2 text-sm"
+                value={applyForm.leaveTypeId}
+                onChange={(e) => setApplyForm({ ...applyForm, leaveTypeId: Number(e.target.value) })}
+              >
+                <option value={0}>Select leave type</option>
+                {applyLeaveTypes.map((lt) => (
+                  <option key={lt.id} value={lt.id}>{lt.leaveTypeName}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>From Date *</Label>
+                <Input type="date" value={applyForm.fromDate} onChange={(e) => {
+                  setApplyForm({ ...applyForm, fromDate: e.target.value });
+                  if (halfDay) setApplyForm(prev => ({ ...prev, fromDate: e.target.value, toDate: e.target.value }));
+                }} />
+              </div>
+              <div className="space-y-2">
+                <Label>To Date *</Label>
+                <Input type="date" value={halfDay ? applyForm.fromDate : applyForm.toDate}
+                  disabled={halfDay}
+                  onChange={(e) => setApplyForm({ ...applyForm, toDate: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="half-day-chk" checked={halfDay}
+                onChange={(e) => {
+                  setHalfDay(e.target.checked);
+                  if (e.target.checked) setApplyForm(prev => ({ ...prev, toDate: prev.fromDate }));
+                }} />
+              <Label htmlFor="half-day-chk" className="cursor-pointer">Half Day</Label>
+            </div>
+            {halfDay && (
+              <div className="flex gap-4 pl-6">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" checked={leaveSession === 'FIRST_HALF'} onChange={() => setLeaveSession('FIRST_HALF')} />
+                  First Half
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" checked={leaveSession === 'SECOND_HALF'} onChange={() => setLeaveSession('SECOND_HALF')} />
+                  Second Half
+                </label>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Reason</Label>
+              <Textarea value={applyForm.reason} onChange={(e) => setApplyForm({ ...applyForm, reason: e.target.value })} placeholder="Reason for leave..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleApplyLeave} disabled={applyLoading || !applyForm.leaveTypeId || !applyForm.fromDate}>
+              {applyLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Approve/Reject Dialog */}
       <Dialog open={!!actionDialog} onOpenChange={() => { setActionDialog(null); setRemarks(""); }}>
         <DialogContent>
@@ -406,7 +563,7 @@ export function LeaveManagement() {
       <Dialog open={addLeaveTypeOpen} onOpenChange={setAddLeaveTypeOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Leave Type</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label htmlFor="lt-name">Leave Type Name *</Label>
               <Input id="lt-name" value={newLeaveType.leaveTypeName} onChange={(e) => setNewLeaveType({ ...newLeaveType, leaveTypeName: e.target.value })} placeholder="e.g. Casual Leave" />
@@ -414,6 +571,37 @@ export function LeaveManagement() {
             <div className="space-y-2">
               <Label htmlFor="lt-balance">Default Balance (days/year)</Label>
               <Input id="lt-balance" type="number" value={newLeaveType.defaultBalance} onChange={(e) => setNewLeaveType({ ...newLeaveType, defaultBalance: Number(e.target.value) })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="lt-min-notice">Min Notice Days</Label>
+                <Input id="lt-min-notice" type="number" min={0} value={newLeaveType.minNoticeDays} onChange={(e) => setNewLeaveType({ ...newLeaveType, minNoticeDays: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lt-max-consec">Max Consecutive Days</Label>
+                <Input id="lt-max-consec" type="number" min={1} value={newLeaveType.maxConsecutiveDays ?? ""} placeholder="Unlimited" onChange={(e) => setNewLeaveType({ ...newLeaveType, maxConsecutiveDays: e.target.value ? Number(e.target.value) : undefined })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lt-approval-levels">Approval Levels</Label>
+              <select id="lt-approval-levels" className="w-full border rounded-md px-3 py-2 text-sm" value={newLeaveType.approvalLevels} onChange={(e) => setNewLeaveType({ ...newLeaveType, approvalLevels: Number(e.target.value) })}>
+                <option value={1}>1 Level (Manager)</option>
+                <option value={2}>2 Levels (Manager + HR)</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={newLeaveType.isPaid} onChange={(e) => setNewLeaveType({ ...newLeaveType, isPaid: e.target.checked })} /> Paid Leave
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={newLeaveType.isCarryForward} onChange={(e) => setNewLeaveType({ ...newLeaveType, isCarryForward: e.target.checked })} /> Allow Carry Forward
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={newLeaveType.requiresHrApproval} onChange={(e) => setNewLeaveType({ ...newLeaveType, requiresHrApproval: e.target.checked })} /> Requires HR Approval
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={newLeaveType.allowNegativeBalance} onChange={(e) => setNewLeaveType({ ...newLeaveType, allowNegativeBalance: e.target.checked })} /> Allow Negative Balance
+              </label>
             </div>
           </div>
           <DialogFooter>
