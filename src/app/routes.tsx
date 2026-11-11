@@ -24,6 +24,7 @@ import AuditTrailViewer from "./components/hrm/AuditTrailViewer";
 import RoleManagement from "./components/hrm/RoleManagement";
 import CustomReportBuilder from "./components/hrm/CustomReportBuilder";
 import SkillPassport from "./components/hrm/SkillPassport";
+import WorkforcePool from "./components/hrm/WorkforcePool";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -255,6 +256,10 @@ function HrmReportsPage() {
 
 function HrmSkillPassportPage() {
   return <SkillPassport />;
+}
+
+function HrmWorkforcePoolPage() {
+  return <WorkforcePool />;
 }
 
 import {
@@ -1576,7 +1581,8 @@ export const router = createBrowserRouter([
           { path: "audit", element: <HrmAuditPage /> },
           { path: "roles", element: <HrmRolesPage /> },
           { path: "reports", element: <HrmReportsPage /> },
-          { path: "skill-passport", element: <HrmSkillPassportPage /> },
+          { path: "skill-passport",  element: <HrmSkillPassportPage /> },
+          { path: "workforce-pool",  element: <HrmWorkforcePoolPage /> },
           { path: "settings", element: <HrmSettings /> },
           { path: "org-chart", element: <OrgChartPage /> },
         ],

@@ -4,6 +4,8 @@ import type {
   MwPassportSkill,
   MwPassportCertification,
   MwPassportWorkHistory,
+  MwPoolListing,
+  MwPoolApplication,
 } from "../types/hrm";
 
 const BASE = "/api/v1/mw";
@@ -42,5 +44,39 @@ export const workforce360Service = {
   },
   async removeWorkHistory(whId: number): Promise<void> {
     return apiClient.delete(`${BASE}/passport/work-history/${whId}`);
+  },
+
+  // ── Workforce Pool — Employer ──
+  async getPoolListings(orgId: number): Promise<MwPoolListing[]> {
+    return apiClient.get(`${BASE}/pool/${orgId}/listings`);
+  },
+  async createPoolListing(orgId: number, data: Partial<MwPoolListing>): Promise<MwPoolListing> {
+    return apiClient.post(`${BASE}/pool/${orgId}/listings`, data);
+  },
+  async closePoolListing(orgId: number, listingId: number): Promise<void> {
+    return apiClient.put(`${BASE}/pool/${orgId}/listings/${listingId}/close`);
+  },
+  async getListingApplications(orgId: number, listingId: number): Promise<MwPoolApplication[]> {
+    return apiClient.get(`${BASE}/pool/${orgId}/listings/${listingId}/applications`);
+  },
+  async respondToPoolApplication(orgId: number, listingId: number, appId: number, action: 'accept' | 'reject', employerNote?: string): Promise<MwPoolApplication> {
+    return apiClient.put(`${BASE}/pool/${orgId}/listings/${listingId}/applications/${appId}`, { action, employerNote });
+  },
+
+  // ── Workforce Pool — Worker ──
+  async getOpenPoolListings(): Promise<MwPoolListing[]> {
+    return apiClient.get(`${BASE}/pool/open`);
+  },
+  async applyToPoolListing(listingId: number, workerNote?: string): Promise<MwPoolApplication> {
+    return apiClient.post(`${BASE}/pool/listings/${listingId}/apply`, { workerNote });
+  },
+  async withdrawPoolApplication(listingId: number): Promise<void> {
+    return apiClient.delete(`${BASE}/pool/listings/${listingId}/apply`);
+  },
+  async getMyPoolApplications(): Promise<MwPoolApplication[]> {
+    return apiClient.get(`${BASE}/pool/my-applications`);
+  },
+  async consentToContract(appId: number): Promise<void> {
+    return apiClient.put(`${BASE}/pool/my-applications/${appId}/consent`);
   },
 };
