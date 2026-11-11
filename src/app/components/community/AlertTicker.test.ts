@@ -52,3 +52,102 @@ describe("AlertTicker - Date Filtering & Status Determination", () => {
     ).toBe(false);
   });
 });
+
+import { getTournamentLifecycleStatus, mapTournamentToAlert } from "./AlertTicker";
+import type { SportsTournament } from "../../../types/api";
+
+describe("AlertTicker - Tournament Lifecycle & Prefix Mapping", () => {
+  const mockTournament: SportsTournament = {
+    id: 42,
+    name: "LE Emperians Sports fest 2K26",
+    registrationDateStart: "2026-10-15",
+    registrationDateEnd: "2026-11-05",
+    eventDateStart: "2026-11-14",
+    eventDateEnd: "2027-01-24",
+    startTime: "09:00",
+    venueName: "Main Arena",
+  };
+
+  it("determines UPCOMING before registration opens", () => {
+    const beforeRegNow = new Date("2026-10-10T10:00:00");
+    const status = getTournamentLifecycleStatus(mockTournament, beforeRegNow);
+    expect(status).toBe("UPCOMING");
+
+    const alert = mapTournamentToAlert(mockTournament, 0, beforeRegNow);
+    expect(alert).not.toBeNull();
+    expect(alert?.message).toContain("🏆 [Upcoming Tournament]");
+    expect(alert?.message).toContain("Reg opens");
+    expect(alert?.actionUrl).toBe("/sports/tournaments");
+  });
+
+  it("determines REGISTRATION_OPEN while registration window is active", () => {
+    const duringRegNow = new Date("2026-10-25T10:00:00");
+    const status = getTournamentLifecycleStatus(mockTournament, duringRegNow);
+    expect(status).toBe("REGISTRATION_OPEN");
+
+    const alert = mapTournamentToAlert(mockTournament, 0, duringRegNow);
+    expect(alert).not.toBeNull();
+    expect(alert?.message).toContain("🏆 [Registration Open]");
+    expect(alert?.message).toContain("Reg closes");
+    expect(alert?.actionUrl).toBe("/sports/tournaments");
+  });
+
+  it("determines REGISTRATION_CLOSED after registration ends but before tournament starts", () => {
+    // Current date: 11 Nov 2026 (Registration closed 05 Nov, Matches start 14 Nov)
+    const afterRegNow = new Date("2026-11-11T10:00:00");
+    const status = getTournamentLifecycleStatus(mockTournament, afterRegNow);
+    expect(status).toBe("REGISTRATION_CLOSED");
+
+    const alert = mapTournamentToAlert(mockTournament, 0, afterRegNow);
+    expect(alert).not.toBeNull();
+    expect(alert?.message).toContain("🏆 [Registration Closed]");
+    expect(alert?.message).toContain("Matches start");
+    expect(alert?.actionUrl).toBe("/sports/tournaments");
+  });
+
+  it("honors explicit REGISTRATION_CLOSED status from admin", () => {
+    const explicitClosed: SportsTournament = {
+      ...mockTournament,
+      registrationStatus: "REGISTRATION_CLOSED",
+    };
+    const duringRegNow = new Date("2026-10-25T10:00:00");
+    const status = getTournamentLifecycleStatus(explicitClosed, duringRegNow);
+    expect(status).toBe("REGISTRATION_CLOSED");
+
+    const alert = mapTournamentToAlert(explicitClosed, 0, duringRegNow);
+    expect(alert?.message).toContain("🏆 [Registration Closed]");
+  });
+
+  it("determines MATCHES_RUNNING during tournament event dates", () => {
+    const duringMatchesNow = new Date("2026-11-20T10:00:00");
+    const status = getTournamentLifecycleStatus(mockTournament, duringMatchesNow);
+    expect(status).toBe("MATCHES_RUNNING");
+
+    const alert = mapTournamentToAlert(mockTournament, 0, duringMatchesNow);
+    expect(alert).not.toBeNull();
+    expect(alert?.message).toContain("🏆 [Matches Running]");
+    expect(alert?.actionUrl).toBe("/sports/schedule");
+  });
+
+  it("excludes COMPLETED tournaments from ticker completely", () => {
+    const explicitCompleted: SportsTournament = {
+      ...mockTournament,
+      registrationStatus: "COMPLETED",
+    };
+    const alert1 = mapTournamentToAlert(explicitCompleted, 0);
+    expect(alert1).toBeNull();
+
+    // After tournament event end date (24 Jan 2027)
+    const afterTournamentNow = new Date("2027-01-25T10:00:00");
+    const alert2 = mapTournamentToAlert(mockTournament, 0, afterTournamentNow);
+    expect(alert2).toBeNull();
+  });
+
+  it("excludes CANCELLED and DRAFT tournaments from ticker completely", () => {
+    const cancelled: SportsTournament = { ...mockTournament, registrationStatus: "CANCELLED" };
+    expect(mapTournamentToAlert(cancelled, 0)).toBeNull();
+
+    const draft: SportsTournament = { ...mockTournament, registrationStatus: "DRAFT" };
+    expect(mapTournamentToAlert(draft, 0)).toBeNull();
+  });
+});

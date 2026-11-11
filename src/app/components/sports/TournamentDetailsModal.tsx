@@ -89,9 +89,11 @@ export function TournamentDetailsModal({
   const regStart = fullDetails?.registrationDateStart || t.registrationDateStart;
   const regEnd = fullDetails?.registrationDateEnd || t.registrationDateEnd;
 
-  const status = fullDetails?.registrationStatus || t.registrationStatus || t.status || "OPEN";
-  const isOpenRegistration = status === "OPEN" || status === "REGISTRATION_OPEN";
-  const isCompleted = status === "COMPLETED" || status === "REGISTRATION_CLOSED";
+  const rawStatus = (fullDetails?.registrationStatus || t.registrationStatus || t.status || "OPEN").toUpperCase();
+  const isOpenRegistration = rawStatus === "OPEN" || rawStatus === "REGISTRATION_OPEN";
+  const isRegistrationClosed = rawStatus === "REGISTRATION_CLOSED" || rawStatus === "CLOSED";
+  const isCompleted = rawStatus === "COMPLETED";
+  const isLive = rawStatus === "LIVE" || rawStatus === "IN_PROGRESS" || rawStatus === "MATCHES_RUNNING";
 
   // Real events list: prefer fullDetails sportsEvents if populated, else tournament events
   // If tournament is open for registration, exclude DRAFT events
@@ -248,9 +250,27 @@ export function TournamentDetailsModal({
           {/* Badges row */}
           <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <span
-              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${ isOpenRegistration ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" : isCompleted ? "bg-slate-500/20 text-slate-300 border border-slate-400/30" : "bg-amber-500/20 text-amber-300 border border-amber-400/30" }`}
+              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                isOpenRegistration
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
+                  : isRegistrationClosed
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-400/30"
+                  : isLive
+                  ? "bg-rose-500/20 text-rose-300 border border-rose-400/30 animate-pulse"
+                  : isCompleted
+                  ? "bg-slate-500/20 text-slate-300 border border-slate-400/30"
+                  : "bg-indigo-500/20 text-indigo-300 border border-indigo-400/30"
+              }`}
             >
-              ● {isOpenRegistration ? "Registration Open" : isCompleted ? "Completed" : "In Progress"}
+              ● {isOpenRegistration
+                ? "Registration Open"
+                : isRegistrationClosed
+                ? "Registration Closed"
+                : isLive
+                ? "Matches Running"
+                : isCompleted
+                ? "Completed"
+                : "Upcoming"}
             </span>
 
             {daysLeft !== null && daysLeft >= 0 && isOpenRegistration && (

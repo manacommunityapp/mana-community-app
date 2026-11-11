@@ -1,5 +1,6 @@
 import type { EventRegistration } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 export interface DoublesTeamPair {
   id: string;
@@ -19,6 +20,24 @@ export interface PartitionResult {
 export interface PairingResult {
   pairedTeams: DoublesTeamPair[];
   unpairedPlayers: EventRegistration[];
+}
+
+/**
+ * Extracts and formats flat number from a registration object.
+ */
+export function getRegistrationFlatNumber(reg: EventRegistration): string | undefined {
+  if (!reg) return undefined;
+  const rawFlat = (
+    reg.flatNumber ||
+    (reg as any).flatNo ||
+    reg.user?.flatNo ||
+    (reg.user as any)?.flatNumber ||
+    (reg as any).unit ||
+    ""
+  ).trim();
+  const block = (reg as any).block || (reg.user as any)?.block || (reg.user as any)?.tower;
+  const formatted = formatFlatLabel(rawFlat, block);
+  return formatted || rawFlat || undefined;
 }
 
 /**
@@ -84,7 +103,7 @@ export function partitionDoublesRegistrations(
       const proposedTeam = reg.proposedTeamName?.trim();
       const name = proposedTeam ? `${proposedTeam} (${p1Name} / ${p2Name})` : `${p1Name} / ${p2Name}`;
 
-      const p1Flat = reg.flatNumber || reg.user?.community?.name;
+      const p1Flat = getRegistrationFlatNumber(reg);
       const p2Flat = partnerInfo.flat;
       const combinedFlat = combineFlats(p1Flat, p2Flat);
 
@@ -159,7 +178,7 @@ export function pairOpenPoolPlayers(
       const f = females[i];
       const p1Name = getRegistrationPlayerName(m);
       const p2Name = getRegistrationPlayerName(f);
-      const combinedFlat = combineFlats(m.flatNumber, f.flatNumber);
+      const combinedFlat = combineFlats(getRegistrationFlatNumber(m), getRegistrationFlatNumber(f));
       const r1 = m.rating ?? null;
       const r2 = f.rating ?? null;
       const avgRating = r1 != null && r2 != null ? (r1 + r2) / 2 : (r1 ?? r2 ?? null);
@@ -201,7 +220,7 @@ export function pairOpenPoolPlayers(
     const p2 = shuffled[2 * i + 1];
     const p1Name = getRegistrationPlayerName(p1);
     const p2Name = getRegistrationPlayerName(p2);
-    const combinedFlat = combineFlats(p1.flatNumber, p2.flatNumber);
+    const combinedFlat = combineFlats(getRegistrationFlatNumber(p1), getRegistrationFlatNumber(p2));
 
     const r1 = p1.rating ?? null;
     const r2 = p2.rating ?? null;

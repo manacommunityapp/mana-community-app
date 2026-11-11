@@ -3,6 +3,7 @@ import { useDashboard } from "../../../hooks/useDashboard";
 import { useInfiniteFeed } from "../../../hooks/useInfiniteFeed";
 import { FeedCard } from "./FeedCard";
 import { SkeletonCard } from "./SkeletonCard";
+import { LiveMatchesStrip } from "./LiveMatchesStrip";
 import { RefreshCw, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 
 export function FeedPage() {
@@ -45,6 +46,9 @@ export function FeedPage() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
+
+        {/* ── Live Now Strip: Top-of-page Live Sports Widget (NOT inside post stream) ── */}
+        <LiveMatchesStrip />
 
         {/* ── Dashboard Stats Panel ───────────────────────────────────────── */}
         <section aria-label="Community Dashboard Statistics">

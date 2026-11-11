@@ -2,6 +2,29 @@ import { apiClient } from "../common/apiClient";
 import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
 
+export type FeedVisibilityLevel = "tournament" | "event" | "match";
+
+/** A match shown in the community feed "Live Now" strip. */
+export interface FeedLiveMatch {
+  matchId: number;
+  configId?: number | null;
+  sportName?: string | null;
+  tournamentName?: string | null;
+  eventName?: string | null;
+  roundName?: string | null;
+  teamAName: string;
+  teamBName: string;
+  teamAFlat?: string | null;
+  teamBFlat?: string | null;
+  scoreTeamA?: string | null;
+  scoreTeamB?: string | null;
+  status: "LIVE" | "COMPLETED" | string;
+  winnerName?: string | null;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  venueName?: string | null;
+}
+
 export interface TournamentTypeInfo {
   id: string;
   name: string;
@@ -545,6 +568,16 @@ export const tournamentService = {
     return apiClient.put<ConfigInfo>(`/tournament/config/${id}`, data);
   },
 
+  /** DELETE /api/tournament/config/{id} - Delete draft tournament configuration */
+  async deleteConfig(id: number): Promise<void> {
+    return apiClient.delete<void>(`/tournament/config/${id}`);
+  },
+
+  /** POST /api/tournament/config/{id}/publish - Publish tournament configuration and fixtures */
+  async publishTournamentConfig(id: number): Promise<ConfigInfo> {
+    return apiClient.post<ConfigInfo>(`/tournament/config/${id}/publish`);
+  },
+
   /** GET /api/tournament/{configId}/teams */
   async getConfigTeams(configId: number): Promise<any[]> {
     try {
@@ -574,6 +607,10 @@ export const tournamentService = {
     venueId?: number | null;
     courtId?: number | null;
     durationMinutes?: number;
+    homeName?: string | null;
+    awayName?: string | null;
+    homeFlat?: string | null;
+    awayFlat?: string | null;
   }): Promise<any> {
     const payload = {
       homeTeamId: (matchData.homeTeamId && !isNaN(Number(matchData.homeTeamId))) ? Number(matchData.homeTeamId) : null,
@@ -584,6 +621,10 @@ export const tournamentService = {
       venueId: (matchData.venueId && !isNaN(Number(matchData.venueId))) ? Number(matchData.venueId) : null,
       courtId: (matchData.courtId && !isNaN(Number(matchData.courtId))) ? Number(matchData.courtId) : null,
       durationMinutes: matchData.durationMinutes || 60,
+      homeName: matchData.homeName || null,
+      awayName: matchData.awayName || null,
+      homeFlat: matchData.homeFlat || null,
+      awayFlat: matchData.awayFlat || null,
     };
     return apiClient.post<any>(`/tournament/${configId}/manual/matches`, payload);
   },
@@ -816,5 +857,28 @@ export const tournamentService = {
 
   async recalculateRaceRanks(matchId: number): Promise<RaceResult[]> {
     return apiClient.post<RaceResult[]>(`/tournament/match/race/${matchId}/recalculate-ranks`, {});
+  },
+
+  // ─── Community Feed Visibility ───────────────────────────────────────────────
+
+  /**
+   * Set the "show on community feed" flag at tournament / event / match level.
+   * `showInFeed: null` resets to "inherit" (not applicable for tournaments, where null = off).
+   * `cascade` clears overrides below the chosen level so everything inside follows it.
+   */
+  async setFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+    showInFeed: boolean | null,
+    cascade = false,
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, { showInFeed, cascade });
+  },
+
+  /** Live matches (and ones completed in the last ~15 min) flagged for the community feed. */
+  async getLiveFeedMatches(communityId?: number | null): Promise<FeedLiveMatch[]> {
+    const qs = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/live-feed${qs}`);
   },
 };

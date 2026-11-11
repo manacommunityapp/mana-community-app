@@ -1670,14 +1670,17 @@ export function SportsDashboard() {
       const scheduledMatchesRaw: { config: ConfigInfo; match: any }[] = [];
       if (configsData && configsData.length > 0) {
         const matchResults = await Promise.allSettled(
-          configsData.map(cfg =>
-            tournamentService.getMatchesByConfigId(cfg.id).then(matches => ({ cfg, matches }))
-          )
+          configsData
+            .filter(cfg => canAccessAdminSports || cfg.status !== "DRAFT")
+            .map(cfg =>
+              tournamentService.getMatchesByConfigId(cfg.id).then(matches => ({ cfg, matches }))
+            )
         );
         matchResults.forEach(res => {
           if (res.status === "fulfilled" && Array.isArray(res.value?.matches)) {
             res.value.matches.forEach((m: any) => {
               if (m && m.status !== "BYE") {
+                if (!canAccessAdminSports && m.status === "DRAFT") return;
                 scheduledMatchesRaw.push({ config: res.value.cfg, match: m });
               }
             });

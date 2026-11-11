@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   exportTournamentPaymentsToCSV,
   exportTournamentPaymentsToExcel,
@@ -221,5 +221,151 @@ describe("sportsExportUtils - Tournament Payment & Roster Exports", () => {
     expect(htmlContent).toContain("Suresh Kumar");
     expect(htmlContent).toContain("status-paid");
     expect(htmlContent).toContain("status-unpaid");
+  });
+});
+
+describe("sportsExportUtils - Schedule Exports with Flat Details", () => {
+  let createdBlobContent: string = "";
+  let createdDownloadFilename: string = "";
+
+  beforeEach(() => {
+    createdBlobContent = "";
+    createdDownloadFilename = "";
+
+    globalThis.Blob = vi.fn().mockImplementation(function (parts: any[]) {
+      createdBlobContent = parts.join("");
+      return { parts };
+    }) as any;
+
+    globalThis.URL.createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    globalThis.URL.revokeObjectURL = vi.fn();
+
+    const mockDocument = {
+      createElement: vi.fn().mockImplementation((tag: string) => {
+        if (tag === "a") {
+          return {
+            setAttribute: (attr: string, val: string) => {
+              if (attr === "download") createdDownloadFilename = val;
+            },
+            click: vi.fn(),
+          };
+        }
+        return {};
+      }),
+      body: {
+        appendChild: vi.fn(),
+        removeChild: vi.fn(),
+      },
+    };
+    (globalThis as any).document = mockDocument;
+  });
+
+  const mockMatches = [
+    {
+      matchNumber: 1,
+      round: "GROUP_STAGE",
+      groupName: "Group A",
+      team1: "Vikram / Rohan",
+      team2: "Sameer / Ankit",
+      team1Flat: "Tower 1 - 402",
+      team2Flat: "Tower 2 - 105",
+      date: "2026-11-20",
+      time: "09:00",
+      court: "Court 1",
+      status: "SCHEDULED",
+    },
+    {
+      matchNumber: 2,
+      round: "KNOCKOUT",
+      home: "Alice",
+      away: "Bob",
+      homeFlat: "A-201",
+      awayFlat: "B-304",
+      date: "2026-11-20",
+      time: "10:30",
+      court: "Court 2",
+      status: "SCHEDULED",
+    },
+  ];
+
+  it("exports schedule to CSV including Team 1 Flat and Team 2 Flat columns", async () => {
+    const { exportScheduleToCSV } = await import("./sportsExportUtils");
+    exportScheduleToCSV(mockMatches, "Badminton Open");
+
+    expect(createdDownloadFilename).toContain("Badminton_Open_");
+    expect(createdDownloadFilename).toContain(".csv");
+    // Verify CSV Header includes flat columns
+    expect(createdBlobContent).toContain("Team 1 Flat");
+    expect(createdBlobContent).toContain("Team 2 Flat");
+    // Verify Row 1 flat values
+    expect(createdBlobContent).toContain('"Tower 1 - 402"');
+    expect(createdBlobContent).toContain('"Tower 2 - 105"');
+    // Verify Row 2 fallback homeFlat/awayFlat
+    expect(createdBlobContent).toContain('"A-201"');
+    expect(createdBlobContent).toContain('"B-304"');
+  });
+
+  it("exports schedule to Excel including Team 1 Flat and Team 2 Flat headers and data cells", async () => {
+    const { exportScheduleToExcel } = await import("./sportsExportUtils");
+    exportScheduleToExcel(mockMatches, "Badminton Open");
+
+    expect(createdDownloadFilename).toContain("Badminton_Open_");
+    expect(createdDownloadFilename).toContain(".xls");
+    expect(createdBlobContent).toContain("<th>Team 1 Flat</th>");
+    expect(createdBlobContent).toContain("<th>Team 2 Flat</th>");
+    expect(createdBlobContent).toContain("Tower 1 - 402");
+    expect(createdBlobContent).toContain("Tower 2 - 105");
+    expect(createdBlobContent).toContain("A-201");
+    expect(createdBlobContent).toContain("B-304");
+  });
+
+  it("exports schedule to PDF with flat icons under team names", async () => {
+    const mockPrint = vi.fn();
+    const mockWrite = vi.fn();
+    const mockClose = vi.fn();
+    const mockFocus = vi.fn();
+
+    (globalThis as any).window.open = vi.fn().mockReturnValue({
+      document: {
+        write: mockWrite,
+        close: mockClose,
+      },
+      focus: mockFocus,
+      print: mockPrint,
+    });
+
+    const { exportScheduleToPDF } = await import("./sportsExportUtils");
+    exportScheduleToPDF(mockMatches, "Badminton Open");
+
+    expect((globalThis as any).window.open).toHaveBeenCalled();
+    const html = mockWrite.mock.calls[0][0];
+    expect(html).toContain("🏠 Tower 1 - 402");
+    expect(html).toContain("🏠 Tower 2 - 105");
+    expect(html).toContain("🏠 A-201");
+    expect(html).toContain("🏠 B-304");
+  });
+
+  it("exports umpire scorecards PDF with competitor flat details", async () => {
+    const mockPrint = vi.fn();
+    const mockWrite = vi.fn();
+    const mockClose = vi.fn();
+    const mockFocus = vi.fn();
+
+    (globalThis as any).window.open = vi.fn().mockReturnValue({
+      document: {
+        write: mockWrite,
+        close: mockClose,
+      },
+      focus: mockFocus,
+      print: mockPrint,
+    });
+
+    const { exportUmpireScorecardsPDF } = await import("./sportsExportUtils");
+    exportUmpireScorecardsPDF(mockMatches, "Badminton Open");
+
+    expect((globalThis as any).window.open).toHaveBeenCalled();
+    const html = mockWrite.mock.calls[0][0];
+    expect(html).toContain("🏠 Flat: Tower 1 - 402");
+    expect(html).toContain("🏠 Flat: Tower 2 - 105");
   });
 });

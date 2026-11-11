@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
@@ -31,6 +31,7 @@ const toast = {
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
+import { ScheduleAdminTab } from "./admin/ScheduleAdminTab";
 import { tournamentService, type ConfigInfo, type EventInfo, type TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
 import { LiveMatchView } from "./LiveMatchView";
@@ -46,7 +47,7 @@ import { RaceResultsView } from "./RaceResultsView";
 import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
 import { TeamsHubShowcase } from "./teams";
 
-const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -237,27 +238,32 @@ function MatchCard({ match }: { match: BracketMatch }) {
   );
 }
 
-function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null }) {
+function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null; isAdmin?: boolean }) {
   const [rounds, setRounds] = useState<BracketRound[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(initialConfigId ?? null);
   const [bracketMatches, setBracketMatches] = useState<any[]>([]);
 
+  const visibleConfigs = useMemo(() => {
+    return isAdmin ? tournamentConfigs : tournamentConfigs.filter(c => c.status !== "DRAFT");
+  }, [tournamentConfigs, isAdmin]);
+
   useEffect(() => {
     if (initialConfigId) {
       setSelectedConfigId(initialConfigId);
-    } else if (tournamentConfigs.length > 0 && !selectedConfigId) {
-      setSelectedConfigId(tournamentConfigs[0].id);
+    } else if (visibleConfigs.length > 0 && !selectedConfigId) {
+      setSelectedConfigId(visibleConfigs[0].id);
     }
-  }, [tournamentConfigs, initialConfigId, selectedConfigId]);
+  }, [visibleConfigs, initialConfigId, selectedConfigId]);
 
   useEffect(() => {
     if (selectedConfigId) {
       setLoading(true);
       tournamentService.getMatchesByConfigId(selectedConfigId)
         .then(matches => {
-          setBracketMatches(matches);
-          const matchesBySport = matches.filter(m => m.status !== "BYE");
+          const nonDraftMatches = isAdmin ? matches : matches.filter(m => m.status !== "DRAFT");
+          setBracketMatches(nonDraftMatches);
+          const matchesBySport = nonDraftMatches.filter(m => m.status !== "BYE");
           if (matchesBySport.length > 0) {
             const roundMap = new Map<string, any[]>();
             for (const m of matchesBySport) {
@@ -332,16 +338,16 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
 
   const distinctTournaments = useMemo(() => {
     const set = new Set<string>();
-    tournamentConfigs.forEach(c => {
+    visibleConfigs.forEach(c => {
       const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
       if (name) set.add(name);
     });
     return Array.from(set);
-  }, [tournamentConfigs]);
+  }, [visibleConfigs]);
 
   const activeTournamentConfig = useMemo(() => {
-    return tournamentConfigs.find(c => c.id === selectedConfigId) || null;
-  }, [tournamentConfigs, selectedConfigId]);
+    return visibleConfigs.find(c => c.id === selectedConfigId) || null;
+  }, [visibleConfigs, selectedConfigId]);
 
   const activeTournamentName = useMemo(() => {
     if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
@@ -349,13 +355,13 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
   }, [activeTournamentConfig, distinctTournaments]);
 
   const eventsForActiveTournament = useMemo(() => {
-    if (!activeTournamentName) return tournamentConfigs;
-    const match = tournamentConfigs.filter(c => {
+    if (!activeTournamentName) return visibleConfigs;
+    const match = visibleConfigs.filter(c => {
       const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
       return name === activeTournamentName;
     });
     return match;
-  }, [tournamentConfigs, activeTournamentName]);
+  }, [visibleConfigs, activeTournamentName]);
 
   const tournamentResults = useMemo(() => {
     const finalMatch = bracketMatches.find(m => {
@@ -412,7 +418,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
   return (
     <div className="space-y-4">
       {/* Dual Tournament & Event Selector */}
-      {tournamentConfigs.length > 0 && (
+      {visibleConfigs.length > 0 && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
             <div className="flex items-center gap-2">
@@ -439,7 +445,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
                   value={activeTournamentName}
                   onChange={e => {
                     const tName = e.target.value;
-                    const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
+                    const first = visibleConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
                     if (first) setSelectedConfigId(first.id);
                   }}
                   className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
@@ -486,7 +492,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           }}
         >
           <p className="text-sm text-[#6b7094]">
-            {tournamentConfigs.length === 0
+            {visibleConfigs.length === 0
               ? "No tournaments configured yet. Create a tournament from the Config tab to see brackets."
               : "No matches found for this tournament. Generate a schedule first."}
           </p>
@@ -602,19 +608,33 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
+  const [searchParams] = useSearchParams();
   const { user, hasPermission, isAdmin: authIsAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
-  const isAdmin = isSuperAdmin || authIsAdmin || isSportsAdmin || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
+  const isSportsAdminOnly = Boolean(isSuperAdmin || authIsAdmin || isSportsAdmin);
+  const isAdmin = isSportsAdminOnly || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab');
+    if ((tabParam === 'published' || tabParam === 'schedule' || tabParam === 'fixtures') && isSportsAdminOnly) return "Published Schedules";
+    if (tabParam === 'setup' && isAdmin) return "Setup Schedule";
+    if (tabParam === 'config' && isAdmin) return "Config";
+    if (tabParam === 'manual' && isAdmin) return "Manual";
     if (eventId && isAdmin) return "Setup Schedule";
     return "Overview";
   });
+
+  // Guard: Published Schedules is strictly for Admin and Sports Admin only
+  useEffect(() => {
+    if (!isSportsAdminOnly && activeTab === "Published Schedules") {
+      setActiveTab("Overview");
+    }
+  }, [isSportsAdminOnly, activeTab]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -632,6 +652,7 @@ export function SportsSchedule() {
   const [fixtureDateFilter, setFixtureDateFilter] = useState<string | null>(null);
 
   const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
+  const [goLiveFeedVisibility, setGoLiveFeedVisibility] = useState<"inherit" | "show" | "hide">("inherit");
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
@@ -1056,10 +1077,12 @@ export function SportsSchedule() {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
           for (const cfg of configs || []) {
+            if (!isAdmin && cfg.status === "DRAFT") continue;
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
               for (const m of matches) {
                 if (m.status === "BYE") continue;
+                if (!isAdmin && m.status === "DRAFT") continue;
                 const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
                 let scheduledTime = "";
                 try {
@@ -1085,6 +1108,8 @@ export function SportsSchedule() {
                       : "SCHEDULED",
                   team1: m.teamAName || "TBD",
                   team2: m.teamBName || "TBD",
+                  team1Flat: m.teamAFlat || m.homeFlat,
+                  team2Flat: m.teamBFlat || m.awayFlat,
                   score1: m.scoreTeamA || "",
                   score2: m.scoreTeamB || "",
                   rawStartDate: m.scheduledAt || cfg.startDate,
@@ -1104,7 +1129,7 @@ export function SportsSchedule() {
     } else {
       setLoading(false);
     }
-  }, [activeTab, user?.userId]);
+  }, [activeTab, user?.userId, isAdmin]);
 
   return (
     <div className="auction-hub-wrapper">
@@ -1154,6 +1179,14 @@ export function SportsSchedule() {
         {isAdmin && (
         <div className="nav-section">
           <div className="nav-label">Operations</div>
+          {isSportsAdminOnly && (
+            <button
+              className={`nav-item ${activeTab === "Published Schedules" ? "active" : ""}`}
+              onClick={() => setActiveTab("Published Schedules")}
+            >
+              <div className="nav-dot"></div>Published Schedules
+            </button>
+          )}
           <button
             className={`nav-item ${activeTab === "Config" ? "active" : ""}`}
             onClick={() => setActiveTab("Config")}
@@ -1178,20 +1211,26 @@ export function SportsSchedule() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
-                {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
-              </div>
-              <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
-                {activeTab === "Overview"
-                  ? "Your community sports schedule, live matches and latest results."
-                  : activeTab === "Config"
-                  ? "Configure tournament formats, dates, venues and match rules."
-                  : activeTab === "Manual"
-                  ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
-                  : "Sports scheduling & event matches"}
-              </div>
+          <div className={`page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${["Overview", "My Matches", "Published Schedules"].includes(activeTab) ? "max-sm:!hidden sm:flex" : ""}`}>
+            <div className={["Overview", "My Matches", "Published Schedules"].includes(activeTab) ? "hidden sm:block" : ""}>
+              {(!["Published Schedules"].includes(activeTab) || isSportsAdminOnly) && (
+                <>
+                  <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
+                    {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
+                  </div>
+                  <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
+                    {activeTab === "Overview"
+                      ? "Your community sports schedule, live matches and latest results."
+                      : activeTab === "Config"
+                      ? "Configure tournament formats, dates, venues and match rules."
+                      : activeTab === "Published Schedules"
+                      ? "View published fixtures, filter by stage (Group Stage, Quarters, Semis, Final), and export cleanly."
+                      : activeTab === "Manual"
+                      ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
+                      : "Sports scheduling & event matches"}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1218,12 +1257,12 @@ export function SportsSchedule() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-0.5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3.5 pt-0.5">
                 {/* 1. Tournament Dropdown */}
-                <div className="relative flex flex-col gap-1.5">
-                  <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    <Trophy className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Tournament</span>
+                <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
+                  <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
+                    <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-600 shrink-0" />
+                    <span className="truncate">Tournament</span>
                   </label>
                   <Popover open={tournamentPickerOpen} onOpenChange={setTournamentPickerOpen}>
                     <PopoverTrigger asChild>
@@ -1233,12 +1272,12 @@ export function SportsSchedule() {
                         role="combobox"
                         aria-expanded={tournamentPickerOpen}
                         aria-label="Search and select a tournament"
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        className="flex w-full items-center justify-between gap-1.5 sm:gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3.5 sm:py-2.5 text-left text-xs sm:text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 min-w-0"
                       >
                         <span className={`min-w-0 truncate ${activeTournamentName ? "text-slate-900" : "text-slate-500"}`}>
                           {activeTournamentName || "All Tournaments"}
                         </span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-slate-400" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
@@ -1256,60 +1295,28 @@ export function SportsSchedule() {
                                 setSelectedTournamentName(null);
                                 setTournamentPickerOpen(false);
                               }}
-                              className="cursor-pointer px-3 py-2.5 aria-selected:bg-indigo-50"
+                              className="cursor-pointer px-3 py-2 aria-selected:bg-indigo-50 flex items-center justify-between"
                             >
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-xs font-bold text-slate-800">All Tournaments</span>
-                                <span className="mt-0.5 block text-[10px] text-slate-500">Show schedules across all tournaments</span>
-                              </div>
-                              {!activeTournamentName && <Check className="h-4 w-4 text-indigo-600" />}
+                              <span className="text-xs font-semibold text-slate-800 truncate">All Tournaments</span>
+                              {!activeTournamentName && <Check className="h-4 w-4 text-indigo-600 shrink-0" />}
                             </CommandItem>
-                            {tournamentOptions.map(option => {
-                              const dateLabel = option.startDate
-                                ? `${safeFormatDate(option.startDate, "d MMM yyyy")}${option.endDate ? ` – ${safeFormatDate(option.endDate, "d MMM yyyy")}` : ""}`
-                                : "Dates not set";
-                              return (
-                                <CommandItem
-                                  key={option.name}
-                                  value={option.searchValue}
-                                  onSelect={() => {
-                                    setSelectedTournamentId(null);
-                                    setSelectedActualTournamentId(option.id);
-                                    setSelectedSportsEventId(null);
-                                    setSelectedTournamentName(option.name);
-                                    setTournamentPickerOpen(false);
-                                  }}
-                                  className="cursor-pointer items-start px-3 py-2.5 aria-selected:bg-indigo-50"
-                                >
-                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><Trophy className="h-4 w-4" /></span>
-                                    <span className="min-w-0 flex-1">
-                                      <span className="flex items-center justify-between gap-2">
-                                        <span className="truncate text-xs font-bold text-slate-900">{option.name}</span>
-                                        <span className="flex shrink-0 items-center gap-1">
-                                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{option.eventCount} {option.eventCount === 1 ? "event" : "events"}</span>
-                                          {option.status && <span className="max-w-[72px] truncate rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">{option.status.replaceAll("_", " ")}</span>}
-                                        </span>
-                                      </span>
-                                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500">
-                                        <span>{option.teamCount} teams</span>
-                                        <span>{option.savedMatchCount} saved matches</span>
-                                        <span>{dateLabel}</span>
-                                      </span>
-                                      {option.events.length > 0 && (
-                                        <span className="mt-1 block truncate text-[10px] font-semibold text-slate-600">
-                                          {option.events.slice(0, 2).join(" · ")}{option.events.length > 2 ? ` · +${option.events.length - 2} more` : ""}
-                                        </span>
-                                      )}
-                                      <span className="mt-0.5 block truncate text-[10px] font-medium text-indigo-600">
-                                        {[...option.sports, ...option.formats].filter(Boolean).join(" · ") || "Tournament details unavailable"}
-                                      </span>
-                                    </span>
-                                  </div>
-                                  {selectedActualTournamentId === option.id && <Check className="mt-1 h-4 w-4 shrink-0 text-indigo-600" />}
-                                </CommandItem>
-                              );
-                            })}
+                            {tournamentOptions.map(option => (
+                              <CommandItem
+                                key={option.name}
+                                value={option.searchValue}
+                                onSelect={() => {
+                                  setSelectedTournamentId(null);
+                                  setSelectedActualTournamentId(option.id);
+                                  setSelectedSportsEventId(null);
+                                  setSelectedTournamentName(option.name);
+                                  setTournamentPickerOpen(false);
+                                }}
+                                className="cursor-pointer px-3 py-2 aria-selected:bg-indigo-50 flex items-center justify-between"
+                              >
+                                <span className="truncate text-xs font-semibold text-slate-900">{option.name}</span>
+                                {selectedActualTournamentId === option.id && <Check className="h-4 w-4 shrink-0 text-indigo-600" />}
+                              </CommandItem>
+                            ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -1318,10 +1325,10 @@ export function SportsSchedule() {
                 </div>
 
                 {/* 2. Sports Event Dropdown */}
-                <div className="relative flex flex-col gap-1.5">
-                  <label htmlFor="overviewEventSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    <Calendar className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Sports Event / Category</span>
+                <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
+                  <label htmlFor="overviewEventSelect" className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
+                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 shrink-0" />
+                    <span className="truncate">Event / Category</span>
                   </label>
                   <Popover open={eventPickerOpen} onOpenChange={setEventPickerOpen}>
                     <PopoverTrigger asChild>
@@ -1331,12 +1338,12 @@ export function SportsSchedule() {
                         role="combobox"
                         aria-expanded={eventPickerOpen}
                         aria-label="Search and select a sports event"
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                        className="flex w-full items-center justify-between gap-1.5 sm:gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3.5 sm:py-2.5 text-left text-xs sm:text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 min-w-0"
                       >
                         <span className={`min-w-0 truncate ${selectedSportsEventId ? "text-slate-900" : "text-slate-500"}`}>
                           {sportsEvents.find(event => Number(event.id) === selectedSportsEventId)?.name || "All Events / Categories"}
                         </span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-slate-400" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
@@ -1400,6 +1407,51 @@ export function SportsSchedule() {
                   </Popover>
                 </div>
               </div>
+
+              {isAdmin && (selectedActualTournamentId || selectedSportsEventId) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                  <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-indigo-600" />
+                    Feed Broadcast:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectedActualTournamentId && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await tournamentService.setFeedVisibility("tournament", selectedActualTournamentId, true, true);
+                            toast.success("Tournament and all events/matches enabled for Community Feed!");
+                          } catch (err: any) {
+                            toast.error(err?.message || "Failed to update tournament feed visibility");
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition-colors text-[10.5px] cursor-pointer"
+                        title="Cascade show-in-feed to all events and matches in this tournament"
+                      >
+                        Enable All in Tournament
+                      </button>
+                    )}
+                    {selectedSportsEventId && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await tournamentService.setFeedVisibility("event", selectedSportsEventId, true, true);
+                            toast.success("Event and all its matches enabled for Community Feed!");
+                          } catch (err: any) {
+                            toast.error(err?.message || "Failed to update event feed visibility");
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-200 transition-colors text-[10.5px] cursor-pointer"
+                        title="Cascade show-in-feed to all matches in this event"
+                      >
+                        Enable Selected Event
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1666,7 +1718,7 @@ export function SportsSchedule() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sports</p>
               <p className="mt-1 text-2xl font-extrabold text-slate-900">{new Set(myMatches.map(match => match.sport)).size}</p>
             </div>
-            <div className="col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm sm:col-span-1">
+            <div className="hidden sm:block col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm sm:col-span-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Showing</p>
               <p className="mt-1 text-sm font-bold text-indigo-950">{selectedSportFilter === "All" ? "All registered sports" : selectedSportFilter}</p>
             </div>
@@ -2102,21 +2154,31 @@ export function SportsSchedule() {
                     {/* Teams and Scores Display */}
                     <div className="mt-2 sm:mt-4 bg-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-slate-100 space-y-1.5 sm:space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team1}
-                        </span>
+                        <div className="inline-block min-w-0 pr-2">
+                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            {fixture.team1}
+                          </span>
+                          {fixture.team1Flat && (
+                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
+                          )}
+                        </div>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
                             {fixture.score1 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team2}
-                        </span>
+                        <div className="inline-block min-w-0 pr-2">
+                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            {fixture.team2}
+                          </span>
+                          {fixture.team2Flat && (
+                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
+                          )}
+                        </div>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
                             {fixture.score2 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
@@ -2389,12 +2451,20 @@ export function SportsSchedule() {
               try {
                 if (!fixture.matchId) throw new Error("This fixture is not linked to a saved match record.");
                 await apiClient.put(`/sports/matches/${fixture.matchId}/status`, { status: "LIVE" });
+                if (goLiveFeedVisibility !== "inherit") {
+                  try {
+                    await tournamentService.setFeedVisibility("match", fixture.matchId, goLiveFeedVisibility === "show");
+                  } catch {
+                    toast.error("Match is live, but the feed setting could not be saved.");
+                  }
+                }
                 setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
                 toast.success(`Match "${fixture.name}" is now LIVE!`);
               } catch (err: any) {
                 toast.error(err?.message || "Failed to broadcast match status to LIVE on server");
               } finally {
                 setConfirmGoLiveFixture(null);
+                setGoLiveFeedVisibility("inherit");
               }
             };
 
@@ -2438,9 +2508,15 @@ export function SportsSchedule() {
 
                     {(fixture.team1 || fixture.team2) && (
                       <div className="mt-2.5 flex items-center justify-between text-xs font-bold text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60 shadow-xs">
-                        <span className="truncate max-w-[42%] text-slate-800">{fixture.team1 || "TBD"}</span>
-                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50">VS</span>
-                        <span className="truncate max-w-[42%] text-slate-800 text-right">{fixture.team2 || "TBD"}</span>
+                        <div className="truncate max-w-[42%] text-left">
+                          <span className="truncate block text-slate-800">{fixture.team1 || "TBD"}</span>
+                          {fixture.team1Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team1Flat}</span>}
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50 shrink-0">VS</span>
+                        <div className="truncate max-w-[42%] text-right">
+                          <span className="truncate block text-slate-800">{fixture.team2 || "TBD"}</span>
+                          {fixture.team2Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team2Flat}</span>}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2509,6 +2585,25 @@ export function SportsSchedule() {
                         </div>
                       </div>
                     )}
+                  </div>
+
+                  {/* Community feed visibility */}
+                  <div className="mt-4 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                    <label htmlFor="goLiveFeedVisibility" className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
+                      <Radio className="w-3 h-3 text-indigo-600" />
+                      Show on community feed
+                    </label>
+                    <select
+                      id="goLiveFeedVisibility"
+                      value={goLiveFeedVisibility}
+                      onChange={(e) => setGoLiveFeedVisibility(e.target.value as "inherit" | "show" | "hide")}
+                      className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800"
+                    >
+                      <option value="inherit">Use tournament / event setting</option>
+                      <option value="show">Yes - show this match live on the feed</option>
+                      <option value="hide">No - keep off the feed</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-indigo-700/80">It leaves the feed automatically when the match completes.</p>
                   </div>
 
                   {/* Actions */}
@@ -2590,7 +2685,7 @@ export function SportsSchedule() {
       })()}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} />}
+      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} isAdmin={isAdmin} />}
 
       {/* Config */}
       {activeTab === "Config" && (
@@ -2634,6 +2729,29 @@ export function SportsSchedule() {
             <p className="text-xs text-slate-500 mt-1">Manual Scheduler is restricted to administrators.</p>
           </div>
         )
+      )}
+
+      {/* Published Tournament Schedules & Stage-Wise Exports (Admin and Sports Admin Only) */}
+      {activeTab === "Published Schedules" && (
+        isSportsAdminOnly ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Published Tournament Schedules &amp; Stage Exports</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Browse fixtures, filter by stage (Group Stage, Quarter-Finals, Semi-Finals, Final), control community feed broadcast, and export cleanly.
+                </p>
+              </div>
+              <Link
+                to="/sports/admin?tab=schedule"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 transition-colors shrink-0"
+              >
+                Open in Admin Hub →
+              </Link>
+            </div>
+            <ScheduleAdminTab />
+          </div>
+        ) : null
       )}
 
       {scoreSummaryFixture && (

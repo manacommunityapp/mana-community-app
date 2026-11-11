@@ -156,6 +156,53 @@ describe("SetupSchedule & SportsSchedule Doubles Category Support", () => {
       const result = formatParticipantDisplayName(reg as EventRegistration, partnerInfo, true, 1);
       expect(result.displayName).toBe("Sandeep Kamarapu / [Partner Invited]");
     });
+
+    it("falls back to reg.user.flatNo and formats with user block/tower when flatNumber is absent", () => {
+      const reg = {
+        id: 1,
+        playerName: "Pooja Reddy",
+        user: {
+          id: 5,
+          fullName: "Pooja Reddy",
+          flatNo: "304",
+          block: "Tower B",
+        },
+      };
+      const partnerInfo = {
+        hasPartner: false,
+        isOpenPool: false,
+        name: null,
+        relation: null,
+        isDoublesEvent: false,
+        status: null,
+        notes: null,
+      };
+
+      const result = formatParticipantDisplayName(reg as any, partnerInfo, false, 1);
+      expect(result.displayName).toBe("Pooja Reddy");
+      expect(result.flatDisplay).toBe("Tower B, Flat 304");
+    });
+
+    it("falls back to reg.flatNo when flatNumber is missing on registration", () => {
+      const reg = {
+        id: 2,
+        playerName: "Kiran Kumar",
+        flatNo: "C-102",
+      };
+      const partnerInfo = {
+        hasPartner: false,
+        isOpenPool: false,
+        name: null,
+        relation: null,
+        isDoublesEvent: false,
+        status: null,
+        notes: null,
+      };
+
+      const result = formatParticipantDisplayName(reg as any, partnerInfo, false, 2);
+      expect(result.displayName).toBe("Kiran Kumar");
+      expect(result.flatDisplay).toBe("C-102");
+    });
   });
 
   describe("deduplicateReciprocalRegistrations", () => {

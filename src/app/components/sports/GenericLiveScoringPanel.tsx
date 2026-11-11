@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -54,6 +54,18 @@ export function GenericLiveScoringPanel({
   const [selectedPlayerB, setSelectedPlayerB] = useState<number | undefined>();
   const [matchMinute, setMatchMinute] = useState<number | undefined>();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [feedActive, setFeedActive] = useState<boolean>(true);
+
+  const toggleFeedVisibility = async () => {
+    const next = !feedActive;
+    try {
+      await tournamentService.setFeedVisibility("match", matchId, next);
+      setFeedActive(next);
+      toast.success(next ? "Match broadcast live on Community Feed" : "Match removed from Community Feed");
+    } catch {
+      toast.error("Failed to update feed visibility");
+    }
+  };
 
   const eventTypes = SPORT_EVENT_TYPES[sportType] || SPORT_EVENT_TYPES["DEFAULT"] || [];
   const periodLabels = PERIOD_LABELS[sportType] || PERIOD_LABELS["DEFAULT"] || ["Period 1", "Period 2", "Period 3"];
@@ -205,12 +217,27 @@ export function GenericLiveScoringPanel({
               )}
             </p>
           </div>
-          <button
-            onClick={() => setShowCloseConfirm(true)}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-          >
-            <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleFeedVisibility}
+              title="Toggle whether this match appears live on the community feed"
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                feedActive
+                  ? "bg-red-50 text-red-600 border-red-200"
+                  : "bg-slate-100 text-slate-500 border-slate-200 hover:text-slate-700"
+              }`}
+            >
+              <Radio className="w-3 h-3 text-red-500 animate-pulse" />
+              <span>{feedActive ? "Feed: Live" : "Feed: Off"}</span>
+            </button>
+            <button
+              onClick={() => setShowCloseConfirm(true)}
+              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+            >
+              <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+            </button>
+          </div>
         </div>
 
         {/* Scoreboard */}

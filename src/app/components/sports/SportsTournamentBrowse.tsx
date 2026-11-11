@@ -18,14 +18,19 @@ import {
   Lock,
   CheckCircle2,
   Radio,
+  Shield,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { tournamentService } from "../../../services/sports/tournamentService";
-import type { SportsEvent, SportsTournament } from "../../../types/api";
+import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
+import type { SportsEvent, SportsTournament, EventRegistration, AuctionTeam } from "../../../types/api";
 import { useLocation, useNavigate } from "react-router";
+import { useAuth } from "../../../contexts/AuthContext";
 import { SportsTournamentStandings } from "./SportsTournamentStandings";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
 import { TournamentPlayersPaymentModal } from "./TournamentPlayersPaymentModal";
@@ -79,12 +84,16 @@ export function SportsTournamentBrowse() {
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  const { isAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
+  const isSportsAdminUser = Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [activeTab, setActiveTab] = useState<BrowseTab>("open");
   const [myStatusFilter, setMyStatusFilter] = useState<"all" | "open" | "closed">("all");
   const [openTournaments, setOpenTournaments] = useState<DashboardTournamentCard[]>([]);
   const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentCard[]>([]);
   const [completedTournaments, setCompletedTournaments] = useState<DashboardTournamentCard[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<SportsEvent[]>([]);
+  const [myEventRegistrations, setMyEventRegistrations] = useState<EventRegistration[]>([]);
+  const [myAuctionTeams, setMyAuctionTeams] = useState<AuctionTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [sportFilter, setSportFilter] = useState<string>("All");
 
@@ -106,7 +115,10 @@ export function SportsTournamentBrowse() {
       sportsDashboardService.getClosedTournaments().catch(() => []),
       sportsDashboardService.getCompletedTournaments().catch(() => []),
       sportsService.getMyTournaments().catch(() => []),
-    ]).then(([open, closed, completed, my]) => {
+      sportsService.getMyRegistrations().catch(() => []),
+      sportsDashboardService.getMyRegistrations().catch(() => []),
+      auctionService.getCaptainRegistration().catch(() => []),
+    ]).then(([open, closed, completed, my, apiRegs, dashRegs, captainTeams]) => {
       const nonDraftOpen = open
         .filter(t => String(t.registrationStatus || (t as any).status || "").toUpperCase().trim() !== "DRAFT")
         .map(t => ({
@@ -118,6 +130,20 @@ export function SportsTournamentBrowse() {
       setClosedTournaments(closed);
       setCompletedTournaments(completed);
       setMyRegistrations(my);
+
+      // Merge registrations from sportsService and sportsDashboardService
+      const mergedMap = new Map<number | string, any>();
+      (dashRegs || []).forEach((r: any) => {
+        if (r && r.id != null) mergedMap.set(r.id, r);
+      });
+      (apiRegs || []).forEach((r: any) => {
+        if (r && r.id != null) {
+          const existing = mergedMap.get(r.id) || {};
+          mergedMap.set(r.id, { ...existing, ...r });
+        }
+      });
+      setMyEventRegistrations(Array.from(mergedMap.values()));
+      setMyAuctionTeams(captainTeams || []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -345,21 +371,37 @@ export function SportsTournamentBrowse() {
                   t => t.id === ev.tournament?.id || t.events?.some(e => e.id === ev.id)
                 ) || null;
 
+              const matchingRegs = myEventRegistrations.filter(r => {
+                const rEvId = (r as any).eventId || r.event?.id;
+                if (rEvId === ev.id) return true;
+                if (ev.id && rEvId && Number(rEvId) === Number(ev.id)) return true;
+                if (matchedTournament && matchedTournament.events?.some(e => Number(e.id) === Number(rEvId))) return true;
+                return false;
+              });
+
+              const matchingAuctionTeam = myAuctionTeams.find(t => {
+                if (Number(t.eventId) === Number(ev.id)) return true;
+                if (ev.tournament?.id && Number(t.eventId) === Number(ev.tournament.id)) return true;
+                if (matchedTournament && (Number(t.eventId) === Number(matchedTournament.id) || matchedTournament.events?.some(e => Number(e.id) === Number(t.eventId)))) return true;
+                return false;
+              }) || null;
+
               return (
                 <MyTournamentCard
                   key={ev.id}
                   event={ev}
                   matchedTournament={matchedTournament}
+                  registrations={matchingRegs}
+                  auctionTeam={matchingAuctionTeam}
+                  canAdminRegister={isSportsAdminUser}
                   onViewDetails={() => handleOpenDetails(ev)}
                   onViewSchedule={() => { void navigate(`/sports/schedule/${ev.id}`); }}
-                  onOpenPayments={(tCard: DashboardTournamentCard) => {
-                    setSelectedTournamentForPayment(tCard);
-                    setIsPaymentModalOpen(true);
-                  }}
                   onOpenPaymentContacts={(tCard: DashboardTournamentCard | SportsTournament) => {
                     setSelectedTournamentForContacts(tCard);
                     setIsPaymentContactsModalOpen(true);
                   }}
+                  onRegister={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${matchedTournament?.id || ev.tournament?.id || ev.id}`, { state: { returnTo } }) : undefined}
+                  onRegisterOthers={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${matchedTournament?.id || ev.tournament?.id || ev.id}?for=community`, { state: { returnTo } }) : undefined}
                 />
               );
             })
@@ -377,6 +419,7 @@ export function SportsTournamentBrowse() {
               <TournamentCard
                 key={t.id}
                 tournament={t}
+                canAdminRegister={isSportsAdminUser}
                 onViewDetails={() => handleOpenDetails(t)}
                 onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
                 onOpenPayments={() => {
@@ -387,6 +430,8 @@ export function SportsTournamentBrowse() {
                   setSelectedTournamentForContacts(t);
                   setIsPaymentContactsModalOpen(true);
                 }}
+                onRegister={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${t.id}`, { state: { returnTo } }) : undefined}
+                onRegisterOthers={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${t.id}?for=community`, { state: { returnTo } }) : undefined}
               />
             ))
           )}
@@ -404,6 +449,7 @@ export function SportsTournamentBrowse() {
                 key={t.id}
                 tournament={t}
                 completed
+                canAdminRegister={isSportsAdminUser}
                 onViewDetails={() => handleOpenDetails(t)}
                 onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
                 onOpenPayments={() => {
@@ -414,6 +460,8 @@ export function SportsTournamentBrowse() {
                   setSelectedTournamentForContacts(t);
                   setIsPaymentContactsModalOpen(true);
                 }}
+                onRegister={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${t.id}`, { state: { returnTo } }) : undefined}
+                onRegisterOthers={isSportsAdminUser ? () => navigate(`/sports/register-tournament/${t.id}?for=community`, { state: { returnTo } }) : undefined}
               />
             ))
           )}
@@ -472,6 +520,7 @@ export function SportsTournamentBrowse() {
 interface TournamentCardProps {
   tournament: DashboardTournamentCard;
   completed?: boolean;
+  canAdminRegister?: boolean;
   onViewDetails: () => void;
   onViewSchedule: () => void;
   onOpenPayments?: () => void;
@@ -483,6 +532,7 @@ interface TournamentCardProps {
 function TournamentCard({
   tournament,
   completed,
+  canAdminRegister: canAdminRegisterProp,
   onViewDetails,
   onViewSchedule,
   onOpenPayments,
@@ -490,6 +540,8 @@ function TournamentCard({
   onRegister,
   onRegisterOthers,
 }: TournamentCardProps) {
+  const { isAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
+  const canAdminRegister = canAdminRegisterProp ?? Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [showStandings, setShowStandings] = useState(false);
   const [configIds, setConfigIds] = useState<number[]>([]);
   const eventCount = tournament.events?.length ?? 0;
@@ -552,9 +604,29 @@ function TournamentCard({
               </h3>
 
               <span
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${ completed ? "border-slate-200 bg-slate-100 text-slate-600" : isOpen ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700" }`}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                  completed
+                    ? "border-slate-200 bg-slate-100 text-slate-600"
+                    : isOpen
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : status === "REGISTRATION_CLOSED" || status === "CLOSED"
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : status === "LIVE" || status === "MATCHES_RUNNING"
+                    ? "border-rose-200 bg-rose-50 text-rose-700 animate-pulse"
+                    : "border-blue-200 bg-blue-50 text-blue-700"
+                }`}
               >
-                {completed ? "Completed" : isOpen ? "Open for Registration" : status}
+                {completed
+                  ? "Completed"
+                  : isOpen
+                  ? "Open for Registration"
+                  : status === "REGISTRATION_CLOSED" || status === "CLOSED"
+                  ? "Registration Closed"
+                  : status === "LIVE" || status === "MATCHES_RUNNING"
+                  ? "Matches Running"
+                  : status === "UPCOMING"
+                  ? "Upcoming"
+                  : status}
               </span>
 
               {daysLeft !== null && daysLeft >= 0 && isOpen && (
@@ -668,7 +740,7 @@ function TournamentCard({
             </button>
           )}
 
-          {isOpen && onRegister && (
+          {(isOpen || canAdminRegister) && onRegister && (
             <button
               onClick={onRegister}
               className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] sm:flex-none"
@@ -678,7 +750,7 @@ function TournamentCard({
             </button>
           )}
 
-          {isOpen && onRegisterOthers && (
+          {(isOpen || canAdminRegister) && onRegisterOthers && (
             <button
               onClick={onRegisterOthers}
               className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 active:scale-[0.98] sm:flex-none"
@@ -745,20 +817,32 @@ function TournamentCard({
 interface MyTournamentCardProps {
   event: SportsEvent;
   matchedTournament?: DashboardTournamentCard | null;
+  registrations?: EventRegistration[];
+  auctionTeam?: AuctionTeam | null;
+  canAdminRegister?: boolean;
   onViewDetails: () => void;
   onViewSchedule: () => void;
-  onOpenPayments: (tournament: DashboardTournamentCard) => void;
+  onOpenPayments?: (tournament: DashboardTournamentCard) => void;
   onOpenPaymentContacts: (tournament: DashboardTournamentCard | SportsTournament) => void;
+  onRegister?: () => void;
+  onRegisterOthers?: () => void;
 }
 
 function MyTournamentCard({
   event,
   matchedTournament,
+  registrations = [],
+  auctionTeam,
+  canAdminRegister: canAdminRegisterProp,
   onViewDetails,
   onViewSchedule,
   onOpenPayments,
   onOpenPaymentContacts,
+  onRegister,
+  onRegisterOthers,
 }: MyTournamentCardProps) {
+  const { isAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
+  const canAdminRegister = canAdminRegisterProp ?? Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [showStandings, setShowStandings] = useState(false);
   const [configIds, setConfigIds] = useState<number[]>([]);
 
@@ -769,6 +853,129 @@ function MyTournamentCard({
   const endDate = rawEnd ? new Date(rawEnd) : null;
 
   const { status, isOpen, isClosed, isCompleted, isLive } = getEventEffectiveStatus(event);
+
+  // Resolve format, category, team, partner, and player details
+  const {
+    formatBadges,
+    categoryBadge,
+    teamInfo,
+    partnerList,
+    isOpenPool,
+    familyPlayerList,
+  } = useMemo(() => {
+    // 1. Format Badges
+    const detectedFormats = new Set<"SINGLES" | "DOUBLES" | "MIXED_DOUBLES" | "TEAM">();
+
+    (registrations || []).forEach(r => {
+      const raw = String(r.matchType || r.matchFormat || ((r as any).format ? (Array.isArray((r as any).format) ? (r as any).format.join(" ") : (r as any).format) : "")).toUpperCase();
+      if (raw.includes("MIXED")) {
+        detectedFormats.add("MIXED_DOUBLES");
+      } else if (raw.includes("DOUBLE")) {
+        detectedFormats.add("DOUBLES");
+      } else if (raw.includes("SINGLE")) {
+        detectedFormats.add("SINGLES");
+      } else if (raw.includes("TEAM")) {
+        detectedFormats.add("TEAM");
+      } else if (r.partnerName || r.partnerUserId || r.partner || r.partnerFamilyMember) {
+        detectedFormats.add("DOUBLES");
+      }
+    });
+
+    // Fallback if not detected from registrations
+    if (detectedFormats.size === 0) {
+      const name = (event.name || "").toLowerCase();
+      const sportName = (event.sportName || event.sport?.name || "").toLowerCase();
+      const rawFormat = String(event.format || "").toUpperCase();
+
+      if (rawFormat.includes("MIXED") || name.includes("mixed doubles") || name.includes("mixed")) {
+        detectedFormats.add("MIXED_DOUBLES");
+      } else if (rawFormat.includes("DOUBLE") || name.includes("doubles")) {
+        detectedFormats.add("DOUBLES");
+      } else if (rawFormat.includes("SINGLE") || name.includes("singles")) {
+        detectedFormats.add("SINGLES");
+      } else if (rawFormat.includes("TEAM") || isTeamSport(sportName || name)) {
+        detectedFormats.add("TEAM");
+      } else if (isTeamSport(sportName)) {
+        detectedFormats.add("TEAM");
+      } else {
+        detectedFormats.add("SINGLES");
+      }
+    }
+
+    // 2. Category Badge
+    let cat = event.categoryName || (event as any).category?.name || "";
+    if (!cat && registrations && registrations.length > 0) {
+      cat = registrations[0].category?.name || (registrations[0] as any).categoryName || "";
+    }
+    if (!cat && event.name && event.name.includes("—")) {
+      const parts = event.name.split("—");
+      if (parts.length > 1) {
+        cat = parts[1].trim();
+      }
+    }
+    const categoryBadge = cat && cat.toLowerCase() !== "all" && cat.toLowerCase() !== "general" ? cat : null;
+
+    // 3. Team Info
+    let teamName = "";
+    let isCaptain = false;
+    let isNominated = false;
+
+    if (auctionTeam) {
+      teamName = auctionTeam.teamName || auctionTeam.name || "";
+      isCaptain = Boolean(auctionTeam.captainConfirmation);
+      isNominated = Boolean(auctionTeam.captainNomination && !isCaptain);
+    }
+    (registrations || []).forEach(r => {
+      if (!teamName && (r.proposedTeamName || (r as any).teamName)) {
+        teamName = r.proposedTeamName || (r as any).teamName;
+      }
+      if (r.captainConfirmation) isCaptain = true;
+      if (r.captainNomination && !r.captainConfirmation) isNominated = true;
+    });
+
+    const teamInfo = teamName ? {
+      name: teamName,
+      role: isCaptain ? "Captain" : isNominated ? "Nominated Captain" : null,
+    } : null;
+
+    // 4. Partner details
+    const partnerList: Array<{ name: string; flat?: string | null; status?: string | null }> = [];
+    let isOpenPool = false;
+
+    (registrations || []).forEach(r => {
+      const pName = r.partnerName || r.partner?.fullName || r.partner?.name || r.partnerFamilyMember?.name || null;
+      const pFlat = r.partnerFlatNumber || r.partner?.flatNo || (r.partner as any)?.flatNumber || r.partnerFamilyMember?.user?.flatNo || null;
+      const pStatus = r.partnerConfirmationStatus || r.partnerStatus || null;
+      if (pName) {
+        if (!partnerList.some(p => p.name.toLowerCase() === pName.toLowerCase())) {
+          partnerList.push({ name: pName, flat: pFlat, status: pStatus });
+        }
+      } else if ((r as any).openPool || (detectedFormats.has("DOUBLES") || detectedFormats.has("MIXED_DOUBLES"))) {
+        isOpenPool = true;
+      }
+    });
+
+    // 5. Family member player list
+    const familyPlayerList: Array<{ name: string; relation?: string | null }> = [];
+    (registrations || []).forEach(r => {
+      const pName = r.playerName;
+      const rel = r.relation;
+      if (pName && rel && rel.toUpperCase() !== "SELF") {
+        if (!familyPlayerList.some(fp => fp.name.toLowerCase() === pName.toLowerCase())) {
+          familyPlayerList.push({ name: pName, relation: rel });
+        }
+      }
+    });
+
+    return {
+      formatBadges: Array.from(detectedFormats),
+      categoryBadge,
+      teamInfo,
+      partnerList,
+      isOpenPool,
+      familyPlayerList,
+    };
+  }, [registrations, auctionTeam, event]);
 
   // Construct a fallback tournament card if no matched parent tournament card is available
   const resolvedTournamentCard = useMemo<DashboardTournamentCard>(() => {
@@ -808,12 +1015,6 @@ function MyTournamentCard({
     };
   }, [matchedTournament, event, status]);
 
-  // Total registered count across all events
-  const totalRegistered = matchedTournament
-    ? (matchedTournament.events || []).reduce((acc, ev) => acc + (ev.registeredCount ?? 0), 0)
-    : (event.registeredCount ?? 0);
-
-  const sportsEventsDisplayCount = matchedTournament?.events?.length || 1;
 
   useEffect(() => {
     if (showStandings && configIds.length === 0) {
@@ -892,7 +1093,113 @@ function MyTournamentCard({
                   {status}
                 </span>
               ) : null}
+
+              {/* Format Badges */}
+              {formatBadges.map(fmt => {
+                if (fmt === "SINGLES") {
+                  return (
+                    <span
+                      key="SINGLES"
+                      className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700"
+                    >
+                      <User className="w-3 h-3 text-emerald-600" />
+                      <span>Singles</span>
+                    </span>
+                  );
+                }
+                if (fmt === "DOUBLES") {
+                  return (
+                    <span
+                      key="DOUBLES"
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-700"
+                    >
+                      <Users className="w-3 h-3 text-sky-600" />
+                      <span>Doubles</span>
+                    </span>
+                  );
+                }
+                if (fmt === "MIXED_DOUBLES") {
+                  return (
+                    <span
+                      key="MIXED_DOUBLES"
+                      className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-700"
+                    >
+                      <Users className="w-3 h-3 text-purple-600" />
+                      <span>Mixed Doubles</span>
+                    </span>
+                  );
+                }
+                if (fmt === "TEAM") {
+                  return (
+                    <span
+                      key="TEAM"
+                      className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700"
+                    >
+                      <Shield className="w-3 h-3 text-indigo-600" />
+                      <span>Team</span>
+                    </span>
+                  );
+                }
+                return null;
+              })}
+
+              {/* Category Badge */}
+              {categoryBadge && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                  <Award className="w-3 h-3 text-slate-500" />
+                  <span>{categoryBadge}</span>
+                </span>
+              )}
             </div>
+
+            {/* Registered Details: Selected Team, Partner, or Family Member Player */}
+            {(teamInfo || partnerList.length > 0 || (isOpenPool && partnerList.length === 0) || familyPlayerList.length > 0) && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {teamInfo && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/90 px-2.5 py-1 text-xs font-semibold text-indigo-900 shadow-2xs">
+                    <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Team: <strong className="font-bold">{teamInfo.name}</strong></span>
+                    {teamInfo.role && (
+                      <span className="rounded bg-indigo-200/90 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-indigo-950">
+                        {teamInfo.role}
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {partnerList.map((p, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50/90 px-2.5 py-1 text-xs font-semibold text-sky-900 shadow-2xs">
+                    <Users className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Partner: <strong className="font-bold">{p.name}</strong>{p.flat ? ` (${p.flat})` : ""}</span>
+                    {p.status && (
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${
+                        p.status.toUpperCase() === "CONFIRMED" || p.status.toUpperCase() === "ACCEPTED"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                          : p.status.toUpperCase() === "PENDING"
+                          ? "bg-amber-100 text-amber-800 border border-amber-300"
+                          : "bg-slate-100 text-slate-700 border border-slate-300"
+                      }`}>
+                        {p.status.toUpperCase() === "CONFIRMED" || p.status.toUpperCase() === "ACCEPTED" ? "Confirmed" : p.status.toUpperCase() === "PENDING" ? "Pending" : p.status}
+                      </span>
+                    )}
+                  </span>
+                ))}
+
+                {isOpenPool && partnerList.length === 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-xs font-semibold text-amber-900 shadow-2xs">
+                    <Users className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Open Pool <em className="text-amber-700 font-normal">(Seeking Partner)</em></span>
+                  </span>
+                )}
+
+                {familyPlayerList.map((fp, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50/90 px-2.5 py-1 text-xs font-semibold text-violet-900 shadow-2xs">
+                    <User className="w-3.5 h-3.5 text-violet-600" />
+                    <span>Player: <strong className="font-bold">{fp.name}</strong> ({fp.relation})</span>
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Parent Tournament Link/Badge */}
             {isPartOfNamedTournament && (
@@ -933,56 +1240,11 @@ function MyTournamentCard({
                 </span>
               )}
 
-              {event.categoryName && (
+              {event.categoryName && !categoryBadge && (
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <Award className="w-3.5 h-3.5 text-indigo-500" />
                   <span>{event.categoryName}</span>
                 </span>
-              )}
-
-              {/* Registered Players & Payment Status Action Button */}
-              {onOpenPayments && (
-                <div className="inline-flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onOpenPayments(resolvedTournamentCard)}
-                    onMouseEnter={() => tournamentPaymentService.prefetchTournamentData(resolvedTournamentCard)}
-                    onFocus={() => tournamentPaymentService.prefetchTournamentData(resolvedTournamentCard)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
-                    title={`View ${totalRegistered} registered players & payment status`}
-                  >
-                    <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
-                    <span className="font-bold text-slate-900 group-hover/btn:text-indigo-700">
-                      {totalRegistered} Registered
-                    </span>
-                    <span className="text-slate-300 font-normal">/</span>
-                    <span className="text-slate-600 group-hover/btn:text-indigo-600 font-medium">
-                      {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
-                  </button>
-
-                  {totalRegistered > 0 && (
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          toast.info("Preparing tournament export...");
-                          const players = await tournamentPaymentService.loadTournamentPlayers(resolvedTournamentCard);
-                          exportTournamentPaymentsToExcel(players, resolvedTournamentCard.name);
-                          toast.success(`Exported ${players.length} players to Excel`);
-                        } catch {
-                          toast.error("Failed to export tournament details");
-                        }
-                      }}
-                      className="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200/90 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/70 shadow-2xs transition-all active:scale-95 cursor-pointer group/btn"
-                      title="Download Excel spreadsheet of registered players & payment details"
-                    >
-                      <Download className="w-3.5 h-3.5 text-indigo-500 group-hover/btn:scale-110 transition-transform" />
-                    </button>
-                  )}
-                </div>
               )}
             </div>
           </div>
@@ -1008,6 +1270,28 @@ function MyTournamentCard({
             >
               <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
               <span>Payment Contacts</span>
+            </button>
+          )}
+
+          {canAdminRegister && onRegister && (
+            <button
+              type="button"
+              onClick={onRegister}
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] sm:flex-none"
+            >
+              <span>Register</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {canAdminRegister && onRegisterOthers && (
+            <button
+              type="button"
+              onClick={onRegisterOthers}
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 active:scale-[0.98] sm:flex-none"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Register Others</span>
             </button>
           )}
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale } from "lucide-react";
+import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
 import { ballColor } from "./utils/cricketUtils";
@@ -40,6 +40,18 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   const [showNewBatsman, setShowNewBatsman] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [feedActive, setFeedActive] = useState<boolean>(true);
+
+  const toggleFeedVisibility = async () => {
+    const next = !feedActive;
+    try {
+      await tournamentService.setFeedVisibility("match", matchId, next);
+      setFeedActive(next);
+      toast.success(next ? "Match is now visible on Community Feed" : "Match removed from Community Feed");
+    } catch {
+      toast.error("Failed to update feed visibility");
+    }
+  };
   const [showOversAdjust, setShowOversAdjust] = useState(false);
   const [customOvers, setCustomOvers] = useState<string>("");
   const [customMaxBowler, setCustomMaxBowler] = useState<string>("");
@@ -252,6 +264,19 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
               <span className="text-[10px] font-bold text-red-300 uppercase">LIVE</span>
             </div>
             {wsConnected ? <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300" /> : <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />}
+            <button
+              type="button"
+              onClick={toggleFeedVisibility}
+              title="Toggle whether this match appears live on the community feed"
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                feedActive
+                  ? "bg-red-500/25 text-white border-red-300/60"
+                  : "bg-white/10 text-white/60 border-white/20 hover:text-white"
+              }`}
+            >
+              <Radio className="w-2.5 h-2.5" />
+              <span>{feedActive ? "Feed ON" : "Feed OFF"}</span>
+            </button>
           </div>
           <button onClick={handleClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
             <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />

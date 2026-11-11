@@ -378,6 +378,12 @@ export interface ExportableMatch {
   team2Name?: string;
   homeTeamName?: string;
   awayTeamName?: string;
+  team1Flat?: string;
+  team2Flat?: string;
+  homeFlat?: string;
+  awayFlat?: string;
+  home?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
+  away?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
   homeScore?: number | string;
   awayScore?: number | string;
   status?: string;
@@ -394,7 +400,9 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     "Time",
     "Venue / Court",
     "Team 1 / Player 1",
+    "Team 1 Flat",
     "Team 2 / Player 2",
+    "Team 2 Flat",
     "Score",
     "Status",
     "Winner",
@@ -407,8 +415,10 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
     const venue = m.venue || m.venueName || m.courtName || "Main Arena";
-    const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-    const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+    const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+    const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+    const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
+    const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
@@ -423,7 +433,9 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
       escapeCSV(mTime),
       escapeCSV(venue),
       escapeCSV(t1),
+      escapeCSV(t1Flat),
       escapeCSV(t2),
+      escapeCSV(t2Flat),
       escapeCSV(score),
       escapeCSV(status),
       escapeCSV(winner),
@@ -731,7 +743,9 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     "Time",
     "Venue / Court",
     "Team 1 / Player 1",
+    "Team 1 Flat",
     "Team 2 / Player 2",
+    "Team 2 Flat",
     "Score",
     "Status",
     "Winner",
@@ -745,12 +759,13 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
   th { background-color: #4f46e5; color: #ffffff; font-weight: bold; padding: 8px; border: 1px solid #cbd5e1; }
   td { padding: 6px 8px; border: 1px solid #e2e8f0; font-family: Calibri, sans-serif; font-size: 11pt; }
   .title-row { font-size: 14pt; font-weight: bold; color: #1e293b; }
+  .flat-cell { color: #4338ca; font-weight: 600; }
 </style>
 </head>
 <body>
 <table>
-  <tr><td colspan="11" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
-  <tr><td colspan="11">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${matches.length}</td></tr>
+  <tr><td colspan="13" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
+  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${matches.length}</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
@@ -761,8 +776,10 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
     const venue = m.venue || m.venueName || m.courtName || "Main Arena";
-    const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-    const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+    const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+    const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+    const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
+    const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
@@ -777,7 +794,9 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
       <td>${mTime}</td>
       <td>${venue}</td>
       <td><b>${t1}</b></td>
+      <td class="flat-cell">${t1Flat !== "—" ? t1Flat : "—"}</td>
       <td><b>${t2}</b></td>
+      <td class="flat-cell">${t2Flat !== "—" ? t2Flat : "—"}</td>
       <td>${score}</td>
       <td>${status}</td>
       <td>${winner}</td>
@@ -804,8 +823,10 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
       const venue = m.venue || m.venueName || m.courtName || "Arena";
-      const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-      const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+      const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
+      const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
       const s1 = m.score1 ?? m.homeScore;
       const s2 = m.score2 ?? m.awayScore;
       const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} : ${s2}` : "vs";
@@ -816,9 +837,15 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
         <td style="font-weight:600; color:#4f46e5;">${escapeHtml(round)}</td>
         <td><b>${escapeHtml(mDate)}</b><br><span style="color:#64748b; font-size:10px;">${escapeHtml(mTime)}</span></td>
         <td>${escapeHtml(venue)}</td>
-        <td style="text-align:right; font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
+        <td style="text-align:right; font-size:12px;">
+          <div style="font-weight:bold;">${escapeHtml(t1)}</div>
+          ${t1Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t1Flat)}</div>` : ""}
+        </td>
         <td style="text-align:center; font-weight:bold; color:#e11d48; background:#fff1f2; padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
-        <td style="text-align:left; font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
+        <td style="text-align:left; font-size:12px;">
+          <div style="font-weight:bold;">${escapeHtml(t2)}</div>
+          ${t2Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t2Flat)}</div>` : ""}
+        </td>
         <td style="text-align:center;"><span class="badge badge-scheduled">${escapeHtml(m.status || "SCHEDULED")}</span></td>
       </tr>`;
     })
@@ -909,8 +936,10 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
       const venue = m.venue || m.venueName || m.courtName || "Court 1";
-      const t1 = m.team1 || m.team1Name || m.homeTeamName || "Team A";
-      const t2 = m.team2 || m.team2Name || m.awayTeamName || "Team B";
+      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "Team A";
+      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "Team B";
+      const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
+      const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
 
       return `
       <div class="scorecard">
@@ -937,11 +966,17 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
           </thead>
           <tbody>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
+              <td style="font-size:12px;">
+                <div style="font-weight:bold;">${escapeHtml(t1)}</div>
+                ${t1Flat ? `<div style="font-size:9.5px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 Flat: ${escapeHtml(t1Flat)}</div>` : ""}
+              </td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
+              <td style="font-size:12px;">
+                <div style="font-weight:bold;">${escapeHtml(t2)}</div>
+                ${t2Flat ? `<div style="font-size:9.5px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 Flat: ${escapeHtml(t2Flat)}</div>` : ""}
+              </td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
           </tbody>
@@ -1068,11 +1103,13 @@ export function exportListViewToPDF(
         const durationStr = m.duration ? `${m.duration}m` : "";
 
         const t1 = m.home?.name || m.team1 || "TBD";
-        const t1Flat = m.home?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.home.flatNumber)}</span>` : "";
+        const t1FlatVal = m.home?.flatNumber || (m as any).homeFlat || (m as any).team1Flat;
+        const t1Flat = t1FlatVal ? `<span class="unit-pill">${escapeHtml(t1FlatVal)}</span>` : "";
         const t1Seed = m.home?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.home.seed)}</span>` : "";
 
         const t2 = m.away?.name || m.team2 || "TBD";
-        const t2Flat = m.away?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.away.flatNumber)}</span>` : "";
+        const t2FlatVal = m.away?.flatNumber || (m as any).awayFlat || (m as any).team2Flat;
+        const t2Flat = t2FlatVal ? `<span class="unit-pill">${escapeHtml(t2FlatVal)}</span>` : "";
         const t2Seed = m.away?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.away.seed)}</span>` : "";
 
         return `
