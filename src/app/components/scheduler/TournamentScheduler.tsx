@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock } from "lucide-react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService } from "../../../services/sports/tournamentService";
@@ -25,6 +25,8 @@ export function TournamentScheduler() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [actionConfig, setActionConfig] = useState<{ config: ConfigInfo; type: "delete" | "publish" } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Form State
   const [fTournamentId, setFTournamentId] = useState("");
@@ -86,6 +88,26 @@ export function TournamentScheduler() {
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!actionConfig) return;
+    setActionLoading(true);
+    try {
+      if (actionConfig.type === "delete") {
+        await tournamentService.deleteConfig(actionConfig.config.id);
+        showToast("Draft tournament configuration deleted successfully!");
+      } else {
+        await tournamentService.publishTournamentConfig(actionConfig.config.id);
+        showToast("Tournament schedule published! Fixtures are now visible to players.");
+      }
+      setActionConfig(null);
+      loadData();
+    } catch (e: any) {
+      showToast(`${actionConfig.type === "delete" ? "Delete" : "Publish"} failed: ${e?.message || e}`, "error");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const tournamentOptions = React.useMemo(() => {
@@ -376,9 +398,31 @@ export function TournamentScheduler() {
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
-                        Edit
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
+                          Edit
+                        </button>
+                        {c.status === "DRAFT" && (
+                          <>
+                            <button
+                              onClick={() => setActionConfig({ config: c, type: "publish" })}
+                              aria-label={`Publish ${c.tournamentName} schedule`}
+                              title="Publish tournament schedule & fixtures to players"
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                            >
+                              <Globe className="h-3.5 w-3.5" /> Publish
+                            </button>
+                            <button
+                              onClick={() => setActionConfig({ config: c, type: "delete" })}
+                              aria-label={`Delete ${c.tournamentName} draft configuration`}
+                              title="Delete draft configuration"
+                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -706,6 +750,54 @@ export function TournamentScheduler() {
               <button disabled={saving} onClick={handleSave} className="flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editingId ? "Update Configuration" : "Save Configuration"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget && !actionLoading) setActionConfig(null); }}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-200">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${actionConfig.type === "delete" ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"}`}>
+                {actionConfig.type === "delete" ? <Trash2 className="h-5 w-5" /> : <Globe className="h-5 w-5" />}
+              </div>
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-bold text-slate-900">
+                  {actionConfig.type === "delete" ? "Delete Draft Configuration" : "Publish Tournament Schedule"}
+                </h3>
+                <p className="truncate text-xs text-slate-500 mt-0.5">{actionConfig.config.tournamentName}</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-slate-600">
+              {actionConfig.type === "delete"
+                ? `Are you sure you want to delete draft tournament "${actionConfig.config.tournamentName}"? All draft match fixtures associated with this configuration will be permanently removed. This action cannot be undone.`
+                : `Publish schedule for "${actionConfig.config.tournamentName}"? Match fixtures will become immediately visible to all players and residents on the community schedule and dashboard.`}
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActionConfig(null)}
+                disabled={actionLoading}
+                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                disabled={actionLoading}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white transition disabled:opacity-50 ${
+                  actionConfig.type === "delete"
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {actionLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {actionConfig.type === "delete" ? "Delete Draft" : "Publish Schedule"}
               </button>
             </div>
           </div>

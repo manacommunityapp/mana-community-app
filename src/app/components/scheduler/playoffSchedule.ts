@@ -14,7 +14,14 @@ export type PlayoffParticipantRef = {
   flatNumber?: string;
 };
 
-export type PlayoffRoundType = 'QUARTER_FINAL' | 'SEMI_FINAL' | 'FINAL' | 'THIRD_PLACE';
+export type PlayoffRoundType =
+  | 'ROUND_OF_64'
+  | 'ROUND_OF_32'
+  | 'ROUND_OF_16'
+  | 'QUARTER_FINAL'
+  | 'SEMI_FINAL'
+  | 'FINAL'
+  | 'THIRD_PLACE';
 
 export type PlayoffMatchDraft = {
   id: string;
@@ -317,6 +324,9 @@ export function createScheduleCursor(
 
 function roundLabel(type: PlayoffRoundType | string, indexInRound: number): string {
   switch (type) {
+    case 'ROUND_OF_64': return `Round of 64 Match ${indexInRound + 1}`;
+    case 'ROUND_OF_32': return `Round of 32 Match ${indexInRound + 1}`;
+    case 'ROUND_OF_16': return `Round of 16 Match ${indexInRound + 1}`;
     case 'QUARTER_FINAL': return `Quarter Final ${indexInRound + 1}`;
     case 'SEMI_FINAL': return `Semi-Final ${indexInRound + 1}`;
     case 'FINAL': return 'Final';
@@ -326,10 +336,16 @@ function roundLabel(type: PlayoffRoundType | string, indexInRound: number): stri
 }
 
 function roundTypeForTeamCount(teamCount: number, roundIndex: number, totalRounds: number): PlayoffRoundType {
-  if (roundIndex === totalRounds - 1) return 'FINAL';
-  if (roundIndex === totalRounds - 2) return 'SEMI_FINAL';
-  if (roundIndex === totalRounds - 3) return 'QUARTER_FINAL';
-  return 'QUARTER_FINAL';
+  const roundsFromFinal = totalRounds - 1 - roundIndex;
+  switch (roundsFromFinal) {
+    case 0: return 'FINAL';
+    case 1: return 'SEMI_FINAL';
+    case 2: return 'QUARTER_FINAL';
+    case 3: return 'ROUND_OF_16';
+    case 4: return 'ROUND_OF_32';
+    case 5: return 'ROUND_OF_64';
+    default: return 'ROUND_OF_16';
+  }
 }
 
 function buildFirstRoundPairings(

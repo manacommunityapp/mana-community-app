@@ -52,6 +52,8 @@ const TEAM_COLORS = [
 ];
 
 const KNOCKOUT_STAGES = [
+  { value: 'ROUND_OF_64', label: 'Round of 64' },
+  { value: 'ROUND_OF_32', label: 'Round of 32' },
   { value: 'ROUND_OF_16', label: 'Round of 16' },
   { value: 'QUARTER_FINAL', label: 'Quarter Final' },
   { value: 'SEMI_FINAL', label: 'Semi Final' },
@@ -75,6 +77,71 @@ const TBD_OPTIONS = [
   { value: 'TBD_GRP_A2', label: '2nd Place Group A' },
   { value: 'TBD_GRP_B2', label: '2nd Place Group B' },
 ];
+
+/** Check if team name is a dynamic tournament placeholder rather than a registered entity */
+export function isPlaceholderTeam(name?: string | null): boolean {
+  if (!name || !name.trim()) return true;
+  const n = name.trim().toLowerCase();
+  return (
+    n === 'tbd' ||
+    n === 'to be decided' ||
+    n.startsWith('winner') ||
+    n.startsWith('loser') ||
+    n.includes('(winner)') ||
+    n.includes('(loser)') ||
+    n.startsWith('tbd_') ||
+    n.includes('place group') ||
+    n.includes('pending previous round') ||
+    /^g\d+-w\d+$/i.test(n)
+  );
+}
+
+/** Formats placeholder names nicely for tournament fixtures and brackets */
+export function formatParticipantName(name?: string | null): string {
+  if (!name || name.trim() === '' || name.toLowerCase() === 'null' || name.toLowerCase() === 'undefined') {
+    return 'TBD';
+  }
+  const trimmed = name.trim();
+
+  // Check exact TBD_OPTIONS
+  const tbdOpt = TBD_OPTIONS.find(o => o.value.toLowerCase() === trimmed.toLowerCase());
+  if (tbdOpt) return tbdOpt.label;
+
+  // Handle slot IDs like G1-W1, G2-W2
+  const slotMatch = trimmed.match(/^G(\d+)-W(\d+)$/i);
+  if (slotMatch) {
+    const groupNum = slotMatch[1];
+    const rank = slotMatch[2];
+    const rankSuffix = rank === '1' ? 'st' : rank === '2' ? 'nd' : rank === '3' ? 'rd' : 'th';
+    return `${rank}${rankSuffix} Place Group ${String.fromCharCode(64 + parseInt(groupNum, 10))}`;
+  }
+
+  // Handle "Round 1 Match X (Winner)" -> "Winner Round of 16 (M{X})"
+  const r1WinnerMatch = trimmed.match(/^Round\s*1\s*Match\s*(\d+)\s*\((Winner|Loser)\)$/i);
+  if (r1WinnerMatch) {
+    return `${r1WinnerMatch[2]} Round of 16 (M${r1WinnerMatch[1]})`;
+  }
+
+  // Handle "Quarter Final X (Winner)" -> "Winner Quarter Final X"
+  const qfWinnerMatch = trimmed.match(/^Quarter\s*Final\s*(\d+)\s*\((Winner|Loser)\)$/i);
+  if (qfWinnerMatch) {
+    return `${qfWinnerMatch[2]} Quarter Final ${qfWinnerMatch[1]}`;
+  }
+
+  // Handle "Semi-Final X (Winner)" -> "Winner Semi-Final X"
+  const sfWinnerMatch = trimmed.match(/^Semi-?Final\s*(\d+)\s*\((Winner|Loser)\)$/i);
+  if (sfWinnerMatch) {
+    return `${sfWinnerMatch[2]} Semi-Final ${sfWinnerMatch[1]}`;
+  }
+
+  // Handle generic "(Winner)" or "(Loser)" patterns like "Round of 16 Match 1 (Winner)"
+  const genericWinner = trimmed.match(/^(.+?)\s*\((Winner|Loser)\)$/i);
+  if (genericWinner) {
+    return `${genericWinner[2]} of ${genericWinner[1]}`;
+  }
+
+  return trimmed;
+}
 
 export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetup }: ManualSchedulerProps) {
   // Navigation & Config
@@ -126,7 +193,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
     venueId: '',
   });
 
-  // Master List Filter
+  // Filter States
+  const [knockoutStageFilter, setKnockoutStageFilter] = useState('ALL');
   const [masterSearch, setMasterSearch] = useState('');
   const [masterStageFilter, setMasterStageFilter] = useState('ALL');
 
@@ -340,28 +408,37 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       });
 
       // 3. Process Existing Matches
-      if (matchesRes.status === 'fulfilled' && Array.isArray(matchesRes.value) && matchesRes.value.length > 0) {
-        setMatches(matchesRes.value.map((m: any, i: number) => {
-          const homeName = m.homeTeamName || m.homeName || m.teamA?.name || 'TBD';
-          const awayName = m.awayTeamName || m.awayName || m.teamB?.name || 'TBD';
-          const homeId = m.homeTeamId || m.homeId;
-          const awayId = m.awayTeamId || m.awayId;
-          const homeFlat = m.teamAFlat || m.homeFlat || (homeId ? teamFlatMap.get(String(homeId)) : undefined) || teamFlatMap.get(homeName.trim().toLowerCase());
-          const awayFlat = m.teamBFlat || m.awayFlat || (awayId ? teamFlatMap.get(String(awayId)) : undefined) || teamFlatMap.get(awayName.trim().toLowerCase());
+      const rawMatches = (matchesRes.status === 'fulfilled' && Array.isArray(matchesRes.value) && matchesRes.value.length > 0)
+        ? matchesRes.value
+        : (scheduleRes.status === 'fulfilled' && Array.isArray(scheduleRes.value?.allMatches) && scheduleRes.value.allMatches.length > 0)
+          ? scheduleRes.value.allMatches
+          : [];
+
+      if (rawMatches.length > 0) {
+        setMatches(rawMatches.map((m: any, i: number) => {
+          const rawHome = m.teamAName || m.homeTeamName || m.homeName || m.teamA?.name || m.home || 'TBD';
+          const rawAway = m.teamBName || m.awayTeamName || m.awayName || m.teamB?.name || m.away || 'TBD';
+          const homeId = m.teamAId || m.homeTeamId || m.homeId;
+          const awayId = m.teamBId || m.awayTeamId || m.awayId;
+          const homeFlat = m.teamAFlat || m.homeFlat || (homeId ? teamFlatMap.get(String(homeId)) : undefined) || teamFlatMap.get(rawHome.trim().toLowerCase());
+          const awayFlat = m.teamBFlat || m.awayFlat || (awayId ? teamFlatMap.get(String(awayId)) : undefined) || teamFlatMap.get(rawAway.trim().toLowerCase());
+          const stageName = m.roundName || m.round || m.stage || 'GROUP_STAGE';
+          const isGroupStage = stageName === 'GROUP_STAGE' || stageName === 'ROUND_ROBIN' || stageName === 'LEAGUE_MATCH' || stageName.toUpperCase().includes('GROUP') || stageName.toUpperCase().includes('POOL');
 
           return {
-            id: m.id || i + 1,
-            home: homeName,
+            id: m.matchId || m.id || i + 1,
+            home: formatParticipantName(rawHome),
             homeId: homeId,
             homeFlat: homeFlat,
-            away: awayName,
+            away: formatParticipantName(rawAway),
             awayId: awayId,
             awayFlat: awayFlat,
             date: m.scheduledAt || m.date || new Date().toISOString(),
-            stage: m.round || m.stage || 'GROUP_STAGE',
-            type: (m.round === 'GROUP_STAGE' || m.stage?.includes('GROUP')) ? 'GROUP_STAGE' : 'KNOCKOUT',
+            stage: stageName,
+            type: isGroupStage ? 'GROUP_STAGE' : 'KNOCKOUT',
             venueName: m.venueName || m.venue?.name,
             courtName: m.courtName || m.court?.name,
+            duration: m.durationMinutes || m.duration || 60,
             status: m.status || 'SCHEDULED',
           };
         }));
@@ -552,14 +629,18 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         startTime: groupMatchForm.date,
         venueId: groupMatchForm.venueId ? Number(groupMatchForm.venueId) : null,
         durationMinutes: groupMatchForm.duration || 60,
+        homeName: homeTeam?.name,
+        awayName: awayTeam?.name,
+        homeFlat: homeTeam?.flatNumber || null,
+        awayFlat: awayTeam?.flatNumber || null,
       });
 
       const newMatch: MatchItem = {
-        id: res?.id || Date.now(),
-        home: homeTeam?.name || 'Home Team',
+        id: res?.matchId || res?.id || Date.now(),
+        home: formatParticipantName(homeTeam?.name || 'Home Team'),
         homeId: groupMatchForm.home,
         homeFlat: homeTeam?.flatNumber,
-        away: awayTeam?.name || 'Away Team',
+        away: formatParticipantName(awayTeam?.name || 'Away Team'),
         awayId: groupMatchForm.away,
         awayFlat: awayTeam?.flatNumber,
         date: groupMatchForm.date,
@@ -588,8 +669,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
 
     const homeTeam = teams.find(t => t.id === knockoutForm.home);
     const awayTeam = teams.find(t => t.id === knockoutForm.away);
-    const homeLabel = homeTeam?.name || TBD_OPTIONS.find(o => o.value === knockoutForm.home)?.label || 'TBD';
-    const awayLabel = awayTeam?.name || TBD_OPTIONS.find(o => o.value === knockoutForm.away)?.label || 'TBD';
+    const homeLabel = homeTeam?.name || TBD_OPTIONS.find(o => o.value === knockoutForm.home)?.label || knockoutForm.home || 'TBD';
+    const awayLabel = awayTeam?.name || TBD_OPTIONS.find(o => o.value === knockoutForm.away)?.label || knockoutForm.away || 'TBD';
     const selVenue = venues.find(v => String(v.id) === knockoutForm.venueId);
 
     try {
@@ -601,14 +682,18 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         startTime: knockoutForm.date,
         venueId: knockoutForm.venueId ? Number(knockoutForm.venueId) : null,
         durationMinutes: knockoutForm.duration || 60,
+        homeName: homeLabel,
+        awayName: awayLabel,
+        homeFlat: homeTeam?.flatNumber || null,
+        awayFlat: awayTeam?.flatNumber || null,
       });
 
       const newMatch: MatchItem = {
-        id: res?.id || Date.now(),
-        home: homeLabel,
+        id: res?.matchId || res?.id || Date.now(),
+        home: formatParticipantName(homeLabel),
         homeId: knockoutForm.home.startsWith('TBD') ? null : knockoutForm.home,
         homeFlat: homeTeam?.flatNumber,
-        away: awayLabel,
+        away: formatParticipantName(awayLabel),
         awayId: knockoutForm.away.startsWith('TBD') ? null : knockoutForm.away,
         awayFlat: awayTeam?.flatNumber,
         date: knockoutForm.date,
@@ -620,7 +705,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       };
 
       setMatches(prev => [newMatch, ...prev]);
-      showSuccess(`Knockout fixture added: ${homeLabel} vs ${awayLabel}`);
+      showSuccess(`Knockout fixture added: ${newMatch.home} vs ${newMatch.away}`);
       setKnockoutForm(prev => ({ ...prev, home: '', away: '' }));
     } catch {
       showError('Failed to schedule knockout match');
@@ -664,14 +749,18 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               startTime: matchTimeStr,
               venueId: autoGenForm.venueId ? Number(autoGenForm.venueId) : null,
               durationMinutes: autoGenForm.matchDurationMinutes,
+              homeName: homeT.name,
+              awayName: awayT.name,
+              homeFlat: homeT.flatNumber || null,
+              awayFlat: awayT.flatNumber || null,
             });
 
             newDraftMatches.push({
-              id: res?.id || (Date.now() + generatedPairsCount),
-              home: homeT.name,
+              id: res?.matchId || res?.id || (Date.now() + generatedPairsCount),
+              home: formatParticipantName(homeT.name),
               homeId: homeT.id,
               homeFlat: homeT.flatNumber,
-              away: awayT.name,
+              away: formatParticipantName(awayT.name),
               awayId: awayT.id,
               awayFlat: awayT.flatNumber,
               date: matchTimeStr,
@@ -769,7 +858,37 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
 
   const assignedTeamsCount = useMemo(() => teams.filter(t => t.group !== 'UNASSIGNED').length, [teams]);
   const groupMatchesCount = useMemo(() => matches.filter(m => m.type === 'GROUP_STAGE').length, [matches]);
-  const knockoutMatchesCount = useMemo(() => matches.filter(m => m.type === 'KNOCKOUT').length, [matches]);
+  const knockoutMatches = useMemo(() => matches.filter(m => m.type === 'KNOCKOUT'), [matches]);
+  const knockoutMatchesCount = knockoutMatches.length;
+
+  const knockoutStagePills = useMemo(() => {
+    const stageCounts: Record<string, number> = {};
+    knockoutMatches.forEach(m => {
+      const s = m.stage.toUpperCase();
+      stageCounts[s] = (stageCounts[s] || 0) + 1;
+    });
+
+    const standardStages = [
+      { key: 'ALL', label: 'All Knockouts', count: knockoutMatches.length },
+      { key: 'ROUND_OF_64', label: 'Round of 64', count: stageCounts['ROUND_OF_64'] || 0 },
+      { key: 'ROUND_OF_32', label: 'Round of 32', count: stageCounts['ROUND_OF_32'] || 0 },
+      { key: 'ROUND_OF_16', label: 'Round of 16', count: stageCounts['ROUND_OF_16'] || 0 },
+      { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: stageCounts['QUARTER_FINAL'] || 0 },
+      { key: 'SEMI_FINAL', label: 'Semi-Finals', count: stageCounts['SEMI_FINAL'] || 0 },
+      { key: 'THIRD_PLACE', label: '3rd Place', count: stageCounts['THIRD_PLACE'] || 0 },
+      { key: 'FINAL', label: 'Finals', count: (stageCounts['FINAL'] || 0) + (stageCounts['FINALS'] || 0) },
+    ];
+
+    return standardStages.filter(s => s.key === 'ALL' || s.count > 0);
+  }, [knockoutMatches]);
+
+  const displayedKnockoutMatches = useMemo(() => {
+    if (knockoutStageFilter === 'ALL') return knockoutMatches;
+    if (knockoutStageFilter === 'FINAL') {
+      return knockoutMatches.filter(m => m.stage.toUpperCase() === 'FINAL' || m.stage.toUpperCase() === 'FINALS');
+    }
+    return knockoutMatches.filter(m => m.stage.toUpperCase() === knockoutStageFilter);
+  }, [knockoutMatches, knockoutStageFilter]);
 
   if (loadingData && teams.length === 0) {
     return (
@@ -1540,19 +1659,54 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
 
           {/* Knockout Match List */}
           <div className="lg:col-span-2 space-y-3">
-            <div className="flex items-center justify-between pb-2">
-              <h3 className="font-bold text-sm text-slate-900">Knockout Stage Fixtures</h3>
-              <span className="text-xs text-slate-500 font-semibold">{matches.filter(m => m.type === 'KNOCKOUT').length} Matches</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Knockout Stage Fixtures</h3>
+                <p className="text-[11px] text-slate-500">Track and manage fixtures across elimination rounds</p>
+              </div>
+              <span className="text-xs text-purple-700 bg-purple-50 font-bold px-2.5 py-1 rounded-lg border border-purple-100 self-start sm:self-auto">
+                {displayedKnockoutMatches.length} / {knockoutMatches.length} Fixtures
+              </span>
             </div>
 
-            {matches.filter(m => m.type === 'KNOCKOUT').length === 0 ? (
+            {/* Stage Filter Pills */}
+            {knockoutStagePills.length > 2 && (
+              <div className="flex items-center gap-1.5 flex-wrap py-1">
+                {knockoutStagePills.map(p => {
+                  const isSelected = knockoutStageFilter === p.key;
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setKnockoutStageFilter(p.key)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 border ${
+                        isSelected
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-white text-slate-600 hover:text-purple-600 hover:bg-purple-50/60 border-slate-200'
+                      }`}
+                    >
+                      <span>{p.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                        isSelected ? 'bg-purple-500 text-white' : 'bg-slate-100 text-slate-500'
+                      }`}>
+                        {p.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {displayedKnockoutMatches.length === 0 ? (
               <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center text-slate-400 text-xs">
                 <Trophy className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                No knockout matches scheduled yet. Use the builder on the left to add Quarter Finals, Semi Finals, or the Final.
+                {knockoutMatches.length === 0
+                  ? 'No knockout matches scheduled yet. Use the builder on the left to add Round of 16, Quarter Finals, Semi Finals, or the Final.'
+                  : 'No matches found for this stage. Select another stage pill or schedule a new match on the left.'}
               </div>
             ) : (
               <div className="space-y-2.5">
-                {matches.filter(m => m.type === 'KNOCKOUT').map(m => renderMatchCard(m))}
+                {displayedKnockoutMatches.map(m => renderMatchCard(m))}
               </div>
             )}
           </div>
@@ -1588,8 +1742,14 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                 <option value="ALL">All Stages</option>
                 <option value="GROUP">Group Stage Only</option>
                 <option value="KNOCKOUT">Knockouts Only</option>
+                <option value="ROUND_OF_64">Round of 64</option>
+                <option value="ROUND_OF_32">Round of 32</option>
+                <option value="ROUND_OF_16">Round of 16</option>
+                <option value="QUARTER_FINAL">Quarter-Finals</option>
+                <option value="SEMI_FINAL">Semi-Finals</option>
+                <option value="FINAL">Finals</option>
                 {availableGroups.map(g => (
-                  <option key={g} value={g}>{g.replace('_', ' ')}</option>
+                  <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
                 ))}
               </select>
 
@@ -1598,7 +1758,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                   <button
                     type="button"
                     onClick={() => {
-                      const exportData = matches.map((m, idx) => ({
+                      const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
@@ -1625,7 +1786,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                   <button
                     type="button"
                     onClick={() => {
-                      const exportData = matches.map((m, idx) => ({
+                      const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
@@ -1652,7 +1814,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                   <button
                     type="button"
                     onClick={() => {
-                      const exportData = matches.map((m, idx) => ({
+                      const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
@@ -1725,7 +1888,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         >
           <option value="UNASSIGNED">Pool</option>
           {availableGroups.map(g => (
-            <option key={g} value={g}>{g.replace('_', ' ')}</option>
+            <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
           ))}
         </select>
       </div>
@@ -1738,6 +1901,9 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       ? new Date(m.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
       : 'Date TBD';
 
+    const isHomePlaceholder = isPlaceholderTeam(m.home);
+    const isAwayPlaceholder = isPlaceholderTeam(m.away);
+
     return (
       <div
         key={m.id}
@@ -1746,9 +1912,21 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         {/* Match Header / Teams Layout */}
         <div className="flex-1 flex items-center justify-between sm:justify-start gap-4">
           {/* Home Team */}
-          <div className="flex-1 text-right sm:text-left sm:w-40 min-w-0">
-            <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate" title={m.home}>{m.home}</span>
-            {m.homeFlat && <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.homeFlat}</span>}
+          <div className="flex-1 text-right sm:text-left sm:w-44 min-w-0">
+            <span
+              className={`text-xs sm:text-sm block truncate ${
+                isHomePlaceholder ? 'font-semibold text-slate-600 italic' : 'font-bold text-slate-900'
+              }`}
+              title={m.home}
+            >
+              {isHomePlaceholder && <span className="inline-block mr-1 not-italic text-amber-500">⚡</span>}
+              {m.home}
+            </span>
+            {m.homeFlat ? (
+              <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.homeFlat}</span>
+            ) : isHomePlaceholder ? (
+              <span className="text-[10px] text-slate-400 font-normal block truncate">Pending previous round</span>
+            ) : null}
           </div>
 
           {/* VS Pill */}
@@ -1757,9 +1935,21 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
           </div>
 
           {/* Away Team */}
-          <div className="flex-1 text-left sm:w-40 min-w-0">
-            <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate" title={m.away}>{m.away}</span>
-            {m.awayFlat && <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.awayFlat}</span>}
+          <div className="flex-1 text-left sm:w-44 min-w-0">
+            <span
+              className={`text-xs sm:text-sm block truncate ${
+                isAwayPlaceholder ? 'font-semibold text-slate-600 italic' : 'font-bold text-slate-900'
+              }`}
+              title={m.away}
+            >
+              {isAwayPlaceholder && <span className="inline-block mr-1 not-italic text-amber-500">⚡</span>}
+              {m.away}
+            </span>
+            {m.awayFlat ? (
+              <span className="text-[10px] text-slate-500 font-normal block truncate">🏠 {m.awayFlat}</span>
+            ) : isAwayPlaceholder ? (
+              <span className="text-[10px] text-slate-400 font-normal block truncate">Pending previous round</span>
+            ) : null}
           </div>
         </div>
 
@@ -1770,7 +1960,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
                 isKnockout ? 'bg-purple-50 text-purple-700 border border-purple-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
               }`}>
-                {m.stage.replace('_', ' ')}
+                {m.stage.replace(/_/g, ' ')}
               </span>
               <span className="text-[11px] font-medium text-slate-600 flex items-center gap-1">
                 <Clock className="w-3 h-3 text-slate-400" />

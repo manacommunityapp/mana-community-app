@@ -209,25 +209,169 @@ function mapEventToAlert(ev: EventResponse, idx: number): AlertTickerItem | null
   };
 }
 
-function mapTournamentToAlert(t: SportsTournament, idx: number): AlertTickerItem | null {
-  const start = t.eventDateStart || t.registrationDateStart;
-  const end = t.eventDateEnd || t.registrationDateEnd;
-  const dateStatus = getEventDateStatus(start, end, t.startTime, t.dueTime);
-  if (dateStatus.status === "PAST") return null;
+export type TournamentLifecycle =
+  | "COMPLETED"
+  | "CANCELLED"
+  | "DRAFT"
+  | "MATCHES_RUNNING"
+  | "REGISTRATION_CLOSED"
+  | "REGISTRATION_OPEN"
+  | "UPCOMING";
 
-  const dateFormatted = formatDisplayDate(start, t.startTime);
+/**
+ * Determines the lifecycle status of a tournament based on explicit admin registrationStatus
+ * and date ranges (registration start/end vs tournament match start/end).
+ */
+export function getTournamentLifecycleStatus(
+  t: SportsTournament,
+  now: Date = new Date()
+): TournamentLifecycle {
+  const raw = String(
+    t.registrationStatus ||
+    (t as any).status ||
+    (t as any).tournamentStatus ||
+    ""
+  ).toUpperCase().trim();
+
+  // 1. Explicit admin DRAFT or CANCELLED
+  if (raw === "DRAFT") return "DRAFT";
+  if (raw === "CANCELLED") return "CANCELLED";
+
+  // 2. Explicit COMPLETED or matches end date has completely elapsed
+  if (raw === "COMPLETED") return "COMPLETED";
+
+  const matchDateStatus = getEventDateStatus(
+    t.eventDateStart,
+    t.eventDateEnd,
+    t.startTime,
+    t.dueTime,
+    now
+  );
+  if ((t.eventDateStart || t.eventDateEnd) && matchDateStatus.status === "PAST") {
+    return "COMPLETED";
+  }
+
+  // 3. Matches Running (LIVE / IN_PROGRESS or calendar dates are currently running)
+  if (raw === "LIVE" || raw === "MATCHES_RUNNING" || raw === "IN_PROGRESS") {
+    return "MATCHES_RUNNING";
+  }
+  if (matchDateStatus.status === "RUNNING") {
+    return "MATCHES_RUNNING";
+  }
+
+  // 4. Registration dates evaluation (before matches start)
+  const regDateStatus = (t.registrationDateStart || t.registrationDateEnd)
+    ? getEventDateStatus(t.registrationDateStart, t.registrationDateEnd, null, t.dueTime, now)
+    : null;
+
+  // 5. REGISTRATION_CLOSED (Registration deadline passed or explicitly closed, but tournament hasn't started)
+  if (raw === "REGISTRATION_CLOSED" || raw === "CLOSED") {
+    return "REGISTRATION_CLOSED";
+  }
+  if (regDateStatus && regDateStatus.status === "PAST") {
+    return "REGISTRATION_CLOSED";
+  }
+
+  // 6. REGISTRATION_OPEN (Currently within registration dates or explicitly open)
+  if (raw === "REGISTRATION_OPEN" || raw === "OPEN") {
+    return "REGISTRATION_OPEN";
+  }
+  if (regDateStatus && regDateStatus.status === "RUNNING") {
+    return "REGISTRATION_OPEN";
+  }
+
+  // 7. UPCOMING (Registration hasn't opened yet)
+  if (raw === "UPCOMING") {
+    return "UPCOMING";
+  }
+  if (regDateStatus && regDateStatus.status === "UPCOMING") {
+    return "UPCOMING";
+  }
+
+  // 8. Fallback: if match date is upcoming
+  if (matchDateStatus.status === "UPCOMING") {
+    return "UPCOMING";
+  }
+
+  return "COMPLETED";
+}
+
+export function mapTournamentToAlert(
+  t: SportsTournament,
+  idx: number,
+  now: Date = new Date()
+): AlertTickerItem | null {
+  const lifecycle = getTournamentLifecycleStatus(t, now);
+
+  // Once completed, cancelled, or draft: DO NOT show or suggest in ticker
+  if (lifecycle === "COMPLETED" || lifecycle === "CANCELLED" || lifecycle === "DRAFT") {
+    return null;
+  }
+
   const location = t.venueName || (t.venue as any)?.name || "";
   const locationStr = location ? ` at ${location}` : "";
-  const prefix = dateStatus.status === "RUNNING" ? "🏆 [Live Tournament] " : "🏆 [Upcoming Tournament] ";
+  const eventStartFormatted = formatDisplayDate(t.eventDateStart, t.startTime);
+  const eventEndFormatted = formatDisplayDate(t.eventDateEnd, t.dueTime);
+  const regStartFormatted = formatDisplayDate(t.registrationDateStart);
+  const regEndFormatted = formatDisplayDate(t.registrationDateEnd, t.dueTime);
+
+  let prefix = "";
+  let dateText = "";
+  let actionUrl = "/sports/tournaments";
+  let status: AlertTickerItem["status"] = "UPCOMING";
+
+  switch (lifecycle) {
+    case "MATCHES_RUNNING":
+      prefix = "🏆 [Matches Running] ";
+      status = "RUNNING";
+      actionUrl = "/sports/schedule";
+      if (t.eventDateStart && t.eventDateEnd && t.eventDateStart !== t.eventDateEnd) {
+        dateText = ` • ${eventStartFormatted} – ${eventEndFormatted}`;
+      } else if (eventStartFormatted) {
+        dateText = ` • ${eventStartFormatted}`;
+      }
+      break;
+
+    case "REGISTRATION_CLOSED":
+      prefix = "🏆 [Registration Closed] ";
+      actionUrl = "/sports/tournaments";
+      if (eventStartFormatted) {
+        dateText = ` • Matches start ${eventStartFormatted}`;
+      }
+      break;
+
+    case "REGISTRATION_OPEN":
+      prefix = "🏆 [Registration Open] ";
+      actionUrl = "/sports/tournaments";
+      if (regEndFormatted && eventStartFormatted) {
+        dateText = ` • Reg closes ${regEndFormatted} • Starts ${eventStartFormatted}`;
+      } else if (regEndFormatted) {
+        dateText = ` • Reg closes ${regEndFormatted}`;
+      } else if (eventStartFormatted) {
+        dateText = ` • Starts ${eventStartFormatted}`;
+      }
+      break;
+
+    case "UPCOMING":
+    default:
+      prefix = "🏆 [Upcoming Tournament] ";
+      actionUrl = "/sports/tournaments";
+      if (regStartFormatted) {
+        dateText = ` • Reg opens ${regStartFormatted}${eventStartFormatted ? ` • Starts ${eventStartFormatted}` : ""}`;
+      } else if (eventStartFormatted) {
+        dateText = ` • Starts ${eventStartFormatted}`;
+      }
+      break;
+  }
 
   return {
     id: t.id ? 8000 + Number(t.id) : 800 + idx,
     category: "SPORTS",
-    message: `${prefix}${t.name}${dateFormatted ? ` • ${dateFormatted}` : ""}${locationStr}`,
-    startDate: start,
-    endDate: end,
-    status: dateStatus.status,
-    actionUrl: "/sports",
+    message: `${prefix}${t.name}${dateText}${locationStr}`,
+    startDate: t.eventDateStart || t.registrationDateStart,
+    endDate: t.eventDateEnd || t.registrationDateEnd,
+    status,
+    actionUrl,
   };
 }
 
@@ -300,12 +444,11 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
           console.warn("Failed to fetch events for alert ticker:", e);
         }
 
-        // 2. Fetch live sports tournaments
+        // 2. Fetch live sports tournaments (excludes completed, cancelled, and past tournaments)
         try {
           const tournaments = await sportsService.getAllTournaments().catch(() => []);
           if (Array.isArray(tournaments)) {
             tournaments.forEach((t, idx) => {
-              if (t.registrationStatus === "COMPLETED" || t.registrationStatus === "CANCELLED") return;
               const mapped = mapTournamentToAlert(t, idx);
               if (mapped) liveItems.push(mapped);
             });
@@ -314,13 +457,20 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
           console.warn("Failed to fetch tournaments for alert ticker:", e);
         }
 
-        // 3. Fetch notifications summary (skip notifications referencing past dates)
+        // 3. Fetch notifications summary (skip notifications referencing past dates or completed tournaments)
         try {
           const noticesRes = await notificationService.getNotificationsSummary(0, 5).catch(() => null);
           if (noticesRes?.content && Array.isArray(noticesRes.content)) {
             noticesRes.content.forEach((n, idx) => {
               const text = (n.body ?? n.title ?? "");
               if (isNotificationDatePast(text)) return; // Exclude notifications for past events!
+
+              const isCompletedNotice =
+                (n.type || "").toUpperCase().includes("COMPLETED") ||
+                text.toLowerCase().includes("tournament completed") ||
+                text.toLowerCase().includes("event completed") ||
+                text.toLowerCase().includes("tournament ended");
+              if (isCompletedNotice) return;
 
               const isEmergency = n.category === "EMERGENCY" || n.priority === "URGENT" || n.priority === "HIGH";
               const isNotice = n.category === "NOTICE" || n.category === "SECURITY" || n.category === "MAINTENANCE";

@@ -177,6 +177,20 @@ describe("permissionUtils", () => {
       expect(canAccessModule(userWithFinance, "FINANCE_MGMT")).toBe(true);
       expect(canAccessModule(userWithFinance, "VISITORS")).toBe(true);
     });
+
+    it("allows any authenticated resident to view /sports/live-feed even without sports admin permissions", () => {
+      const feedResidentUser: StoredUser = {
+        userId: "99",
+        role: "MEMBER",
+        communityId: 2,
+        permissions: ["VIEW_FEED"],
+        enabledModules: ["COMMUNITY_FEED"],
+      };
+      // Regular sports routes require VIEW_SPORTS_MENU / VIEW_SPORTS_MAIN
+      expect(canAccessEndpoint("/sports/events", "GET", feedResidentUser).allowed).toBe(false);
+      // But live feed strip is open to all community members
+      expect(canAccessEndpoint("/sports/live-feed", "GET", feedResidentUser).allowed).toBe(true);
+    });
   });
 });
 

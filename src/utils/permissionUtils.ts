@@ -38,6 +38,9 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
   // Events
   { pathPrefix: "/events", module: "EVENTS", methods: ["GET"], anyPermissions: [VIEW_EVENTS] },
 
+  // Sports Live Feed (shown on Community Feed to all residents)
+  { pathPrefix: "/sports/live-feed", methods: ["GET"] },
+
   // Sports
   { pathPrefix: "/sports", module: "SPORTS", methods: ["GET"], anyPermissions: [VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN] },
   { pathPrefix: "/sports-events", module: "SPORTS", methods: ["GET"], anyPermissions: [VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN] },
