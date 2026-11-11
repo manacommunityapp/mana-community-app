@@ -52,6 +52,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
       toast.error("Failed to update feed visibility");
     }
   };
+  const [showOversAdjust, setShowOversAdjust] = useState(false);
+  const [customOvers, setCustomOvers] = useState<string>("");
+  const [customMaxBowler, setCustomMaxBowler] = useState<string>("");
 
   useEffect(() => {
     tournamentService.getLiveMatchState(matchId)
@@ -150,6 +153,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
         dismissalType: opts?.dismissalType,
         dismissedPlayerId: opts?.dismissedPlayerId,
         fielderId: opts?.fielderId,
+        commandId: crypto.randomUUID(),
       };
 
       if (wsConnected) {
@@ -286,7 +290,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
               <div className="text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
               <div className="text-lg sm:text-2xl font-extrabold">
                 {inn.totalRuns}/{inn.totalWickets}
-                <span className="text-[10px] text-slate-400 font-normal ml-1.5 sm:ml-2">({inn.totalOvers} ov)</span>
+                <span className="text-[10px] text-slate-400 font-normal ml-1.5 sm:ml-2">
+                  ({inn.totalOvers}{state.oversLimit ? ` / ${state.oversLimit}` : ""} ov)
+                </span>
               </div>
             </div>
             <div className="text-right">
@@ -294,7 +300,85 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
               {state.target && inningsNumber === 2 && (
                 <div className="text-xs text-amber-400">Need {state.target - inn.totalRuns}</div>
               )}
+              {state.maxOversPerBowler && (
+                <div className="text-[10px] text-slate-400">Max {state.maxOversPerBowler} ov/bowler</div>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* Pre-Match / In-Match Format & Overs Config Bar */}
+        {state && (
+          <div className="bg-slate-900/90 border-b border-slate-700/60 px-3 py-1.5 sm:px-5 sm:py-2 text-xs text-slate-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Format:</span>
+              <span>{state.oversLimit || 20} Overs/Innings</span>
+              <span className="text-slate-500">•</span>
+              <span>Max {state.maxOversPerBowler || Math.ceil((state.oversLimit || 20) / 5)} ov/bowler</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCustomOvers((state.oversLimit || 20).toString());
+                setCustomMaxBowler((state.maxOversPerBowler || 4).toString());
+                setShowOversAdjust(!showOversAdjust);
+              }}
+              className="text-[10px] font-semibold text-indigo-300 hover:text-white underline underline-offset-2 transition cursor-pointer"
+            >
+              {showOversAdjust ? "Hide" : "Adjust Overs"}
+            </button>
+          </div>
+        )}
+
+        {/* Inline Overs Adjust Drawer */}
+        {showOversAdjust && (
+          <div className="bg-slate-800 border-b border-indigo-500/30 p-3 flex flex-wrap items-center gap-3 text-xs text-white">
+            <span className="text-[11px] font-bold text-amber-300">Weather / Delay Override:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-300">Overs:</span>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={customOvers}
+                onChange={(e) => setCustomOvers(e.target.value)}
+                className="w-14 rounded-lg bg-slate-700 border border-slate-600 px-2 py-1 text-white text-xs outline-none focus:border-indigo-400"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-300">Max/Bowler:</span>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={customMaxBowler}
+                onChange={(e) => setCustomMaxBowler(e.target.value)}
+                className="w-14 rounded-lg bg-slate-700 border border-slate-600 px-2 py-1 text-white text-xs outline-none focus:border-indigo-400"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const ov = Number(customOvers);
+                const maxB = Number(customMaxBowler);
+                if (!ov || ov <= 0) { toast.error("Enter valid overs"); return; }
+                try {
+                  await tournamentService.updateMatchConfigOverride(matchId, JSON.stringify({
+                    oversPerInnings: ov,
+                    maxOversPerBowler: maxB || Math.ceil(ov / 5),
+                  }));
+                  toast.success(`Match overs updated to ${ov}`);
+                  setShowOversAdjust(false);
+                  const updated = await tournamentService.getLiveMatchState(matchId);
+                  setState(updated);
+                } catch {
+                  toast.error("Failed to update match overs");
+                }
+              }}
+              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs transition"
+            >
+              Apply
+            </button>
           </div>
         )}
 

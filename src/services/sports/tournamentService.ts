@@ -102,6 +102,8 @@ export interface ConfigInfo {
 export interface MatchResultRequestData {
   matchId: number;
   winnerTeamId?: number | null;
+  winnerName?: string;
+  winnerSide?: "A" | "B" | string;
   scoreTeamA?: string;
   scoreTeamB?: string;
   matchNotes?: string;
@@ -275,6 +277,7 @@ export interface BallEventRequestData {
   dismissedPlayerId?: number;
   fielderId?: number;
   commentary?: string;
+  commandId?: string;
 }
 
 export interface BallEventData {
@@ -328,6 +331,9 @@ export interface LiveMatchStateData {
   teamAId?: number;
   teamBId?: number;
   target?: number;
+  oversLimit?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
 }
 
 export interface InningsStateData {
@@ -377,6 +383,7 @@ export interface GenericScoreRequest {
   pointsAwarded?: number;
   description?: string;
   secondaryPlayerId?: number;
+  commandId?: string;
 }
 
 export interface GenericScoreEvent {
@@ -405,6 +412,7 @@ export interface PeriodScore {
 
 export interface ScoringConfig {
   id?: number;
+  configId?: number;
   sportType: string;
   periodsCount: number;
   pointsToWinPeriod?: number;
@@ -415,6 +423,11 @@ export interface ScoringConfig {
   hasPenaltyShootout: boolean;
   tiebreakPointsToWin?: number;
   scoringRulesJson?: string;
+  oversPerInnings?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
+  breakDurationMinutes?: number;
+  targetScore?: number;
 }
 
 export interface GenericMatchState {
@@ -797,6 +810,21 @@ export const tournamentService = {
   /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
   async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
     return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
+
+  /** GET /api/tournament/match/generic/scoring-config/{configId} */
+  async getScoringConfig(configId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/${configId}`);
+  },
+
+  /** POST /api/tournament/match/generic/scoring-config */
+  async saveScoringConfig(data: ScoringConfig): Promise<ScoringConfig> {
+    return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
+  },
+
+  /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
+  async updateMatchConfigOverride(matchId: number, overrideJson: string): Promise<void> {
+    return apiClient.put<void>(`/tournament/match/generic/match/${matchId}/config-override`, { overrideJson });
   },
 
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────

@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { sportsService } from "../../../services/sports/sportsService";
 import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
 import { userService } from "../../../services/common/userService";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
@@ -289,6 +288,8 @@ export function TournamentPaymentContactsModal({
         {
           ...tournament,
           communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
         }
       );
 
@@ -341,6 +342,8 @@ export function TournamentPaymentContactsModal({
         {
           ...tournament,
           communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
         }
       );
 
