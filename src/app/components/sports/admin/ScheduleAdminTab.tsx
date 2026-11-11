@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { Link } from "react-router";
 import { tournamentService, type ConfigInfo } from "../../../../services/sports/tournamentService";
 import { showError } from "../../../../utils/ToastUtils";
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../../utils/sportsExportUtils";
 
 interface MatchRow {
   id: number;
@@ -10,6 +11,10 @@ interface MatchRow {
   matchNumber: number;
   teamAName: string;
   teamBName: string;
+  teamAFlat?: string;
+  teamBFlat?: string;
+  homeFlat?: string;
+  awayFlat?: string;
   scheduledAt: string;
   status: string;
   scoreTeamA?: string;
@@ -186,6 +191,80 @@ export function ScheduleAdminTab() {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
+                    <div className="px-4 py-2.5 bg-slate-100/60 flex items-center justify-between border-b border-slate-200/60">
+                      <span className="text-xs font-bold text-slate-700">Fixtures ({cfgMatches.length})</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const exportData = cfgMatches.map((m, idx) => ({
+                              matchNumber: m.matchNumber || idx + 1,
+                              round: m.round,
+                              home: m.teamAName,
+                              away: m.teamBName,
+                              team1Flat: m.teamAFlat || m.homeFlat,
+                              team2Flat: m.teamBFlat || m.awayFlat,
+                              homeFlat: m.teamAFlat || m.homeFlat,
+                              awayFlat: m.teamBFlat || m.awayFlat,
+                              date: m.scheduledAt ? m.scheduledAt.slice(0, 10) : '',
+                              time: m.scheduledAt && m.scheduledAt.includes('T') ? m.scheduledAt.slice(11, 16) : '',
+                              court: m.courtName || m.venueName || 'Court 1',
+                              status: m.status || 'SCHEDULED',
+                            }));
+                            exportScheduleToCSV(exportData, cfg.tournamentName || 'Tournament');
+                          }}
+                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-emerald-700 bg-white hover:bg-emerald-50 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" /> CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const exportData = cfgMatches.map((m, idx) => ({
+                              matchNumber: m.matchNumber || idx + 1,
+                              round: m.round,
+                              home: m.teamAName,
+                              away: m.teamBName,
+                              team1Flat: m.teamAFlat || m.homeFlat,
+                              team2Flat: m.teamBFlat || m.awayFlat,
+                              homeFlat: m.teamAFlat || m.homeFlat,
+                              awayFlat: m.teamBFlat || m.awayFlat,
+                              date: m.scheduledAt ? m.scheduledAt.slice(0, 10) : '',
+                              time: m.scheduledAt && m.scheduledAt.includes('T') ? m.scheduledAt.slice(11, 16) : '',
+                              court: m.courtName || m.venueName || 'Court 1',
+                              status: m.status || 'SCHEDULED',
+                            }));
+                            exportScheduleToExcel(exportData, cfg.tournamentName || 'Tournament');
+                          }}
+                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-green-700 bg-white hover:bg-green-50 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-3 h-3" /> Excel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const exportData = cfgMatches.map((m, idx) => ({
+                              matchNumber: m.matchNumber || idx + 1,
+                              round: m.round,
+                              home: m.teamAName,
+                              away: m.teamBName,
+                              team1Flat: m.teamAFlat || m.homeFlat,
+                              team2Flat: m.teamBFlat || m.awayFlat,
+                              homeFlat: m.teamAFlat || m.homeFlat,
+                              awayFlat: m.teamBFlat || m.awayFlat,
+                              date: m.scheduledAt ? m.scheduledAt.slice(0, 10) : '',
+                              time: m.scheduledAt && m.scheduledAt.includes('T') ? m.scheduledAt.slice(11, 16) : '',
+                              court: m.courtName || m.venueName || 'Court 1',
+                              status: m.status || 'SCHEDULED',
+                            }));
+                            exportScheduleToPDF(exportData, cfg.tournamentName || 'Tournament');
+                          }}
+                          className="px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-red-700 bg-white hover:bg-red-50 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          <FileText className="w-3 h-3" /> PDF
+                        </button>
+                      </div>
+                    </div>
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
@@ -199,34 +278,44 @@ export function ScheduleAdminTab() {
                         </tr>
                       </thead>
                       <tbody>
-                        {cfgMatches.map((m, i) => (
-                          <tr key={m.id} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white/60" : ""}`}>
-                            <td className="px-4 py-2.5 text-slate-400">{m.matchNumber || i + 1}</td>
-                            <td className="px-4 py-2.5 text-slate-600 font-medium">
-                              {(m.round || "").replace(/_/g, " ")}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span className="font-medium text-slate-800">{m.teamAName || "TBD"}</span>
-                              <span className="mx-1.5 text-slate-300">vs</span>
-                              <span className="font-medium text-slate-800">{m.teamBName || "TBD"}</span>
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
-                              <Clock className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-                              {formatDateTime(m.scheduledAt)}
-                            </td>
-                            <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
-                              {m.venueName ? (
-                                <><MapPin className="w-3 h-3 inline-block mr-1 -mt-0.5" />{m.venueName}{m.courtName ? ` · ${m.courtName}` : ""}</>
-                              ) : "—"}
-                            </td>
-                            <td className="px-4 py-2.5 font-mono text-slate-700">
-                              {m.status === "COMPLETED" && m.scoreTeamA != null ? `${m.scoreTeamA} – ${m.scoreTeamB}` : "—"}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <StatusBadge status={m.status} />
-                            </td>
-                          </tr>
-                        ))}
+                        {cfgMatches.map((m, i) => {
+                          const flatA = m.teamAFlat || m.homeFlat;
+                          const flatB = m.teamBFlat || m.awayFlat;
+                          return (
+                            <tr key={m.id} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white/60" : ""}`}>
+                              <td className="px-4 py-2.5 text-slate-400">{m.matchNumber || i + 1}</td>
+                              <td className="px-4 py-2.5 text-slate-600 font-medium">
+                                {(m.round || "").replace(/_/g, " ")}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <div className="inline-block">
+                                  <span className="font-medium text-slate-800">{m.teamAName || "TBD"}</span>
+                                  {flatA && <span className="block text-[10px] text-slate-500 font-normal">🏠 {flatA}</span>}
+                                </div>
+                                <span className="mx-2 text-slate-300 align-middle">vs</span>
+                                <div className="inline-block">
+                                  <span className="font-medium text-slate-800">{m.teamBName || "TBD"}</span>
+                                  {flatB && <span className="block text-[10px] text-slate-500 font-normal">🏠 {flatB}</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                <Clock className="w-3 h-3 inline-block mr-1 -mt-0.5" />
+                                {formatDateTime(m.scheduledAt)}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                {m.venueName ? (
+                                  <><MapPin className="w-3 h-3 inline-block mr-1 -mt-0.5" />{m.venueName}{m.courtName ? ` · ${m.courtName}` : ""}</>
+                                ) : "—"}
+                              </td>
+                              <td className="px-4 py-2.5 font-mono text-slate-700">
+                                {m.status === "COMPLETED" && m.scoreTeamA != null ? `${m.scoreTeamA} – ${m.scoreTeamB}` : "—"}
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <StatusBadge status={m.status} />
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                     <div className="px-4 py-2 text-xs text-slate-400 text-right border-t border-slate-100">

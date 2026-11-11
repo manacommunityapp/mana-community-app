@@ -33,6 +33,7 @@ import {
   Compass,
   HeartHandshake,
   Crown,
+  Lock,
   Dumbbell,
   X,
   ShieldAlert,
@@ -589,6 +590,20 @@ export function MySports() {
             const partnerFamName = partnerFam?.name;
             const partnerFamRel = partnerFam?.relation;
 
+            const ev = inv.event;
+            const isEventClosed = ev
+              ? (ev.isRegistrationOpen !== undefined
+                  ? !ev.isRegistrationOpen
+                  : (
+                    ev.status === "REGISTRATION_CLOSED" ||
+                    ev.status === "COMPLETED" ||
+                    ev.status === "CANCELLED" ||
+                    ev.registrationStatus === "REGISTRATION_CLOSED" ||
+                    ev.registrationStatus === "COMPLETED" ||
+                    ev.registrationStatus === "CANCELLED"
+                  ))
+              : false;
+
             return (
               <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
                 <div>
@@ -596,9 +611,16 @@ export function MySports() {
                     <span className="text-[10px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                       {spName}
                     </span>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                      Action Required
-                    </span>
+                    {isEventClosed ? (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-slate-400" />
+                        Registration Closed
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                        Action Required
+                      </span>
+                    )}
                   </div>
                   <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
                     {evName}
@@ -634,26 +656,44 @@ export function MySports() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => handleRespondInvitation(invId, true)}
-                    className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{isBusy ? "Confirming..." : (partnerFamName ? `Accept for ${partnerFamName}` : "Accept Partner")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => handleRespondInvitation(invId, false)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[12px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Decline</span>
-                  </button>
-                </div>
+                {isEventClosed ? (
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-slate-400" />
+                      <span>Event is no longer accepting partners</span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleRespondInvitation(invId, false)}
+                      className="text-xs font-semibold text-slate-400 hover:text-rose-600 px-2 py-1 rounded transition-colors cursor-pointer"
+                      title="Dismiss invitation"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleRespondInvitation(invId, true)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>{isBusy ? "Confirming..." : (partnerFamName ? `Accept for ${partnerFamName}` : "Accept Partner")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleRespondInvitation(invId, false)}
+                      className="flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[12px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Decline</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

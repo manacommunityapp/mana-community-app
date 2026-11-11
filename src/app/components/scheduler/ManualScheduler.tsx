@@ -3,11 +3,13 @@ import {
   Calendar, GripVertical, Trophy, Save, Shield, Loader2, Plus, Trash2,
   Sparkles, Clock, MapPin, RotateCcw, UploadCloud,
   Shuffle, Search, ArrowRight, Layers, AlertCircle, Eye,
-  ChevronDown, Medal, Tag, Activity
+  ChevronDown, Medal, Tag, Activity, Download, FileSpreadsheet, FileText
 } from 'lucide-react';
 import { tournamentService, type ConfigInfo } from '../../../services/sports/tournamentService';
 import { sportsService } from '../../../services/sports/sportsService';
 import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
+import { formatFlatLabel } from '../../../utils/sportsValidationUtils';
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from '../../../utils/sportsExportUtils';
 import { venueService } from '../../../services/bookings/venueService';
 import { showSuccess, showError, showWarning } from '../../../utils/ToastUtils';
 import { confirmAction } from '../../../utils/AlertUtils';
@@ -296,7 +298,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
           loadedTeams = pairs.map((r, idx) => {
             const partnerInfo = getPartnerDetails(r as any, confirmed as any);
             let tName = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
-            let flatDisplay = r.flatNumber || r.user?.community?.name || undefined;
+            const primaryFlat = (r.flatNumber || (r as any)?.flatNo || r.user?.flatNo || (r.user as any)?.flatNumber)
+              ? formatFlatLabel(r.flatNumber || (r as any)?.flatNo || r.user?.flatNo || (r.user as any)?.flatNumber, (r.user as any)?.block || (r as any)?.tower)
+              : undefined;
+            let flatDisplay = primaryFlat;
             if (isDoubles || partnerInfo.hasPartner) {
               if (partnerInfo.hasPartner && partnerInfo.name) {
                 tName = `${tName} / ${partnerInfo.name}`;
@@ -325,23 +330,41 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       }
       setTeams(loadedTeams);
 
+      // Create lookup map for team flats
+      const teamFlatMap = new Map<string, string>();
+      loadedTeams.forEach(t => {
+        if (t.flatNumber) {
+          teamFlatMap.set(String(t.id), t.flatNumber);
+          teamFlatMap.set(t.name.trim().toLowerCase(), t.flatNumber);
+        }
+      });
+
       // 3. Process Existing Matches
       if (matchesRes.status === 'fulfilled' && Array.isArray(matchesRes.value) && matchesRes.value.length > 0) {
-        setMatches(matchesRes.value.map((m: any, i: number) => ({
-          id: m.id || i + 1,
-          home: m.homeTeamName || m.homeName || m.teamA?.name || 'TBD',
-          homeId: m.homeTeamId || m.homeId,
-          homeFlat: m.teamAFlat || m.homeFlat,
-          away: m.awayTeamName || m.awayName || m.teamB?.name || 'TBD',
-          awayId: m.awayTeamId || m.awayId,
-          awayFlat: m.teamBFlat || m.awayFlat,
-          date: m.scheduledAt || m.date || new Date().toISOString(),
-          stage: m.round || m.stage || 'GROUP_STAGE',
-          type: (m.round === 'GROUP_STAGE' || m.stage?.includes('GROUP')) ? 'GROUP_STAGE' : 'KNOCKOUT',
-          venueName: m.venueName || m.venue?.name,
-          courtName: m.courtName || m.court?.name,
-          status: m.status || 'SCHEDULED',
-        })));
+        setMatches(matchesRes.value.map((m: any, i: number) => {
+          const homeName = m.homeTeamName || m.homeName || m.teamA?.name || 'TBD';
+          const awayName = m.awayTeamName || m.awayName || m.teamB?.name || 'TBD';
+          const homeId = m.homeTeamId || m.homeId;
+          const awayId = m.awayTeamId || m.awayId;
+          const homeFlat = m.teamAFlat || m.homeFlat || (homeId ? teamFlatMap.get(String(homeId)) : undefined) || teamFlatMap.get(homeName.trim().toLowerCase());
+          const awayFlat = m.teamBFlat || m.awayFlat || (awayId ? teamFlatMap.get(String(awayId)) : undefined) || teamFlatMap.get(awayName.trim().toLowerCase());
+
+          return {
+            id: m.id || i + 1,
+            home: homeName,
+            homeId: homeId,
+            homeFlat: homeFlat,
+            away: awayName,
+            awayId: awayId,
+            awayFlat: awayFlat,
+            date: m.scheduledAt || m.date || new Date().toISOString(),
+            stage: m.round || m.stage || 'GROUP_STAGE',
+            type: (m.round === 'GROUP_STAGE' || m.stage?.includes('GROUP')) ? 'GROUP_STAGE' : 'KNOCKOUT',
+            venueName: m.venueName || m.venue?.name,
+            courtName: m.courtName || m.court?.name,
+            status: m.status || 'SCHEDULED',
+          };
+        }));
       } else {
         setMatches([]);
       }
@@ -535,8 +558,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         id: res?.id || Date.now(),
         home: homeTeam?.name || 'Home Team',
         homeId: groupMatchForm.home,
+        homeFlat: homeTeam?.flatNumber,
         away: awayTeam?.name || 'Away Team',
         awayId: groupMatchForm.away,
+        awayFlat: awayTeam?.flatNumber,
         date: groupMatchForm.date,
         stage: groupMatchForm.stage,
         type: 'GROUP_STAGE',
@@ -582,8 +607,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         id: res?.id || Date.now(),
         home: homeLabel,
         homeId: knockoutForm.home.startsWith('TBD') ? null : knockoutForm.home,
+        homeFlat: homeTeam?.flatNumber,
         away: awayLabel,
         awayId: knockoutForm.away.startsWith('TBD') ? null : knockoutForm.away,
+        awayFlat: awayTeam?.flatNumber,
         date: knockoutForm.date,
         stage: knockoutForm.stage,
         type: 'KNOCKOUT',
@@ -643,8 +670,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               id: res?.id || (Date.now() + generatedPairsCount),
               home: homeT.name,
               homeId: homeT.id,
+              homeFlat: homeT.flatNumber,
               away: awayT.name,
               awayId: awayT.id,
+              awayFlat: awayT.flatNumber,
               date: matchTimeStr,
               stage: grp,
               type: 'GROUP_STAGE',
@@ -1548,7 +1577,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <label htmlFor="masterStageFilterSelect" className="text-xs font-bold text-slate-500">Stage:</label>
               <select
                 id="masterStageFilterSelect"
@@ -1563,6 +1592,91 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                   <option key={g} value={g}>{g.replace('_', ' ')}</option>
                 ))}
               </select>
+
+              {matches.length > 0 && (
+                <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = matches.map((m, idx) => ({
+                        matchNumber: idx + 1,
+                        round: m.stage,
+                        groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        home: m.home,
+                        homeFlat: m.homeFlat,
+                        away: m.away,
+                        awayFlat: m.awayFlat,
+                        team1Flat: m.homeFlat,
+                        team2Flat: m.awayFlat,
+                        date: m.date ? m.date.slice(0, 10) : '',
+                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
+                        court: m.courtName || m.venueName || 'Court 1',
+                        status: m.status || 'SCHEDULED',
+                      }));
+                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      exportScheduleToCSV(exportData, tournamentName);
+                    }}
+                    title="Export CSV with flat details"
+                    className="p-2 text-xs font-semibold text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> CSV
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = matches.map((m, idx) => ({
+                        matchNumber: idx + 1,
+                        round: m.stage,
+                        groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        home: m.home,
+                        homeFlat: m.homeFlat,
+                        away: m.away,
+                        awayFlat: m.awayFlat,
+                        team1Flat: m.homeFlat,
+                        team2Flat: m.awayFlat,
+                        date: m.date ? m.date.slice(0, 10) : '',
+                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
+                        court: m.courtName || m.venueName || 'Court 1',
+                        status: m.status || 'SCHEDULED',
+                      }));
+                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      exportScheduleToExcel(exportData, tournamentName);
+                    }}
+                    title="Export Excel with flat details"
+                    className="p-2 text-xs font-semibold text-slate-600 hover:text-green-700 bg-slate-50 hover:bg-green-50 rounded-xl border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" /> Excel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = matches.map((m, idx) => ({
+                        matchNumber: idx + 1,
+                        round: m.stage,
+                        groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        home: m.home,
+                        homeFlat: m.homeFlat,
+                        away: m.away,
+                        awayFlat: m.awayFlat,
+                        team1Flat: m.homeFlat,
+                        team2Flat: m.awayFlat,
+                        date: m.date ? m.date.slice(0, 10) : '',
+                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
+                        court: m.courtName || m.venueName || 'Court 1',
+                        status: m.status || 'SCHEDULED',
+                      }));
+                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      exportScheduleToPDF(exportData, tournamentName);
+                    }}
+                    title="Export PDF with flat details"
+                    className="p-2 text-xs font-semibold text-slate-600 hover:text-red-700 bg-slate-50 hover:bg-red-50 rounded-xl border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> PDF
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -19,6 +19,7 @@ import { ScheduleSaveFooter } from './ScheduleSaveFooter';
 import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
 import { FixturesListView } from './FixturesListView';
 import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
+import { formatFlatLabel } from '../../../utils/sportsValidationUtils';
 import {
   type DoublesTeamPair,
   partitionDoublesRegistrations,
@@ -103,7 +104,13 @@ export function formatParticipantDisplayName(
   fallbackIndex = 1
 ): { displayName: string; flatDisplay?: string } {
   let displayName = reg.playerName || reg.user?.fullName || `Participant ${fallbackIndex}`;
-  let flatDisplay = reg.flatNumber || reg.user?.community?.name || undefined;
+  let flatDisplay = reg.flatNumber || (reg as any)?.flatNo || reg.user?.flatNo || (reg.user as any)?.flatNumber || undefined;
+  if (flatDisplay && !flatDisplay.includes(',')) {
+    const block = (reg as any)?.block || (reg.user as any)?.block || (reg.user as any)?.tower;
+    if (block && !flatDisplay.toLowerCase().includes('block') && !flatDisplay.toLowerCase().includes('tower')) {
+      flatDisplay = formatFlatLabel(flatDisplay, block) || flatDisplay;
+    }
+  }
 
   if (isDoubles) {
     const primaryName = reg.playerName || reg.user?.fullName || 'Player';
@@ -1643,6 +1650,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
     let matches = draftOverride ?? playoffDraft;
 
+    const enrichFlats = (list: PlayoffMatchDraft[]) => {
+      return list.map(m => {
+        let home = m.home;
+        let away = m.away;
+        if (home && !home.flatNumber) {
+          const found = allParticipantOptions.find(p => p.id === home.id || p.name === home.name);
+          if (found?.flatNumber) home = { ...home, flatNumber: found.flatNumber };
+        }
+        if (away && !away.flatNumber) {
+          const found = allParticipantOptions.find(p => p.id === away.id || p.name === away.name);
+          if (found?.flatNumber) away = { ...away, flatNumber: found.flatNumber };
+        }
+        return { ...m, home, away };
+      });
+    };
+
     if (isKnockoutOnly) {
       let koMatches = applyPlayoffOverrides(matches, matchOverrides);
       if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0 || Object.keys(playoffRoundTimes).length > 0) {
@@ -1659,7 +1682,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           return updated;
         });
       }
-      return koMatches;
+      return enrichFlats(koMatches);
     }
 
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
@@ -1686,7 +1709,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       });
     }
 
-    return applyPlayoffOverrides(matches, matchOverrides);
+    return enrichFlats(applyPlayoffOverrides(matches, matchOverrides));
   };
 
   const getEditParticipantOptions = () => {
@@ -1748,6 +1771,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       generatedGroups.forEach((group, gIdx) => {
         const matches = getActiveGroupMatches(group, gIdx);
         matches.forEach((match, mIdx) => {
+          const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
+          const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
           allMatches.push({
             eventId,
             configId: null, // Will be populated after config is created
@@ -1759,8 +1784,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             matchNumber: mIdx + 1,
             homeName: match.home.name,
             homeId: match.home.id,
+            homeFlat,
+            teamAFlat: homeFlat,
             awayName: match.away.name,
             awayId: match.away.id,
+            awayFlat,
+            teamBFlat: awayFlat,
             matchDate: match.date,
             matchTime: match.time,
             duration: match.duration,
@@ -1776,6 +1805,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (playoffsGenerated || playoffOverride) {
       const playoffMatches = getPlayoffMatches(playoffOverride);
       playoffMatches.forEach((match: any, idx: number) => {
+        const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
+        const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
         allMatches.push({
           eventId,
           configId: null,
@@ -1787,8 +1818,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           matchNumber: idx + 1,
           homeName: match.home?.name || 'TBD',
           homeId: match.home?.id || null,
+          homeFlat,
+          teamAFlat: homeFlat,
           awayName: match.away?.name || 'TBD',
           awayId: match.away?.id || null,
+          awayFlat,
+          teamBFlat: awayFlat,
           matchDate: match.date,
           matchTime: match.time,
           duration: match.duration,
@@ -2200,6 +2235,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           const v = venues.find(ven => ven.id === m.venueId);
           const c = v?.courts?.find(crt => crt.id === m.courtId);
           const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
+          const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
+          const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
           list.push({
             id: `G${gIdx + 1}-M${mIdx + 1}`,
             matchNumber: list.length + 1,
@@ -2214,8 +2251,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             courtName: c?.name,
             team1: m.home.name,
             team2: m.away.name,
+            team1Flat: homeFlat,
+            team2Flat: awayFlat,
             homeTeamName: m.home.name,
             awayTeamName: m.away.name,
+            homeFlat,
+            awayFlat,
+            home: { ...m.home, flatNumber: homeFlat },
+            away: { ...m.away, flatNumber: awayFlat },
             status: 'SCHEDULED',
           });
         });
@@ -2229,6 +2272,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         const c = v?.courts?.find(crt => crt.id === m.courtId);
         const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
         const roundFormatted = m.round.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+        const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
+        const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
         list.push({
           id: `KO-${m.id}`,
           matchNumber: list.length + 1,
@@ -2243,8 +2288,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           courtName: c?.name,
           team1: m.home.name,
           team2: m.away.name,
+          team1Flat: homeFlat,
+          team2Flat: awayFlat,
           homeTeamName: m.home.name,
           awayTeamName: m.away.name,
+          homeFlat,
+          awayFlat,
+          home: { ...m.home, flatNumber: homeFlat },
+          away: { ...m.away, flatNumber: awayFlat },
           status: 'SCHEDULED',
         });
       });

@@ -233,6 +233,8 @@ export interface SportsEvent {
   community?: Community;
   eventDateStart: string; // LocalDate → string
   eventDateEnd: string;
+  registrationDateEnd?: string;
+  isRegistrationOpen?: boolean;
   venue?: Venue;
   maxParticipants?: number;
   registeredCount?: number;

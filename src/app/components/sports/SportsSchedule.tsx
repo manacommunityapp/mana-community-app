@@ -614,7 +614,7 @@ export function SportsSchedule() {
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -1078,6 +1078,8 @@ export function SportsSchedule() {
                       : "SCHEDULED",
                   team1: m.teamAName || "TBD",
                   team2: m.teamBName || "TBD",
+                  team1Flat: m.teamAFlat || m.homeFlat,
+                  team2Flat: m.teamBFlat || m.awayFlat,
                   score1: m.scoreTeamA || "",
                   score2: m.scoreTeamB || "",
                   rawStartDate: m.scheduledAt || cfg.startDate,
@@ -2095,21 +2097,31 @@ export function SportsSchedule() {
                     {/* Teams and Scores Display */}
                     <div className="mt-2 sm:mt-4 bg-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-slate-100 space-y-1.5 sm:space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team1}
-                        </span>
+                        <div className="inline-block min-w-0 pr-2">
+                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            {fixture.team1}
+                          </span>
+                          {fixture.team1Flat && (
+                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
+                          )}
+                        </div>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
                             {fixture.score1 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team2}
-                        </span>
+                        <div className="inline-block min-w-0 pr-2">
+                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            {fixture.team2}
+                          </span>
+                          {fixture.team2Flat && (
+                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
+                          )}
+                        </div>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
                             {fixture.score2 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
@@ -2415,9 +2427,15 @@ export function SportsSchedule() {
 
                     {(fixture.team1 || fixture.team2) && (
                       <div className="mt-2.5 flex items-center justify-between text-xs font-bold text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60 shadow-xs">
-                        <span className="truncate max-w-[42%] text-slate-800">{fixture.team1 || "TBD"}</span>
-                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50">VS</span>
-                        <span className="truncate max-w-[42%] text-slate-800 text-right">{fixture.team2 || "TBD"}</span>
+                        <div className="truncate max-w-[42%] text-left">
+                          <span className="truncate block text-slate-800">{fixture.team1 || "TBD"}</span>
+                          {fixture.team1Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team1Flat}</span>}
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50 shrink-0">VS</span>
+                        <div className="truncate max-w-[42%] text-right">
+                          <span className="truncate block text-slate-800">{fixture.team2 || "TBD"}</span>
+                          {fixture.team2Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team2Flat}</span>}
+                        </div>
                       </div>
                     )}
                   </div>
