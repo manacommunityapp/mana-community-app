@@ -25,6 +25,7 @@ import {
   FileBarChart,
   Building2,
   ChevronDown,
+  IdCard,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
@@ -48,6 +49,7 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/audit",       icon: ScrollText,      label: "Audit Trail" },
   { to: "/hrm/roles",       icon: Shield,          label: "Roles" },
   { to: "/hrm/reports",     icon: FileBarChart,    label: "Reports" },
+  { to: "/hrm/skill-passport", icon: IdCard,          label: "Skill Passport" },
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 

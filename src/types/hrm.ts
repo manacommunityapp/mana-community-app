@@ -806,3 +806,52 @@ export interface HrReportConfig {
   createdBy: number;
   createdAt: string;
 }
+
+// ── Skill Passport (Mana Workforce 360) ─────────────────────────────
+export interface MwPassportSkill {
+  id: number;
+  skillName: string;
+  category?: string;
+  proficiency: 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT';
+  yearsExp?: number;
+  isVerified: boolean;
+  verifiedBy?: string;
+  createdAt: string;
+}
+
+export interface MwPassportCertification {
+  id: number;
+  name: string;
+  issuingBody?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  credentialUrl?: string;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export interface MwPassportWorkHistory {
+  id: number;
+  employerName: string;
+  role?: string;
+  startDate?: string;
+  endDate?: string;
+  isCurrent: boolean;
+  isManaVerified: boolean;
+  createdAt: string;
+}
+
+export interface MwSkillPassport {
+  id: number;
+  manaUserId: number;
+  isPublic: boolean;
+  bio?: string;
+  location?: string;
+  preferredRoles?: string;
+  availability: 'FULL_TIME' | 'PART_TIME' | 'GIG' | 'UNAVAILABLE';
+  skills: MwPassportSkill[];
+  certifications: MwPassportCertification[];
+  workHistory: MwPassportWorkHistory[];
+  createdAt: string;
+  updatedAt: string;
+}
