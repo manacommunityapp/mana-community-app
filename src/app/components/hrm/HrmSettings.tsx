@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Building2,
   Plus,
@@ -31,6 +32,7 @@ const ORG_TYPES = [
 ];
 
 export function HrmSettings() {
+  const { activeOrgId, activeOrg } = useHrmOrg();
   const [org, setOrg] = useState<HrOrganization | null>(null);
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<HrBranch[]>([]);
@@ -55,32 +57,20 @@ export function HrmSettings() {
   const [savingDesig, setSavingDesig] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        const o = orgs[0];
-        setOrg(o);
-        setOrgForm({
-          organizationName: o.organizationName,
-          organizationType: o.organizationType,
-          gstNumber: o.gstNumber,
-          registrationNumber: o.registrationNumber,
-          contactEmail: o.contactEmail,
-          contactPhone: o.contactPhone,
-          address: o.address,
-        });
-        await loadOrgData(o.id);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load settings");
-    } finally {
-      setLoading(false);
+    if (activeOrg) {
+      setOrg(activeOrg);
+      setOrgForm({
+        organizationName: activeOrg.organizationName,
+        organizationType: activeOrg.organizationType,
+        gstNumber: activeOrg.gstNumber,
+        registrationNumber: activeOrg.registrationNumber,
+        contactEmail: activeOrg.contactEmail,
+        contactPhone: activeOrg.contactPhone,
+        address: activeOrg.address,
+      });
+      loadOrgData(activeOrg.id).finally(() => setLoading(false));
     }
-  }
+  }, [activeOrg]);
 
   async function loadOrgData(id: number) {
     const [brs, depts, desigs] = await Promise.all([

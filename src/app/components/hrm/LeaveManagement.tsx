@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   CalendarDays,
   Check,
@@ -55,7 +56,7 @@ const APPROVAL_CLASS: Record<string, string> = {
 };
 
 export function LeaveManagement() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId: orgId } = useHrmOrg();
   const [loading, setLoading] = useState(true);
 
   const [pendingRequests, setPendingRequests] = useState<LeaveRequest[]>([]);
@@ -98,22 +99,10 @@ export function LeaveManagement() {
   const [savingHoliday, setSavingHoliday] = useState(false);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await loadAll(orgs[0].id);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load");
-    } finally {
-      setLoading(false);
+    if (orgId) {
+      loadAll(orgId).finally(() => setLoading(false));
     }
-  }
+  }, [orgId]);
 
   async function loadAll(id: number) {
     await Promise.all([

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Users,
   UserCheck,
@@ -70,30 +71,15 @@ function DashboardSkeleton() {
 }
 
 export function HrmDashboard() {
+  const { activeOrgId: orgId } = useHrmOrg();
   const [data, setData] = useState<HrDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [orgId, setOrgId] = useState<number | null>(null);
   const [pendingOnboarding, setPendingOnboarding] = useState<OnboardingTask[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await loadDashboard(orgs[0].id);
-      } else {
-        setLoading(false);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load organizations");
-      setLoading(false);
-    }
-  }
+    if (orgId) loadDashboard(orgId);
+  }, [orgId]);
 
   async function loadDashboard(id: number) {
     setLoading(true);

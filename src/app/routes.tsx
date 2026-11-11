@@ -1,5 +1,6 @@
 import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../contexts/HrmOrgContext";
 import { HrmLayout } from "./components/hrm/HrmLayout";
 import { HrmDashboard } from "./components/hrm/HrmDashboard";
 import { EmployeeDirectory } from "./components/hrm/EmployeeDirectory";
@@ -154,169 +155,101 @@ function TeamRegisterPage() {
 }
 
 function OrgChartPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <OrgHierarchy orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <OrgHierarchy orgId={activeOrgId} />;
 }
 
 function HrmRecruitmentPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <RecruitmentBoard orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RecruitmentBoard orgId={activeOrgId} />;
 }
 
 function HrmPerformancePage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId } = useHrmOrg();
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   useEffect(() => {
+    if (!activeOrgId) return;
     import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => {
-        if (orgs.length > 0) {
-          setOrgId(orgs[0].id);
-          hrmService.getMyProfile(orgs[0].id).then(emp => setEmployeeId(emp.id));
-        }
-      })
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
     );
-  }, []);
-  if (!orgId || !employeeId) return null;
-  return <PerformanceManagement orgId={orgId} employeeId={employeeId} />;
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <PerformanceManagement orgId={activeOrgId} employeeId={employeeId} />;
 }
 
 function HrmLearningPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId } = useHrmOrg();
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   useEffect(() => {
+    if (!activeOrgId) return;
     import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => {
-        if (orgs.length > 0) {
-          setOrgId(orgs[0].id);
-          hrmService.getMyProfile(orgs[0].id).then(emp => setEmployeeId(emp.id));
-        }
-      })
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
     );
-  }, []);
-  if (!orgId || !employeeId) return null;
-  return <LearningDevelopment orgId={orgId} employeeId={employeeId} />;
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <LearningDevelopment orgId={activeOrgId} employeeId={employeeId} />;
 }
 
 function HrmPayrollPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <PayrollManagement orgId={orgId} isHrAdmin />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <PayrollManagement orgId={activeOrgId} isHrAdmin />;
 }
 
 function HrmExpensePage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <ExpenseManagement orgId={orgId} isHrAdmin />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ExpenseManagement orgId={activeOrgId} isHrAdmin />;
 }
 
 function HrmAssetPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <AssetManagement orgId={orgId} isHrAdmin />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AssetManagement orgId={activeOrgId} isHrAdmin />;
 }
 
 function HrmTasksPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <TasksBoard orgId={orgId} isHrAdmin />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <TasksBoard orgId={activeOrgId} isHrAdmin />;
 }
 
 function HrmHelpDeskPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <HelpDesk orgId={orgId} isHrAdmin />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HelpDesk orgId={activeOrgId} isHrAdmin />;
 }
 
 function HrmAnalyticsPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <HrAnalyticsDashboard orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HrAnalyticsDashboard orgId={activeOrgId} />;
 }
 
 function HrmCompliancePage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <ComplianceAlerts orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ComplianceAlerts orgId={activeOrgId} />;
 }
 
 function HrmAuditPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <AuditTrailViewer orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AuditTrailViewer orgId={activeOrgId} />;
 }
 
 function HrmRolesPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <RoleManagement orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RoleManagement orgId={activeOrgId} />;
 }
 
 function HrmReportsPage() {
-  const [orgId, setOrgId] = useState<number | null>(null);
-  useEffect(() => {
-    import("../services/hrm/hrmService").then(({ hrmService }) =>
-      hrmService.getMyOrganizations().then(orgs => orgs.length > 0 && setOrgId(orgs[0].id))
-    );
-  }, []);
-  if (!orgId) return null;
-  return <CustomReportBuilder orgId={orgId} />;
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <CustomReportBuilder orgId={activeOrgId} />;
 }
 
 import {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -43,9 +44,9 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value?: string |
 export function EmployeeProfile() {
   const { employeeId } = useParams();
   const navigate = useNavigate();
+  const { activeOrgId: orgId } = useHrmOrg();
   const [employee, setEmployee] = useState<HrEmployee | null>(null);
   const [loading, setLoading] = useState(true);
-  const [orgId, setOrgId] = useState<number | null>(null);
 
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
@@ -56,21 +57,8 @@ export function EmployeeProfile() {
   const [offboardingTasks, setOffboardingTasks] = useState<OffboardingTask[]>([]);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await loadEmployee(orgs[0].id);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load");
-      setLoading(false);
-    }
-  }
+    if (orgId) loadEmployee(orgId);
+  }, [orgId, employeeId]);
 
   async function loadEmployee(oid: number) {
     try {
@@ -98,12 +86,12 @@ export function EmployeeProfile() {
   }
 
   async function loadLeaveData() {
+    if (!orgId) return;
     try {
-      // Note: getLeaveBalance and getMyLeaveRequests return the logged-in user's data.
-      // For viewing another employee's leave, HR managers need a dedicated endpoint (future).
+      const empId = Number(employeeId);
       const [balances, requests] = await Promise.all([
-        hrmService.getLeaveBalance(orgId!),
-        hrmService.getMyLeaveRequests(orgId!, { page: 0, size: 10 }),
+        hrmService.getEmployeeLeaveBalances(orgId, empId),
+        hrmService.getEmployeeLeaveRequests(orgId, empId, { page: 0, size: 10 }),
       ]);
       setLeaveBalances(balances);
       setLeaveRequests(requests.content);
@@ -368,9 +356,19 @@ export function EmployeeProfile() {
                         <p className="text-sm font-medium truncate">{doc.documentName}</p>
                         <p className="text-xs text-muted-foreground">{doc.documentType}{doc.expiryDate ? ` · Expires: ${format(new Date(doc.expiryDate), "dd MMM yyyy")}` : ""}</p>
                       </div>
-                      <Badge variant={doc.isVerified ? "default" : "outline"}>
-                        {doc.isVerified ? "Verified" : "Pending"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={doc.isVerified ? "default" : "outline"}>
+                          {doc.isVerified ? "Verified" : "Pending"}
+                        </Badge>
+                        <a
+                          href={`/api/v1/hr/employees/${orgId}/employees/${doc.employeeId}/documents/${doc.id}/download`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary underline hover:no-underline"
+                        >
+                          Download
+                        </a>
+                      </div>
                     </div>
                   ))}
                 </div>

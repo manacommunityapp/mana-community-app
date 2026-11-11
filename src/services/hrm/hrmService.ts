@@ -164,6 +164,17 @@ export const hrmService = {
     if (params?.size !== undefined) sp.set("size", String(params.size));
     return apiClient.get(`${BASE}/leaves/my-requests?${sp}`);
   },
+  async getEmployeeLeaveRequests(orgId: number, employeeId: number, params?: { page?: number; size?: number }): Promise<PageResponse<LeaveRequest>> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
+    if (params?.page !== undefined) sp.set("page", String(params.page));
+    if (params?.size !== undefined) sp.set("size", String(params.size));
+    return apiClient.get(`${BASE}/leaves/organizations/${orgId}/employees/${employeeId}/requests?${sp}`);
+  },
+  async getEmployeeLeaveBalances(orgId: number, employeeId: number, year?: number): Promise<LeaveBalance[]> {
+    const sp = new URLSearchParams({ orgId: String(orgId) });
+    if (year !== undefined) sp.set("year", String(year));
+    return apiClient.get(`${BASE}/leaves/organizations/${orgId}/employees/${employeeId}/balance?${sp}`);
+  },
   async getOrgLeaveRequests(orgId: number, params?: { status?: string; page?: number; size?: number }): Promise<PageResponse<LeaveRequest>> {
     const sp = new URLSearchParams();
     if (params?.status) sp.set("status", params.status);

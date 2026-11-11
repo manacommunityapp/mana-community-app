@@ -23,8 +23,11 @@ import {
   ScrollText,
   Shield,
   FileBarChart,
+  Building2,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "../ui/utils";
+import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
 
 const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boolean }[] = [
   { to: "/hrm",            icon: LayoutDashboard, label: "Dashboard",   end: true },
@@ -48,7 +51,27 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 
-export function HrmLayout() {
+function OrgSwitcher() {
+  const { activeOrgId, organizations, setActiveOrgId } = useHrmOrg();
+  if (organizations.length <= 1) return null;
+  return (
+    <div className="relative mx-2 mb-1">
+      <Building2 className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <select
+        value={activeOrgId ?? ""}
+        onChange={(e) => setActiveOrgId(Number(e.target.value))}
+        className="w-full appearance-none rounded-md border border-border bg-background py-1.5 pl-7 pr-7 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        {organizations.map((org) => (
+          <option key={org.id} value={org.id}>{org.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function HrmLayoutInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -69,6 +92,10 @@ export function HrmLayout() {
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
           <Users className="h-5 w-5 text-primary" />
           <h3 className="text-sm font-bold text-foreground m-0 mb-0">HR Management</h3>
+        </div>
+
+        <div className="pt-2">
+          <OrgSwitcher />
         </div>
 
         <nav className="flex flex-col gap-0.5 p-2">
@@ -111,5 +138,13 @@ export function HrmLayout() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function HrmLayout() {
+  return (
+    <HrmOrgProvider>
+      <HrmLayoutInner />
+    </HrmOrgProvider>
   );
 }

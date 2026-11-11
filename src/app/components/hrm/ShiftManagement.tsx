@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Timer,
   Plus,
@@ -34,7 +35,7 @@ import type { HrShift, ShiftAssignment, HrEmployeeListItem, ShiftSwapRequest } f
 import { format, startOfWeek, endOfWeek, addDays } from "date-fns";
 
 export function ShiftManagement() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId: orgId } = useHrmOrg();
   const [loading, setLoading] = useState(true);
   const [shifts, setShifts] = useState<HrShift[]>([]);
   const [schedule, setSchedule] = useState<ShiftAssignment[]>([]);
@@ -57,30 +58,18 @@ export function ShiftManagement() {
   const [incomingSwaps, setIncomingSwaps] = useState<ShiftSwapRequest[]>([]);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
+    if (orgId) {
+      Promise.all([
+        loadShifts(orgId),
+        loadEmployeeList(orgId),
+        loadSwaps(orgId),
+      ]).finally(() => setLoading(false));
+    }
+  }, [orgId]);
 
   useEffect(() => {
     if (orgId) loadSchedule();
   }, [orgId, weekStart]);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await Promise.all([
-          loadShifts(orgs[0].id),
-          loadEmployeeList(orgs[0].id),
-          loadSwaps(orgs[0].id),
-        ]);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function loadShifts(id: number) {
     try {

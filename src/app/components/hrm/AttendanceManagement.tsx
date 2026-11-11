@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Clock,
   UserCheck,
@@ -55,7 +56,7 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "destructive" | "ou
 };
 
 export function AttendanceManagement() {
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const { activeOrgId: orgId } = useHrmOrg();
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [rows, setRows] = useState<AttendanceRow[]>([]);
@@ -69,25 +70,8 @@ export function AttendanceManagement() {
   const [savingCorrection, setSavingCorrection] = useState(false);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  useEffect(() => {
-    if (orgId) {
-      loadData();
-    }
+    if (orgId) loadData();
   }, [orgId, date, page]);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) setOrgId(orgs[0].id);
-      else setLoading(false);
-    } catch (err: any) {
-      showError(err.message || "Failed to load organization");
-      setLoading(false);
-    }
-  }
 
   async function loadData() {
     if (!orgId) return;
