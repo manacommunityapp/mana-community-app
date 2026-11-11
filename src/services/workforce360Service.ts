@@ -75,7 +75,7 @@ export const workforce360Service = {
 
   // ── Workforce Pool — Worker ──
   async getOpenPoolListings(): Promise<MwPoolListing[]> {
-    return apiClient.get(`${BASE}/pool/open`);
+    return apiClient.get(`${BASE}/pool/browse`);
   },
   async applyToPoolListing(listingId: number, workerNote?: string): Promise<MwPoolApplication> {
     return apiClient.post(`${BASE}/pool/listings/${listingId}/apply`, { workerNote });
