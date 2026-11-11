@@ -10,6 +10,12 @@ import type {
   MwJobApplication,
   MwDutyHandover,
   MwOperationalAssignment,
+  MwIntegrationConfig,
+  MwFreshAssignment,
+  MwForecastConfig,
+  MwForecastSnapshot,
+  MwForecastProjection,
+  MwForecastSummary,
 } from "../types/hrm";
 
 const BASE = "/api/v1/mw";
@@ -142,5 +148,41 @@ export const workforce360Service = {
   },
   async completeAssignment(orgId: number, assignmentId: number, performanceScore?: number, notes?: string): Promise<MwOperationalAssignment> {
     return apiClient.put(`${BASE}/operational/${orgId}/assignments/${assignmentId}/complete`, { performanceScore, notes });
+  },
+
+  // ── Integration Config ──
+  async getIntegrationConfig(orgId: number): Promise<MwIntegrationConfig> {
+    return apiClient.get(`${BASE}/integrations/${orgId}/config`);
+  },
+  async updateIntegrationConfig(orgId: number, data: Partial<MwIntegrationConfig>): Promise<MwIntegrationConfig> {
+    return apiClient.put(`${BASE}/integrations/${orgId}/config`, data);
+  },
+
+  // ── Mana Fresh Deliveries ──
+  async getOrgFreshDeliveries(orgId: number): Promise<MwFreshAssignment[]> {
+    return apiClient.get(`${BASE}/integrations/fresh/${orgId}/deliveries`);
+  },
+  async completeFreshDelivery(orgId: number, id: number, actualKm: number, onTime: boolean, performanceScore?: number): Promise<MwFreshAssignment> {
+    return apiClient.put(`${BASE}/integrations/fresh/${orgId}/deliveries/${id}/complete`, { actualKm, onTime, performanceScore });
+  },
+
+  // ── Workforce Forecasting ──
+  async getForecastSummary(orgId: number): Promise<MwForecastSummary> {
+    return apiClient.get(`${BASE}/forecasting/${orgId}/summary`);
+  },
+  async getForecastConfig(orgId: number): Promise<MwForecastConfig> {
+    return apiClient.get(`${BASE}/forecasting/${orgId}/config`);
+  },
+  async updateForecastConfig(orgId: number, data: Partial<MwForecastConfig>): Promise<MwForecastConfig> {
+    return apiClient.put(`${BASE}/forecasting/${orgId}/config`, data);
+  },
+  async getForecastSnapshots(orgId: number): Promise<MwForecastSnapshot[]> {
+    return apiClient.get(`${BASE}/forecasting/${orgId}/snapshots`);
+  },
+  async addForecastSnapshot(orgId: number, data: Partial<MwForecastSnapshot>): Promise<MwForecastSnapshot> {
+    return apiClient.post(`${BASE}/forecasting/${orgId}/snapshots`, data);
+  },
+  async generateProjections(orgId: number): Promise<MwForecastProjection[]> {
+    return apiClient.post(`${BASE}/forecasting/${orgId}/projections/generate`);
   },
 };

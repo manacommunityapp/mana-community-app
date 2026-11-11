@@ -28,6 +28,8 @@ import {
   IdCard,
   UserCheck,
   ArrowLeftRight,
+  Link2,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
@@ -55,6 +57,8 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/workforce-pool", icon: UserCheck,      label: "Workforce Pool" },
   { to: "/hrm/job-board",    icon: Briefcase,       label: "Job Board" },
   { to: "/hrm/duty-handover", icon: ArrowLeftRight, label: "Duty Handover" },
+  { to: "/hrm/integrations", icon: Link2,           label: "Integrations" },
+  { to: "/hrm/forecasting",  icon: BarChart2,       label: "Forecasting" },
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 
