@@ -168,7 +168,7 @@ export function LiveMatchesStrip() {
                 {/* Top Line: Sport, Status Badge, Dismiss */}
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                    <span>{getSportEmoji(m.sportName)}</span>
+                    <span>{getSportEmoji(m.sportName ?? undefined)}</span>
                     <span className="truncate">{m.sportName || "Sports"}</span>
                   </span>
 

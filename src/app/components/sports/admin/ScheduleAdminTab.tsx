@@ -15,6 +15,7 @@ import {
 interface MatchRow {
   id: number;
   round: string;
+  roundName?: string;
   matchNumber: number;
   teamAName: string;
   teamBName: string;
@@ -30,6 +31,7 @@ interface MatchRow {
   courtName?: string;
   showInFeed?: boolean | null;
 }
+
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   DRAFT:     { bg: "bg-slate-100", text: "text-slate-600", label: "Draft" },

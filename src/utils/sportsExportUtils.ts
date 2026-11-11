@@ -359,8 +359,10 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
 export interface ExportableMatch {
   id?: number | string;
   matchNumber?: number | string;
+  round?: string;
   roundName?: string;
   roundNumber?: number;
+  groupName?: string;
   stage?: string;
   name?: string;
   sport?: string;
@@ -390,6 +392,7 @@ export interface ExportableMatch {
   winnerName?: string;
   sportName?: string;
 }
+
 
 export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule") {
   const headers = [
