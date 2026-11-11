@@ -27,6 +27,7 @@ import {
   ChevronDown,
   IdCard,
   UserCheck,
+  ArrowLeftRight,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
@@ -51,7 +52,9 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm/roles",       icon: Shield,          label: "Roles" },
   { to: "/hrm/reports",     icon: FileBarChart,    label: "Reports" },
   { to: "/hrm/skill-passport",  icon: IdCard,      label: "Skill Passport" },
-  { to: "/hrm/workforce-pool", icon: UserCheck,   label: "Workforce Pool" },
+  { to: "/hrm/workforce-pool", icon: UserCheck,      label: "Workforce Pool" },
+  { to: "/hrm/job-board",    icon: Briefcase,       label: "Job Board" },
+  { to: "/hrm/duty-handover", icon: ArrowLeftRight, label: "Duty Handover" },
   { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 

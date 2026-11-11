@@ -25,6 +25,8 @@ import RoleManagement from "./components/hrm/RoleManagement";
 import CustomReportBuilder from "./components/hrm/CustomReportBuilder";
 import SkillPassport from "./components/hrm/SkillPassport";
 import WorkforcePool from "./components/hrm/WorkforcePool";
+import JobBoard from "./components/hrm/JobBoard";
+import DutyHandover from "./components/hrm/DutyHandover";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -260,6 +262,14 @@ function HrmSkillPassportPage() {
 
 function HrmWorkforcePoolPage() {
   return <WorkforcePool />;
+}
+
+function HrmJobBoardPage() {
+  return <JobBoard />;
+}
+
+function HrmDutyHandoverPage() {
+  return <DutyHandover />;
 }
 
 import {
@@ -1583,6 +1593,8 @@ export const router = createBrowserRouter([
           { path: "reports", element: <HrmReportsPage /> },
           { path: "skill-passport",  element: <HrmSkillPassportPage /> },
           { path: "workforce-pool",  element: <HrmWorkforcePoolPage /> },
+          { path: "job-board",       element: <HrmJobBoardPage /> },
+          { path: "duty-handover",   element: <HrmDutyHandoverPage /> },
           { path: "settings", element: <HrmSettings /> },
           { path: "org-chart", element: <OrgChartPage /> },
         ],
