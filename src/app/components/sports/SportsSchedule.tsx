@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
@@ -2504,17 +2505,21 @@ export function SportsSchedule() {
               }
             };
 
-            return (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+            return createPortal(
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] overflow-y-auto"
+                onClick={(e) => { if (e.target === e.currentTarget) setConfirmGoLiveFixture(null); }}
+              >
+                <div className="min-h-full flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left">
                   {/* Header */}
-                  <div className="flex items-center justify-between border-b border-slate-100">
+                  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
                         <Radio className="w-5 h-5 animate-pulse" />
                       </div>
                       <div>
-                        <h3 className="text-xs font-bold text-slate-900 leading-none m-0 mb-0">Confirm Go Live</h3>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight m-0">Confirm Go Live</h3>
                         <p className="text-xs text-slate-400 mt-1 m-0">Check schedule & broadcast live match</p>
                       </div>
                     </div>
@@ -2661,7 +2666,9 @@ export function SportsSchedule() {
                     </button>
                   </div>
                 </div>
-              </div>
+                </div>
+              </div>,
+              document.body
             );
           })()}
         </div>
