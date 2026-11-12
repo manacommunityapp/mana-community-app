@@ -46,8 +46,11 @@ import { RaceScoringPanel } from "./RaceScoringPanel";
 import { RaceResultsView } from "./RaceResultsView";
 import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
 import { TeamsHubShowcase } from "./teams";
+import { TournamentStageManager } from "./admin/TournamentStageManager";
+import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
+import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
 
-const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -1205,6 +1208,24 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Manual
           </button>
+          <button
+            className={`nav-item ${activeTab === "Stage Manager" ? "active" : ""}`}
+            onClick={() => setActiveTab("Stage Manager")}
+          >
+            <div className="nav-dot"></div>Stage Manager
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Publication" ? "active" : ""}`}
+            onClick={() => setActiveTab("Publication")}
+          >
+            <div className="nav-dot"></div>Publication
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Schedule History" ? "active" : ""}`}
+            onClick={() => setActiveTab("Schedule History")}
+          >
+            <div className="nav-dot"></div>Schedule History
+          </button>
         </div>
         )}
       </aside>
@@ -1227,6 +1248,12 @@ export function SportsSchedule() {
                       ? "View published fixtures, filter by stage (Group Stage, Quarters, Semis, Final), and export cleanly."
                       : activeTab === "Manual"
                       ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
+                      : activeTab === "Stage Manager"
+                      ? "Configure tournament stages, scheduling modes, and stage progression."
+                      : activeTab === "Publication"
+                      ? "Manage stage-wise schedule publication, notifications, and version control."
+                      : activeTab === "Schedule History"
+                      ? "View schedule version history, changes, approvals, and audit trail."
                       : "Sports scheduling & event matches"}
                   </div>
                 </>
@@ -2727,6 +2754,72 @@ export function SportsSchedule() {
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
             <p className="text-xs text-slate-500 mt-1">Manual Scheduler is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Stage Manager (Admin only) */}
+      {activeTab === "Stage Manager" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <TournamentStageManager
+              configId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Stage Manager is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Publication Manager (Admin only) */}
+      {activeTab === "Publication" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <SchedulePublicationManager
+              configId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Publication Manager is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Schedule History */}
+      {activeTab === "Schedule History" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <ScheduleVersionHistory
+              configId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Schedule History is restricted to administrators.</p>
           </div>
         )
       )}
