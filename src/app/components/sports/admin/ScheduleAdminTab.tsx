@@ -19,6 +19,8 @@ interface MatchRow {
   matchNumber: number;
   teamAName: string;
   teamBName: string;
+  homeName?: string;
+  awayName?: string;
   teamAFlat?: string;
   teamBFlat?: string;
   homeFlat?: string;
