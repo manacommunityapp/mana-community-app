@@ -36,6 +36,8 @@ function getSportEmoji(sport?: string): string {
   return "🏆";
 }
 
+const isLiveStatus = (status?: string) => ["LIVE", "IN_PROGRESS"].includes(String(status || "").toUpperCase());
+
 /**
  * "Live Now" strip for the community feed.
  * Placed at the top of FeedPage (above posts) as a live widget.
@@ -54,7 +56,12 @@ export function LiveMatchesStrip() {
     try {
       const user = getStoredUser();
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
-      setMatches(await tournamentService.getLiveFeedMatches(communityId));
+      let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
+      // Fallback: If community-scoped query returns no matches, check across all communities
+      if ((!feedMatches || feedMatches.length === 0) && communityId) {
+        feedMatches = await tournamentService.getLiveFeedMatches(undefined);
+      }
+      setMatches(feedMatches || []);
     } catch {
       // The strip is optional; fail silently and keep the last known state.
     }
@@ -78,7 +85,7 @@ export function LiveMatchesStrip() {
   }, [load]);
 
   // 3. Real-time score updates: per-match websocket subscriptions for active live matches
-  const liveIdsKey = matches.filter((m) => m.status === "LIVE").map((m) => m.matchId).join(",");
+  const liveIdsKey = matches.filter((m) => isLiveStatus(m.status)).map((m) => m.matchId).join(",");
   useEffect(() => {
     if (!liveIdsKey) return;
     const matchIds = liveIdsKey.split(",");
@@ -120,12 +127,34 @@ export function LiveMatchesStrip() {
   const visible = matches
     .filter((m) => !dismissed.includes(m.matchId))
     // LIVE matches first, then recently finished
-    .sort((a, b) => Number(b.status === "LIVE") - Number(a.status === "LIVE"));
+    .sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
 
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    if (matches.length > 0) {
+      return (
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-xs animate-fade-in">
+          <span className="text-slate-500 font-medium flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-indigo-500" />
+            {matches.length} live match{matches.length > 1 ? "es" : ""} currently hidden.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setDismissed([]);
+              try { window.localStorage.removeItem(DISMISS_KEY); } catch {}
+            }}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+          >
+            Show Live Matches
+          </button>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const shown = showAll ? visible : visible.slice(0, MAX_CARDS);
-  const liveCount = visible.filter((m) => m.status === "LIVE").length;
+  const liveCount = visible.filter((m) => isLiveStatus(m.status)).length;
   const isCricket = (m: FeedLiveMatch) => /cricket/i.test(m.sportName || "");
 
   return (
@@ -158,7 +187,7 @@ export function LiveMatchesStrip() {
       {/* Cards Horizontal Carousel */}
       <div className="flex gap-3 overflow-x-auto pb-1.5 pt-0.5 snap-x scrollbar-thin">
         {shown.map((m) => {
-          const live = m.status === "LIVE";
+          const live = isLiveStatus(m.status);
           return (
             <div
               key={m.matchId}

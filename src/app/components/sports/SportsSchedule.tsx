@@ -49,6 +49,7 @@ import { TeamsHubShowcase } from "./teams";
 import { TournamentStageManager } from "./admin/TournamentStageManager";
 import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
 import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
+import { TournamentEventSelector } from "./admin/TournamentEventSelector";
 
 const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
@@ -706,6 +707,11 @@ export function SportsSchedule() {
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
   const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
   const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
+
+  // Stage admin tab config IDs (driven by TournamentEventSelector)
+  const [stageManagerConfigId, setStageManagerConfigId] = useState<number>(0);
+  const [publicationConfigId, setPublicationConfigId] = useState<number>(0);
+  const [historyConfigId, setHistoryConfigId] = useState<number>(0);
 
   const metaLoadedRef = useRef(false);
   const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events" || activeTab === "My Matches";
@@ -2764,15 +2770,19 @@ export function SportsSchedule() {
       {/* Stage Manager (Admin only) */}
       {activeTab === "Stage Manager" && (
         isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
-            <TournamentStageManager
-              configId={
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setStageManagerConfigId}
+              initialConfigId={
                 selectedTournamentId ??
                 (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
                 (tournamentConfigs[0]?.id) ??
                 0
               }
             />
+            {stageManagerConfigId > 0 && (
+              <TournamentStageManager configId={stageManagerConfigId} />
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
@@ -2786,15 +2796,19 @@ export function SportsSchedule() {
       {/* Publication Manager (Admin only) */}
       {activeTab === "Publication" && (
         isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
-            <SchedulePublicationManager
-              configId={
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setPublicationConfigId}
+              initialConfigId={
                 selectedTournamentId ??
                 (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
                 (tournamentConfigs[0]?.id) ??
                 0
               }
             />
+            {publicationConfigId > 0 && (
+              <SchedulePublicationManager configId={publicationConfigId} />
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
@@ -2808,15 +2822,19 @@ export function SportsSchedule() {
       {/* Schedule History */}
       {activeTab === "Schedule History" && (
         isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
-            <ScheduleVersionHistory
-              configId={
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setHistoryConfigId}
+              initialConfigId={
                 selectedTournamentId ??
                 (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
                 (tournamentConfigs[0]?.id) ??
                 0
               }
             />
+            {historyConfigId > 0 && (
+              <ScheduleVersionHistory configId={historyConfigId} />
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">

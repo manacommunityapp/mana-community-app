@@ -540,8 +540,14 @@ export const tournamentService = {
   },
 
   /** GET /api/tournament/events */
-  async getEventsForDropdown(): Promise<EventInfo[]> {
-    return apiClient.get<EventInfo[]>("/tournament/events");
+  async getEventsForDropdown(communityId?: number): Promise<EventInfo[]> {
+    try {
+      const url = communityId ? `/tournament/events?communityId=${communityId}` : "/tournament/events";
+      const data = await apiClient.get<EventInfo[]>(url);
+      return Array.isArray(data) ? data : [];
+    } catch (_err) {
+      return [];
+    }
   },
 
   /** GET /api/tournament/configs */
