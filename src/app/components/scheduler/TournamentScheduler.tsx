@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List } from "lucide-react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Layers, Sparkles } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService } from "../../../services/sports/tournamentService";
@@ -10,7 +10,17 @@ import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
 import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../utils/sportsExportUtils";
-import { prepareExportableMatches } from "../sports/admin/ScheduleExportModal";
+import {
+  ScheduleExportModal,
+  prepareExportableMatches,
+  getMatchStage,
+  extractTeamNames,
+  extractFlatDetails,
+  extractDateTime,
+  type TournamentStageKey,
+} from "../sports/admin/ScheduleExportModal";
+import { FixturesListView } from "./FixturesListView";
+import { FixturesTableView, type FixtureTableRow } from "./FixturesTableView";
 import { getPlayerInitials } from "../sports/SportsSchedule";
 
 export function TournamentScheduler() {
@@ -27,6 +37,8 @@ export function TournamentScheduler() {
   const [viewError, setViewError] = useState("");
   const [viewDisplayMode, setViewDisplayMode] = useState<"visual" | "list" | "table">("visual");
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showStageExportModal, setShowStageExportModal] = useState(false);
+  const [stageModalDefaultStage, setStageModalDefaultStage] = useState<TournamentStageKey>("ALL");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -575,15 +587,85 @@ export function TournamentScheduler() {
             <div className="mt-1 text-sm font-semibold text-slate-800">{value || "Not set"}</div>
           </div>
         );
-        const handleExport = (formatType: "csv" | "excel" | "pdf") => {
+        const handleExport = (formatType: "csv" | "excel" | "pdf", stageFilter: TournamentStageKey = "ALL") => {
           if (viewMatches.length === 0) return;
-          const exportData = prepareExportableMatches(viewMatches, "ALL");
-          const title = `${viewingConfig.tournamentName || "Tournament"}_Schedule`;
+          const exportData = prepareExportableMatches(viewMatches, stageFilter);
+          if (exportData.length === 0) {
+            showToast(`No matches found for stage: ${stageFilter}`, "error");
+            return;
+          }
+          const stageSuffix = stageFilter === "ALL" ? "Full_Schedule" :
+            stageFilter === "GROUP" ? "Group_Stage" :
+            stageFilter === "QUARTER_FINAL" ? "Quarter_Finals" :
+            stageFilter === "SEMI_FINAL" ? "Semi_Finals" :
+            stageFilter === "FINAL" ? "Finals" : stageFilter;
+          const title = `${viewingConfig.tournamentName || "Tournament"}_${stageSuffix}`;
           if (formatType === "csv") exportScheduleToCSV(exportData, title);
           else if (formatType === "excel") exportScheduleToExcel(exportData, title);
-          else if (formatType === "pdf") exportScheduleToPDF(exportData, viewingConfig.tournamentName || "Tournament Schedule");
-          showToast(`Exported ${exportData.length} matches as ${formatType.toUpperCase()}`);
+          else if (formatType === "pdf") exportScheduleToPDF(exportData, `${viewingConfig.tournamentName || "Tournament Schedule"} - ${stageSuffix.replace(/_/g, " ")}`);
+          showToast(`Exported ${exportData.length} ${stageSuffix.replace(/_/g, " ")} matches as ${formatType.toUpperCase()}`);
         };
+
+        // Calculate available stages from matches
+        const stageCounts: Record<TournamentStageKey, number> = {
+          ALL: viewMatches.length,
+          GROUP: 0,
+          ROUND_OF_16: 0,
+          QUARTER_FINAL: 0,
+          SEMI_FINAL: 0,
+          FINAL: 0,
+          THIRD_PLACE: 0,
+        };
+        viewMatches.forEach(m => {
+          const s = getMatchStage(m);
+          stageCounts[s] = (stageCounts[s] || 0) + 1;
+        });
+
+        const availableStages: { key: TournamentStageKey; label: string; count: number }[] = [
+          { key: "ALL", label: "Full Tournament", count: stageCounts.ALL },
+          ...(stageCounts.GROUP > 0 ? [{ key: "GROUP" as const, label: "Group Stage", count: stageCounts.GROUP }] : []),
+          ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: "ROUND_OF_16" as const, label: "Round of 16", count: stageCounts.ROUND_OF_16 }] : []),
+          ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: "QUARTER_FINAL" as const, label: "Quarter-Finals", count: stageCounts.QUARTER_FINAL }] : []),
+          ...(stageCounts.SEMI_FINAL > 0 ? [{ key: "SEMI_FINAL" as const, label: "Semi-Finals", count: stageCounts.SEMI_FINAL }] : []),
+          ...(stageCounts.FINAL > 0 || stageCounts.THIRD_PLACE > 0
+            ? [{ key: "FINAL" as const, label: "Finals & 3rd Place", count: stageCounts.FINAL + stageCounts.THIRD_PLACE }]
+            : []),
+        ];
+
+        // Prepare Fixtures Table Rows for List & Table views (identical to SetupSchedule)
+        const fixturesTableRows: FixtureTableRow[] = viewMatches.map((m, idx) => {
+          const { team1, team2 } = extractTeamNames(m);
+          const { team1Flat, team2Flat } = extractFlatDetails(m);
+          const { date, time } = extractDateTime(m);
+          const stageKey = getMatchStage(m);
+          const isPlayoff = stageKey !== "GROUP";
+          const stageLabel =
+            stageKey === "GROUP" ? (m.groupName || m.roundName || "Group Stage") :
+            stageKey === "QUARTER_FINAL" ? "Quarter-Finals" :
+            stageKey === "SEMI_FINAL" ? "Semi-Finals" :
+            stageKey === "FINAL" ? "Final" :
+            stageKey === "THIRD_PLACE" ? "3rd Place" :
+            stageKey === "ROUND_OF_16" ? "Round of 16" : (m.roundName || `Round ${m.roundNumber || 1}`);
+
+          return {
+            id: String(m.matchId || m.id || idx),
+            key: `fixture-${m.matchId || m.id || idx}`,
+            matchNumber: m.matchNumber || idx + 1,
+            stage: stageLabel,
+            isPlayoff,
+            date: date || (m.scheduledAt ? String(m.scheduledAt).split("T")[0] : m.matchDate || ""),
+            time: time || "",
+            duration: m.duration || 30,
+            venueId: m.venueId || null,
+            courtId: m.courtId || null,
+            venueName: m.venueName || venue?.name || "Main Arena",
+            courtName: m.courtName || "",
+            home: { id: `p1-${idx}`, name: team1, flatNumber: team1Flat !== "—" ? team1Flat : undefined },
+            away: { id: `p2-${idx}`, name: team2, flatNumber: team2Flat !== "—" ? team2Flat : undefined },
+            conflicts: [],
+            rawMatch: m,
+          };
+        });
 
         // Prepare rounds for Bracket View
         const bracketRounds = (() => {
@@ -596,21 +678,35 @@ export function TournamentScheduler() {
           }
           return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
             name,
-            matches: rMatches.map((m, idx) => ({
-              id: `M-${m.matchId || m.id || idx}`,
-              label: `${name} #${m.matchNumber || idx + 1}`,
-              date: m.scheduledAt ? String(m.scheduledAt).split("T")[0] : (m.matchDate || "—"),
-              time: m.scheduledAt ? String(m.scheduledAt).includes("T") ? String(m.scheduledAt).split("T")[1].slice(0, 5) : String(m.scheduledAt) : (m.matchTime || "—"),
-              p1: m.teamAName || m.homeName ? { initials: getPlayerInitials(m.teamAName || m.homeName), fullName: m.teamAName || m.homeName, flatNumber: m.teamAFlat } : null,
-              p2: m.teamBName || m.awayName ? { initials: getPlayerInitials(m.teamBName || m.awayName), fullName: m.teamBName || m.awayName, flatNumber: m.teamBFlat } : null,
-              venue: { initials: (m.venueName || venue?.name || "TBD").slice(0, 3).toUpperCase(), name: m.venueName || venue?.name || "Main Arena" },
-              isBye: !m.teamAName || !m.teamBName,
-            })),
+            matches: rMatches.map((m, idx) => {
+              const { team1, team2 } = extractTeamNames(m);
+              const { team1Flat, team2Flat } = extractFlatDetails(m);
+              const { date, time } = extractDateTime(m);
+              const isBye = !team1 || !team2 || team1 === "BYE" || team2 === "BYE";
+              const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
+              const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
+              const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : undefined;
+
+              return {
+                id: `M-${m.matchId || m.id || idx}`,
+                label: `${name} · Match ${m.matchNumber || idx + 1}`,
+                date: date || (m.scheduledAt ? String(m.scheduledAt).split("T")[0] : m.matchDate || "—"),
+                time: time || (m.scheduledAt ? (String(m.scheduledAt).includes("T") ? String(m.scheduledAt).split("T")[1].slice(0, 5) : String(m.scheduledAt)) : m.matchTime || "—"),
+                p1: { fullName: team1, flatNumber: team1Flat !== "—" ? team1Flat : undefined },
+                p2: { fullName: team2, flatNumber: team2Flat !== "—" ? team2Flat : undefined },
+                venue: { name: m.venueName || venue?.name || "Main Arena" },
+                courtName: m.courtName || "",
+                status: m.status || "SCHEDULED",
+                score,
+                isBye,
+              };
+            }),
           }));
         })();
 
         return (
-          <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
+          <>
+            <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
             <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 sm:px-6">
                 <div className="flex min-w-0 items-start gap-3">
@@ -640,7 +736,7 @@ export function TournamentScheduler() {
                     </div>
 
                     {/* View Switcher & Export Toolbar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-indigo-100 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
                       {/* Left: View Mode Pills */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-700">Display View:</span>
@@ -693,7 +789,7 @@ export function TournamentScheduler() {
                           type="button"
                           disabled={viewMatches.length === 0}
                           onClick={() => setShowExportMenu(!showExportMenu)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Download className="w-3.5 h-3.5 text-indigo-600" />
                           <span>Export &amp; Download</span>
@@ -703,43 +799,77 @@ export function TournamentScheduler() {
                         {showExportMenu && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[220px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
-                              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                                Download Schedule
+                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 w-72 p-2 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-100 max-h-[460px] overflow-y-auto">
+                              {/* Stage Export Center Button (Full Modal) */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowExportMenu(false);
+                                  setStageModalDefaultStage("ALL");
+                                  setShowStageExportModal(true);
+                                }}
+                                className="w-full flex items-center gap-2.5 p-2.5 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100/90 rounded-lg transition-colors cursor-pointer text-left font-medium border border-indigo-200/80"
+                              >
+                                <Sparkles className="h-4 w-4 text-indigo-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-indigo-900">Stage Export Center</span>
+                                  <span className="text-[10px] text-indigo-600">Select stages, format &amp; preview</span>
+                                </div>
+                              </button>
+
+                              {/* Stage Specific Download Sections */}
+                              <div className="px-2 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100">
+                                Stage-wise Downloads
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => { setShowExportMenu(false); handleExport("csv"); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
-                              >
-                                <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                                <div className="flex flex-col">
-                                  <span className="font-semibold">Download CSV</span>
-                                  <span className="text-[10px] text-slate-400">Excel / UTF-8 compatible</span>
+
+                              {availableStages.map((stage) => (
+                                <div key={stage.key} className="p-2 rounded-lg bg-slate-50 border border-slate-100 flex flex-col gap-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-800">{stage.label}</span>
+                                    <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                      {stage.count} match{stage.count !== 1 ? "es" : ""}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowExportMenu(false);
+                                        handleExport("csv", stage.key);
+                                      }}
+                                      className="flex items-center justify-center gap-1 py-1 px-1.5 text-[11px] font-semibold text-emerald-700 bg-white hover:bg-emerald-50 border border-emerald-200 rounded transition-colors cursor-pointer"
+                                      title={`Download ${stage.label} CSV`}
+                                    >
+                                      <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+                                      <span>CSV</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowExportMenu(false);
+                                        handleExport("excel", stage.key);
+                                      }}
+                                      className="flex items-center justify-center gap-1 py-1 px-1.5 text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded transition-colors cursor-pointer"
+                                      title={`Download ${stage.label} Excel`}
+                                    >
+                                      <FileSpreadsheet className="w-3 h-3 text-blue-600" />
+                                      <span>Excel</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowExportMenu(false);
+                                        handleExport("pdf", stage.key);
+                                      }}
+                                      className="flex items-center justify-center gap-1 py-1 px-1.5 text-[11px] font-semibold text-rose-700 bg-white hover:bg-rose-50 border border-rose-200 rounded transition-colors cursor-pointer"
+                                      title={`Print / PDF ${stage.label}`}
+                                    >
+                                      <Printer className="w-3 h-3 text-rose-600" />
+                                      <span>PDF</span>
+                                    </button>
+                                  </div>
                                 </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setShowExportMenu(false); handleExport("excel"); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
-                              >
-                                <FileSpreadsheet className="h-4 w-4 text-blue-600 shrink-0" />
-                                <div className="flex flex-col">
-                                  <span className="font-semibold">Download Excel (.xlsx)</span>
-                                  <span className="text-[10px] text-slate-400">Full formatted spreadsheet</span>
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setShowExportMenu(false); handleExport("pdf"); }}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
-                              >
-                                <Printer className="h-4 w-4 text-rose-600 shrink-0" />
-                                <div className="flex flex-col">
-                                  <span className="font-semibold">Print Schedule (PDF)</span>
-                                  <span className="text-[10px] text-slate-400">Printable fixtures document</span>
-                                </div>
-                              </button>
+                              ))}
                             </div>
                           </>
                         )}
@@ -748,7 +878,7 @@ export function TournamentScheduler() {
 
                     {/* View 1: Visual Draw & Bracket */}
                     {viewDisplayMode === "visual" && (
-                      <div className="space-y-4">
+                      <div className="space-y-6">
                         {bracketRounds.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                             <Trophy className="mx-auto h-8 w-8 text-slate-400 mb-2" />
@@ -757,47 +887,137 @@ export function TournamentScheduler() {
                           </div>
                         ) : (
                           bracketRounds.map((round) => (
-                            <div key={round.name} className="space-y-2.5">
+                            <div key={round.name} className="space-y-3">
                               <div className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{round.name}</span>
+                                <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{round.name}</span>
                                 <div className="flex-1 h-px bg-slate-200" />
-                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{round.matches.length} match{round.matches.length !== 1 ? "es" : ""}</span>
+                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                  {round.matches.length} match{round.matches.length !== 1 ? "es" : ""}
+                                </span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {round.matches.map((m) => (
                                   <div
                                     key={m.id}
-                                    className="rounded-xl border border-indigo-100 bg-white p-3.5 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left flex flex-col justify-between"
+                                    className="bg-white border border-[rgba(99,102,241,0.12)] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#4f46e5]/40 transition-colors animate-fade-in-up"
                                   >
-                                    <div>
-                                      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
-                                        <span className="text-[11px] font-bold text-slate-800">{m.label}</span>
-                                        <span className="text-[10px] text-slate-500 font-medium">{m.date} · {m.time}</span>
-                                      </div>
-                                      <div className="space-y-1.5 bg-slate-50/80 rounded-lg p-2 border border-slate-100">
-                                        <div className="flex items-center justify-between text-xs">
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-bold shrink-0">
-                                              {m.p1?.initials || "T"}
-                                            </span>
-                                            <span className="font-bold text-slate-800 truncate">{m.p1?.fullName || "TBD"}</span>
-                                            {m.p1?.flatNumber && <span className="text-[9px] text-slate-400">({m.p1.flatNumber})</span>}
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs">
-                                          <div className="flex items-center gap-1.5 min-w-0">
-                                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-bold shrink-0">
-                                              {m.p2?.initials || "T"}
-                                            </span>
-                                            <span className="font-bold text-slate-800 truncate">{m.p2?.fullName || (m.isBye ? "BYE" : "TBD")}</span>
-                                            {m.p2?.flatNumber && <span className="text-[9px] text-slate-400">({m.p2.flatNumber})</span>}
-                                          </div>
-                                        </div>
+                                    {/* Top Status Bar (gradient line) */}
+                                    <div className="w-full h-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]" />
+
+                                    {/* Top Tag Overlapping */}
+                                    <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
+                                      <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-full text-xs font-bold shadow-md">
+                                        <span className="px-1">{m.label}</span>
                                       </div>
                                     </div>
-                                    <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center gap-1 text-[10px] text-slate-500 truncate">
-                                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                      <span className="truncate">{m.venue.name}</span>
+
+                                    {/* Date & Time Header */}
+                                    <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-[#6b7094] border-b border-[rgba(99,102,241,0.12)]/40 bg-white/30">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1">
+                                          <Calendar className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                          <span className="font-bold text-[#0d0d2b]">{m.date}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                          <span className="font-bold text-[#0d0d2b]">{m.time}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
+                                        <MapPin className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                        <span>{m.venue.name}</span>
+                                        {m.courtName && <span className="text-[#4f46e5] font-semibold"> - {m.courtName}</span>}
+                                      </div>
+                                    </div>
+
+                                    {/* Players VS Content */}
+                                    <div className="p-3.5 flex flex-col justify-between">
+                                      {/* Desktop Horizontal VS Layout */}
+                                      <div className="hidden sm:flex items-center justify-between bg-white/40 rounded-lg p-2.5 border border-[rgba(99,102,241,0.12)]/40">
+                                        {/* Home Team */}
+                                        <div className="flex items-center gap-2.5 w-[42%]">
+                                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                            <img
+                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                              alt="Avatar"
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                          <div className="flex flex-col truncate">
+                                            <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p1.fullName}>
+                                              {m.p1.fullName}
+                                            </span>
+                                            {m.p1.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p1.flatNumber}</span>}
+                                          </div>
+                                        </div>
+
+                                        {/* VS Badge Pill */}
+                                        <div className="flex flex-col items-center justify-center shrink-0">
+                                          <span className="text-[9px] font-bold px-2 py-0.5 bg-[#4f46e5] text-white rounded-full">VS</span>
+                                        </div>
+
+                                        {/* Away Team */}
+                                        <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
+                                          <div className="flex flex-col truncate">
+                                            <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p2.fullName}>
+                                              {m.p2.fullName}
+                                            </span>
+                                            {m.p2.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p2.flatNumber}</span>}
+                                          </div>
+                                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                            <img
+                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                              alt="Avatar"
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Mobile Vertical VS Layout */}
+                                      <div className="flex sm:hidden flex-col gap-2 bg-white/40 rounded-lg p-2 border border-[rgba(99,102,241,0.12)]/40">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                            <img
+                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                              alt="Avatar"
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                          <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p1.fullName}</span>
+                                            {m.p1.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p1.flatNumber}</span>}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-center py-0.5 border-y border-[rgba(99,102,241,0.12)]/20 my-0.5">
+                                          <span className="text-[8px] font-bold text-[#6b7094]/70">VS</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                            <img
+                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                              alt="Avatar"
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                          <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p2.fullName}</span>
+                                            {m.p2.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p2.flatNumber}</span>}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Footer Status & Score */}
+                                      <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-[rgba(99,102,241,0.12)]/30 text-[11px]">
+                                        <span className="text-[#6b7094]">
+                                          Status: <span className="text-indigo-600 font-semibold capitalize">{String(m.status || "SCHEDULED").toLowerCase().replace(/_/g, " ")}</span>
+                                        </span>
+                                        {m.score && (
+                                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            {m.score}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -810,119 +1030,26 @@ export function TournamentScheduler() {
 
                     {/* View 2: List View */}
                     {viewDisplayMode === "list" && (
-                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
-                          <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Calendar className="h-4 w-4 text-indigo-600" />Complete match list</h3>
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewMatches.length}</span>
-                        </div>
-                        {viewMatches.length ? (
-                          <div className="divide-y divide-slate-100">
-                            {viewMatches.map((match, index) => (
-                              <article key={match.matchId ?? match.id ?? index} className="p-3.5 sm:p-4 hover:bg-slate-50/60 transition-colors">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600">
-                                    {match.roundName || match.groupName || `Match ${match.matchNumber ?? index + 1}`}
-                                    {match.matchNumber ? ` · Match ${match.matchNumber}` : ""}
-                                  </span>
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-600">
-                                    {String(match.status || "SCHEDULED").replaceAll("_", " ")}
-                                  </span>
-                                </div>
-                                <div className="my-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 border border-slate-100">
-                                  <div className="min-w-0">
-                                    <p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamAName || match.homeName || "TBD"}>
-                                      {match.teamAName || match.homeName || "TBD"}
-                                    </p>
-                                    {match.scoreTeamA != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamA}</p>}
-                                  </div>
-                                  <span className="text-[9px] font-bold text-slate-400">VS</span>
-                                  <div className="min-w-0 text-right">
-                                    <p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}>
-                                      {match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}
-                                    </p>
-                                    {match.scoreTeamB != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamB}</p>}
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
-                                  <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{matchDateLabel(match.scheduledAt || match.matchDate || match.date)}</span>
-                                  <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{match.venueName || venue?.name || "Venue not set"}{match.courtName ? ` · ${match.courtName}` : ""}</span>
-                                </div>
-                              </article>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="m-0 px-4 py-8 text-center text-xs text-slate-500">No saved matches are available for this configuration yet.</p>
-                        )}
-                      </section>
+                      <div className="mt-1">
+                        <FixturesListView
+                          fixtures={fixturesTableRows}
+                          onEditMatch={() => {}}
+                          sportName={event?.sportName || "Tournament"}
+                        />
+                      </div>
                     )}
 
                     {/* View 3: Fixtures Table */}
                     {viewDisplayMode === "table" && (
-                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[700px] border-collapse text-left text-xs">
-                            <thead>
-                              <tr className="border-b border-slate-200 bg-slate-50">
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">#</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Round / Stage</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Date &amp; Time</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Team 1</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Team 2</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Venue / Court</th>
-                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Score / Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {viewMatches.length === 0 ? (
-                                <tr>
-                                  <td colSpan={7} className="px-4 py-8 text-center text-xs text-slate-500">
-                                    No matches generated or saved yet.
-                                  </td>
-                                </tr>
-                              ) : (
-                                viewMatches.map((m, idx) => (
-                                  <tr key={m.matchId ?? m.id ?? idx} className="hover:bg-slate-50/60 transition-colors">
-                                    <td className="px-3.5 py-2.5 font-semibold text-slate-600">{m.matchNumber || idx + 1}</td>
-                                    <td className="px-3.5 py-2.5">
-                                      <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">
-                                        {m.roundName || m.groupName || `Round ${m.roundNumber || 1}`}
-                                      </span>
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-slate-600 whitespace-nowrap">
-                                      <div className="font-semibold text-slate-800">{matchDateLabel(m.scheduledAt || m.matchDate || m.date)}</div>
-                                    </td>
-                                    <td className="px-3.5 py-2.5">
-                                      <span className="font-bold text-slate-900">{m.teamAName || m.homeName || "TBD"}</span>
-                                      {m.teamAFlat && <span className="text-[10px] text-slate-400 ml-1">({m.teamAFlat})</span>}
-                                    </td>
-                                    <td className="px-3.5 py-2.5">
-                                      <span className="font-bold text-slate-900">{m.teamBName || m.awayName || (m.isBye ? "BYE" : "TBD")}</span>
-                                      {m.teamBFlat && <span className="text-[10px] text-slate-400 ml-1">({m.teamBFlat})</span>}
-                                    </td>
-                                    <td className="px-3.5 py-2.5 text-slate-600">
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                                        <span className="truncate">{m.venueName || venue?.name || "Main Arena"}{m.courtName ? ` · ${m.courtName}` : ""}</span>
-                                      </div>
-                                    </td>
-                                    <td className="px-3.5 py-2.5">
-                                      {m.scoreTeamA != null && m.scoreTeamB != null ? (
-                                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
-                                          {m.scoreTeamA} - {m.scoreTeamB}
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                          {String(m.status || "SCHEDULED").replaceAll("_", " ")}
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </section>
+                      <div className="mt-1">
+                        <FixturesTableView
+                          fixtures={fixturesTableRows}
+                          onEditMatch={() => {}}
+                          onExportCSV={() => handleExport("csv", "ALL")}
+                          onExportExcel={() => handleExport("excel", "ALL")}
+                          onExportPDF={() => handleExport("pdf", "ALL")}
+                        />
+                      </div>
                     )}
 
                     {/* Registered Players Collapsible / Section */}
@@ -985,7 +1112,18 @@ export function TournamentScheduler() {
               </footer>
             </section>
           </div>
-        );
+
+          {showStageExportModal && (
+            <ScheduleExportModal
+              isOpen={showStageExportModal}
+              onClose={() => setShowStageExportModal(false)}
+              tournamentName={viewingConfig.tournamentName || "Tournament"}
+              matches={viewMatches}
+              defaultStage={stageModalDefaultStage}
+            />
+          )}
+        </>
+      );
       })()}
 
       {/* Modal */}
