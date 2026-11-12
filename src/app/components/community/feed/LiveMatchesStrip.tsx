@@ -37,9 +37,24 @@ function getSportEmoji(sport?: string): string {
   return "🏆";
 }
 
-const isLiveStatus = (status?: string) => {
+const isLiveStatus = (status?: string, hasScores?: boolean) => {
   const s = String(status || "").toUpperCase().trim();
-  return s === "LIVE" || s === "IN_PROGRESS" || s === "ONGOING" || s === "MATCHES_RUNNING";
+  if (
+    s === "LIVE" ||
+    s === "IN_PROGRESS" ||
+    s === "INPROGRESS" ||
+    s === "ACTIVE" ||
+    s === "ONGOING" ||
+    s === "STARTED" ||
+    s === "MATCHES_RUNNING"
+  ) {
+    return true;
+  }
+  // Matches with recorded points/scores that haven't concluded or been cancelled
+  if (hasScores && s !== "COMPLETED" && s !== "CANCELLED" && s !== "DRAFT" && s !== "BYE") {
+    return true;
+  }
+  return false;
 };
 
 /**
@@ -65,34 +80,53 @@ export function LiveMatchesStrip() {
     try {
       const user = getStoredUser();
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
-      let feedMatches: FeedLiveMatch[] = [];
+      const combinedMap = new Map<number, FeedLiveMatch>();
 
+      // 1. Fetch from /sports/live-feed
       try {
-        feedMatches = await tournamentService.getLiveFeedMatches(communityId);
+        let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
         // Fallback: If community-scoped query returns no matches, check across all communities
         if ((!feedMatches || feedMatches.length === 0) && communityId) {
           feedMatches = await tournamentService.getLiveFeedMatches(undefined);
         }
+        if (Array.isArray(feedMatches)) {
+          feedMatches.forEach((m) => {
+            if (m && m.matchId) combinedMap.set(m.matchId, m);
+          });
+        }
       } catch {
-        // Backend live-feed endpoint may be unavailable or unconfigured; will try config matches below
+        // Backend live-feed endpoint may be unavailable or unconfigured; will continue to configs below
       }
 
-      // If feed endpoint returned no matches or is unconfigured, fall back to schedule configs
-      if (!feedMatches || feedMatches.length === 0) {
-        try {
-          const configs = await tournamentService.getConfigs().catch(() => []);
-          if (Array.isArray(configs) && configs.length > 0) {
-            const matchPromises = configs.map(async (cfg) => {
-              try {
-                const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
-                if (!Array.isArray(cfgMatches)) return [];
-                return cfgMatches
-                  .filter((m: any) => {
-                    if (!m || m.status === "BYE") return false;
-                    if (m.showInFeed === false) return false;
-                    return isLiveStatus(m.status);
-                  })
-                  .map((m: any): FeedLiveMatch => ({
+      // 2. ALWAYS query tournament schedule configs to discover any active live matches in tournaments
+      try {
+        const configs = await tournamentService.getConfigs().catch(() => []);
+        if (Array.isArray(configs) && configs.length > 0) {
+          const matchPromises = configs.map(async (cfg) => {
+            try {
+              const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
+              if (!Array.isArray(cfgMatches)) return [];
+              return cfgMatches
+                .filter((m: any) => {
+                  if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED") return false;
+                  if (m.showInFeed === false) return false;
+                  const hasScores = Boolean(
+                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
+                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
+                    (m.score1 && m.score1 !== "0") ||
+                    (m.score2 && m.score2 !== "0")
+                  );
+                  return isLiveStatus(m.status, hasScores);
+                })
+                .map((m: any): FeedLiveMatch => {
+                  const hasScores = Boolean(
+                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
+                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
+                    (m.score1 && m.score1 !== "0") ||
+                    (m.score2 && m.score2 !== "0")
+                  );
+                  const isLive = isLiveStatus(m.status) || hasScores;
+                  return {
                     matchId: m.id || m.matchId,
                     configId: cfg.id,
                     sportName: cfg.sportName || cfg.eventName || "Sports",
@@ -103,26 +137,40 @@ export function LiveMatchesStrip() {
                     teamBName: m.teamBName || m.awayName || "Team B",
                     teamAFlat: m.teamAFlat || m.homeFlat,
                     teamBFlat: m.teamBFlat || m.awayFlat,
-                    scoreTeamA: m.scoreTeamA || "",
-                    scoreTeamB: m.scoreTeamB || "",
-                    status: m.status || "LIVE",
+                    scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
+                    scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
+                    status: isLive ? (m.status === "COMPLETED" ? "COMPLETED" : "LIVE") : (m.status || "SCHEDULED"),
                     winnerName: m.winnerName,
                     scheduledAt: m.scheduledAt,
                     venueName: m.venueName || m.courtName,
-                  }));
-              } catch {
-                return [];
+                  };
+                });
+            } catch {
+              return [];
+            }
+          });
+          const nested = await Promise.all(matchPromises);
+          nested.flat().forEach((m) => {
+            if (m && m.matchId) {
+              const existing = combinedMap.get(m.matchId);
+              if (!existing) {
+                combinedMap.set(m.matchId, m);
+              } else {
+                combinedMap.set(m.matchId, {
+                  ...m,
+                  ...existing,
+                  scoreTeamA: existing.scoreTeamA || m.scoreTeamA || "",
+                  scoreTeamB: existing.scoreTeamB || m.scoreTeamB || "",
+                });
               }
-            });
-            const nested = await Promise.all(matchPromises);
-            feedMatches = nested.flat();
-          }
-        } catch {
-          // Keep current state on error
+            }
+          });
         }
+      } catch {
+        // Keep current state on error
       }
 
-      setMatches(feedMatches || []);
+      setMatches(Array.from(combinedMap.values()));
     } catch {
       // The strip is optional; fail silently and keep the last known state.
     }
