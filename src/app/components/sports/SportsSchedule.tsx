@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
@@ -46,8 +47,12 @@ import { RaceScoringPanel } from "./RaceScoringPanel";
 import { RaceResultsView } from "./RaceResultsView";
 import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
 import { TeamsHubShowcase } from "./teams";
+import { TournamentStageManager } from "./admin/TournamentStageManager";
+import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
+import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
+import { TournamentEventSelector } from "./admin/TournamentEventSelector";
 
-const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -704,6 +709,11 @@ export function SportsSchedule() {
   const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
   const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
 
+  // Stage admin tab config IDs (driven by TournamentEventSelector)
+  const [stageManagerConfigId, setStageManagerConfigId] = useState<number>(0);
+  const [publicationConfigId, setPublicationConfigId] = useState<number>(0);
+  const [historyConfigId, setHistoryConfigId] = useState<number>(0);
+
   const metaLoadedRef = useRef(false);
   const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events" || activeTab === "My Matches";
   useEffect(() => {
@@ -1077,12 +1087,15 @@ export function SportsSchedule() {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
           for (const cfg of configs || []) {
-            if (!isAdmin && cfg.status === "DRAFT") continue;
+            // Skip DRAFT configs in the public-facing All Events / Overview tabs —
+            // matches are only shown here once an admin publishes the schedule.
+            if (cfg.status === "DRAFT") continue;
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
               for (const m of matches) {
                 if (m.status === "BYE") continue;
-                if (!isAdmin && m.status === "DRAFT") continue;
+                // Also skip any individual match that is still in DRAFT state.
+                if (m.status === "DRAFT") continue;
                 const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
                 let scheduledTime = "";
                 try {
@@ -1205,6 +1218,24 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Manual
           </button>
+          <button
+            className={`nav-item ${activeTab === "Stage Manager" ? "active" : ""}`}
+            onClick={() => setActiveTab("Stage Manager")}
+          >
+            <div className="nav-dot"></div>Stage Manager
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Publication" ? "active" : ""}`}
+            onClick={() => setActiveTab("Publication")}
+          >
+            <div className="nav-dot"></div>Publication
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Schedule History" ? "active" : ""}`}
+            onClick={() => setActiveTab("Schedule History")}
+          >
+            <div className="nav-dot"></div>Schedule History
+          </button>
         </div>
         )}
       </aside>
@@ -1227,6 +1258,12 @@ export function SportsSchedule() {
                       ? "View published fixtures, filter by stage (Group Stage, Quarters, Semis, Final), and export cleanly."
                       : activeTab === "Manual"
                       ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
+                      : activeTab === "Stage Manager"
+                      ? "Configure tournament stages, scheduling modes, and stage progression."
+                      : activeTab === "Publication"
+                      ? "Manage stage-wise schedule publication, notifications, and version control."
+                      : activeTab === "Schedule History"
+                      ? "View schedule version history, changes, approvals, and audit trail."
                       : "Sports scheduling & event matches"}
                   </div>
                 </>
@@ -2468,17 +2505,21 @@ export function SportsSchedule() {
               }
             };
 
-            return (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+            return createPortal(
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] overflow-y-auto"
+                onClick={(e) => { if (e.target === e.currentTarget) setConfirmGoLiveFixture(null); }}
+              >
+                <div className="min-h-full flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left">
                   {/* Header */}
-                  <div className="flex items-center justify-between border-b border-slate-100">
+                  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
                         <Radio className="w-5 h-5 animate-pulse" />
                       </div>
                       <div>
-                        <h3 className="text-xs font-bold text-slate-900 leading-none m-0 mb-0">Confirm Go Live</h3>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight m-0">Confirm Go Live</h3>
                         <p className="text-xs text-slate-400 mt-1 m-0">Check schedule & broadcast live match</p>
                       </div>
                     </div>
@@ -2625,7 +2666,9 @@ export function SportsSchedule() {
                     </button>
                   </div>
                 </div>
-              </div>
+                </div>
+              </div>,
+              document.body
             );
           })()}
         </div>
@@ -2727,6 +2770,84 @@ export function SportsSchedule() {
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
             <p className="text-xs text-slate-500 mt-1">Manual Scheduler is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Stage Manager (Admin only) */}
+      {activeTab === "Stage Manager" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setStageManagerConfigId}
+              initialConfigId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+            {stageManagerConfigId > 0 && (
+              <TournamentStageManager configId={stageManagerConfigId} />
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Stage Manager is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Publication Manager (Admin only) */}
+      {activeTab === "Publication" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setPublicationConfigId}
+              initialConfigId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+            {publicationConfigId > 0 && (
+              <SchedulePublicationManager configId={publicationConfigId} />
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Publication Manager is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Schedule History */}
+      {activeTab === "Schedule History" && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
+            <TournamentEventSelector
+              onConfigIdChange={setHistoryConfigId}
+              initialConfigId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+            />
+            {historyConfigId > 0 && (
+              <ScheduleVersionHistory configId={historyConfigId} />
+            )}
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Schedule History is restricted to administrators.</p>
           </div>
         )
       )}

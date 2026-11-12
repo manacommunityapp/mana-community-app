@@ -42,8 +42,8 @@ export function GenericLiveScoringPanel({
   matchId,
   sportType,
   onClose,
-  teamA,
-  teamB,
+  teamA: teamAProp,
+  teamB: teamBProp,
   players,
 }: GenericLiveScoringPanelProps) {
   const [state, setState] = useState<GenericMatchState | null>(null);
@@ -105,6 +105,10 @@ export function GenericLiveScoringPanel({
       playerId?: number
     ) => {
       if (!state || saving || state.status === "COMPLETED") return;
+      if (!teamId) {
+        toast.error("Both teams must be assigned to this match before scoring.");
+        return;
+      }
       setSaving(true);
       try {
         const req: GenericScoreRequest = {
@@ -155,6 +159,19 @@ export function GenericLiveScoringPanel({
       setSaving(false);
     }
   }, [state, saving, matchId, fetchState, periodLabels]);
+
+  // Prefer the server's match state for team ids/names: the fixture passed in by the parent can
+  // lack team ids (they fall back to 0), which the backend rejects as "Team 0 does not belong".
+  const teamA = {
+    ...teamAProp,
+    id: state?.teamAId || teamAProp.id,
+    name: state?.teamAName && (!teamAProp.name || teamAProp.name === "Team A") ? state.teamAName : teamAProp.name,
+  };
+  const teamB = {
+    ...teamBProp,
+    id: state?.teamBId || teamBProp.id,
+    name: state?.teamBName && (!teamBProp.name || teamBProp.name === "Team B") ? state.teamBName : teamBProp.name,
+  };
 
   const playersA = players?.filter((p) => p.teamId === teamA.id) || [];
   const playersB = players?.filter((p) => p.teamId === teamB.id) || [];

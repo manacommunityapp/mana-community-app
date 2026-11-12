@@ -43,6 +43,8 @@ import {
   addMinutesToTime,
   parseBreakMinutes,
   buildPlayoffBracket,
+  isByeParticipant,
+  sanitizePlayoffMatches,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
 import {
@@ -404,6 +406,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [thirdPlace, setThirdPlace] = useState(false);
   const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
+  // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
+  const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
   const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
@@ -794,12 +798,20 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       });
       setEvents(enrichedEvents);
 
-      // Collect unique tournaments from dropdown API and enriched events
+      // Collect unique tournaments from dropdown API and enriched events.
+      // Only include tournaments that have at least one REGISTRATION_CLOSED event.
+      const closedEnrichedEvents = enrichedEvents.filter(ev => {
+        const st = String(ev.status || '').toUpperCase().trim();
+        return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+      });
+      const closedTournamentIds = new Set(
+        closedEnrichedEvents.map(ev => ev.tournamentId).filter(Boolean)
+      );
       const tournsMap = new Map<number, TournamentDropdownItem>();
       (tournList || []).forEach(tr => {
-        if (tr.id) tournsMap.set(tr.id, tr);
+        if (tr.id && closedTournamentIds.has(tr.id)) tournsMap.set(tr.id, tr);
       });
-      enrichedEvents.forEach(ev => {
+      closedEnrichedEvents.forEach(ev => {
         if (ev.tournamentId && !tournsMap.has(ev.tournamentId)) {
           tournsMap.set(ev.tournamentId, {
             id: ev.tournamentId,
@@ -898,19 +910,28 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return `${e.name} — ${fmt}${sportPart}`;
   };
 
+  /** Returns true if an event's registration is closed (ready for scheduling). */
+  const isRegClosed = (e: EventInfo): boolean => {
+    const st = String(e.status || '').toUpperCase().trim();
+    return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+  };
+
+  /** Events whose registration is closed — used as the base for all filter dropdowns. */
+  const closedEvents = useMemo(() => events.filter(isRegClosed), [events]);
+
   const availableSports = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       if (e.sportName && e.sportName.trim()) {
         set.add(e.sportName.trim());
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [closedEvents]);
 
   const availableGenders = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       set.add(formatGender(e.gender));
     });
     if (set.size === 0) {
@@ -925,11 +946,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const availableAges = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       set.add(formatAgeCategory(e));
     });
     return Array.from(set).sort((a, b) => {
@@ -937,11 +958,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (b === 'All Ages / Open') return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const availableFormats = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       const fmt = formatParticipantFormat(e);
       if (fmt) {
         if (fmt.includes(' / ')) {
@@ -963,10 +984,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const filteredEvents = useMemo(() => {
-    return events.filter(e => {
+    // Base: only events with registration closed (participants finalised → ready to schedule)
+    return closedEvents.filter(e => {
       if (selectedTournamentFilter) {
         if (selectedTournamentFilter === '__none__') {
           if (e.tournamentId) return false;
@@ -990,7 +1012,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
       return true;
     });
-  }, [events, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
+  }, [closedEvents, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
 
   const handleTournamentFilterChange = (tournId: string) => {
     setSelectedTournamentFilter(tournId);
@@ -1935,6 +1957,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       courtIds: selectedCourtIds(defaultVenueId),
       matchDays: effectiveMatchDays,
       roundTimings: Object.keys(roundTimings).length > 0 ? roundTimings : undefined,
+      byesFirstRoundOnly,
     };
   };
 
@@ -1959,13 +1982,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     try {
       const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
       if (draft && Array.isArray(draft) && draft.length > 0) {
-        setPlayoffDraft(draft);
-        return draft;
+        const sanitized = sanitizePlayoffMatches(draft);
+        setPlayoffDraft(sanitized);
+        return sanitized;
       }
     } catch (err: any) {
       console.warn('[fetchPlayoffDraft] Server playoff generation failed, using client-side bracket fallback:', err);
     }
-    const localDraft = buildPlayoffBracket(buildPlayoffInput());
+    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(buildPlayoffInput()));
     setPlayoffDraft(localDraft);
     return localDraft;
   };
@@ -1976,7 +2000,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * Pass `draftOverride` to use a freshly-fetched draft before React state updates.
    */
   const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
-    let matches = draftOverride ?? playoffDraft;
+    let matches = sanitizePlayoffMatches(draftOverride ?? playoffDraft);
 
     const enrichFlats = (list: PlayoffMatchDraft[]) => {
       return list.map(m => {
@@ -2126,7 +2150,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // Collect playoff matches if generated
     if (playoffsGenerated || playoffOverride) {
       const playoffMatches = getPlayoffMatches(playoffOverride);
-      playoffMatches.forEach((match: any, idx: number) => {
+      // Strictly exclude any BYE or AUTO_ADVANCED matches from playoffs
+      const realPlayoffMatches = playoffMatches.filter(m =>
+        !isByeParticipant(m.home) && !isByeParticipant(m.away) && m.status !== 'AUTO_ADVANCED'
+      );
+      realPlayoffMatches.forEach((match: any, idx: number) => {
         const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
         const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
         allMatches.push({
@@ -2880,9 +2908,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
           </div>
 
-          {filteredEvents.length === 0 && events.length > 0 && (
+          {filteredEvents.length === 0 && closedEvents.length > 0 && (
             <p className="mt-2.5 text-xs text-amber-600">
-              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {events.length} events.
+              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {closedEvents.length} registration-closed events.
+            </p>
+          )}
+          {closedEvents.length === 0 && events.length > 0 && (
+            <p className="mt-2.5 text-xs text-amber-600">
+              No events with closed registration found. Only events where registration is closed appear here — close registration for an event first, then return to set up its schedule.
             </p>
           )}
 
@@ -3218,6 +3251,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${thirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
               </button>
             </div>
+
+            {/* BYEs only in first knockout round */}
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={byesFirstRoundOnly}
+                onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>
+                Give all BYEs in the 1st knockout round only
+                <span className="block text-xs text-[#6b7094]">
+                  For odd / non power-of-2 player counts (e.g. 21, 22, 37, 38) top seeds skip round 1; no BYEs in qualifiers, semi-finals or final.
+                </span>
+              </span>
+            </label>
 
             {/* Seeding Order */}
             <div className="text-center">
@@ -4286,6 +4335,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </button>
                   </div>
 
+                  {/* BYEs only in first knockout round */}
+                  <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700 max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={byesFirstRoundOnly}
+                      onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+                    />
+                    <span>
+                      Give all BYEs in the 1st knockout round only
+                      <span className="block text-xs text-[#6b7094]">
+                        When the number of qualifiers is not a power of 2, top seeds skip round 1; no BYEs in quarter-finals, semi-finals or final.
+                      </span>
+                    </span>
+                  </label>
+
                   {/* Choose Playoffs Schedule Sequence */}
                   <div className="flex flex-col gap-4 items-center justify-center">
                     <label className="text-sm text-slate-700">
@@ -4760,15 +4825,29 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   </div>
                 </div>
               </div>
-              {isGroupKnockout && (
-                <p className="text-xs text-[#6b7094] flex items-center gap-1">
-                  <i className="pi pi-info-circle text-amber-500"></i>
-                  <span>
-                    Knockout bracket requires 2 proceeders per group (2 groups → Semi-Final 1, Semi-Final 2, then Final).
-                    Use Select Proceeders on each group after group matches, or set Number of Proceeders to 2 before Generate Schedule.
-                  </span>
-                </p>
-              )}
+              {isGroupKnockout && (() => {
+                const totalProceeders = generatedGroups.reduce((acc, g) => acc + (Number(g.proceeders) || 0), 0);
+                const isPowerOfTwo = totalProceeders > 1 && (totalProceeders & (totalProceeders - 1)) === 0;
+
+                return (
+                  <div className="space-y-1">
+                    <p className="text-xs text-[#6b7094] flex items-center gap-1">
+                      <i className="pi pi-info-circle text-indigo-500"></i>
+                      <span>
+                        BYE matches are restricted to group stage only. Knockout bracket contains 100% real matches.
+                      </span>
+                    </p>
+                    {totalProceeders > 1 && !isPowerOfTwo && (
+                      <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                        <i className="pi pi-exclamation-triangle text-amber-600 shrink-0 mt-0.5"></i>
+                        <span>
+                          <strong>Odd proceeders note:</strong> With {totalProceeders} total proceeders, top seeds receive a direct pass into subsequent rounds without dummy BYE fixtures. For every team to play in round 1, configure a power-of-2 number of proceeders (e.g., 2, 4, 8, 16).
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {playoffViewMode === 'bracket' ? (
                 (() => {

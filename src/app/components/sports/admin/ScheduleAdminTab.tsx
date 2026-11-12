@@ -209,8 +209,19 @@ export function ScheduleAdminTab() {
                 ) : (() => {
                   const activeStage = stageFilters[cfg.id] || 'ALL';
 
+                  // BYE matches are strictly forbidden in playoff stages (only valid in group stage)
+                  const validCfgMatches = cfgMatches.filter(m => {
+                    const s = getMatchStage(m);
+                    if (s !== 'GROUP') {
+                      const team1 = m.teamAName || m.homeName;
+                      const team2 = m.teamBName || m.awayName;
+                      if (team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED') return false;
+                    }
+                    return true;
+                  });
+
                   const stageCounts: Record<TournamentStageKey, number> = {
-                    ALL: cfgMatches.length,
+                    ALL: validCfgMatches.length,
                     GROUP: 0,
                     ROUND_OF_16: 0,
                     QUARTER_FINAL: 0,
@@ -219,7 +230,7 @@ export function ScheduleAdminTab() {
                     THIRD_PLACE: 0,
                   };
 
-                  cfgMatches.forEach(m => {
+                  validCfgMatches.forEach(m => {
                     const s = getMatchStage(m);
                     stageCounts[s] = (stageCounts[s] || 0) + 1;
                   });
@@ -236,8 +247,8 @@ export function ScheduleAdminTab() {
                   ];
 
                   const displayedMatches = activeStage === 'ALL'
-                    ? cfgMatches
-                    : cfgMatches.filter(m => {
+                    ? validCfgMatches
+                    : validCfgMatches.filter(m => {
                         const s = getMatchStage(m);
                         if (activeStage === 'FINAL') return s === 'FINAL' || s === 'THIRD_PLACE';
                         return s === activeStage;

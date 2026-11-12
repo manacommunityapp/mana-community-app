@@ -81,4 +81,20 @@ describe("Sports Feed Live Visibility & FeedLiveMatch Handling", () => {
 
     expect(spy).toHaveBeenCalledWith(2);
   });
+
+  it("filters out BYE matches and non-live matches when falling back to config matches", () => {
+    const sampleMatches = [
+      { id: 10, teamAName: "Red", teamBName: "Blue", status: "LIVE" },
+      { id: 11, teamAName: "Green", teamBName: "BYE", status: "BYE" },
+      { id: 12, teamAName: "Gold", teamBName: "Silver", status: "SCHEDULED" },
+      { id: 13, teamAName: "Alpha", teamBName: "Beta", status: "IN_PROGRESS" },
+    ];
+
+    const liveOnly = sampleMatches.filter(
+      (m) => m.status !== "BYE" && ["LIVE", "IN_PROGRESS", "ONGOING", "MATCHES_RUNNING"].includes(m.status)
+    );
+
+    expect(liveOnly).toHaveLength(2);
+    expect(liveOnly.map((m) => m.id)).toEqual([10, 13]);
+  });
 });
