@@ -764,7 +764,16 @@ export function TournamentScheduler() {
           }
           return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
             name,
-            matches: rMatches.map((m, idx) => {
+            matches: rMatches
+              .filter(m => {
+                const stageKey = getMatchStage(m);
+                if (stageKey !== 'GROUP') {
+                  const { team1, team2 } = extractTeamNames(m);
+                  if (team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED') return false;
+                }
+                return true;
+              })
+              .map((m, idx) => {
               const { team1, team2 } = extractTeamNames(m);
               const { team1Flat, team2Flat } = extractFlatDetails(m);
               const { date, time } = extractDateTime(m);
@@ -809,7 +818,9 @@ export function TournamentScheduler() {
         const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
           .filter(m => {
             const stageKey = getMatchStage(m);
-            return stageKey !== 'GROUP';
+            if (stageKey === 'GROUP') return false;
+            const { team1, team2 } = extractTeamNames(m);
+            return team1 !== 'BYE' && team2 !== 'BYE' && m.status !== 'AUTO_ADVANCED';
           })
           .map((m, idx) => {
             const { team1, team2 } = extractTeamNames(m);

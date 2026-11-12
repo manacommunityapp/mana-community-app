@@ -172,6 +172,63 @@ export function collectPlayoffPlaceholderOptions(matches: PlayoffMatchDraft[]): 
   return list;
 }
 
+/**
+ * Returns true if a participant is a dummy BYE slot.
+ * BYE matches are strictly forbidden in playoff / knockout brackets.
+ */
+export function isByeParticipant(participant?: PlayoffParticipantRef | null): boolean {
+  if (!participant) return false;
+  const name = participant.name?.trim().toUpperCase();
+  const id = participant.id?.trim().toLowerCase();
+  return id === 'bye' || name === 'BYE';
+}
+
+/**
+ * Strips any dummy BYE / AUTO_ADVANCED matches from a playoff match list,
+ * resolving any downstream winner-references directly to the non-BYE participant.
+ */
+export function sanitizePlayoffMatches(matches: PlayoffMatchDraft[]): PlayoffMatchDraft[] {
+  if (!matches || matches.length === 0) return [];
+
+  const autoAdvancedWinners = new Map<string, PlayoffParticipantRef>();
+
+  for (const m of matches) {
+    const homeIsBye = isByeParticipant(m.home);
+    const awayIsBye = isByeParticipant(m.away);
+    const isAutoAdv = m.status === 'AUTO_ADVANCED' || homeIsBye || awayIsBye;
+
+    if (isAutoAdv) {
+      const advanced = homeIsBye ? m.away : m.home;
+      if (advanced && !isByeParticipant(advanced)) {
+        autoAdvancedWinners.set(m.id, advanced);
+        autoAdvancedWinners.set(`${m.id}-winner`, advanced);
+      }
+    }
+  }
+
+  const realMatches = matches.filter(m => {
+    const homeIsBye = isByeParticipant(m.home);
+    const awayIsBye = isByeParticipant(m.away);
+    return !homeIsBye && !awayIsBye && m.status !== 'AUTO_ADVANCED';
+  });
+
+  if (autoAdvancedWinners.size === 0) {
+    return realMatches;
+  }
+
+  return realMatches.map(m => {
+    let home = m.home;
+    let away = m.away;
+    if (home && autoAdvancedWinners.has(home.id)) {
+      home = autoAdvancedWinners.get(home.id)!;
+    }
+    if (away && autoAdvancedWinners.has(away.id)) {
+      away = autoAdvancedWinners.get(away.id)!;
+    }
+    return { ...m, home, away };
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // RESILIENT CLIENT-SIDE BRACKET GENERATION (Fallback engine)
 // ═══════════════════════════════════════════════════════════════════════
@@ -512,7 +569,9 @@ function buildTwoGroupTwoProceederBracket(input: PlayoffScheduleInput): PlayoffM
 }
 
 function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraft[] {
-  const players = input.participants || [];
+  const rawPlayers = input.participants || [];
+  // Exclude any BYE dummy participants. Playoff brackets strictly prohibit BYE matches.
+  const players = rawPlayers.filter(p => !isByeParticipant(p));
   const n = players.length;
   if (n < 2) return [];
 
@@ -551,8 +610,58 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
   };
 
   const matches: PlayoffMatchDraft[] = [];
-  let currentRoundParticipants: PlayoffParticipantRef[] = [...seeds];
+  const numByes = power - n;
+  let currentRoundParticipants: PlayoffParticipantRef[] = [];
   let roundIndex = 0;
+
+  if (numByes > 0) {
+    // When team count is not a power of 2, top-seeded teams advance directly to Round 2
+    // without any dummy BYE match created in Round 1.
+    const round1Byes = seeds.slice(0, numByes);
+    const round1Players = seeds.slice(numByes);
+
+    const roundType = roundTypeForTeamCount(power, roundIndex, totalRounds);
+    anchorRound(roundType);
+    const numMatchesInRound = Math.floor(round1Players.length / 2);
+    const round1Winners: PlayoffParticipantRef[] = [];
+
+    for (let m = 0; m < numMatchesInRound; m++) {
+      const home = round1Players[2 * m];
+      const away = round1Players[2 * m + 1];
+      const name = roundType === 'FINAL' ? 'Final' : roundLabel(roundType, m);
+      const id = roundType === 'FINAL' ? 'playoff-final' : `playoff-r${roundIndex}-m${m}`;
+      const { date, time } = scheduleSlot();
+
+      matches.push({
+        id,
+        name,
+        round: roundType,
+        roundIndex,
+        home,
+        away,
+        date,
+        time,
+        duration: input.matchDurationMinutes,
+        venueId: input.venueId,
+        courtId: getCourtId(roundType),
+        moveSubsMatches: false,
+      });
+
+      round1Winners.push(winnerRef(id, name));
+    }
+
+    // Interleave bye recipients and round 1 winners into round 2
+    const nextRound: PlayoffParticipantRef[] = [];
+    const maxLen = Math.max(round1Byes.length, round1Winners.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (i < round1Byes.length) nextRound.push(round1Byes[i]);
+      if (i < round1Winners.length) nextRound.push(round1Winners[i]);
+    }
+    currentRoundParticipants = nextRound;
+    roundIndex++;
+  } else {
+    currentRoundParticipants = [...seeds];
+  }
 
   while (currentRoundParticipants.length > 1) {
     const roundType = roundTypeForTeamCount(power, roundIndex, totalRounds);
@@ -585,10 +694,6 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
       nextRoundParticipants.push(winnerRef(id, name));
     }
 
-    if (currentRoundParticipants.length % 2 !== 0) {
-      nextRoundParticipants.push(currentRoundParticipants[currentRoundParticipants.length - 1]);
-    }
-
     currentRoundParticipants = nextRoundParticipants;
     roundIndex++;
   }
@@ -615,138 +720,27 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
     }
   }
 
-  return matches;
+  return sanitizePlayoffMatches(matches);
 }
 
 export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDraft[] {
+  let matches: PlayoffMatchDraft[] = [];
+
   if (input.participants && input.participants.length >= 2) {
-    return buildKnockoutFromPlayers(input);
-  }
+    matches = buildKnockoutFromPlayers(input);
+  } else if (input.numGroups === 2 && input.proceedersPerGroup === 2) {
+    matches = buildTwoGroupTwoProceederBracket(input);
+  } else {
+    const slots = buildProceederSlots(input.numGroups, input.proceedersPerGroup);
+    const teamCount = slots.length;
+    if (teamCount < 2) return [];
 
-  if (input.numGroups === 2 && input.proceedersPerGroup === 2) {
-    return buildTwoGroupTwoProceederBracket(input);
-  }
-
-  const slots = buildProceederSlots(input.numGroups, input.proceedersPerGroup);
-  const teamCount = slots.length;
-  if (teamCount < 2) return [];
-
-  const firstRoundPairs = buildFirstRoundPairings(slots, input.seedingOrder, input.numGroups);
-  const totalRounds = Math.max(1, Math.ceil(Math.log2(teamCount)));
-  const matches: PlayoffMatchDraft[] = [];
-
-  let pending = firstRoundPairs.map(([home, away]) => ({
-    home: toSlotParticipant(home),
-    away: toSlotParticipant(away),
-  }));
-
-  let roundIndex = 0;
-  const scheduleSlot = createScheduleCursor(
-    input.startDate,
-    input.startTime,
-    input.matchDurationMinutes,
-    input.breakMinutes,
-    input.breaks,
-    input.endTime,
-    input.matchDays
-  );
-
-  const anchorRound = (roundName: string) => {
-    if (input.roundTimings && input.roundTimings[roundName]) {
-      const timing = input.roundTimings[roundName];
-      scheduleSlot.anchor(timing.date, timing.startTime);
-    }
-  };
-
-  const getCourtId = (roundName: string) => {
-    if (input.roundTimings?.[roundName]?.courtIds?.length) {
-      return String(input.roundTimings[roundName].courtIds![0]);
-    }
-    return input.courtId ? String(input.courtId) : null;
-  };
-
-  while (pending.length > 1) {
-    const roundType = roundTypeForTeamCount(teamCount, roundIndex, totalRounds);
-    anchorRound(roundType);
-    const winners: PlayoffParticipantRef[] = [];
-
-    pending.forEach((pair, matchIdx) => {
-      const name = roundLabel(roundType, matchIdx);
-      const id = `playoff-r${roundIndex}-m${matchIdx}`;
-      const { date, time } = scheduleSlot();
-
-      matches.push({
-        id,
-        name,
-        round: roundType,
-        roundIndex,
-        home: pair.home,
-        away: pair.away,
-        date,
-        time,
-        duration: input.matchDurationMinutes,
-        venueId: input.venueId,
-        courtId: getCourtId(roundType),
-        moveSubsMatches: false,
-      });
-
-      winners.push(winnerRef(id, name));
-    });
-
-    const nextPending: Array<{ home: PlayoffParticipantRef; away: PlayoffParticipantRef }> = [];
-    for (let i = 0; i < winners.length; i += 2) {
-      if (i + 1 < winners.length) {
-        nextPending.push({ home: winners[i], away: winners[i + 1] });
-      }
-    }
-
-    pending = nextPending;
-    roundIndex++;
-  }
-
-  if (pending.length === 1) {
-    anchorRound('FINAL');
-    const pair = pending[0];
-    const name = 'Final';
-    const id = 'playoff-final';
-    const { date, time } = scheduleSlot();
-    matches.push({
-      id,
-      name,
-      round: 'FINAL',
-      roundIndex,
-      home: pair.home,
-      away: pair.away,
-      date,
-      time,
-      duration: input.matchDurationMinutes,
-      venueId: input.venueId,
-      courtId: getCourtId('FINAL'),
-      moveSubsMatches: false,
+    const slotParticipants: PlayoffParticipantRef[] = slots.map(toSlotParticipant);
+    matches = buildKnockoutFromPlayers({
+      ...input,
+      participants: slotParticipants.map(s => ({ id: s.id, name: s.name, flatNumber: null })),
     });
   }
 
-  if (input.thirdPlaceMatch) {
-    anchorRound('THIRD_PLACE');
-    const semiMatches = matches.filter(m => m.round === 'SEMI_FINAL');
-    if (semiMatches.length >= 2) {
-      const { date, time } = scheduleSlot();
-      matches.push({
-        id: 'playoff-third-place',
-        name: 'Third Place',
-        round: 'THIRD_PLACE',
-        roundIndex,
-        home: loserRef(semiMatches[0].id, semiMatches[0].name),
-        away: loserRef(semiMatches[1].id, semiMatches[1].name),
-        date,
-        time,
-        duration: input.matchDurationMinutes,
-        venueId: input.venueId,
-        courtId: getCourtId('THIRD_PLACE'),
-        moveSubsMatches: false,
-      });
-    }
-  }
-
-  return matches;
+  return sanitizePlayoffMatches(matches);
 }

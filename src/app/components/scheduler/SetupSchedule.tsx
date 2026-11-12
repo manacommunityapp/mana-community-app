@@ -43,6 +43,8 @@ import {
   addMinutesToTime,
   parseBreakMinutes,
   buildPlayoffBracket,
+  isByeParticipant,
+  sanitizePlayoffMatches,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
 import {
@@ -1959,13 +1961,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     try {
       const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
       if (draft && Array.isArray(draft) && draft.length > 0) {
-        setPlayoffDraft(draft);
-        return draft;
+        const sanitized = sanitizePlayoffMatches(draft);
+        setPlayoffDraft(sanitized);
+        return sanitized;
       }
     } catch (err: any) {
       console.warn('[fetchPlayoffDraft] Server playoff generation failed, using client-side bracket fallback:', err);
     }
-    const localDraft = buildPlayoffBracket(buildPlayoffInput());
+    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(buildPlayoffInput()));
     setPlayoffDraft(localDraft);
     return localDraft;
   };
@@ -1976,7 +1979,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * Pass `draftOverride` to use a freshly-fetched draft before React state updates.
    */
   const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
-    let matches = draftOverride ?? playoffDraft;
+    let matches = sanitizePlayoffMatches(draftOverride ?? playoffDraft);
 
     const enrichFlats = (list: PlayoffMatchDraft[]) => {
       return list.map(m => {
@@ -2126,7 +2129,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // Collect playoff matches if generated
     if (playoffsGenerated || playoffOverride) {
       const playoffMatches = getPlayoffMatches(playoffOverride);
-      playoffMatches.forEach((match: any, idx: number) => {
+      // Strictly exclude any BYE or AUTO_ADVANCED matches from playoffs
+      const realPlayoffMatches = playoffMatches.filter(m =>
+        !isByeParticipant(m.home) && !isByeParticipant(m.away) && m.status !== 'AUTO_ADVANCED'
+      );
+      realPlayoffMatches.forEach((match: any, idx: number) => {
         const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
         const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
         allMatches.push({
@@ -4760,15 +4767,29 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   </div>
                 </div>
               </div>
-              {isGroupKnockout && (
-                <p className="text-xs text-[#6b7094] flex items-center gap-1">
-                  <i className="pi pi-info-circle text-amber-500"></i>
-                  <span>
-                    Knockout bracket requires 2 proceeders per group (2 groups → Semi-Final 1, Semi-Final 2, then Final).
-                    Use Select Proceeders on each group after group matches, or set Number of Proceeders to 2 before Generate Schedule.
-                  </span>
-                </p>
-              )}
+              {isGroupKnockout && (() => {
+                const totalProceeders = generatedGroups.reduce((acc, g) => acc + (Number(g.proceeders) || 0), 0);
+                const isPowerOfTwo = totalProceeders > 1 && (totalProceeders & (totalProceeders - 1)) === 0;
+
+                return (
+                  <div className="space-y-1">
+                    <p className="text-xs text-[#6b7094] flex items-center gap-1">
+                      <i className="pi pi-info-circle text-indigo-500"></i>
+                      <span>
+                        BYE matches are restricted to group stage only. Knockout bracket contains 100% real matches.
+                      </span>
+                    </p>
+                    {totalProceeders > 1 && !isPowerOfTwo && (
+                      <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                        <i className="pi pi-exclamation-triangle text-amber-600 shrink-0 mt-0.5"></i>
+                        <span>
+                          <strong>Odd proceeders note:</strong> With {totalProceeders} total proceeders, top seeds receive a direct pass into subsequent rounds without dummy BYE fixtures. For every team to play in round 1, configure a power-of-2 number of proceeders (e.g., 2, 4, 8, 16).
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {playoffViewMode === 'bracket' ? (
                 (() => {

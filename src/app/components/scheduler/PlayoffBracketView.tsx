@@ -1,4 +1,5 @@
 import { Pencil, MapPin, Download } from 'lucide-react';
+import { isByeParticipant } from './playoffSchedule';
 import type { PlayoffMatchDraft, PlayoffParticipantRef } from './playoffSchedule';
 import './PlayoffBracketView.css';
 
@@ -44,10 +45,6 @@ function isPlaceholder(id: string, name: string): boolean {
     /\b(winner|loser)\b/i.test(name) ||
     /group\s+\d+/i.test(name)
   );
-}
-
-function isByeParticipant(participant: PlayoffParticipantRef): boolean {
-  return participant.id === 'bye' || participant.name === 'BYE';
 }
 
 function ParticipantRow({ participant }: { participant: PlayoffParticipantRef }) {

@@ -130,4 +130,68 @@ describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
     expect(thirdPlaceMatch?.date).toBe('2026-06-28');
     expect(thirdPlaceMatch?.time).toBe('02:00 PM');
   });
+
+  it('guarantees playoffs have zero BYE matches when given odd participant count', () => {
+    // 5 players entered into single elimination knockout
+    const matches = buildPlayoffBracket({
+      numGroups: 1,
+      proceedersPerGroup: 5,
+      seedingOrder: 'TRADITIONAL',
+      thirdPlaceMatch: false,
+      startDate: '2026-06-20',
+      startTime: '08:00 AM',
+      matchDurationMinutes: 30,
+      breakMinutes: 10,
+      venueId: null,
+      courtId: null,
+      participants: [
+        { id: 'p1', name: 'Player 1', flatNumber: null },
+        { id: 'p2', name: 'Player 2', flatNumber: null },
+        { id: 'p3', name: 'Player 3', flatNumber: null },
+        { id: 'p4', name: 'Player 4', flatNumber: null },
+        { id: 'p5', name: 'Player 5', flatNumber: null },
+      ],
+    });
+
+    // For 5 players in single elimination without 3rd place, total matches = 5 - 1 = 4
+    expect(matches).toHaveLength(4);
+
+    // Verify absolutely no match has BYE home/away or AUTO_ADVANCED status
+    for (const m of matches) {
+      expect(m.home.name).not.toBe('BYE');
+      expect(m.home.id).not.toBe('bye');
+      expect(m.away.name).not.toBe('BYE');
+      expect(m.away.id).not.toBe('bye');
+      expect(m.status).not.toBe('AUTO_ADVANCED');
+    }
+  });
+
+  it('filters out any BYE participants passed in input seeds', () => {
+    const matches = buildPlayoffBracket({
+      numGroups: 1,
+      proceedersPerGroup: 4,
+      seedingOrder: 'TRADITIONAL',
+      thirdPlaceMatch: false,
+      startDate: '2026-06-20',
+      startTime: '08:00 AM',
+      matchDurationMinutes: 30,
+      breakMinutes: 10,
+      venueId: null,
+      courtId: null,
+      participants: [
+        { id: 'p1', name: 'Player 1', flatNumber: null },
+        { id: 'p2', name: 'Player 2', flatNumber: null },
+        { id: 'p3', name: 'Player 3', flatNumber: null },
+        { id: 'bye', name: 'BYE', flatNumber: null },
+      ],
+    });
+
+    // 3 real players -> 2 matches (Semi-Final + Final)
+    expect(matches).toHaveLength(2);
+    for (const m of matches) {
+      expect(m.home.name).not.toBe('BYE');
+      expect(m.away.name).not.toBe('BYE');
+    }
+  });
 });
+

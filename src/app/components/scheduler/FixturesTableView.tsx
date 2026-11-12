@@ -65,16 +65,27 @@ export function FixturesTableView({
   const [stageFilter, setStageFilter] = useState<'ALL' | 'GROUP' | 'PLAYOFF' | 'CONFLICTS'>('ALL');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
+  // Strictly exclude any BYE matches from playoffs (BYEs are only permitted in group stage)
+  const sanitizedFixtures = useMemo(() => {
+    return fixtures.filter(f => {
+      if (f.isPlayoff) {
+        const isBye = f.home.id === 'bye' || f.away.id === 'bye' || f.home.name === 'BYE' || f.away.name === 'BYE';
+        if (isBye) return false;
+      }
+      return true;
+    });
+  }, [fixtures]);
+
   // Group stats
-  const totalCount = fixtures.length;
-  const groupCount = useMemo(() => fixtures.filter(f => !f.isPlayoff).length, [fixtures]);
-  const playoffCount = useMemo(() => fixtures.filter(f => f.isPlayoff).length, [fixtures]);
-  const conflictCount = useMemo(() => fixtures.filter(f => f.conflicts && f.conflicts.length > 0).length, [fixtures]);
-  const uniqueDatesCount = useMemo(() => new Set(fixtures.map(f => f.date).filter(Boolean)).size, [fixtures]);
+  const totalCount = sanitizedFixtures.length;
+  const groupCount = useMemo(() => sanitizedFixtures.filter(f => !f.isPlayoff).length, [sanitizedFixtures]);
+  const playoffCount = useMemo(() => sanitizedFixtures.filter(f => f.isPlayoff).length, [sanitizedFixtures]);
+  const conflictCount = useMemo(() => sanitizedFixtures.filter(f => f.conflicts && f.conflicts.length > 0).length, [sanitizedFixtures]);
+  const uniqueDatesCount = useMemo(() => new Set(sanitizedFixtures.map(f => f.date).filter(Boolean)).size, [sanitizedFixtures]);
 
   // Filtered fixtures
   const filteredFixtures = useMemo(() => {
-    return fixtures.filter(f => {
+    return sanitizedFixtures.filter(f => {
       // Stage filter
       if (stageFilter === 'GROUP' && f.isPlayoff) return false;
       if (stageFilter === 'PLAYOFF' && !f.isPlayoff) return false;
