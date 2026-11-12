@@ -181,7 +181,7 @@ export function collectPlayoffPlaceholderOptions(matches: PlayoffMatchDraft[]): 
  * Returns true if a participant is a dummy BYE slot.
  * BYE matches are strictly forbidden in playoff / knockout brackets.
  */
-export function isByeParticipant(participant?: PlayoffParticipantRef | null): boolean {
+export function isByeParticipant(participant?: { id?: string | null; name?: string | null } | null): boolean {
   if (!participant) return false;
   const name = participant.name?.trim().toUpperCase();
   const id = participant.id?.trim().toLowerCase();
