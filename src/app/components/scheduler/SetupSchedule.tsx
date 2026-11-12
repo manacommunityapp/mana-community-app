@@ -796,12 +796,20 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       });
       setEvents(enrichedEvents);
 
-      // Collect unique tournaments from dropdown API and enriched events
+      // Collect unique tournaments from dropdown API and enriched events.
+      // Only include tournaments that have at least one REGISTRATION_CLOSED event.
+      const closedEnrichedEvents = enrichedEvents.filter(ev => {
+        const st = String(ev.status || '').toUpperCase().trim();
+        return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+      });
+      const closedTournamentIds = new Set(
+        closedEnrichedEvents.map(ev => ev.tournamentId).filter(Boolean)
+      );
       const tournsMap = new Map<number, TournamentDropdownItem>();
       (tournList || []).forEach(tr => {
-        if (tr.id) tournsMap.set(tr.id, tr);
+        if (tr.id && closedTournamentIds.has(tr.id)) tournsMap.set(tr.id, tr);
       });
-      enrichedEvents.forEach(ev => {
+      closedEnrichedEvents.forEach(ev => {
         if (ev.tournamentId && !tournsMap.has(ev.tournamentId)) {
           tournsMap.set(ev.tournamentId, {
             id: ev.tournamentId,
@@ -900,19 +908,28 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return `${e.name} — ${fmt}${sportPart}`;
   };
 
+  /** Returns true if an event's registration is closed (ready for scheduling). */
+  const isRegClosed = (e: EventInfo): boolean => {
+    const st = String(e.status || '').toUpperCase().trim();
+    return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+  };
+
+  /** Events whose registration is closed — used as the base for all filter dropdowns. */
+  const closedEvents = useMemo(() => events.filter(isRegClosed), [events]);
+
   const availableSports = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       if (e.sportName && e.sportName.trim()) {
         set.add(e.sportName.trim());
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [events]);
+  }, [closedEvents]);
 
   const availableGenders = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       set.add(formatGender(e.gender));
     });
     if (set.size === 0) {
@@ -927,11 +944,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const availableAges = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       set.add(formatAgeCategory(e));
     });
     return Array.from(set).sort((a, b) => {
@@ -939,11 +956,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (b === 'All Ages / Open') return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const availableFormats = useMemo(() => {
     const set = new Set<string>();
-    events.forEach(e => {
+    closedEvents.forEach(e => {
       const fmt = formatParticipantFormat(e);
       if (fmt) {
         if (fmt.includes(' / ')) {
@@ -965,10 +982,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [events]);
+  }, [closedEvents]);
 
   const filteredEvents = useMemo(() => {
-    return events.filter(e => {
+    // Base: only events with registration closed (participants finalised → ready to schedule)
+    return closedEvents.filter(e => {
       if (selectedTournamentFilter) {
         if (selectedTournamentFilter === '__none__') {
           if (e.tournamentId) return false;
@@ -992,7 +1010,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
       return true;
     });
-  }, [events, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
+  }, [closedEvents, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
 
   const handleTournamentFilterChange = (tournId: string) => {
     setSelectedTournamentFilter(tournId);
@@ -2887,9 +2905,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
           </div>
 
-          {filteredEvents.length === 0 && events.length > 0 && (
+          {filteredEvents.length === 0 && closedEvents.length > 0 && (
             <p className="mt-2.5 text-xs text-amber-600">
-              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {events.length} events.
+              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {closedEvents.length} registration-closed events.
+            </p>
+          )}
+          {closedEvents.length === 0 && events.length > 0 && (
+            <p className="mt-2.5 text-xs text-amber-600">
+              No events with closed registration found. Only events where registration is closed appear here — close registration for an event first, then return to set up its schedule.
             </p>
           )}
 
