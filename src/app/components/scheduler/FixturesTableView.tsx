@@ -109,11 +109,11 @@ export function FixturesTableView({
   return (
     <div className="flex flex-col gap-4 bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-sm">
       {/* Top Header Strip */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div>
-          <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
             <span>Tournament Fixtures Table</span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
               {totalCount} Matches
             </span>
           </h3>
@@ -123,7 +123,7 @@ export function FixturesTableView({
         </div>
 
         {/* Quick Export Actions */}
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
           {conflictCount > 0 ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />

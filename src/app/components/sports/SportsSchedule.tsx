@@ -2226,12 +2226,12 @@ export function SportsSchedule() {
 
                   {/* Actions Row */}
                   {isAdmin && (
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
                         {fixture.status === "SCHEDULED" && (
                           <button
                             onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
                             Go Live
@@ -2250,7 +2250,7 @@ export function SportsSchedule() {
                                   setShowScoreModal(true);
                                 }
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                               title="Record live points, sets, or match scores"
                             >
                               <Activity className="w-3 h-3" />
@@ -2263,7 +2263,7 @@ export function SportsSchedule() {
                                 setFixtureScore2(fixture.score2 || "");
                                 setShowScoreModal(true);
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                             >
                               <Trophy className="w-3 h-3" />
                               End Match
@@ -2271,12 +2271,12 @@ export function SportsSchedule() {
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0">
                         {fixture.matchId && (
                           <button
                             onClick={() => handleFixtureDelete(fixture.id)}
                             aria-label={`Delete ${fixture.name}`}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2301,13 +2301,13 @@ export function SportsSchedule() {
           {showScoreModal && scoringFixtureId !== null && (() => {
             const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
             return (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-              <div className="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-[95vw] sm:max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-slate-100 mb-4">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-fade-in">
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-100 mb-4 pb-2">
                   <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Update Match Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
-                    className="text-slate-400 hover:text-slate-600"
+                    className="text-slate-400 hover:text-slate-600 p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -2330,9 +2330,9 @@ export function SportsSchedule() {
                 </div>
 
                 {/* Scores */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
                   <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">
                       {scoringFixture?.team1}
                     </label>
                     <input type="text" placeholder="0" value={fixtureScore1}
@@ -2341,7 +2341,7 @@ export function SportsSchedule() {
                     />
                   </div>
                   <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">
                       {scoringFixture?.team2}
                     </label>
                     <input type="text" placeholder="0" value={fixtureScore2}
@@ -2355,14 +2355,14 @@ export function SportsSchedule() {
                 {scoreResultType === "WIN" && (
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Winner</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <button type="button"
                         onClick={() => {
                           if (scoringFixture?.teamAId) setScoreWinnerId(scoringFixture.teamAId);
                           setScoreWinnerSide("A");
                           setScoreWinnerName(scoringFixture?.team1 || "Team A");
                         }}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                        className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "A" || (scoringFixture?.teamAId && scoreWinnerId === scoringFixture.teamAId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
@@ -2375,7 +2375,7 @@ export function SportsSchedule() {
                           setScoreWinnerSide("B");
                           setScoreWinnerName(scoringFixture?.team2 || "Team B");
                         }}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                        className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "B" || (scoringFixture?.teamBId && scoreWinnerId === scoringFixture.teamBId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
@@ -2395,17 +2395,17 @@ export function SportsSchedule() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-3 border-t border-slate-100">
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
-                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleScoreUpdateSubmit}
                     disabled={scoreSaving || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide)}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50"
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50 cursor-pointer"
                   >
                     {scoreSaving ? "Saving..." : "Complete & Save"}
                   </button>
