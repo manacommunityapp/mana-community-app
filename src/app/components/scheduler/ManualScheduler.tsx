@@ -27,6 +27,9 @@ interface TeamItem {
   group: string;
   color: string;
   flatNumber?: string;
+  seed?: number;
+  rank?: number;
+  rating?: number | null;
 }
 
 interface MatchItem {
@@ -333,11 +336,16 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       if (teamsRes.status === 'fulfilled' && Array.isArray(teamsRes.value) && teamsRes.value.length > 0) {
         loadedTeams = teamsRes.value.map((t, idx) => {
           const tid = String(t.id || t.teamId || idx + 1);
+          const seed = t.seed || (t as any).rank || (t as any).seedRank || idx + 1;
+          const rating = (t as any).rating != null ? Number((t as any).rating) : null;
           return {
             id: tid,
             name: t.name || t.teamName || `Team ${idx + 1}`,
             group: teamGroupMap[tid] || t.group || t.groupId || 'UNASSIGNED',
             color: t.colorHex || TEAM_COLORS[idx % TEAM_COLORS.length],
+            seed,
+            rank: (t as any).rank,
+            rating,
           };
         });
       } else if (activeCfg?.eventId) {
@@ -363,6 +371,13 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
             pairs.push(r);
           }
 
+          // Sort pairs by seed, rating, or rank if available
+          pairs.sort((a, b) => {
+            const seedA = (a as any).seed ?? (a as any).rank ?? (a.rating != null ? 10000 - a.rating : 9999);
+            const seedB = (b as any).seed ?? (b as any).rank ?? (b.rating != null ? 10000 - b.rating : 9999);
+            return seedA - seedB;
+          });
+
           loadedTeams = pairs.map((r, idx) => {
             const partnerInfo = getPartnerDetails(r as any, confirmed as any);
             let tName = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
@@ -384,12 +399,17 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
               tName = `${r.proposedTeamName.trim()} (${tName})`;
             }
             const tid = String(r.id);
+            const seed = (r as any).seed || (r as any).rank || idx + 1;
+            const rating = (r as any).rating != null ? Number((r as any).rating) : null;
             return {
               id: tid,
               name: tName,
               group: teamGroupMap[tid] || 'UNASSIGNED',
               color: TEAM_COLORS[idx % TEAM_COLORS.length],
               flatNumber: flatDisplay,
+              seed,
+              rank: (r as any).rank,
+              rating,
             };
           });
         } catch (err) {
@@ -537,10 +557,15 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
 
   const handleSnakeDraw = () => {
     if (availableGroups.length === 0 || teams.length === 0) return;
-    const shuffled = [...teams];
+    const sorted = [...teams].sort((a, b) => {
+      const seedA = a.seed ?? (a as any).rank ?? (a.rating != null ? 10000 - a.rating : 9999);
+      const seedB = b.seed ?? (b as any).rank ?? (b.rating != null ? 10000 - b.rating : 9999);
+      if (seedA !== seedB) return seedA - seedB;
+      return a.name.localeCompare(b.name);
+    });
     const groupCount = availableGroups.length;
 
-    const updated = shuffled.map((team, idx) => {
+    const updated = sorted.map((team, idx) => {
       const cycle = Math.floor(idx / groupCount);
       const pos = idx % groupCount;
       // Reverse in odd cycles for snake draft: 0,1, 1,0, 0,1...
@@ -733,11 +758,50 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
       const grpTeams = teams.filter(t => t.group === grp);
       if (grpTeams.length < 2) continue;
 
-      // Pairwise combinations (round-robin: each plays each other once)
-      for (let i = 0; i < grpTeams.length; i++) {
-        for (let j = i + 1; j < grpTeams.length; j++) {
-          const homeT = grpTeams[i];
-          const awayT = grpTeams[j];
+      // Sort teams by seed / rank / rating so Seed 1 is index 0 and Seed 2 is index 1
+      const sortedGrpTeams = [...grpTeams].sort((a, b) => {
+        const seedA = a.seed ?? (a as any).rank ?? (a.rating != null ? 10000 - a.rating : 9999);
+        const seedB = b.seed ?? (b as any).rank ?? (b.rating != null ? 10000 - b.rating : 9999);
+        if (seedA !== seedB) return seedA - seedB;
+        return a.name.localeCompare(b.name);
+      });
+
+      // Berger Round-Robin: round-by-round rotation
+      const pool: (TeamItem | null)[] = [...sortedGrpTeams];
+      if (pool.length % 2 !== 0) pool.push(null); // BYE
+      const totalSlots = pool.length;
+      const numRounds = totalSlots - 1;
+
+      for (let r = 0; r < numRounds; r++) {
+        const roundPairs: [TeamItem, TeamItem][] = [];
+        for (let i = 0; i < totalSlots / 2; i++) {
+          let teamA = pool[i];
+          let teamB = pool[totalSlots - 1 - i];
+          if (!teamA || !teamB) continue; // BYE match skipped
+
+          if (r % 2 !== 0) {
+            const tmp = teamA;
+            teamA = teamB;
+            teamB = tmp;
+          }
+          roundPairs.push([teamA, teamB]);
+        }
+
+        // In the final round, ensure the match between Seed 1 and Seed 2 is the last match (climax)
+        if (r === numRounds - 1 && roundPairs.length > 1) {
+          const deciderIdx = roundPairs.findIndex(
+            ([tA, tB]) =>
+              (tA.id === sortedGrpTeams[0]?.id || tB.id === sortedGrpTeams[0]?.id) &&
+              (sortedGrpTeams[1] && (tA.id === sortedGrpTeams[1]?.id || tB.id === sortedGrpTeams[1]?.id))
+          );
+          if (deciderIdx >= 0) {
+            const decider = roundPairs.splice(deciderIdx, 1)[0];
+            roundPairs.push(decider);
+          }
+        }
+
+        // Schedule round pairs sequentially
+        for (const [homeT, awayT] of roundPairs) {
           const matchTimeStr = currentDateTime.toISOString().slice(0, 16);
 
           try {
@@ -779,6 +843,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
             // continue
           }
         }
+
+        // Rotate: keep pool[0] fixed, rotate rest clockwise
+        const last = pool.pop()!;
+        pool.splice(1, 0, last);
       }
     }
 
@@ -1874,6 +1942,11 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
         <div className="flex items-center gap-2.5 min-w-0">
           <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 shrink-0 transition-colors" />
           <div className="w-3 h-3 rounded-full shrink-0 shadow-xs" style={{ background: team.color }} />
+          {team.seed != null && (
+            <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 shrink-0">
+              #{team.seed}
+            </span>
+          )}
           <div className="flex flex-col min-w-0">
             <span className="font-semibold text-slate-800 text-xs truncate" title={team.name}>{team.name}</span>
             {team.flatNumber && <span className="text-[10px] text-slate-500 font-normal truncate">🏠 {team.flatNumber}</span>}

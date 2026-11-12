@@ -1482,7 +1482,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       return allParts;
     }
 
-    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, false);
+    // Sort by rating descending so Seed 1 (highest rated) → P1, Seed 2 → P2, etc.
+    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, false)
+      .slice()
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 
     for (let i = 0; i < count; i++) {
       if (customLines[i]) {
@@ -1530,9 +1533,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         maxMatches: '2',
       });
     }
+    // Serpentine (snake) seeding: Row 0 → A B C D, Row 1 → D C B A, etc.
+    // This keeps Seed 1 and Seed 2 in different groups.
     allParts.forEach((p, idx) => {
-      const groupIdx = idx % numGroups;
-      groups[groupIdx].participants.push(p);
+      const row = Math.floor(idx / numGroups);
+      const col = row % 2 === 0 ? (idx % numGroups) : (numGroups - 1 - (idx % numGroups));
+      groups[col].participants.push(p);
     });
     setGeneratedGroups(groups);
   };
