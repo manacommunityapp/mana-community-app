@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService } from "../../../services/sports/tournamentService";
@@ -9,6 +9,9 @@ import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../utils/sportsExportUtils";
+import { prepareExportableMatches } from "../sports/admin/ScheduleExportModal";
+import { getPlayerInitials } from "../sports/SportsSchedule";
 
 export function TournamentScheduler() {
   const { token, user } = useAuth() as any;
@@ -22,6 +25,8 @@ export function TournamentScheduler() {
   const [viewPlayers, setViewPlayers] = useState<EventRegistration[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState("");
+  const [viewDisplayMode, setViewDisplayMode] = useState<"visual" | "list" | "table">("visual");
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -427,6 +432,8 @@ export function TournamentScheduler() {
     setViewMatches([]);
     setViewPlayers([]);
     setViewError("");
+    setViewDisplayMode("visual");
+    setShowExportMenu(false);
     setViewLoading(true);
     const [matchesResult, playersResult] = await Promise.allSettled([
       tournamentService.getSavedMatchesByConfigId(config.id),
@@ -568,9 +575,43 @@ export function TournamentScheduler() {
             <div className="mt-1 text-sm font-semibold text-slate-800">{value || "Not set"}</div>
           </div>
         );
+        const handleExport = (formatType: "csv" | "excel" | "pdf") => {
+          if (viewMatches.length === 0) return;
+          const exportData = prepareExportableMatches(viewMatches, "ALL");
+          const title = `${viewingConfig.tournamentName || "Tournament"}_Schedule`;
+          if (formatType === "csv") exportScheduleToCSV(exportData, title);
+          else if (formatType === "excel") exportScheduleToExcel(exportData, title);
+          else if (formatType === "pdf") exportScheduleToPDF(exportData, viewingConfig.tournamentName || "Tournament Schedule");
+          showToast(`Exported ${exportData.length} matches as ${formatType.toUpperCase()}`);
+        };
+
+        // Prepare rounds for Bracket View
+        const bracketRounds = (() => {
+          if (!viewMatches || viewMatches.length === 0) return [];
+          const roundMap = new Map<string, any[]>();
+          for (const m of viewMatches) {
+            const rName = m.roundName || m.groupName || `Round ${m.roundNumber || 1}`;
+            if (!roundMap.has(rName)) roundMap.set(rName, []);
+            roundMap.get(rName)!.push(m);
+          }
+          return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
+            name,
+            matches: rMatches.map((m, idx) => ({
+              id: `M-${m.matchId || m.id || idx}`,
+              label: `${name} #${m.matchNumber || idx + 1}`,
+              date: m.scheduledAt ? String(m.scheduledAt).split("T")[0] : (m.matchDate || "—"),
+              time: m.scheduledAt ? String(m.scheduledAt).includes("T") ? String(m.scheduledAt).split("T")[1].slice(0, 5) : String(m.scheduledAt) : (m.matchTime || "—"),
+              p1: m.teamAName || m.homeName ? { initials: getPlayerInitials(m.teamAName || m.homeName), fullName: m.teamAName || m.homeName, flatNumber: m.teamAFlat } : null,
+              p2: m.teamBName || m.awayName ? { initials: getPlayerInitials(m.teamBName || m.awayName), fullName: m.teamBName || m.awayName, flatNumber: m.teamBFlat } : null,
+              venue: { initials: (m.venueName || venue?.name || "TBD").slice(0, 3).toUpperCase(), name: m.venueName || venue?.name || "Main Arena" },
+              isBye: !m.teamAName || !m.teamBName,
+            })),
+          }));
+        })();
+
         return (
           <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 sm:px-6">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Calendar className="h-5 w-5" /></div>
@@ -582,106 +623,364 @@ export function TournamentScheduler() {
                 </div>
                 <button onClick={() => setViewingConfig(null)} aria-label="Close schedule details" className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"><X className="h-4 w-4" /></button>
               </header>
-              <div className="max-h-[min(70vh,620px)] space-y-4 overflow-y-auto p-4 sm:p-6">
+
+              <div className="max-h-[min(80vh,780px)] space-y-4 overflow-y-auto p-4 sm:p-6">
                 {viewLoading ? (
                   <div className="flex min-h-40 items-center justify-center gap-2 text-sm font-medium text-slate-500"><Loader2 className="h-5 w-5 animate-spin text-indigo-600" />Loading event players and schedule…</div>
                 ) : (
                   <>
                     {viewError && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-medium text-amber-800">{viewError}</div>}
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
                       {detail("Format", formatType(viewingConfig.tournamentType))}
                       {detail("Registered players", <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-indigo-500" />{viewPlayers.length}</span>)}
                       {detail("Scheduled matches", viewMatches.length)}
                       {detail("Status", <span className="capitalize">{(viewingConfig.status || "Not set").toLowerCase()}</span>)}
-                      {detail("Start date", dateLabel(viewingConfig.startDate))}
-                      {detail("End date", dateLabel(viewingConfig.endDate))}
-                      {detail("Venue", <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-500" />{venue?.name || "Not set"}</span>)}
+                      {detail("Dates", `${dateLabel(viewingConfig.startDate)} – ${dateLabel(viewingConfig.endDate)}`)}
+                      {detail("Venue", <span className="inline-flex items-center gap-1.5 truncate"><MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-500" />{venue?.name || "Not set"}</span>)}
                     </div>
-                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
-                        <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Users className="h-4 w-4 text-indigo-600" />Registered players</h3>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewPlayers.length}</span>
+
+                    {/* View Switcher & Export Toolbar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-indigo-100 shadow-xs">
+                      {/* Left: View Mode Pills */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-700">Display View:</span>
+                        <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => setViewDisplayMode("visual")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                              viewDisplayMode === "visual"
+                                ? "bg-white text-indigo-700 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900 bg-transparent"
+                            }`}
+                          >
+                            <span>🌲 Visual Draw &amp; Bracket</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setViewDisplayMode("list")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                              viewDisplayMode === "list"
+                                ? "bg-white text-indigo-700 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900 bg-transparent"
+                            }`}
+                          >
+                            <span>📄 List View</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                              {viewMatches.length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setViewDisplayMode("table")}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                              viewDisplayMode === "table"
+                                ? "bg-white text-indigo-700 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900 bg-transparent"
+                            }`}
+                          >
+                            <span>📋 Fixtures Table</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                              {viewMatches.length}
+                            </span>
+                          </button>
+                        </div>
                       </div>
-                      {viewPlayers.length ? <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 sm:gap-1 sm:p-2">
-                        {viewPlayers.map((player) => {
-                          const partnerInfo = getPartnerDetails(player, viewPlayers, event);
-                          const isDoubles = partnerInfo.isDoublesEvent;
-                          return (
-                            <div key={player.id} className="flex min-w-0 items-start justify-between gap-3 px-3 py-2.5 sm:rounded-lg sm:px-2.5 hover:bg-slate-50 transition-colors">
-                              <div className="min-w-0 flex-1">
-                                <p className="m-0 truncate text-xs font-bold text-slate-800">
-                                  {player.playerName || player.user?.fullName || "Player"}
-                                </p>
-                                {isDoubles && partnerInfo.hasPartner && (
-                                  <p className="m-0 mt-0.5 truncate text-[11px] font-semibold text-indigo-700 flex items-center gap-1">
-                                    <span>+ {partnerInfo.name}</span>
-                                    {partnerInfo.relation && (
-                                      <span className="text-[9px] text-slate-500 font-normal">({partnerInfo.relation})</span>
-                                    )}
-                                    <span className={`inline-block text-[8px] font-bold px-1.5 py-0.2 rounded-full ${
-                                      partnerInfo.isConfirmed ? "bg-emerald-100 text-emerald-800" :
-                                      partnerInfo.isDeclined ? "bg-rose-100 text-rose-800" :
-                                      "bg-amber-100 text-amber-800"
-                                    }`}>
-                                      {partnerInfo.statusLabel}
-                                    </span>
-                                  </p>
-                                )}
-                                {isDoubles && !partnerInfo.hasPartner && (
-                                  <p className="m-0 mt-0.5 truncate text-[10px] italic text-amber-600">
-                                    {partnerInfo.isOpenPool ? "Seeking Partner (Open Pool)" : "No Partner Assigned"}
-                                  </p>
-                                )}
-                                <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">
-                                  {[player.category?.name, player.flatNumber].filter(Boolean).join(" · ") || player.status}
-                                </p>
+
+                      {/* Right: Export & Download Toolbar */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          disabled={viewMatches.length === 0}
+                          onClick={() => setShowExportMenu(!showExportMenu)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Download className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Export &amp; Download</span>
+                          <ChevronDown className="w-3 h-3 text-indigo-500" />
+                        </button>
+
+                        {showExportMenu && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[220px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                Download Schedule
                               </div>
-                              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
-                                {player.status}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setShowExportMenu(false); handleExport("csv"); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                              >
+                                <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">Download CSV</span>
+                                  <span className="text-[10px] text-slate-400">Excel / UTF-8 compatible</span>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowExportMenu(false); handleExport("excel"); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                              >
+                                <FileSpreadsheet className="h-4 w-4 text-blue-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">Download Excel (.xlsx)</span>
+                                  <span className="text-[10px] text-slate-400">Full formatted spreadsheet</span>
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowExportMenu(false); handleExport("pdf"); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                              >
+                                <Printer className="h-4 w-4 text-rose-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold">Print Schedule (PDF)</span>
+                                  <span className="text-[10px] text-slate-400">Printable fixtures document</span>
+                                </div>
+                              </button>
                             </div>
-                          );
-                        })}
-                      </div> : <p className="m-0 px-4 py-5 text-center text-xs text-slate-500">No confirmed or registered players are available for this event.</p>}
-                    </section>
-                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
-                        <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Calendar className="h-4 w-4 text-indigo-600" />Complete match schedule</h3>
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewMatches.length}</span>
+                          </>
+                        )}
                       </div>
-                      {viewMatches.length ? <div className="divide-y divide-slate-100">
-                        {viewMatches.map((match, index) => <article key={match.matchId ?? match.id ?? index} className="p-3.5 sm:p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600">{match.roundName || match.groupName || `Match ${match.matchNumber ?? index + 1}`}{match.matchNumber ? ` · Match ${match.matchNumber}` : ""}</span>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-600">{String(match.status || "SCHEDULED").replaceAll("_", " ")}</span>
+                    </div>
+
+                    {/* View 1: Visual Draw & Bracket */}
+                    {viewDisplayMode === "visual" && (
+                      <div className="space-y-4">
+                        {bracketRounds.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
+                            <Trophy className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+                            <p className="text-xs font-semibold text-slate-600">No bracket matches available yet</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Generate or save matches for this tournament configuration to see the visual draw.</p>
                           </div>
-                          <div className="my-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg bg-slate-50 px-3 py-3">
-                            <div className="min-w-0"><p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamAName || match.homeName || "TBD"}>{match.teamAName || match.homeName || "TBD"}</p>{match.scoreTeamA != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamA}</p>}</div>
-                            <span className="text-[9px] font-bold text-slate-400">VS</span>
-                            <div className="min-w-0 text-right"><p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}>{match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}</p>{match.scoreTeamB != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamB}</p>}</div>
+                        ) : (
+                          bracketRounds.map((round) => (
+                            <div key={round.name} className="space-y-2.5">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">{round.name}</span>
+                                <div className="flex-1 h-px bg-slate-200" />
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{round.matches.length} match{round.matches.length !== 1 ? "es" : ""}</span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {round.matches.map((m) => (
+                                  <div
+                                    key={m.id}
+                                    className="rounded-xl border border-indigo-100 bg-white p-3.5 shadow-xs hover:border-indigo-300 hover:shadow-sm transition-all text-left flex flex-col justify-between"
+                                  >
+                                    <div>
+                                      <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-100">
+                                        <span className="text-[11px] font-bold text-slate-800">{m.label}</span>
+                                        <span className="text-[10px] text-slate-500 font-medium">{m.date} · {m.time}</span>
+                                      </div>
+                                      <div className="space-y-1.5 bg-slate-50/80 rounded-lg p-2 border border-slate-100">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[9px] font-bold shrink-0">
+                                              {m.p1?.initials || "T"}
+                                            </span>
+                                            <span className="font-bold text-slate-800 truncate">{m.p1?.fullName || "TBD"}</span>
+                                            {m.p1?.flatNumber && <span className="text-[9px] text-slate-400">({m.p1.flatNumber})</span>}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[9px] font-bold shrink-0">
+                                              {m.p2?.initials || "T"}
+                                            </span>
+                                            <span className="font-bold text-slate-800 truncate">{m.p2?.fullName || (m.isBye ? "BYE" : "TBD")}</span>
+                                            {m.p2?.flatNumber && <span className="text-[9px] text-slate-400">({m.p2.flatNumber})</span>}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center gap-1 text-[10px] text-slate-500 truncate">
+                                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                      <span className="truncate">{m.venue.name}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* View 2: List View */}
+                    {viewDisplayMode === "list" && (
+                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                          <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Calendar className="h-4 w-4 text-indigo-600" />Complete match list</h3>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewMatches.length}</span>
+                        </div>
+                        {viewMatches.length ? (
+                          <div className="divide-y divide-slate-100">
+                            {viewMatches.map((match, index) => (
+                              <article key={match.matchId ?? match.id ?? index} className="p-3.5 sm:p-4 hover:bg-slate-50/60 transition-colors">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600">
+                                    {match.roundName || match.groupName || `Match ${match.matchNumber ?? index + 1}`}
+                                    {match.matchNumber ? ` · Match ${match.matchNumber}` : ""}
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-600">
+                                    {String(match.status || "SCHEDULED").replaceAll("_", " ")}
+                                  </span>
+                                </div>
+                                <div className="my-2.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-lg bg-slate-50 px-3 py-3 border border-slate-100">
+                                  <div className="min-w-0">
+                                    <p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamAName || match.homeName || "TBD"}>
+                                      {match.teamAName || match.homeName || "TBD"}
+                                    </p>
+                                    {match.scoreTeamA != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamA}</p>}
+                                  </div>
+                                  <span className="text-[9px] font-bold text-slate-400">VS</span>
+                                  <div className="min-w-0 text-right">
+                                    <p className="m-0 text-xs font-bold text-slate-800 break-words leading-tight" title={match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}>
+                                      {match.teamBName || match.awayName || (match.isBye ? "BYE" : "TBD")}
+                                    </p>
+                                    {match.scoreTeamB != null && <p className="m-0 mt-0.5 text-[10px] font-semibold text-slate-500">{match.scoreTeamB}</p>}
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
+                                  <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{matchDateLabel(match.scheduledAt || match.matchDate || match.date)}</span>
+                                  <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{match.venueName || venue?.name || "Venue not set"}{match.courtName ? ` · ${match.courtName}` : ""}</span>
+                                </div>
+                              </article>
+                            ))}
                           </div>
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">
-                            <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{matchDateLabel(match.scheduledAt || match.matchDate || match.date)}</span>
-                            <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{match.venueName || venue?.name || "Venue not set"}{match.courtName ? ` · ${match.courtName}` : ""}</span>
-                          </div>
-                        </article>)}
-                      </div> : <p className="m-0 px-4 py-5 text-center text-xs text-slate-500">No saved matches are available for this configuration yet.</p>}
-                    </section>
+                        ) : (
+                          <p className="m-0 px-4 py-8 text-center text-xs text-slate-500">No saved matches are available for this configuration yet.</p>
+                        )}
+                      </section>
+                    )}
+
+                    {/* View 3: Fixtures Table */}
+                    {viewDisplayMode === "table" && (
+                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[700px] border-collapse text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-200 bg-slate-50">
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">#</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Round / Stage</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Date &amp; Time</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Team 1</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Team 2</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Venue / Court</th>
+                                <th className="px-3.5 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]">Score / Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {viewMatches.length === 0 ? (
+                                <tr>
+                                  <td colSpan={7} className="px-4 py-8 text-center text-xs text-slate-500">
+                                    No matches generated or saved yet.
+                                  </td>
+                                </tr>
+                              ) : (
+                                viewMatches.map((m, idx) => (
+                                  <tr key={m.matchId ?? m.id ?? idx} className="hover:bg-slate-50/60 transition-colors">
+                                    <td className="px-3.5 py-2.5 font-semibold text-slate-600">{m.matchNumber || idx + 1}</td>
+                                    <td className="px-3.5 py-2.5">
+                                      <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">
+                                        {m.roundName || m.groupName || `Round ${m.roundNumber || 1}`}
+                                      </span>
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-slate-600 whitespace-nowrap">
+                                      <div className="font-semibold text-slate-800">{matchDateLabel(m.scheduledAt || m.matchDate || m.date)}</div>
+                                    </td>
+                                    <td className="px-3.5 py-2.5">
+                                      <span className="font-bold text-slate-900">{m.teamAName || m.homeName || "TBD"}</span>
+                                      {m.teamAFlat && <span className="text-[10px] text-slate-400 ml-1">({m.teamAFlat})</span>}
+                                    </td>
+                                    <td className="px-3.5 py-2.5">
+                                      <span className="font-bold text-slate-900">{m.teamBName || m.awayName || (m.isBye ? "BYE" : "TBD")}</span>
+                                      {m.teamBFlat && <span className="text-[10px] text-slate-400 ml-1">({m.teamBFlat})</span>}
+                                    </td>
+                                    <td className="px-3.5 py-2.5 text-slate-600">
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                        <span className="truncate">{m.venueName || venue?.name || "Main Arena"}{m.courtName ? ` · ${m.courtName}` : ""}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-3.5 py-2.5">
+                                      {m.scoreTeamA != null && m.scoreTeamB != null ? (
+                                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                                          {m.scoreTeamA} - {m.scoreTeamB}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                          {String(m.status || "SCHEDULED").replaceAll("_", " ")}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Registered Players Collapsible / Section */}
+                    {viewPlayers.length > 0 && (
+                      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
+                          <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Users className="h-4 w-4 text-indigo-600" />Registered players</h3>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">{viewPlayers.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 sm:gap-1 sm:p-2 max-h-48 overflow-y-auto">
+                          {viewPlayers.map((player) => {
+                            const partnerInfo = getPartnerDetails(player, viewPlayers, event);
+                            const isDoubles = partnerInfo.isDoublesEvent;
+                            return (
+                              <div key={player.id} className="flex min-w-0 items-start justify-between gap-3 px-3 py-2 sm:rounded-lg sm:px-2.5 hover:bg-slate-50 transition-colors text-xs">
+                                <div className="min-w-0 flex-1">
+                                  <p className="m-0 truncate font-bold text-slate-800">
+                                    {player.playerName || player.user?.fullName || "Player"}
+                                  </p>
+                                  {isDoubles && partnerInfo.hasPartner && (
+                                    <p className="m-0 mt-0.5 truncate text-[11px] font-semibold text-indigo-700 flex items-center gap-1">
+                                      <span>+ {partnerInfo.name}</span>
+                                      {partnerInfo.relation && (
+                                        <span className="text-[9px] text-slate-500 font-normal">({partnerInfo.relation})</span>
+                                      )}
+                                    </p>
+                                  )}
+                                  <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">
+                                    {[player.category?.name, player.flatNumber].filter(Boolean).join(" · ") || player.status}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+                                  {player.status}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
                   </>
                 )}
+
                 <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
                   <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-slate-500">Match settings</h3>
-                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3">
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
                     <div><span className="text-slate-400">Duration</span><p className="mb-0 mt-1 inline-flex items-center gap-1 font-semibold text-slate-800"><Clock className="h-3.5 w-3.5 text-indigo-500" />{viewingConfig.matchDurationMinutes ? `${viewingConfig.matchDurationMinutes} min` : "Not set"}</p></div>
-                    <div><span className="text-slate-400">Break between matches</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.breakBetweenMatchesMinutes != null ? `${viewingConfig.breakBetweenMatchesMinutes} min` : "Not set"}</p></div>
+                    <div><span className="text-slate-400">Break between</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.breakBetweenMatchesMinutes != null ? `${viewingConfig.breakBetweenMatchesMinutes} min` : "Not set"}</p></div>
                     <div><span className="text-slate-400">Groups</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.numberOfGroups ?? "—"}</p></div>
-                    <div><span className="text-slate-400">Advancing per group</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.teamsAdvancingPerGroup ?? "—"}</p></div>
+                    <div><span className="text-slate-400">Advancing / group</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.teamsAdvancingPerGroup ?? "—"}</p></div>
                     <div><span className="text-slate-400">Swiss rounds</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.swissRounds ?? "—"}</p></div>
                     <div><span className="text-slate-400">Points (W / D / L)</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.pointsForWin ?? 2} / {viewingConfig.pointsForDraw ?? 1} / {viewingConfig.pointsForLoss ?? 0}</p></div>
                   </div>
                 </div>
               </div>
-              <footer className="flex justify-end border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">
+
+              <footer className="flex justify-between items-center border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">
+                <span className="text-xs text-slate-400 font-medium">Tournament ID: #{viewingConfig.id}</span>
                 <button onClick={() => setViewingConfig(null)} className="min-h-9 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700">Close</button>
               </footer>
             </section>
