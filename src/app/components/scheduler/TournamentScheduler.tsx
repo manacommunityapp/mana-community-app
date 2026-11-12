@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe } from "lucide-react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService } from "../../../services/sports/tournamentService";
@@ -120,6 +120,28 @@ export function TournamentScheduler() {
       showToast(`${actionConfig.type === "delete" ? "Delete" : "Publish"} failed: ${e?.message || e}`, "error");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleToggleFeed = async (c: ConfigInfo) => {
+    try {
+      const currentShow = c.showInFeed !== false; // default true
+      const nextShow = !currentShow;
+      if (c.eventId) {
+        await tournamentService.setFeedVisibility("event", c.eventId, nextShow, true);
+      } else if (c.tournamentId) {
+        await tournamentService.setFeedVisibility("tournament", c.tournamentId, nextShow, true);
+      } else {
+        // Fallback: match-level toggle for saved matches under this config
+        const matches = await tournamentService.getSavedMatchesByConfigId(c.id);
+        for (const m of matches) {
+          await tournamentService.setFeedVisibility("match", m.id, nextShow);
+        }
+      }
+      showToast(nextShow ? "Live matches will appear on Community Feed" : "Hidden from Community Feed");
+      loadData();
+    } catch (e: any) {
+      showToast("Failed to update feed visibility: " + (e?.message || e), "error");
     }
   };
 
@@ -491,7 +513,7 @@ export function TournamentScheduler() {
                         <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
                           Edit
                         </button>
-                        {c.status === "DRAFT" && (
+                        {c.status === "DRAFT" ? (
                           <>
                             <button
                               onClick={() => setActionConfig({ config: c, type: "publish" })}
@@ -510,6 +532,20 @@ export function TournamentScheduler() {
                               <Trash2 className="h-3.5 w-3.5" /> Delete
                             </button>
                           </>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleFeed(c)}
+                            aria-label={`Toggle feed visibility for ${c.tournamentName}`}
+                            title={c.showInFeed === false ? "Hidden from Feed (click to show)" : "Shown in Live Feed (click to hide)"}
+                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                              c.showInFeed === false
+                                ? "border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-600"
+                                : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100"
+                            }`}
+                          >
+                            <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
+                            <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                          </button>
                         )}
                       </div>
                     </td>

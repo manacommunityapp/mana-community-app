@@ -95,6 +95,8 @@ export interface ConfigInfo {
   thirdPlaceMatch?: boolean;
   hasSeeding?: boolean;
   sportName?: string;
+  tournamentId?: number;
+  showInFeed?: boolean | null;
 }
 
 // ─── Match Result Types ──────────────────────────────────────────────────────
