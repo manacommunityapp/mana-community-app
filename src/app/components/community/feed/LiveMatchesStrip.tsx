@@ -36,7 +36,10 @@ function getSportEmoji(sport?: string): string {
   return "🏆";
 }
 
-const isLiveStatus = (status?: string) => ["LIVE", "IN_PROGRESS"].includes(String(status || "").toUpperCase());
+const isLiveStatus = (status?: string) => {
+  const s = String(status || "").toUpperCase().trim();
+  return s === "LIVE" || s === "IN_PROGRESS" || s === "ONGOING" || s === "MATCHES_RUNNING";
+};
 
 /**
  * "Live Now" strip for the community feed.
@@ -56,11 +59,63 @@ export function LiveMatchesStrip() {
     try {
       const user = getStoredUser();
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
-      let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
-      // Fallback: If community-scoped query returns no matches, check across all communities
-      if ((!feedMatches || feedMatches.length === 0) && communityId) {
-        feedMatches = await tournamentService.getLiveFeedMatches(undefined);
+      let feedMatches: FeedLiveMatch[] = [];
+
+      try {
+        feedMatches = await tournamentService.getLiveFeedMatches(communityId);
+        // Fallback: If community-scoped query returns no matches, check across all communities
+        if ((!feedMatches || feedMatches.length === 0) && communityId) {
+          feedMatches = await tournamentService.getLiveFeedMatches(undefined);
+        }
+      } catch {
+        // Backend live-feed endpoint may be unavailable or unconfigured; will try config matches below
       }
+
+      // If feed endpoint returned no matches or is unconfigured, fall back to schedule configs
+      if (!feedMatches || feedMatches.length === 0) {
+        try {
+          const configs = await tournamentService.getConfigs().catch(() => []);
+          if (Array.isArray(configs) && configs.length > 0) {
+            const matchPromises = configs.map(async (cfg) => {
+              try {
+                const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
+                if (!Array.isArray(cfgMatches)) return [];
+                return cfgMatches
+                  .filter((m: any) => {
+                    if (!m || m.status === "BYE") return false;
+                    if (m.showInFeed === false) return false;
+                    return isLiveStatus(m.status);
+                  })
+                  .map((m: any): FeedLiveMatch => ({
+                    matchId: m.id || m.matchId,
+                    configId: cfg.id,
+                    sportName: cfg.sportName || cfg.eventName || "Sports",
+                    tournamentName: cfg.tournamentName || "Tournament",
+                    eventName: cfg.eventName,
+                    roundName: m.roundName || m.round,
+                    teamAName: m.teamAName || m.homeName || "Team A",
+                    teamBName: m.teamBName || m.awayName || "Team B",
+                    teamAFlat: m.teamAFlat || m.homeFlat,
+                    teamBFlat: m.teamBFlat || m.awayFlat,
+                    scoreTeamA: m.scoreTeamA || "",
+                    scoreTeamB: m.scoreTeamB || "",
+                    status: m.status || "LIVE",
+                    winnerName: m.winnerName,
+                    scheduledAt: m.scheduledAt,
+                    venueName: m.venueName || m.courtName,
+                  }));
+              } catch {
+                return [];
+              }
+            });
+            const nested = await Promise.all(matchPromises);
+            feedMatches = nested.flat();
+          }
+        } catch {
+          // Keep current state on error
+        }
+      }
+
       setMatches(feedMatches || []);
     } catch {
       // The strip is optional; fail silently and keep the last known state.

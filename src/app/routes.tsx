@@ -472,6 +472,10 @@ export const router = createBrowserRouter([
         index: true, 
         element: <PermissionGuard permission={VIEW_FEED} requiredModule="COMMUNITY_FEED"><Feed /></PermissionGuard> 
       },
+      { 
+        path: "feed", 
+        element: <PermissionGuard permission={VIEW_FEED} requiredModule="COMMUNITY_FEED"><Feed /></PermissionGuard> 
+      },
       {
         path: "sports",
         Component: SportsLayout,
