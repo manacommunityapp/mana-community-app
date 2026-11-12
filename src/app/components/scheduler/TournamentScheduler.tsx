@@ -495,88 +495,170 @@ export function TournamentScheduler() {
             <button onClick={() => openModal()} className="mt-4 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> Create configuration</button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Tournament</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Type</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Event</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Teams</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Start date</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">View</th>
-                  <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {configs.map((c) => (
-                  <tr key={c.id} className="transition-colors hover:bg-indigo-50/40">
-                    <td className="max-w-[260px] truncate px-4 py-3 text-sm font-bold text-slate-900">{c.tournamentName}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600">{formatType(c.tournamentType)}</td>
-                    <td className="max-w-[220px] truncate px-4 py-3 text-sm text-slate-600">{c.eventName || "—"}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-700">{c.totalTeams || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{c.startDate || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wide
-                        ${c.status === "DRAFT" ? "bg-slate-100 text-slate-600" :
-                          c.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" :
-                          c.status === "LIVE" ? "bg-indigo-50 text-indigo-700" :
-                          "bg-sky-50 text-sky-700"}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => void openScheduleDetails(c)} aria-label={`View ${c.tournamentName} schedule details`} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100">
-                        <Eye className="h-3.5 w-3.5" /> View
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
-                          Edit
+          <>
+            {/* Mobile View: Cards */}
+            <div className="block sm:hidden divide-y divide-slate-100">
+              {configs.map((c) => (
+                <div key={c.id} className="p-3.5 space-y-2.5 hover:bg-slate-50/60 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-sm font-bold text-slate-900 truncate">{c.tournamentName}</h4>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">{c.eventName || formatType(c.tournamentType)}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0
+                      ${c.status === "DRAFT" ? "bg-slate-100 text-slate-600" :
+                        c.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" :
+                        c.status === "LIVE" ? "bg-indigo-50 text-indigo-700" :
+                        "bg-sky-50 text-sky-700"}`}>
+                      {c.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 bg-slate-50/80 p-2 rounded-lg border border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Format & Teams</span>
+                      <span className="font-semibold">{formatType(c.tournamentType)} · {c.totalTeams || "—"} teams</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-semibold">Start Date</span>
+                      <span className="font-semibold">{c.startDate || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100/70">
+                    <button
+                      onClick={() => void openScheduleDetails(c)}
+                      aria-label={`View ${c.tournamentName} schedule details`}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 py-2 px-2.5 text-xs font-bold text-indigo-700 active:scale-[0.98] transition cursor-pointer"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </button>
+                    <button
+                      onClick={() => openModal(c)}
+                      className="rounded-lg py-2 px-3 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                    {c.status === "DRAFT" ? (
+                      <>
+                        <button
+                          onClick={() => setActionConfig({ config: c, type: "publish" })}
+                          aria-label={`Publish ${c.tournamentName} schedule`}
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 py-2 px-2.5 text-xs font-bold text-emerald-700 active:scale-[0.98] transition cursor-pointer"
+                        >
+                          <Globe className="h-3.5 w-3.5" /> Publish
                         </button>
-                        {c.status === "DRAFT" ? (
-                          <>
-                            <button
-                              onClick={() => setActionConfig({ config: c, type: "publish" })}
-                              aria-label={`Publish ${c.tournamentName} schedule`}
-                              title="Publish tournament schedule & fixtures to players"
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-                            >
-                              <Globe className="h-3.5 w-3.5" /> Publish
-                            </button>
-                            <button
-                              onClick={() => setActionConfig({ config: c, type: "delete" })}
-                              aria-label={`Delete ${c.tournamentName} draft configuration`}
-                              title="Delete draft configuration"
-                              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" /> Delete
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            onClick={() => handleToggleFeed(c)}
-                            aria-label={`Toggle feed visibility for ${c.tournamentName}`}
-                            title={c.showInFeed === false ? "Hidden from Feed (click to show)" : "Shown in Live Feed (click to hide)"}
-                            className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
-                              c.showInFeed === false
-                                ? "border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-600"
-                                : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100"
-                            }`}
-                          >
-                            <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
-                            <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                        <button
+                          onClick={() => setActionConfig({ config: c, type: "delete" })}
+                          aria-label={`Delete ${c.tournamentName} draft configuration`}
+                          className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleFeed(c)}
+                        aria-label={`Toggle feed visibility for ${c.tournamentName}`}
+                        className={`inline-flex items-center justify-center gap-1 rounded-lg border py-2 px-2.5 text-xs font-bold transition cursor-pointer ${
+                          c.showInFeed === false
+                            ? "border-slate-200 bg-slate-50 text-slate-400"
+                            : "border-indigo-200 bg-indigo-50 text-indigo-700"
+                        }`}
+                      >
+                        <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
+                        <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop View: Table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full min-w-[900px] border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Tournament</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Type</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Event</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Teams</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Start date</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">View</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {configs.map((c) => (
+                    <tr key={c.id} className="transition-colors hover:bg-indigo-50/40">
+                      <td className="max-w-[260px] truncate px-4 py-3 text-sm font-bold text-slate-900">{c.tournamentName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{formatType(c.tournamentType)}</td>
+                      <td className="max-w-[220px] truncate px-4 py-3 text-sm text-slate-600">{c.eventName || "—"}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-700">{c.totalTeams || "—"}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{c.startDate || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium uppercase tracking-wide
+                          ${c.status === "DRAFT" ? "bg-slate-100 text-slate-600" :
+                            c.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" :
+                            c.status === "LIVE" ? "bg-indigo-50 text-indigo-700" :
+                            "bg-sky-50 text-sky-700"}`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => void openScheduleDetails(c)} aria-label={`View ${c.tournamentName} schedule details`} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100">
+                          <Eye className="h-3.5 w-3.5" /> View
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
+                            Edit
+                          </button>
+                          {c.status === "DRAFT" ? (
+                            <>
+                              <button
+                                onClick={() => setActionConfig({ config: c, type: "publish" })}
+                                aria-label={`Publish ${c.tournamentName} schedule`}
+                                title="Publish tournament schedule & fixtures to players"
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                              >
+                                <Globe className="h-3.5 w-3.5" /> Publish
+                              </button>
+                              <button
+                                onClick={() => setActionConfig({ config: c, type: "delete" })}
+                                aria-label={`Delete ${c.tournamentName} draft configuration`}
+                                title="Delete draft configuration"
+                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleFeed(c)}
+                              aria-label={`Toggle feed visibility for ${c.tournamentName}`}
+                              title={c.showInFeed === false ? "Hidden from Feed (click to show)" : "Shown in Live Feed (click to hide)"}
+                              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                                c.showInFeed === false
+                                  ? "border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-600"
+                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100"
+                              }`}
+                            >
+                              <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
+                              <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
@@ -793,32 +875,32 @@ export function TournamentScheduler() {
                     </div>
 
                     {/* View Switcher & Export Toolbar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
                       {/* Left: View Mode Pills */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-700">Display View:</span>
-                        <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+                        <span className="text-xs font-bold text-slate-700 whitespace-nowrap hidden xs:inline">View:</span>
+                        <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 shrink-0">
                           <button
                             type="button"
                             onClick={() => setViewDisplayMode("visual")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
                               viewDisplayMode === "visual"
                                 ? "bg-white text-indigo-700 shadow-sm"
                                 : "text-slate-600 hover:text-slate-900 bg-transparent"
                             }`}
                           >
-                            <span>🌲 Visual Draw &amp; Bracket</span>
+                            <span>🌲 Visual</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setViewDisplayMode("list")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
                               viewDisplayMode === "list"
                                 ? "bg-white text-indigo-700 shadow-sm"
                                 : "text-slate-600 hover:text-slate-900 bg-transparent"
                             }`}
                           >
-                            <span>📄 List View</span>
+                            <span>📄 List</span>
                             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
                               {viewMatches.length}
                             </span>
@@ -826,13 +908,13 @@ export function TournamentScheduler() {
                           <button
                             type="button"
                             onClick={() => setViewDisplayMode("table")}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
                               viewDisplayMode === "table"
                                 ? "bg-white text-indigo-700 shadow-sm"
                                 : "text-slate-600 hover:text-slate-900 bg-transparent"
                             }`}
                           >
-                            <span>📋 Fixtures Table</span>
+                            <span>📋 Table</span>
                             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
                               {viewMatches.length}
                             </span>
@@ -841,12 +923,12 @@ export function TournamentScheduler() {
                       </div>
 
                       {/* Right: Export & Download Toolbar */}
-                      <div className="relative">
+                      <div className="relative self-end sm:self-auto w-full sm:w-auto">
                         <button
                           type="button"
                           disabled={viewMatches.length === 0}
                           onClick={() => setShowExportMenu(!showExportMenu)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Download className="w-3.5 h-3.5 text-indigo-600" />
                           <span>Export &amp; Download</span>
@@ -856,7 +938,7 @@ export function TournamentScheduler() {
                         {showExportMenu && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 w-72 p-2 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-100 max-h-[460px] overflow-y-auto">
+                            <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 w-full sm:w-72 max-w-[calc(100vw-36px)] p-2 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-100 max-h-[460px] overflow-y-auto">
                               {/* Stage Export Center Button (Full Modal) */}
                               <button
                                 type="button"

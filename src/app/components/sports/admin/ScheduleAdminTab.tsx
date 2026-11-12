@@ -360,7 +360,7 @@ export function ScheduleAdminTab() {
                         </div>
                       </div>
 
-                      {/* Matches Table */}
+                      {/* Matches Table & Mobile Cards */}
                       {displayedMatches.length === 0 ? (
                         <div className="py-8 text-center text-xs text-slate-400">
                           No matches in this stage.
@@ -373,20 +373,9 @@ export function ScheduleAdminTab() {
                           </button>
                         </div>
                       ) : (
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                              <th className="px-4 py-2 text-left font-medium">#</th>
-                              <th className="px-4 py-2 text-left font-medium">Stage / Round</th>
-                              <th className="px-4 py-2 text-left font-medium">Match Details</th>
-                              <th className="px-4 py-2 text-left font-medium">Schedule (Date &amp; Time)</th>
-                              <th className="px-4 py-2 text-left font-medium">Venue &amp; Court</th>
-                              <th className="px-4 py-2 text-left font-medium">Score</th>
-                              <th className="px-4 py-2 text-left font-medium">Feed</th>
-                              <th className="px-4 py-2 text-left font-medium">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                        <>
+                          {/* Mobile View: Match Cards */}
+                          <div className="block md:hidden divide-y divide-slate-100 p-2 space-y-2">
                             {displayedMatches.map((m, i) => {
                               const flatA = m.teamAFlat || m.homeFlat;
                               const flatB = m.teamBFlat || m.awayFlat;
@@ -399,51 +388,58 @@ export function ScheduleAdminTab() {
                                 'bg-slate-50 text-slate-600 border-slate-200';
 
                               return (
-                                <tr key={m.id} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white/60" : ""}`}>
-                                  <td className="px-4 py-2.5 text-slate-400 font-mono text-[11px]">{m.matchNumber || i + 1}</td>
-                                  <td className="px-4 py-2.5">
-                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${stageBadge}`}>
-                                      {(m.round || m.roundName || "").replace(/_/g, " ")}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <div className="inline-block">
-                                      <span className="font-semibold text-slate-800">{m.teamAName || "TBD"}</span>
-                                      {flatA && (
-                                        <span className="block text-[10px] text-slate-500 font-medium">
-                                          🏠 Flat: <span className="text-slate-700 font-semibold">{flatA}</span>
+                                <div key={m.id} className="bg-white rounded-xl p-3 border border-slate-100 shadow-2xs space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono text-[10px] text-slate-400 font-bold">#{m.matchNumber || i + 1}</span>
+                                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${stageBadge}`}>
+                                        {(m.round || m.roundName || "").replace(/_/g, " ")}
+                                      </span>
+                                    </div>
+                                    <StatusBadge status={m.status} />
+                                  </div>
+
+                                  {/* Teams & Score */}
+                                  <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100/80 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <div className="min-w-0 pr-2">
+                                        <span className="text-xs font-bold text-slate-800 block truncate">{m.teamAName || "TBD"}</span>
+                                        {flatA && <span className="text-[10px] text-slate-400 block truncate">🏠 {flatA}</span>}
+                                      </div>
+                                      {m.status === "COMPLETED" && m.scoreTeamA != null && (
+                                        <span className="font-mono text-xs font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                          {m.scoreTeamA}
                                         </span>
                                       )}
                                     </div>
-                                    <span className="mx-2 text-slate-300 font-semibold align-middle">vs</span>
-                                    <div className="inline-block">
-                                      <span className="font-semibold text-slate-800">{m.teamBName || "TBD"}</span>
-                                      {flatB && (
-                                        <span className="block text-[10px] text-slate-500 font-medium">
-                                          🏠 Flat: <span className="text-slate-700 font-semibold">{flatB}</span>
+                                    <div className="w-full h-px bg-slate-200/50" />
+                                    <div className="flex items-center justify-between">
+                                      <div className="min-w-0 pr-2">
+                                        <span className="text-xs font-bold text-slate-800 block truncate">{m.teamBName || "TBD"}</span>
+                                        {flatB && <span className="text-[10px] text-slate-400 block truncate">🏠 {flatB}</span>}
+                                      </div>
+                                      {m.status === "COMPLETED" && m.scoreTeamB != null && (
+                                        <span className="font-mono text-xs font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                          {m.scoreTeamB}
                                         </span>
                                       )}
                                     </div>
-                                  </td>
-                                  <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
-                                    <Clock className="w-3 h-3 inline-block mr-1 -mt-0.5 text-indigo-500" />
-                                    <span className="font-medium">{formatDateTime(m.scheduledAt)}</span>
-                                  </td>
-                                  <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
-                                    {m.venueName ? (
-                                      <>
-                                        <MapPin className="w-3 h-3 inline-block mr-1 -mt-0.5 text-rose-500" />
-                                        <span className="font-medium">{m.venueName}</span>
-                                        {m.courtName ? <span className="text-slate-400"> · {m.courtName}</span> : ""}
-                                      </>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5 font-mono text-slate-700">
-                                    {m.status === "COMPLETED" && m.scoreTeamA != null ? `${m.scoreTeamA} – ${m.scoreTeamB}` : "—"}
-                                  </td>
-                                  <td className="px-4 py-2.5">
+                                  </div>
+
+                                  {/* Date, Time, Venue & Feed Toggle */}
+                                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                                        <span className="font-medium truncate">{formatDateTime(m.scheduledAt)}</span>
+                                      </div>
+                                      {m.venueName && (
+                                        <div className="flex items-center gap-1">
+                                          <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
+                                          <span className="truncate">{m.venueName}{m.courtName ? ` · ${m.courtName}` : ""}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={async () => {
@@ -459,27 +455,134 @@ export function ScheduleAdminTab() {
                                           showError("Failed to update match feed setting");
                                         }
                                       }}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
+                                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer shrink-0 ${
                                         m.showInFeed === true
                                           ? "bg-red-50 text-red-600 border-red-200"
                                           : m.showInFeed === false
                                           ? "bg-slate-100 text-slate-400 border-slate-200"
                                           : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
                                       }`}
-                                      title={m.showInFeed === true ? "Explicitly ON (click to turn OFF)" : m.showInFeed === false ? "Explicitly OFF (click to turn ON)" : "Inherit from Event (click to toggle)"}
                                     >
                                       <Radio className="w-2.5 h-2.5" />
-                                      <span>{m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
+                                      <span>Feed: {m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
                                     </button>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <StatusBadge status={m.status} />
-                                  </td>
-                                </tr>
+                                  </div>
+                                </div>
                               );
                             })}
-                          </tbody>
-                        </table>
+                          </div>
+
+                          {/* Desktop View: Table */}
+                          <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                  <th className="px-4 py-2 text-left font-medium">#</th>
+                                  <th className="px-4 py-2 text-left font-medium">Stage / Round</th>
+                                  <th className="px-4 py-2 text-left font-medium">Match Details</th>
+                                  <th className="px-4 py-2 text-left font-medium">Schedule (Date &amp; Time)</th>
+                                  <th className="px-4 py-2 text-left font-medium">Venue &amp; Court</th>
+                                  <th className="px-4 py-2 text-left font-medium">Score</th>
+                                  <th className="px-4 py-2 text-left font-medium">Feed</th>
+                                  <th className="px-4 py-2 text-left font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {displayedMatches.map((m, i) => {
+                                  const flatA = m.teamAFlat || m.homeFlat;
+                                  const flatB = m.teamBFlat || m.awayFlat;
+                                  const stage = getMatchStage(m);
+                                  const stageBadge =
+                                    stage === 'FINAL' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    stage === 'SEMI_FINAL' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                    stage === 'QUARTER_FINAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    stage === 'ROUND_OF_16' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                                    'bg-slate-50 text-slate-600 border-slate-200';
+
+                                  return (
+                                    <tr key={m.id} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white/60" : ""}`}>
+                                      <td className="px-4 py-2.5 text-slate-400 font-mono text-[11px]">{m.matchNumber || i + 1}</td>
+                                      <td className="px-4 py-2.5">
+                                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${stageBadge}`}>
+                                          {(m.round || m.roundName || "").replace(/_/g, " ")}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <div className="inline-block">
+                                          <span className="font-semibold text-slate-800">{m.teamAName || "TBD"}</span>
+                                          {flatA && (
+                                            <span className="block text-[10px] text-slate-500 font-medium">
+                                              🏠 Flat: <span className="text-slate-700 font-semibold">{flatA}</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="mx-2 text-slate-300 font-semibold align-middle">vs</span>
+                                        <div className="inline-block">
+                                          <span className="font-semibold text-slate-800">{m.teamBName || "TBD"}</span>
+                                          {flatB && (
+                                            <span className="block text-[10px] text-slate-500 font-medium">
+                                              🏠 Flat: <span className="text-slate-700 font-semibold">{flatB}</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                                        <Clock className="w-3 h-3 inline-block mr-1 -mt-0.5 text-indigo-500" />
+                                        <span className="font-medium">{formatDateTime(m.scheduledAt)}</span>
+                                      </td>
+                                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                                        {m.venueName ? (
+                                          <>
+                                            <MapPin className="w-3 h-3 inline-block mr-1 -mt-0.5 text-rose-500" />
+                                            <span className="font-medium">{m.venueName}</span>
+                                            {m.courtName ? <span className="text-slate-400"> · {m.courtName}</span> : ""}
+                                          </>
+                                        ) : (
+                                          <span className="text-slate-400">—</span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-mono text-slate-700">
+                                        {m.status === "COMPLETED" && m.scoreTeamA != null ? `${m.scoreTeamA} – ${m.scoreTeamB}` : "—"}
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            try {
+                                              const next = m.showInFeed === true ? false : true;
+                                              await tournamentService.setFeedVisibility("match", m.id, next);
+                                              setMatches(prev => ({
+                                                ...prev,
+                                                [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, showInFeed: next } : row)
+                                              }));
+                                              toast.success(`Match #${m.matchNumber || i + 1} feed broadcast set to ${next ? "ON" : "OFF"}`);
+                                            } catch {
+                                              showError("Failed to update match feed setting");
+                                            }
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
+                                            m.showInFeed === true
+                                              ? "bg-red-50 text-red-600 border-red-200"
+                                              : m.showInFeed === false
+                                              ? "bg-slate-100 text-slate-400 border-slate-200"
+                                              : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
+                                          }`}
+                                          title={m.showInFeed === true ? "Explicitly ON (click to turn OFF)" : m.showInFeed === false ? "Explicitly OFF (click to turn ON)" : "Inherit from Event (click to toggle)"}
+                                        >
+                                          <Radio className="w-2.5 h-2.5" />
+                                          <span>{m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
+                                        </button>
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <StatusBadge status={m.status} />
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
 
                       <div className="px-4 py-2 text-xs text-slate-500 bg-slate-50/50 flex items-center justify-between border-t border-slate-100">
