@@ -406,6 +406,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [thirdPlace, setThirdPlace] = useState(false);
   const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
+  // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
+  const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
   const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
@@ -1955,6 +1957,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       courtIds: selectedCourtIds(defaultVenueId),
       matchDays: effectiveMatchDays,
       roundTimings: Object.keys(roundTimings).length > 0 ? roundTimings : undefined,
+      byesFirstRoundOnly,
     };
   };
 
@@ -3249,6 +3252,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </button>
             </div>
 
+            {/* BYEs only in first knockout round */}
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={byesFirstRoundOnly}
+                onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>
+                Give all BYEs in the 1st knockout round only
+                <span className="block text-xs text-[#6b7094]">
+                  For odd / non power-of-2 player counts (e.g. 21, 22, 37, 38) top seeds skip round 1; no BYEs in qualifiers, semi-finals or final.
+                </span>
+              </span>
+            </label>
+
             {/* Seeding Order */}
             <div className="text-center">
               <label className={labelCls}>Choose Your Schedule Sequence <span className="text-red-400">*</span></label>
@@ -4315,6 +4334,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${playoffThirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
+
+                  {/* BYEs only in first knockout round */}
+                  <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700 max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={byesFirstRoundOnly}
+                      onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+                    />
+                    <span>
+                      Give all BYEs in the 1st knockout round only
+                      <span className="block text-xs text-[#6b7094]">
+                        When the number of qualifiers is not a power of 2, top seeds skip round 1; no BYEs in quarter-finals, semi-finals or final.
+                      </span>
+                    </span>
+                  </label>
 
                   {/* Choose Playoffs Schedule Sequence */}
                   <div className="flex flex-col gap-4 items-center justify-center">

@@ -76,6 +76,11 @@ export type PlayoffScheduleInput = {
   courtIds?: number[];
   matchDays?: number[];
   roundTimings?: Record<string, RoundTimingAnchor>;
+  /**
+   * When true, every BYE is consumed in the first knockout round (top seeds skip it) so all
+   * later rounds (qualifiers/quarter-finals, semi-finals, final) are fully played with no byes.
+   */
+  byesFirstRoundOnly?: boolean;
 };
 
 export function parseBreakMinutes(breakTime: string): number {
@@ -614,7 +619,55 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
   let currentRoundParticipants: PlayoffParticipantRef[] = [];
   let roundIndex = 0;
 
-  if (numByes > 0) {
+  if (numByes > 0 && input.byesFirstRoundOnly) {
+    // All byes are consumed in round 1: lay the field on a standard bracket of `power` slots.
+    // Any slot whose opponent seed exceeds n is a bye for the better seed (no BYE fixture).
+    let order: number[] = [1, 2];
+    while (order.length < power) {
+      const nextSum = order.length * 2 + 1;
+      const expanded: number[] = [];
+      for (let i = 0; i < order.length; i += 2) {
+        expanded.push(order[i], nextSum - order[i], order[i + 1], nextSum - order[i + 1]);
+      }
+      order = expanded;
+    }
+
+    const roundType = roundTypeForTeamCount(power, roundIndex, totalRounds);
+    anchorRound(roundType);
+    const nextRound: PlayoffParticipantRef[] = [];
+    let m = 0;
+    for (let i = 0; i < order.length; i += 2) {
+      const x = order[i];
+      const y = order[i + 1];
+      if (Math.max(x, y) > n) {
+        nextRound.push(seeds[Math.min(x, y) - 1]);
+        continue;
+      }
+      const home = seeds[x - 1];
+      const away = seeds[y - 1];
+      const name = roundType === 'FINAL' ? 'Final' : roundLabel(roundType, m);
+      const id = roundType === 'FINAL' ? 'playoff-final' : `playoff-r${roundIndex}-m${m}`;
+      const { date, time } = scheduleSlot();
+      matches.push({
+        id,
+        name,
+        round: roundType,
+        roundIndex,
+        home,
+        away,
+        date,
+        time,
+        duration: input.matchDurationMinutes,
+        venueId: input.venueId,
+        courtId: getCourtId(roundType),
+        moveSubsMatches: false,
+      });
+      nextRound.push(winnerRef(id, name));
+      m++;
+    }
+    currentRoundParticipants = nextRound;
+    roundIndex++;
+  } else if (numByes > 0) {
     // When team count is not a power of 2, top-seeded teams advance directly to Round 2
     // without any dummy BYE match created in Round 1.
     const round1Byes = seeds.slice(0, numByes);
