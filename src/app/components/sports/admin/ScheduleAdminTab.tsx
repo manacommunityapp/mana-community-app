@@ -213,7 +213,8 @@ export function ScheduleAdminTab() {
                   const validCfgMatches = cfgMatches.filter(m => {
                     const s = getMatchStage(m);
                     if (s !== 'GROUP') {
-                      const { team1, team2 } = extractTeamNames(m);
+                      const team1 = m.teamAName || m.homeName;
+                      const team2 = m.teamBName || m.awayName;
                       if (team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED') return false;
                     }
                     return true;
