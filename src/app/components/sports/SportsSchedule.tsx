@@ -1080,12 +1080,15 @@ export function SportsSchedule() {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
           for (const cfg of configs || []) {
-            if (!isAdmin && cfg.status === "DRAFT") continue;
+            // Skip DRAFT configs in the public-facing All Events / Overview tabs —
+            // matches are only shown here once an admin publishes the schedule.
+            if (cfg.status === "DRAFT") continue;
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
               for (const m of matches) {
                 if (m.status === "BYE") continue;
-                if (!isAdmin && m.status === "DRAFT") continue;
+                // Also skip any individual match that is still in DRAFT state.
+                if (m.status === "DRAFT") continue;
                 const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
                 let scheduledTime = "";
                 try {
