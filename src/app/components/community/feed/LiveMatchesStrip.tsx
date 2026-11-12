@@ -190,30 +190,6 @@ export function LiveMatchesStrip() {
     // LIVE matches first, then recently finished
     .sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
 
-  if (visible.length === 0) {
-    if (matches.length > 0) {
-      return (
-        <div className="flex items-center justify-between px-3.5 py-2.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-xs animate-fade-in">
-          <span className="text-slate-500 font-medium flex items-center gap-1.5">
-            <Radio className="w-3.5 h-3.5 text-indigo-500" />
-            {matches.length} live match{matches.length > 1 ? "es" : ""} currently hidden.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setDismissed([]);
-              try { window.localStorage.removeItem(DISMISS_KEY); } catch {}
-            }}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-          >
-            Show Live Matches
-          </button>
-        </div>
-      );
-    }
-    return null;
-  }
-
   const availableSports = useMemo(() => {
     const set = new Set<string>();
     matches.forEach((m) => {
@@ -247,6 +223,30 @@ export function LiveMatchesStrip() {
       return true;
     }).sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
   }, [matches, modalStatusFilter, modalSportFilter, modalSearch]);
+
+  if (visible.length === 0) {
+    if (matches.length > 0) {
+      return (
+        <div className="flex items-center justify-between px-3.5 py-2.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-xs animate-fade-in">
+          <span className="text-slate-500 font-medium flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-indigo-500" />
+            {matches.length} live match{matches.length > 1 ? "es" : ""} currently hidden.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setDismissed([]);
+              try { window.localStorage.removeItem(DISMISS_KEY); } catch {}
+            }}
+            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+          >
+            Show Live Matches
+          </button>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const shown = showAll ? visible : visible.slice(0, MAX_CARDS);
   const liveCount = visible.filter((m) => isLiveStatus(m.status)).length;
