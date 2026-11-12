@@ -22,6 +22,8 @@ import {
 import { FixturesListView } from "./FixturesListView";
 import { FixturesTableView, type FixtureTableRow } from "./FixturesTableView";
 import { getPlayerInitials } from "../sports/SportsSchedule";
+import { PlayoffBracketView } from "./PlayoffBracketView";
+import type { PlayoffMatchDraft } from "./playoffSchedule";
 
 export function TournamentScheduler() {
   const { token, user } = useAuth() as any;
@@ -39,6 +41,7 @@ export function TournamentScheduler() {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showStageExportModal, setShowStageExportModal] = useState(false);
   const [stageModalDefaultStage, setStageModalDefaultStage] = useState<TournamentStageKey>("ALL");
+  const [playoffSubView, setPlayoffSubView] = useState<"cards" | "bracket">("cards");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -445,6 +448,7 @@ export function TournamentScheduler() {
     setViewPlayers([]);
     setViewError("");
     setViewDisplayMode("visual");
+    setPlayoffSubView("cards");
     setShowExportMenu(false);
     setViewLoading(true);
     const [matchesResult, playersResult] = await Promise.allSettled([
@@ -704,6 +708,59 @@ export function TournamentScheduler() {
           }));
         })();
 
+        // Build PlayoffMatchDraft[] for the connected bracket tree view
+        const roundOrderMap: Record<string, number> = {
+          ROUND_OF_64: 0, ROUND_OF_32: 1, ROUND_OF_16: 2,
+          QUARTER_FINAL: 3, SEMI_FINAL: 4, FINAL: 5, THIRD_PLACE: 6,
+        };
+        const stageToRound = (stage: string): string => {
+          const s = stage.toUpperCase().replace(/[\s-]/g, '_');
+          if (s.includes('QUARTER')) return 'QUARTER_FINAL';
+          if (s.includes('SEMI')) return 'SEMI_FINAL';
+          if (s.includes('FINAL') && !s.includes('SEMI') && !s.includes('QUARTER') && !s.includes('THIRD')) return 'FINAL';
+          if (s.includes('THIRD') || s.includes('3RD') || s.includes('BRONZE')) return 'THIRD_PLACE';
+          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
+          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
+          if (s.includes('64') || s.includes('ROUND_OF_64')) return 'ROUND_OF_64';
+          return 'FINAL';
+        };
+        const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
+          .filter(m => {
+            const stageKey = getMatchStage(m);
+            return stageKey !== 'GROUP';
+          })
+          .map((m, idx) => {
+            const { team1, team2 } = extractTeamNames(m);
+            const { team1Flat, team2Flat } = extractFlatDetails(m);
+            const { date, time } = extractDateTime(m);
+            const roundName = m.roundName || m.groupName || '';
+            const roundType = stageToRound(roundName) as PlayoffMatchDraft['round'];
+            const roundIdx = roundOrderMap[roundType] ?? 5;
+            return {
+              id: String(m.matchId || m.id || `playoff-${idx}`),
+              name: `${roundType.replace(/_/g, ' ')} Match ${m.matchNumber || idx + 1}`,
+              round: roundType,
+              roundIndex: roundIdx,
+              home: {
+                id: `h-${m.matchId || idx}`,
+                name: team1 || 'TBD',
+                flatNumber: team1Flat !== '—' ? team1Flat : undefined,
+              } as any,
+              away: {
+                id: `a-${m.matchId || idx}`,
+                name: team2 || 'TBD',
+                flatNumber: team2Flat !== '—' ? team2Flat : undefined,
+              } as any,
+              date: date || (m.scheduledAt ? String(m.scheduledAt).split('T')[0] : m.matchDate || ''),
+              time: time || (m.scheduledAt ? (String(m.scheduledAt).includes('T') ? String(m.scheduledAt).split('T')[1].slice(0, 5) : '') : ''),
+              duration: m.duration || 30,
+              venueId: m.venueId ?? null,
+              courtId: m.courtId ?? null,
+              moveSubsMatches: false,
+              status: m.status ?? null,
+            } satisfies PlayoffMatchDraft;
+          });
+
         return (
           <>
             <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
@@ -886,144 +943,191 @@ export function TournamentScheduler() {
                             <p className="text-[11px] text-slate-400 mt-0.5">Generate or save matches for this tournament configuration to see the visual draw.</p>
                           </div>
                         ) : (
-                          bracketRounds.map((round) => (
-                            <div key={round.name} className="space-y-3">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{round.name}</span>
-                                <div className="flex-1 h-px bg-slate-200" />
-                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                                  {round.matches.length} match{round.matches.length !== 1 ? "es" : ""}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {round.matches.map((m) => (
-                                  <div
-                                    key={m.id}
-                                    className="bg-white border border-[rgba(99,102,241,0.12)] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#4f46e5]/40 transition-colors animate-fade-in-up"
-                                  >
-                                    {/* Top Status Bar (gradient line) */}
-                                    <div className="w-full h-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]" />
-
-                                    {/* Top Tag Overlapping */}
-                                    <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
-                                      <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-full text-xs font-bold shadow-md">
-                                        <span className="px-1">{m.label}</span>
-                                      </div>
-                                    </div>
-
-                                    {/* Date & Time Header */}
-                                    <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-[#6b7094] border-b border-[rgba(99,102,241,0.12)]/40 bg-white/30">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-1">
-                                          <Calendar className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                          <span className="font-bold text-[#0d0d2b]">{m.date}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                          <Clock className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                          <span className="font-bold text-[#0d0d2b]">{m.time}</span>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
-                                        <MapPin className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                        <span>{m.venue.name}</span>
-                                        {m.courtName && <span className="text-[#4f46e5] font-semibold"> - {m.courtName}</span>}
-                                      </div>
-                                    </div>
-
-                                    {/* Players VS Content */}
-                                    <div className="p-3.5 flex flex-col justify-between">
-                                      {/* Desktop Horizontal VS Layout */}
-                                      <div className="hidden sm:flex items-center justify-between bg-white/40 rounded-lg p-2.5 border border-[rgba(99,102,241,0.12)]/40">
-                                        {/* Home Team */}
-                                        <div className="flex items-center gap-2.5 w-[42%]">
-                                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                            <img
-                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                              alt="Avatar"
-                                              className="w-full h-full object-cover"
-                                            />
-                                          </div>
-                                          <div className="flex flex-col truncate">
-                                            <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p1.fullName}>
-                                              {m.p1.fullName}
-                                            </span>
-                                            {m.p1.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p1.flatNumber}</span>}
-                                          </div>
-                                        </div>
-
-                                        {/* VS Badge Pill */}
-                                        <div className="flex flex-col items-center justify-center shrink-0">
-                                          <span className="text-[9px] font-bold px-2 py-0.5 bg-[#4f46e5] text-white rounded-full">VS</span>
-                                        </div>
-
-                                        {/* Away Team */}
-                                        <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
-                                          <div className="flex flex-col truncate">
-                                            <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p2.fullName}>
-                                              {m.p2.fullName}
-                                            </span>
-                                            {m.p2.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p2.flatNumber}</span>}
-                                          </div>
-                                          <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                            <img
-                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                              alt="Avatar"
-                                              className="w-full h-full object-cover"
-                                            />
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Mobile Vertical VS Layout */}
-                                      <div className="flex sm:hidden flex-col gap-2 bg-white/40 rounded-lg p-2 border border-[rgba(99,102,241,0.12)]/40">
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                            <img
-                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                              alt="Avatar"
-                                              className="w-full h-full object-cover"
-                                            />
-                                          </div>
-                                          <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p1.fullName}</span>
-                                            {m.p1.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p1.flatNumber}</span>}
-                                          </div>
-                                        </div>
-                                        <div className="flex items-center justify-center py-0.5 border-y border-[rgba(99,102,241,0.12)]/20 my-0.5">
-                                          <span className="text-[8px] font-bold text-[#6b7094]/70">VS</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                            <img
-                                              src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                              alt="Avatar"
-                                              className="w-full h-full object-cover"
-                                            />
-                                          </div>
-                                          <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p2.fullName}</span>
-                                            {m.p2.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p2.flatNumber}</span>}
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Footer Status & Score */}
-                                      <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-[rgba(99,102,241,0.12)]/30 text-[11px]">
-                                        <span className="text-[#6b7094]">
-                                          Status: <span className="text-indigo-600 font-semibold capitalize">{String(m.status || "SCHEDULED").toLowerCase().replace(/_/g, " ")}</span>
-                                        </span>
-                                        {m.score && (
-                                          <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                            {m.score}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </div>
+                          <>
+                            {/* Knockout Bracket sub-toggle — only show if there are playoff matches */}
+                            {playoffMatchesForBracket.length > 0 && (
+                              <div className="flex gap-2 justify-between items-center border-b border-[rgba(99,102,241,0.12)] pb-3">
+                                <div className="flex text-left items-center">
+                                  <p className="text-sm font-bold text-[#0d0d2b]">Match Schedule</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Bracket</span>
+                                  <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPlayoffSubView("bracket")}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
+                                      style={playoffSubView === "bracket"
+                                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                                        : { background: "transparent", color: "#6b7094" }}
+                                    >
+                                      Bracket
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPlayoffSubView("cards")}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
+                                      style={playoffSubView === "cards"
+                                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                                        : { background: "transparent", color: "#6b7094" }}
+                                    >
+                                      List
+                                    </button>
                                   </div>
-                                ))}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            )}
+
+                            {/* Bracket Tree View */}
+                            {playoffSubView === "bracket" && playoffMatchesForBracket.length > 0 ? (
+                              <PlayoffBracketView
+                                matches={playoffMatchesForBracket}
+                                onEditMatch={() => {}}
+                                onDownloadBracket={() => handleExport("pdf", "FINAL")}
+                                resolveVenueName={(id) => venue?.name || ""}
+                                resolveCourtName={(_courtId) => ""}
+                              />
+                            ) : (
+                              bracketRounds.map((round) => (
+                                <div key={round.name} className="space-y-3">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{round.name}</span>
+                                    <div className="flex-1 h-px bg-slate-200" />
+                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                      {round.matches.length} match{round.matches.length !== 1 ? "es" : ""}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {round.matches.map((m) => (
+                                      <div
+                                        key={m.id}
+                                        className="bg-white border border-[rgba(99,102,241,0.12)] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#4f46e5]/40 transition-colors animate-fade-in-up"
+                                      >
+                                        {/* Top Status Bar (gradient line) */}
+                                        <div className="w-full h-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]" />
+
+                                        {/* Top Tag Overlapping */}
+                                        <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
+                                          <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-full text-xs font-bold shadow-md">
+                                            <span className="px-1">{m.label}</span>
+                                          </div>
+                                        </div>
+
+                                        {/* Date & Time Header */}
+                                        <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-[#6b7094] border-b border-[rgba(99,102,241,0.12)]/40 bg-white/30">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-1">
+                                              <Calendar className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                              <span className="font-bold text-[#0d0d2b]">{m.date}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <Clock className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                              <span className="font-bold text-[#0d0d2b]">{m.time}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
+                                            <MapPin className="w-3.5 h-3.5 text-[#4f46e5]" />
+                                            <span>{m.venue.name}</span>
+                                            {m.courtName && <span className="text-[#4f46e5] font-semibold"> - {m.courtName}</span>}
+                                          </div>
+                                        </div>
+
+                                        {/* Players VS Content */}
+                                        <div className="p-3.5 flex flex-col justify-between">
+                                          {/* Desktop Horizontal VS Layout */}
+                                          <div className="hidden sm:flex items-center justify-between bg-white/40 rounded-lg p-2.5 border border-[rgba(99,102,241,0.12)]/40">
+                                            {/* Home Team */}
+                                            <div className="flex items-center gap-2.5 w-[42%]">
+                                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                                <img
+                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                                  alt="Avatar"
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                              <div className="flex flex-col truncate">
+                                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p1.fullName}>
+                                                  {m.p1.fullName}
+                                                </span>
+                                                {m.p1.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p1.flatNumber}</span>}
+                                              </div>
+                                            </div>
+
+                                            {/* VS Badge Pill */}
+                                            <div className="flex flex-col items-center justify-center shrink-0">
+                                              <span className="text-[9px] font-bold px-2 py-0.5 bg-[#4f46e5] text-white rounded-full">VS</span>
+                                            </div>
+
+                                            {/* Away Team */}
+                                            <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
+                                              <div className="flex flex-col truncate">
+                                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p2.fullName}>
+                                                  {m.p2.fullName}
+                                                </span>
+                                                {m.p2.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p2.flatNumber}</span>}
+                                              </div>
+                                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                                <img
+                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                                  alt="Avatar"
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Mobile Vertical VS Layout */}
+                                          <div className="flex sm:hidden flex-col gap-2 bg-white/40 rounded-lg p-2 border border-[rgba(99,102,241,0.12)]/40">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                                <img
+                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                                  alt="Avatar"
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                              <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p1.fullName}</span>
+                                                {m.p1.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p1.flatNumber}</span>}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-center py-0.5 border-y border-[rgba(99,102,241,0.12)]/20 my-0.5">
+                                              <span className="text-[8px] font-bold text-[#6b7094]/70">VS</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                                <img
+                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
+                                                  alt="Avatar"
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                              <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p2.fullName}</span>
+                                                {m.p2.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p2.flatNumber}</span>}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Footer Status & Score */}
+                                          <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-[rgba(99,102,241,0.12)]/30 text-[11px]">
+                                            <span className="text-[#6b7094]">
+                                              Status: <span className="text-indigo-600 font-semibold capitalize">{String(m.status || "SCHEDULED").toLowerCase().replace(/_/g, " ")}</span>
+                                            </span>
+                                            {m.score && (
+                                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                {m.score}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </>
                         )}
                       </div>
                     )}
