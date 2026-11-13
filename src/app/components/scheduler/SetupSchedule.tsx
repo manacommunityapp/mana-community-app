@@ -305,6 +305,12 @@ export function calculateRoundTimeline(
  * Applies round dates, start times, durations, and sequential / same-time modes
  * across playoff match drafts.
  */
+// Chronological round order for time cascade
+const PLAYOFF_ROUND_ORDER = [
+  'ROUND_OF_64', 'ROUND_OF_32', 'ROUND_OF_16',
+  'QUARTER_FINAL', 'SEMI_FINAL', 'FINAL', 'THIRD_PLACE',
+];
+
 export function computePlayoffRoundMatches(
   matches: PlayoffMatchDraft[],
   options: {
@@ -318,6 +324,7 @@ export function computePlayoffRoundMatches(
     usePlayoffDays?: boolean;
     playoffDays?: number[];
     numCourts?: number;
+    startTime?: string;
   }
 ): PlayoffMatchDraft[] {
   const {
@@ -331,6 +338,7 @@ export function computePlayoffRoundMatches(
     usePlayoffDays = false,
     playoffDays = [0, 1, 2, 3, 4, 5, 6],
     numCourts = 1,
+    startTime: globalStartTime = '',
   } = options;
 
   // Group matches by round while preserving order
@@ -342,12 +350,20 @@ export function computePlayoffRoundMatches(
     matchesByRound[m.round].push(m);
   });
 
-  // Pre-calculate timelines for rounds — BYEs excluded from slot count
-  const roundTimelines: Record<string, RoundTimeline> = {};
-  // Track real (non-BYE) matches per round for slot index mapping
-  const realMatchesByRound: Record<string, PlayoffMatchDraft[]> = {};
+  // Process rounds in chronological order so each round's start cascades
+  // from the previous round's actual end time (not from bracket-cursor positions
+  // which include BYE slots and produce large time gaps).
+  const orderedRounds = [
+    ...PLAYOFF_ROUND_ORDER.filter(r => matchesByRound[r]),
+    ...Object.keys(matchesByRound).filter(r => !PLAYOFF_ROUND_ORDER.includes(r)),
+  ];
 
-  Object.keys(matchesByRound).forEach(r => {
+  const roundTimelines: Record<string, RoundTimeline> = {};
+  const realMatchesByRound: Record<string, PlayoffMatchDraft[]> = {};
+  // cascadeTime tracks the running next-available time across rounds
+  let cascadeTime = globalStartTime;
+
+  orderedRounds.forEach(r => {
     const roundTime = roundTimes[r];
     const roundDurationStr = roundDurations[r];
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
@@ -355,11 +371,12 @@ export function computePlayoffRoundMatches(
     const roundDate = roundDates[r] || matchesByRound[r][0]?.date;
     const dayOfWeek = roundDate ? new Date(roundDate + 'T00:00:00').getDay() : undefined;
 
-    // BYE matches have time='' and status AUTO_ADVANCED — exclude from court slots
+    // BYE matches have time='' — exclude from court slot count and timing
     const realMatches = matchesByRound[r].filter(m => m.time);
     realMatchesByRound[r] = realMatches;
 
-    const effectiveRoundTime = roundTime || realMatches[0]?.time;
+    // Explicit roundTime overrides cascade; cascade overrides bracket-cursor time
+    const effectiveRoundTime = roundTime || cascadeTime || realMatches[0]?.time;
     if (effectiveRoundTime && realMatches.length > 0) {
       roundTimelines[r] = calculateRoundTimeline(
         effectiveRoundTime,
@@ -371,6 +388,10 @@ export function computePlayoffRoundMatches(
         dayOfWeek,
         numCourts
       );
+      // Advance cascade to this round's end (only when no explicit roundTime override)
+      if (!roundTime) {
+        cascadeTime = roundTimelines[r].nextAvailableTime;
+      }
     }
   });
 
@@ -2503,6 +2524,7 @@ export function SetupSchedule({
         usePlayoffDays,
         playoffDays,
         numCourts: getTotalSelectedCourts(),
+        startTime: startTime || '08:00 AM',
       });
       koMatches = applyPlayoffOverrides(koMatches, matchOverrides);
       return enrichFlats(koMatches);
@@ -2530,6 +2552,7 @@ export function SetupSchedule({
       usePlayoffDays,
       playoffDays,
       numCourts: getTotalSelectedCourts(),
+      startTime: startTime || '08:00 AM',
     });
 
     return enrichFlats(applyPlayoffOverrides(distributedMatches, matchOverrides));
