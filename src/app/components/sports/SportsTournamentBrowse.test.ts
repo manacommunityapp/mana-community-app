@@ -5,7 +5,8 @@ import {
   tournamentMatchesSport,
   eventMatchesSport,
 } from "./SportsTournamentBrowse";
-import type { SportsEvent, EventRegistration, AuctionTeam, DashboardTournamentCard } from "../../../types/api";
+import type { SportsEvent, EventRegistration, AuctionTeam } from "../../../types/api";
+import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 
 // Pure helper function reflecting exact event registration matching logic
 export function filterRegistrationsForEvent(
@@ -56,7 +57,7 @@ describe("SportsTournamentBrowse - Strict Event Scoping", () => {
       playerName: "Aarav Sharma",
       relation: "SON",
       flatNumber: "A-401",
-      category: { id: 1, name: "Under 12" },
+      category: { id: 1, name: "Under 12", categoryType: "KIDS", minAge: 5, maxAge: 12, gender: "ALL" },
       matchFormat: "SINGLES",
       event: { id: 101, name: "Chess — Under 12" } as any,
     },
@@ -66,7 +67,7 @@ describe("SportsTournamentBrowse - Strict Event Scoping", () => {
       playerName: "Rajesh Sharma",
       relation: "SELF",
       flatNumber: "A-401",
-      category: { id: 2, name: "Men's Open" },
+      category: { id: 2, name: "Men's Open", categoryType: "MENS", minAge: 18, maxAge: 100, gender: "MALE" },
       matchFormat: "DOUBLES",
       partnerName: "Vikram Malhotra",
       partnerFlatNumber: "B-204",
@@ -172,7 +173,7 @@ describe("getEventEffectiveStatus helper", () => {
       name: "Event 4",
       eventDateStart: "2026-12-13",
       eventDateEnd: "2026-12-15",
-      registrationStatus: "OPEN",
+      registrationStatus: "REGISTRATION_OPEN",
     };
     const res = getEventEffectiveStatus(openEv);
     expect(res.isOpen).toBe(true);
@@ -211,12 +212,24 @@ describe("tournamentMatchesSport helper", () => {
     id: 1,
     name: "Winter Premier League",
     sportName: "Cricket",
+    bannerImage: null,
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Green Valley",
     events: [],
   };
 
   const multiSportTournament: DashboardTournamentCard = {
     id: 2,
     name: "Summer Sports Extravaganza",
+    bannerImage: null,
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Green Valley",
     events: [
       { id: 201, name: "Singles Match", sport: { name: "Chess" } } as any,
       { id: 202, name: "Doubles Match", sportName: "Badminton" } as any,
@@ -226,6 +239,12 @@ describe("tournamentMatchesSport helper", () => {
   const titleOnlyTournament: DashboardTournamentCard = {
     id: 3,
     name: "Annual Football Cup",
+    bannerImage: null,
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Green Valley",
     events: [],
   };
 
@@ -256,18 +275,24 @@ describe("eventMatchesSport helper", () => {
   const chessEvent: SportsEvent = {
     id: 10,
     name: "Under 12 Singles",
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
     sport: { name: "Chess" } as any,
   };
 
   const tennisEventWithParent: SportsEvent = {
     id: 11,
     name: "Doubles Trophy",
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
     tournament: { id: 1, name: "Tennis Cup", sportName: "Tennis" },
   };
 
   const titleOnlyEvent: SportsEvent = {
     id: 12,
     name: "Box Cricket Championship",
+    eventDateStart: "2026-12-01",
+    eventDateEnd: "2026-12-03",
   };
 
   it("returns true for 'All' or empty filter", () => {

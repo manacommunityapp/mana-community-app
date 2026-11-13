@@ -153,7 +153,7 @@ export function MatchScoringRulesModal({
       periodsToWin: isCarrom ? undefined : periodsToWin,
       pointsToWinPeriod: isSetBased ? pointsToWinPeriod : undefined,
       mustWinByTwo: isSetBased ? mustWinByTwo : false,
-      tiebreakPointsToWin: isSetBased ? tiebreakPointsToWin : undefined,
+      tiebreakPointsToWin: isSetBased && tiebreakPointsToWin != null ? tiebreakPointsToWin : undefined,
       periodDurationMinutes: isTimed ? periodDurationMinutes : undefined,
       hasOvertime: isTimed ? hasOvertime : false,
       hasPenaltyShootout: isTimed ? hasPenaltyShootout : false,

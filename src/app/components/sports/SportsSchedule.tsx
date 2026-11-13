@@ -3235,10 +3235,10 @@ export function SportsSchedule() {
           isOpen={!!rulesModalFixture}
           onClose={() => setRulesModalFixture(null)}
           matchId={rulesModalFixture.matchId}
-          sportType={rulesModalFixture.sport || activeSport}
+          sportType={rulesModalFixture.sport || activeMatchSport || "General"}
           matchName={rulesModalFixture.name}
           onSaved={() => {
-            loadData();
+            // Scoring rules updated for match
           }}
         />
       )}
