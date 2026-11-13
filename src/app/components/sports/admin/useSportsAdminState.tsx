@@ -756,8 +756,7 @@ export function useSportsAdminState() {
 
   const selectedEventForAdd = useMemo(() => {
     if (!selectedEventIdForAdd) return null;
-    const all = [...draftEvents, ...liveEvents, ...completedEvents];
-    for (const item of all) {
+    for (const item of activeTournaments) {
       if (item.sportsEvents && Array.isArray(item.sportsEvents)) {
         const found = item.sportsEvents.find((ev: any) => ev.id === selectedEventIdForAdd);
         if (found) return found;
@@ -765,8 +764,11 @@ export function useSportsAdminState() {
       const single = (item as any).event || item;
       if (single.id === selectedEventIdForAdd) return single;
     }
+    for (const item of activeEvents) {
+      if (item.id === selectedEventIdForAdd) return item;
+    }
     return null;
-  }, [selectedEventIdForAdd, draftEvents, liveEvents, completedEvents]);
+  }, [selectedEventIdForAdd, activeTournaments, activeEvents]);
 
   const resolveDefaultCategory = useCallback(() => {
     if (selectedEventForAdd) {
