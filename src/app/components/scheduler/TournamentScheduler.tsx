@@ -69,7 +69,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
   const [showByesInBracket, setShowByesInBracket] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
   const [actionConfig, setActionConfig] = useState<{ config: ConfigInfo; type: "delete" | "publish" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [broadcastModalState, setBroadcastModalState] = useState<{
@@ -149,7 +149,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
     setLoading(false);
   };
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
+  const showToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
@@ -512,7 +512,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-4 text-left">
       {toast && (
-        <div className={`fixed bottom-8 right-8 p-4 rounded-lg shadow-lg z-50 font-medium ${toast.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+        <div className={`fixed bottom-8 right-8 p-4 rounded-lg shadow-lg z-50 font-medium ${toast.type === "success" ? "bg-green-500 text-white" : toast.type === "info" ? "bg-indigo-600 text-white" : "bg-red-500 text-white"}`}>
           {toast.msg}
         </div>
       )}

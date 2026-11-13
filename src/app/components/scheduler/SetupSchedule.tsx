@@ -1403,17 +1403,19 @@ export function SetupSchedule({
       setSelectedVenues([targetVenueId]);
       setExpandedVenue(targetVenueId);
       const vObj = venues.find(v => v.id === targetVenueId);
-      if (vObj?.courts && vObj.courts.length > 0) {
+      const vCourts = vObj?.courts;
+      if (vCourts && vCourts.length > 0) {
         setSelectedCourts(prev => ({
           ...prev,
-          [targetVenueId]: vObj.courts.map(c => c.name),
+          [targetVenueId]: vCourts.map(c => c.name),
         }));
       } else {
         venueService.getVenueById(targetVenueId).then(fetched => {
-          if (fetched?.courts && fetched.courts.length > 0) {
+          const fetchedCourts = fetched?.courts;
+          if (fetchedCourts && fetchedCourts.length > 0) {
             setSelectedCourts(prev => ({
               ...prev,
-              [targetVenueId]: fetched.courts.map(c => c.name),
+              [targetVenueId]: fetchedCourts.map(c => c.name),
             }));
           }
         }).catch(() => {});
