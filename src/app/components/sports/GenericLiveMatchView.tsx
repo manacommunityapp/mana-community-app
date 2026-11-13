@@ -126,22 +126,9 @@ export function GenericLiveMatchView({
               {sportType.replace(/_/g, " ")} - Live
             </h2>
             {!isCompleted && (
-              <span className="flex items-center gap-1 text-[10px] font-semibold">
-                {wsConnected ? (
-                  <>
-                    <Wifi className="w-3 h-3 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      Realtime
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-slate-500 dark:text-slate-400">
-                      Auto-sync (10s)
-                    </span>
-                  </>
-                )}
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[10px] font-extrabold text-red-500 uppercase tracking-wider">Live</span>
               </span>
             )}
           </div>

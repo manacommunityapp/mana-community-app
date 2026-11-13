@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Loader2,
-  Wifi,
-  WifiOff,
   AlertTriangle,
   Maximize2,
   Minimize2,
@@ -39,7 +37,6 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wsConnected, setWsConnected] = useState<boolean>(stompClient.connected);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("live");
@@ -67,28 +64,18 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   useEffect(() => {
     fetchState(false);
 
-    // Initial WebSocket connectivity check
-    setWsConnected(stompClient.connected);
-
     const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
       setState(body as LiveMatchStateData);
-      setWsConnected(true);
       setLastUpdated(new Date());
       setError(null);
     });
 
     const unsubBall = stompClient.subscribe(`/topic/match/${matchId}`, () => {
-      // Re-fetch match state when a new ball arrives
       fetchState(false);
     });
 
     const unsubConnect = stompClient.onConnect(() => {
-      setWsConnected(true);
       fetchState(false);
-    });
-
-    const unsubDisconnect = stompClient.onDisconnect(() => {
-      setWsConnected(false);
     });
 
     // Fallback polling every 15 seconds
@@ -100,7 +87,6 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
       unsubState();
       unsubBall();
       unsubConnect();
-      unsubDisconnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     };
   }, [matchId, fetchState]);
@@ -149,11 +135,25 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   }
 
   const effectiveMaxOvers = state.oversLimit ?? maxOvers ?? 20;
+
+  // Accurately determine team innings mapping
+  const inn1BattingTeam = state.innings1?.battingTeamName || state.teamAName;
+  const isTeamABattingFirst = (state.innings1?.battingTeamId && state.innings1.battingTeamId === state.teamAId) || inn1BattingTeam === state.teamAName;
+
+  const teamAInn = isTeamABattingFirst ? state.innings1 : state.innings2;
+  const teamBInn = isTeamABattingFirst ? state.innings2 : state.innings1;
+
+  const isTeamABatted = isTeamABattingFirst || state.currentInnings >= 2 || (teamAInn && (teamAInn.totalRuns > 0 || teamAInn.totalWickets > 0 || teamAInn.batters.length > 0));
+  const isTeamBBatted = !isTeamABattingFirst || state.currentInnings >= 2 || (teamBInn && (teamBInn.totalRuns > 0 || teamBInn.totalWickets > 0 || teamBInn.batters.length > 0));
+
+  const isTeamABattingNow = (state.currentInnings === 1 && isTeamABattingFirst) || (state.currentInnings === 2 && !isTeamABattingFirst);
+  const isTeamBBattingNow = !isTeamABattingNow;
+
   const currentInn = state.currentInnings === 1 ? state.innings1 : state.innings2;
-  const battingTeamName = currentInn.battingTeamName || (state.currentInnings === 1 ? state.teamAName : state.teamBName);
-  const bowlingTeamName = battingTeamName === state.teamAName ? state.teamBName : state.teamAName;
-  const battingTeamColor = battingTeamName === state.teamAName ? (state.teamAColor || "#3b82f6") : (state.teamBColor || "#ec4899");
-  const bowlingTeamColor = bowlingTeamName === state.teamAName ? (state.teamAColor || "#3b82f6") : (state.teamBColor || "#ec4899");
+  const battingTeamName = currentInn.battingTeamName || (isTeamABattingNow ? state.teamAName : state.teamBName);
+  const bowlingTeamName = isTeamABattingNow ? state.teamBName : state.teamAName;
+  const battingTeamColor = isTeamABattingNow ? (state.teamAColor || "#3b82f6") : (state.teamBColor || "#ec4899");
+  const bowlingTeamColor = isTeamABattingNow ? (state.teamBColor || "#ec4899") : (state.teamAColor || "#3b82f6");
 
   // Active batters
   const activeBatters = currentInn.batters.filter(b => !b.isOut);
@@ -262,28 +262,12 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
         {/* Top App Bar */}
         <div className="bg-slate-950 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between text-white border-b border-slate-800/80 shrink-0">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/15 border border-red-500/30">
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/15 border border-red-500/30">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[10px] font-extrabold text-red-400 tracking-wider">LIVE</span>
             </div>
 
-            {/* Dynamic Sync/Connection Indicator */}
-            {wsConnected ? (
-              <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                <Wifi className="w-3 h-3 text-emerald-400" />
-                <span>Realtime</span>
-              </div>
-            ) : (
-              <div
-                className="flex items-center gap-1 text-[11px] text-slate-300 font-medium bg-slate-800/80 px-2 py-0.5 rounded-full border border-slate-700"
-                title="Live auto-refreshing via HTTP every 15 seconds"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>Auto-sync (15s)</span>
-              </div>
-            )}
-
-            <span className="hidden sm:inline text-xs text-slate-400">
+            <span className="text-xs text-slate-400">
               Match #{state.matchId} • {effectiveMaxOvers} Overs
             </span>
           </div>
@@ -330,10 +314,10 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
 
           {/* Teams Banner */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-center">
-            {/* Team 1 Card */}
+            {/* Team A Card */}
             <div
               className={`p-3 rounded-xl border transition-all ${
-                state.currentInnings === 1
+                isTeamABattingNow
                   ? "bg-slate-800/80 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
                   : "bg-slate-800/40 border-slate-700/50"
               }`}
@@ -348,28 +332,36 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                     {state.teamAName}
                   </span>
                 </div>
-                {state.currentInnings === 1 && (
+                {isTeamABattingNow && (
                   <span className="text-[10px] bg-indigo-500/30 text-indigo-300 font-bold px-2 py-0.5 rounded-full border border-indigo-500/40 uppercase">
                     Batting
                   </span>
                 )}
               </div>
               <div className="flex items-baseline justify-between mt-1">
-                <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-white">
-                  {state.innings1.totalRuns}
-                  <span className="text-slate-400 font-normal">/{state.innings1.totalWickets}</span>
-                </div>
-                <div className="text-right text-xs text-slate-300">
-                  <span className="font-mono text-slate-400">({state.innings1.totalOvers} ov)</span>
-                  <div className="text-[11px] text-slate-400">CRR: <span className="text-white font-semibold">{state.innings1.runRate}</span></div>
-                </div>
+                {isTeamABatted ? (
+                  <>
+                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-white">
+                      {teamAInn.totalRuns}
+                      <span className="text-slate-400 font-normal">/{teamAInn.totalWickets}</span>
+                    </div>
+                    <div className="text-right text-xs text-slate-300">
+                      <span className="font-mono text-slate-400">({teamAInn.totalOvers} ov)</span>
+                      <div className="text-[11px] text-slate-400">CRR: <span className="text-white font-semibold">{teamAInn.runRate}</span></div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-slate-400 text-sm italic font-medium py-1">
+                    Yet to bat
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Team 2 Card */}
+            {/* Team B Card */}
             <div
               className={`p-3 rounded-xl border transition-all ${
-                state.currentInnings === 2
+                isTeamBBattingNow
                   ? "bg-slate-800/80 border-indigo-500/40 shadow-lg shadow-indigo-500/10"
                   : "bg-slate-800/40 border-slate-700/50"
               }`}
@@ -384,38 +376,47 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                     {state.teamBName}
                   </span>
                 </div>
-                {state.currentInnings === 2 && (
+                {isTeamBBattingNow && (
                   <span className="text-[10px] bg-indigo-500/30 text-indigo-300 font-bold px-2 py-0.5 rounded-full border border-indigo-500/40 uppercase">
                     Batting
                   </span>
                 )}
               </div>
               <div className="flex items-baseline justify-between mt-1">
-                <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-white">
-                  {state.innings2.totalRuns}
-                  <span className="text-slate-400 font-normal">/{state.innings2.totalWickets}</span>
-                </div>
-                <div className="text-right text-xs text-slate-300">
-                  <span className="font-mono text-slate-400">({state.innings2.totalOvers} ov)</span>
-                  <div className="text-[11px] text-slate-400">
-                    CRR: <span className="text-white font-semibold">{state.innings2.runRate}</span>
-                    {chasingTarget && (
-                      <span className="ml-2">RRR: <span className="text-amber-300 font-semibold">{rrr}</span></span>
-                    )}
+                {isTeamBBatted ? (
+                  <>
+                    <div className="text-2xl sm:text-3xl font-extrabold tracking-tight font-mono text-white">
+                      {teamBInn.totalRuns}
+                      <span className="text-slate-400 font-normal">/{teamBInn.totalWickets}</span>
+                    </div>
+                    <div className="text-right text-xs text-slate-300">
+                      <span className="font-mono text-slate-400">({teamBInn.totalOvers} ov)</span>
+                      <div className="text-[11px] text-slate-400">
+                        CRR: <span className="text-white font-semibold">{teamBInn.runRate}</span>
+                        {chasingTarget && isTeamBBattingNow && (
+                          <span className="ml-2">RRR: <span className="text-amber-300 font-semibold">{rrr}</span></span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-slate-400 text-sm italic font-medium py-1">
+                    Yet to bat
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Equation Banner */}
           {chasingTarget && (
-            <div className="mt-3 p-2 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
+            <div className="mt-3 p-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-200">
               <span className="font-medium">
                 🎯 Target: <span className="font-bold text-white">{state.target}</span>
               </span>
               <span className="font-bold text-white">
-                Need {runsNeeded} runs in {ballsLeft} balls
+                {state.innings2.battingTeamName || battingTeamName} need {runsNeeded} runs in {ballsLeft} balls
+                {rrr !== "-" && <span className="text-amber-300 ml-1.5 font-normal">(RRR: {rrr})</span>}
               </span>
             </div>
           )}
@@ -798,7 +799,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                       : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                   }`}
                 >
-                  <span>1st Innings: {state.innings1.battingTeamName || state.teamAName}</span>
+                  <span>1st Innings: {inn1BattingTeam}</span>
                   <span className="font-mono">({state.innings1.totalRuns}/{state.innings1.totalWickets})</span>
                 </button>
 
@@ -810,8 +811,12 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                       : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                   }`}
                 >
-                  <span>2nd Innings: {state.innings2.battingTeamName || state.teamBName}</span>
-                  <span className="font-mono">({state.innings2.totalRuns}/{state.innings2.totalWickets})</span>
+                  <span>2nd Innings: {state.innings2.battingTeamName || (isTeamABattingFirst ? state.teamBName : state.teamAName)}</span>
+                  {state.currentInnings === 1 && state.innings2.batters.length === 0 ? (
+                    <span className="text-xs font-normal italic opacity-75">(Yet to bat)</span>
+                  ) : (
+                    <span className="font-mono">({state.innings2.totalRuns}/{state.innings2.totalWickets})</span>
+                  )}
                 </button>
               </div>
 
@@ -977,7 +982,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                       <div className="px-3.5 sm:px-5 py-2.5 bg-slate-100/80 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-                            Over {overNum}
+                            Over {overNum + 1}
                           </span>
                           <span className="text-slate-400">•</span>
                           <span className="text-slate-700 dark:text-slate-300 font-semibold">{bowlerName}</span>
