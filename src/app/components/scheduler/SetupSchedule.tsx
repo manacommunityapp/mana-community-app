@@ -342,8 +342,11 @@ export function computePlayoffRoundMatches(
     matchesByRound[m.round].push(m);
   });
 
-  // Pre-calculate timelines for rounds that have roundTimes
+  // Pre-calculate timelines for rounds — BYEs excluded from slot count
   const roundTimelines: Record<string, RoundTimeline> = {};
+  // Track real (non-BYE) matches per round for slot index mapping
+  const realMatchesByRound: Record<string, PlayoffMatchDraft[]> = {};
+
   Object.keys(matchesByRound).forEach(r => {
     const roundTime = roundTimes[r];
     const roundDurationStr = roundDurations[r];
@@ -352,12 +355,15 @@ export function computePlayoffRoundMatches(
     const roundDate = roundDates[r] || matchesByRound[r][0]?.date;
     const dayOfWeek = roundDate ? new Date(roundDate + 'T00:00:00').getDay() : undefined;
 
-    // BYE matches have time='' — skip them to find the first real match time
-    const effectiveRoundTime = roundTime || matchesByRound[r].find(m => m.time)?.time;
-    if (effectiveRoundTime) {
+    // BYE matches have time='' and status AUTO_ADVANCED — exclude from court slots
+    const realMatches = matchesByRound[r].filter(m => m.time);
+    realMatchesByRound[r] = realMatches;
+
+    const effectiveRoundTime = roundTime || realMatches[0]?.time;
+    if (effectiveRoundTime && realMatches.length > 0) {
       roundTimelines[r] = calculateRoundTimeline(
         effectiveRoundTime,
-        matchesByRound[r].length,
+        realMatches.length,
         duration,
         breakMins,
         breaks,
@@ -369,8 +375,6 @@ export function computePlayoffRoundMatches(
   });
 
   return matches.map(m => {
-    const roundMatches = matchesByRound[m.round] || [m];
-    const matchIndexInRound = roundMatches.findIndex(rm => rm.id === m.id);
     const roundDate = roundDates[m.round];
     const roundDurationStr = roundDurations[m.round];
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
@@ -383,9 +387,14 @@ export function computePlayoffRoundMatches(
       updated.date = advanceDateToAllowedDay(updated.date, playoffDays);
     }
 
+    // Skip time assignment for BYE matches — they keep time=''
+    if (!m.time) return updated;
+
     const timeline = roundTimelines[m.round];
     if (timeline && timeline.slots.length > 0) {
-      const slot = timeline.slots[matchIndexInRound >= 0 ? matchIndexInRound : 0];
+      const realMatches = realMatchesByRound[m.round] || [];
+      const realIdx = realMatches.findIndex(rm => rm.id === m.id);
+      const slot = timeline.slots[realIdx >= 0 ? realIdx : 0];
       if (slot) {
         updated.time = slot.startTime;
       }
