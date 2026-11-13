@@ -20,6 +20,7 @@ import {
   Radio,
   Shield,
   User,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
@@ -372,18 +373,12 @@ export function SportsTournamentBrowse() {
                 ) || null;
 
               const matchingRegs = myEventRegistrations.filter(r => {
-                const rEvId = (r as any).eventId || r.event?.id;
-                if (rEvId === ev.id) return true;
-                if (ev.id && rEvId && Number(rEvId) === Number(ev.id)) return true;
-                if (matchedTournament && matchedTournament.events?.some(e => Number(e.id) === Number(rEvId))) return true;
-                return false;
+                const rEvId = (r as any).eventId ?? r.event?.id ?? (r as any).sportsEventId;
+                return rEvId != null && ev.id != null && Number(rEvId) === Number(ev.id);
               });
 
               const matchingAuctionTeam = myAuctionTeams.find(t => {
-                if (Number(t.eventId) === Number(ev.id)) return true;
-                if (ev.tournament?.id && Number(t.eventId) === Number(ev.tournament.id)) return true;
-                if (matchedTournament && (Number(t.eventId) === Number(matchedTournament.id) || matchedTournament.events?.some(e => Number(e.id) === Number(t.eventId)))) return true;
-                return false;
+                return t.eventId != null && ev.id != null && Number(t.eventId) === Number(ev.id);
               }) || null;
 
               return (

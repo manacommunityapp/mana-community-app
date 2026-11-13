@@ -978,4 +978,13 @@ export const tournamentService = {
     const qs = communityId ? `?communityId=${communityId}` : "";
     return apiClient.get<FeedLiveMatch[]>(`/sports/live-feed${qs}`);
   },
+
+  /** Recently completed matches with winner details and scores for the results modal. */
+  async getRecentCompletedMatches(communityId?: number | null, limit = 30): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/recent-completed${qs}`);
+  },
 };

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame } from "lucide-react";
+import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2 } from "lucide-react";
 import { tournamentService, type FeedLiveMatch } from "../../../../services/sports/tournamentService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { getStoredUser } from "../../../../services/common/apiClient";
@@ -35,6 +35,30 @@ function getSportEmoji(sport?: string): string {
   if (s.includes("pickleball")) return "🏓";
   if (s.includes("swimming")) return "🏊";
   return "🏆";
+}
+
+function formatCompletedTime(iso?: string | null): string {
+  if (!iso) return "Completed";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "Completed";
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24 && d.getDate() === now.getDate()) {
+      return `Today, ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
+    if (diffHours < 48) {
+      return `Yesterday, ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+    }
+    return d.toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "Completed";
+  }
 }
 
 const isLiveStatus = (status?: string, hasScores?: boolean) => {
@@ -112,6 +136,11 @@ export function LiveMatchesStrip() {
   const [modalSearch, setModalSearch] = useState("");
   const [modalSportFilter, setModalSportFilter] = useState("ALL");
   const [modalStatusFilter, setModalStatusFilter] = useState<"ALL" | "LIVE_ONLY">("ALL");
+  const [recentResultsModalOpen, setRecentResultsModalOpen] = useState(false);
+  const [recentMatches, setRecentMatches] = useState<FeedLiveMatch[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
+  const [recentSearch, setRecentSearch] = useState("");
+  const [recentSportFilter, setRecentSportFilter] = useState("ALL");
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [flashingMatchIds, setFlashingMatchIds] = useState<Record<number, "score" | "wicket">>({});
@@ -360,6 +389,113 @@ export function LiveMatchesStrip() {
     }).sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
   }, [matches, modalStatusFilter, modalSportFilter, modalSearch]);
 
+  const loadRecentMatches = useCallback(async () => {
+    setLoadingRecent(true);
+    try {
+      const user = getStoredUser();
+      const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
+      let data = await tournamentService.getRecentCompletedMatches(communityId, 40).catch(() => []);
+      if ((!data || data.length === 0) && communityId) {
+        data = await tournamentService.getRecentCompletedMatches(undefined, 40).catch(() => []);
+      }
+      const combined = new Map<number, FeedLiveMatch>();
+      if (Array.isArray(data)) {
+        data.forEach((m) => {
+          if (m && m.matchId) combined.set(m.matchId, m);
+        });
+      }
+      matches.forEach((m) => {
+        if (m && m.matchId && m.status === "COMPLETED" && !combined.has(m.matchId)) {
+          combined.set(m.matchId, m);
+        }
+      });
+      if (combined.size === 0) {
+        try {
+          const configs = await tournamentService.getConfigs().catch(() => []);
+          if (Array.isArray(configs)) {
+            for (const cfg of configs) {
+              const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id).catch(() => []);
+              if (Array.isArray(cfgMatches)) {
+                cfgMatches
+                  .filter((m: any) => m && m.status === "COMPLETED")
+                  .forEach((m: any) => {
+                    const matchId = m.id || m.matchId;
+                    if (matchId && !combined.has(matchId)) {
+                      combined.set(matchId, {
+                        matchId,
+                        configId: cfg.id,
+                        sportName: cfg.sportName || cfg.eventName || "Sports",
+                        tournamentName: cfg.tournamentName || "Tournament",
+                        eventName: cfg.eventName,
+                        roundName: m.roundName || m.round,
+                        teamAName: m.teamAName || m.homeName || "Team A",
+                        teamBName: m.teamBName || m.awayName || "Team B",
+                        teamAFlat: m.teamAFlat || m.homeFlat,
+                        teamBFlat: m.teamBFlat || m.awayFlat,
+                        scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
+                        scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
+                        status: "COMPLETED",
+                        winnerName: m.winnerName,
+                        scheduledAt: m.scheduledAt,
+                        completedAt: m.completedAt,
+                        venueName: m.venueName || m.courtName,
+                      });
+                    }
+                  });
+              }
+            }
+          }
+        } catch {
+          // Ignore fallback errors
+        }
+      }
+      setRecentMatches(Array.from(combined.values()));
+    } catch {
+      // Keep existing matches if load fails
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, [matches]);
+
+  const openRecentResultsModal = () => {
+    setRecentResultsModalOpen(true);
+    loadRecentMatches();
+  };
+
+  const recentAvailableSports = useMemo(() => {
+    const set = new Set<string>();
+    recentMatches.forEach((m) => {
+      if (m.sportName?.trim()) set.add(m.sportName.trim());
+    });
+    return Array.from(set).sort();
+  }, [recentMatches]);
+
+  const filteredRecentMatches = useMemo(() => {
+    return recentMatches.filter((m) => {
+      if (recentSportFilter !== "ALL" && (m.sportName || "").toLowerCase() !== recentSportFilter.toLowerCase()) return false;
+      if (recentSearch.trim()) {
+        const q = recentSearch.toLowerCase().trim();
+        const text = [
+          m.teamAName,
+          m.teamBName,
+          m.teamAFlat,
+          m.teamBFlat,
+          m.winnerName,
+          m.sportName,
+          m.tournamentName,
+          m.eventName,
+          m.roundName,
+          m.venueName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [recentMatches, recentSportFilter, recentSearch]);
+
   if (visible.length === 0) {
     if (matches.length > 0) {
       return (
@@ -422,6 +558,19 @@ export function LiveMatchesStrip() {
             title="View all live matches in modal popup"
           >
             <span>All Live Matches</span>
+            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+
+          <span className="text-slate-300">·</span>
+
+          <button
+            type="button"
+            onClick={openRecentResultsModal}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer group"
+            title="View recently completed matches and results"
+          >
+            <Trophy className="w-3 h-3 text-amber-500 group-hover:scale-110 transition-transform" />
+            <span>Recent Results</span>
             <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
@@ -875,6 +1024,326 @@ export function LiveMatchesStrip() {
                 <button
                   type="button"
                   onClick={() => setAllMatchesModalOpen(false)}
+                  className="px-3.5 py-1.5 rounded-xl font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recently Completed Matches Modal Popup */}
+      {recentResultsModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 flex items-center justify-center p-2 sm:p-4 animate-fade-in"
+          onClick={() => setRecentResultsModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-amber-50/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100/80 border border-amber-200/80 flex items-center justify-center">
+                  <Trophy className="w-4 h-4 text-amber-700" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight m-0">
+                      Recent Match Results
+                    </h3>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                      {recentMatches.length} Completed
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 m-0">
+                    Final scores, winning margins, and scorecards for finished matches
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={loadRecentMatches}
+                  disabled={loadingRecent}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Refresh results"
+                >
+                  <RotateCw className={`w-4 h-4 ${loadingRecent ? "animate-spin text-amber-600" : ""}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecentResultsModalOpen(false);
+                    navigate("/sports/schedule");
+                  }}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-800 bg-amber-100/70 hover:bg-amber-100 border border-amber-200 transition-all cursor-pointer"
+                  title="Navigate to sports schedule"
+                >
+                  <span>Sports Schedule</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecentResultsModalOpen(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar */}
+            <div className="p-3 sm:px-5 border-b border-slate-100 bg-white space-y-2.5">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={recentSearch}
+                    onChange={(e) => setRecentSearch(e.target.value)}
+                    placeholder="Search by team, player, winner, sport, or tournament..."
+                    className="w-full pl-8 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                  />
+                  {recentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRecentSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Sport Category Pills */}
+              {recentAvailableSports.length > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setRecentSportFilter("ALL")}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer border ${
+                      recentSportFilter === "ALL"
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    All Sports
+                  </button>
+                  {recentAvailableSports.map((sport) => {
+                    const isSelected = recentSportFilter.toLowerCase() === sport.toLowerCase();
+                    const count = recentMatches.filter((m) => (m.sportName || "").toLowerCase() === sport.toLowerCase()).length;
+                    return (
+                      <button
+                        key={sport}
+                        type="button"
+                        onClick={() => setRecentSportFilter(sport)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer border ${
+                          isSelected
+                            ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{getSportEmoji(sport)}</span>
+                        <span>{sport}</span>
+                        <span className={`text-[10px] ml-0.5 ${isSelected ? "text-amber-200" : "text-slate-400"}`}>
+                          ({count})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Matches List */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
+              {loadingRecent && recentMatches.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-2">
+                  <Loader2 className="w-8 h-8 text-amber-500 animate-spin mx-auto" />
+                  <p className="text-xs text-slate-500">Loading recently completed matches...</p>
+                </div>
+              ) : filteredRecentMatches.length === 0 ? (
+                <div className="text-center py-12 px-4 space-y-2">
+                  <Trophy className="w-10 h-10 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-bold text-slate-700 m-0">No completed matches found</h4>
+                  <p className="text-xs text-slate-400 m-0">
+                    {recentSearch || recentSportFilter !== "ALL"
+                      ? "Try adjusting your search query or sport filter."
+                      : "No recently completed match results are available yet."}
+                  </p>
+                  {(recentSearch || recentSportFilter !== "ALL") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecentSearch("");
+                        setRecentSportFilter("ALL");
+                      }}
+                      className="mt-2 text-xs font-bold text-amber-600 hover:text-amber-800 underline cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredRecentMatches.map((m) => {
+                    const isCricketMatch = isCricket(m);
+                    const isTeamAWinner = Boolean(
+                      m.winnerName &&
+                      (m.winnerName.toLowerCase() === m.teamAName.toLowerCase() ||
+                        m.winnerName.toLowerCase().includes(m.teamAName.toLowerCase()))
+                    );
+                    const isTeamBWinner = Boolean(
+                      m.winnerName &&
+                      (m.winnerName.toLowerCase() === m.teamBName.toLowerCase() ||
+                        m.winnerName.toLowerCase().includes(m.teamBName.toLowerCase()))
+                    );
+
+                    return (
+                      <div
+                        key={m.matchId}
+                        className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                      >
+                        <div>
+                          {/* Card Header: Sport, Completed Status, Time */}
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[150px]">
+                              <span>{getSportEmoji(m.sportName ?? undefined)}</span>
+                              <span className="truncate">{m.sportName || "Sports"}</span>
+                            </span>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] font-medium text-slate-400">
+                                {formatCompletedTime(m.completedAt || m.scheduledAt)}
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> FINAL
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Tournament / Event subtitle */}
+                          <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
+                            {[m.tournamentName, m.eventName, m.roundName].filter(Boolean).join(" · ")}
+                          </p>
+
+                          {/* Teams & Scores */}
+                          <div className="space-y-1.5 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
+                            {/* Team A */}
+                            <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                              isTeamAWinner ? "bg-emerald-50/80" : ""
+                            }`}>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isTeamAWinner && (
+                                  <Trophy className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                )}
+                                <span className={`text-xs truncate ${
+                                  isTeamAWinner ? "font-black text-slate-900" : "font-medium text-slate-600"
+                                }`}>
+                                  {m.teamAName}
+                                </span>
+                                {m.teamAFlat && (
+                                  <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
+                                    {m.teamAFlat}
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 ${
+                                isTeamAWinner ? "text-emerald-700 font-extrabold" : "text-slate-700"
+                              }`}>
+                                {isCricketMatch ? formatCricketScore(m.scoreTeamA) : (m.scoreTeamA || "—")}
+                              </span>
+                            </div>
+
+                            {/* Team B */}
+                            <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                              isTeamBWinner ? "bg-emerald-50/80" : ""
+                            }`}>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isTeamBWinner && (
+                                  <Trophy className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                )}
+                                <span className={`text-xs truncate ${
+                                  isTeamBWinner ? "font-black text-slate-900" : "font-medium text-slate-600"
+                                }`}>
+                                  {m.teamBName}
+                                </span>
+                                {m.teamBFlat && (
+                                  <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
+                                    {m.teamBFlat}
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 ${
+                                isTeamBWinner ? "text-emerald-700 font-extrabold" : "text-slate-700"
+                              }`}>
+                                {isCricketMatch ? formatCricketScore(m.scoreTeamB) : (m.scoreTeamB || "—")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bottom line: Winner Badge & Scorecard CTA */}
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                          {m.winnerName ? (
+                            <span
+                              className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1 truncate max-w-[170px]"
+                              title={`Winner: ${m.winnerName}`}
+                            >
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-100/70 text-emerald-800 text-[10px] font-black uppercase">
+                                WON
+                              </span>
+                              <span className="truncate">{m.winnerName}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium text-slate-400 truncate max-w-[150px]">
+                              {m.venueName || "Match Concluded"}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setWatching(m)}
+                            className="inline-flex items-center gap-1 text-xs font-extrabold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 active:scale-95 px-2.5 py-1 rounded-lg border border-amber-200/60 transition-all cursor-pointer shrink-0"
+                          >
+                            <Play className="w-3 h-3 fill-amber-700" />
+                            <span>Scorecard →</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 sm:px-5 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>
+                Showing {filteredRecentMatches.length} of {recentMatches.length} completed matches
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecentResultsModalOpen(false);
+                    navigate("/sports/schedule");
+                  }}
+                  className="px-3 py-1.5 rounded-xl font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <span>Go to Sports Schedule</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecentResultsModalOpen(false)}
                   className="px-3.5 py-1.5 rounded-xl font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Close
