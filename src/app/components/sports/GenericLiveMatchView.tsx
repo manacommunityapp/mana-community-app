@@ -22,7 +22,7 @@ export function GenericLiveMatchView({
   const [state, setState] = useState<GenericMatchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [wsConnected, setWsConnected] = useState(stompClient.connected);
   const [wsDisconnectedAt, setWsDisconnectedAt] = useState<Date | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -131,14 +131,14 @@ export function GenericLiveMatchView({
                   <>
                     <Wifi className="w-3 h-3 text-emerald-500" />
                     <span className="text-emerald-600 dark:text-emerald-400">
-                      Live
+                      Realtime
                     </span>
                   </>
                 ) : (
                   <>
-                    <WifiOff className="w-3 h-3 text-amber-500" />
-                    <span className="text-amber-600 dark:text-amber-400">
-                      Reconnecting...
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Auto-sync (10s)
                     </span>
                   </>
                 )}
