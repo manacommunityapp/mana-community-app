@@ -2485,11 +2485,13 @@ export function SetupSchedule({
     if (isKnockoutOnly) {
       // Distribute matches across venue/courts by venueAssignType (same logic as Group→Knockout).
       const koVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
-      matches = matches.map((m, idx) => ({
-        ...m,
-        venueId: koVenueId,
-        courtId: resolveCourtId(koVenueId, idx),
-      }));
+      let koRealIdx = 0;
+      matches = matches.map((m) => {
+        const isBye = isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED';
+        const courtId = isBye ? null : resolveCourtId(koVenueId, koRealIdx);
+        if (!isBye) koRealIdx++;
+        return { ...m, venueId: koVenueId, courtId };
+      });
       let koMatches = computePlayoffRoundMatches(matches, {
         roundDates: playoffRoundDates,
         roundTimes: playoffRoundTimes,
@@ -2509,11 +2511,13 @@ export function SetupSchedule({
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
     // (round-robin by match index). Manual court overrides (applied next) still take precedence.
     const playoffVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
-    let distributedMatches = matches.map((m, idx) => ({
-      ...m,
-      venueId: playoffVenueId,
-      courtId: resolveCourtId(playoffVenueId, idx),
-    }));
+    let poRealIdx = 0;
+    let distributedMatches = matches.map((m) => {
+      const isBye = isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED';
+      const courtId = isBye ? null : resolveCourtId(playoffVenueId, poRealIdx);
+      if (!isBye) poRealIdx++;
+      return { ...m, venueId: playoffVenueId, courtId };
+    });
 
     distributedMatches = computePlayoffRoundMatches(distributedMatches, {
       roundDates: playoffRoundDates,
