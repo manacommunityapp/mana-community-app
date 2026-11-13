@@ -28,6 +28,7 @@ import { PlayoffBracketView } from "./PlayoffBracketView";
 import {
   reconstructKnockoutByes,
   sanitizePlayoffMatches,
+  buildPlayoffDraftFromSavedMatches,
   type PlayoffMatchDraft,
 } from "./playoffSchedule";
 
@@ -864,65 +865,17 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
         })();
 
         // Build PlayoffMatchDraft[] for the connected bracket tree view
-        const roundOrderMap: Record<string, number> = {
-          ROUND_OF_64: 0, ROUND_OF_32: 1, ROUND_OF_16: 2,
-          QUARTER_FINAL: 3, SEMI_FINAL: 4, FINAL: 5, THIRD_PLACE: 6,
-        };
-        const stageToRound = (stage: string): string => {
-          const s = stage.toUpperCase().replace(/[\s-]/g, '_');
-          if (s.includes('QUARTER')) return 'QUARTER_FINAL';
-          if (s.includes('SEMI')) return 'SEMI_FINAL';
-          if (s.includes('FINAL') && !s.includes('SEMI') && !s.includes('QUARTER') && !s.includes('THIRD')) return 'FINAL';
-          if (s.includes('THIRD') || s.includes('3RD') || s.includes('BRONZE')) return 'THIRD_PLACE';
-          if (s.includes('64') || s.includes('ROUND_OF_64')) return 'ROUND_OF_64';
-          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
-          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
-          return 'FINAL';
-        };
-        const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
-          .filter(m => {
-            const stageKey = getMatchStage(m);
-            return stageKey !== 'GROUP';
-          })
-          .map((m, idx) => {
-            const { team1, team2 } = extractTeamNames(m);
-            const { team1Flat, team2Flat } = extractFlatDetails(m);
-            const { date, time } = extractDateTime(m);
-            const roundName = m.roundName || m.groupName || '';
-            const roundType = stageToRound(roundName) as PlayoffMatchDraft['round'];
-            const roundIdx = roundOrderMap[roundType] ?? 5;
-            const isBye = team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED';
-            const homeIsBye = team1 === 'BYE' || (typeof m.home === 'object' && m.home?.id === 'bye');
-            const awayIsBye = team2 === 'BYE' || (typeof m.away === 'object' && m.away?.id === 'bye');
-            return {
-              id: String(m.matchId || m.id || `playoff-${idx}`),
-              name: `${roundType.replace(/_/g, ' ')} Match ${m.matchNumber || idx + 1}`,
-              round: roundType,
-              roundIndex: roundIdx,
-              home: {
-                id: homeIsBye ? 'bye' : (typeof m.home === 'object' && m.home?.id ? m.home.id : `h-${m.matchId || idx}`),
-                name: team1 || 'TBD',
-                flatNumber: team1Flat !== '—' ? team1Flat : undefined,
-              } as any,
-              away: {
-                id: awayIsBye ? 'bye' : (typeof m.away === 'object' && m.away?.id ? m.away.id : `a-${m.matchId || idx}`),
-                name: team2 || 'TBD',
-                flatNumber: team2Flat !== '—' ? team2Flat : undefined,
-              } as any,
-              date: date || (m.scheduledAt ? String(m.scheduledAt).split('T')[0] : m.matchDate || ''),
-              time: time || (m.scheduledAt ? (String(m.scheduledAt).includes('T') ? String(m.scheduledAt).split('T')[1].slice(0, 5) : '') : ''),
-              duration: m.duration || 30,
-              venueId: m.venueId ?? null,
-              courtId: m.courtId ?? null,
-              moveSubsMatches: false,
-              status: isBye ? 'AUTO_ADVANCED' : (m.status ?? null),
-            } satisfies PlayoffMatchDraft;
-          });
+        const playoffMatchesForBracket: PlayoffMatchDraft[] = buildPlayoffDraftFromSavedMatches(
+          viewMatches,
+          viewingConfig
+        );
 
         const earliestPlayoffRound = playoffMatchesForBracket.length > 0
-          ? Math.min(...playoffMatchesForBracket.map(m => m.roundIndex))
+          ? Math.min(...playoffMatchesForBracket.filter(m => m.round !== 'THIRD_PLACE').map(m => m.roundIndex))
           : 0;
-        const firstRoundMatchesCount = playoffMatchesForBracket.filter(m => m.roundIndex === earliestPlayoffRound).length;
+        const firstRoundMatchesCount = playoffMatchesForBracket.filter(
+          m => m.round !== 'THIRD_PLACE' && m.roundIndex === earliestPlayoffRound
+        ).length;
         let totalDrawCountCalc = firstRoundMatchesCount * 2;
         let drawPower = 1;
         while (drawPower < totalDrawCountCalc) drawPower <<= 1;
@@ -1202,8 +1155,15 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                                 matches={showByesInBracket ? playoffMatchesForBracket : sanitizePlayoffMatches(playoffMatchesForBracket, false)}
                                 onEditMatch={() => {}}
                                 onDownloadBracket={handleExportBracketPDF}
-                                resolveVenueName={(id) => venue?.name || ""}
-                                resolveCourtName={(_courtId) => ""}
+                                resolveVenueName={(id) => {
+                                  const v = venueList.find(x => x.id === id);
+                                  return v?.name || venue?.name || "";
+                                }}
+                                resolveCourtName={(courtId) => {
+                                  if (!courtId) return "";
+                                  const found = viewMatches.find(x => String(x.courtId) === String(courtId));
+                                  return found?.courtName || "";
+                                }}
                                 showByes={showByesInBracket}
                                 onToggleShowByes={() => {
                                   const nextVal = !showByesInBracket;
