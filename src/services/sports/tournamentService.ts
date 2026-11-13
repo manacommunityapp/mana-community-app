@@ -103,6 +103,18 @@ export interface ConfigInfo {
   pointsForLoss?: number;
   thirdPlaceMatch?: boolean;
   hasSeeding?: boolean;
+  seedingOrder?: string;
+  byesFirstRoundOnly?: boolean;
+  showByesInBracket?: boolean;
+  limitMatchesPerDay?: boolean;
+  maxMatchesPerDay?: number;
+  usePlayoffDays?: boolean;
+  playoffDays?: number[] | null;
+  venueAssignType?: string;
+  playoffRoundDates?: Record<string, string> | null;
+  playoffRoundTimes?: Record<string, string> | null;
+  playoffRoundDurations?: Record<string, string> | null;
+  playoffRoundModes?: Record<string, 'sequential' | 'same_time' | string> | null;
   sportName?: string;
   tournamentId?: number;
   showInFeed?: boolean | null;
@@ -866,9 +878,15 @@ export const tournamentService = {
     return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
   },
 
+  /** GET /api/tournament/match/generic/match/{matchId}/config */
+  async getMatchScoringConfig(matchId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config`);
+  },
+
   /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
-  async updateMatchConfigOverride(matchId: number, overrideJson: string): Promise<void> {
-    return apiClient.put<void>(`/tournament/match/generic/match/${matchId}/config-override`, { overrideJson });
+  async updateMatchConfigOverride(matchId: number, override: string | ScoringConfig | Record<string, any>): Promise<ScoringConfig> {
+    const payload = typeof override === "string" ? { overrideJson: override } : override;
+    return apiClient.put<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config-override`, payload);
   },
 
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────

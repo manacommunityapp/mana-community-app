@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X, FastForward, Send, Check } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X, FastForward, Send, Check, Sliders } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { tournamentService, type ConfigInfo, type FeedVisibilityLevel } from "../../../../services/sports/tournamentService";
@@ -17,6 +17,7 @@ import {
 } from "./ScheduleExportModal";
 import { BatchRescheduleModal } from "./BatchRescheduleModal";
 import { BroadcastSettingsModal } from "./BroadcastSettingsModal";
+import { MatchScoringRulesModal } from "../MatchScoringRulesModal";
 
 interface MatchRow {
   id: number;
@@ -88,6 +89,7 @@ export function ScheduleAdminTab() {
   const [rescheduleVenueId, setRescheduleVenueId] = useState<string>("");
   const [rescheduleCourtId, setRescheduleCourtId] = useState<string>("");
   const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
+  const [rulesModalMatch, setRulesModalMatch] = useState<{ id: number; name: string; sport?: string } | null>(null);
   const [exportModalState, setExportModalState] = useState<{
     isOpen: boolean;
     tournamentName: string;
@@ -686,6 +688,17 @@ export function ScheduleAdminTab() {
                                       {m.status !== "COMPLETED" && (
                                         <button
                                           type="button"
+                                          onClick={() => setRulesModalMatch({ id: m.id, name: `Match #${m.matchNumber || i + 1}: ${m.teamAName || 'TBD'} vs ${m.teamBName || 'TBD'}`, sport: cfg.sportName })}
+                                          className="px-2 py-1 rounded-md text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="Configure match scoring rules"
+                                        >
+                                          <Sliders className="w-2.5 h-2.5" />
+                                          <span>Rules</span>
+                                        </button>
+                                      )}
+                                      {m.status !== "COMPLETED" && (
+                                        <button
+                                          type="button"
                                           onClick={() => openRescheduleModal(m, cfg.id)}
                                           className="px-2 py-1 rounded-md text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1 transition-colors cursor-pointer"
                                           title="Reschedule match"
@@ -1168,6 +1181,23 @@ export function ScheduleAdminTab() {
             } else {
               tournamentService.getMatchesByConfigId(batchRescheduleModalState.configId).then(data => {
                 setMatches(prev => ({ ...prev, [batchRescheduleModalState.configId]: data }));
+              }).catch(() => {});
+            }
+          }}
+        />
+      )}
+
+      {rulesModalMatch && (
+        <MatchScoringRulesModal
+          isOpen={!!rulesModalMatch}
+          onClose={() => setRulesModalMatch(null)}
+          matchId={rulesModalMatch.id}
+          sportType={rulesModalMatch.sport}
+          matchName={rulesModalMatch.name}
+          onSaved={() => {
+            if (expandedId) {
+              tournamentService.getMatchesByConfigId(expandedId).then(data => {
+                setMatches(prev => ({ ...prev, [expandedId]: data }));
               }).catch(() => {});
             }
           }}

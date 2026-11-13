@@ -404,12 +404,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [participants, setParticipants] = useState('8');
   const [numberOfGroups, setNumberOfGroups] = useState('2');
   const [thirdPlace, setThirdPlace] = useState(false);
-  const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
+  const [seedingOrder, setSeedingOrder] = useState('RANDOM');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
   // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
   const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
   const [showByesInBracket, setShowByesInBracket] = useState(true);
-  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
+  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('RANDOM');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
   const isKnockoutOnly =
@@ -1194,8 +1194,49 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const existingConfig = configs.find(c => c.eventId === Number(id));
     if (existingConfig) {
       setCurrentConfigId(existingConfig.id);
+      if (existingConfig.seedingOrder) {
+        setSeedingOrder(existingConfig.seedingOrder);
+        setPlayoffSeedingOrder(existingConfig.seedingOrder);
+      }
+      if (typeof existingConfig.byesFirstRoundOnly === 'boolean') {
+        setByesFirstRoundOnly(existingConfig.byesFirstRoundOnly);
+      }
+      if (typeof existingConfig.showByesInBracket === 'boolean') {
+        setShowByesInBracket(existingConfig.showByesInBracket);
+      }
+      if (typeof existingConfig.limitMatchesPerDay === 'boolean') {
+        setLimitMatchesPerDay(existingConfig.limitMatchesPerDay);
+      }
+      if (existingConfig.maxMatchesPerDay) {
+        setMaxMatchesPerDay(String(existingConfig.maxMatchesPerDay));
+      }
+      if (typeof existingConfig.usePlayoffDays === 'boolean') {
+        setUsePlayoffDays(existingConfig.usePlayoffDays);
+      }
+      if (Array.isArray(existingConfig.playoffDays)) {
+        setPlayoffDays(existingConfig.playoffDays);
+      }
+      if (existingConfig.venueAssignType) {
+        setVenueAssignType(existingConfig.venueAssignType);
+      }
+      if (existingConfig.playoffRoundDates && typeof existingConfig.playoffRoundDates === 'object') {
+        setPlayoffRoundDates(existingConfig.playoffRoundDates);
+      }
+      if (existingConfig.playoffRoundTimes && typeof existingConfig.playoffRoundTimes === 'object') {
+        setPlayoffRoundTimes(existingConfig.playoffRoundTimes);
+      }
+      if (existingConfig.playoffRoundDurations && typeof existingConfig.playoffRoundDurations === 'object') {
+        setPlayoffRoundDurations(existingConfig.playoffRoundDurations);
+      }
+      if (existingConfig.playoffRoundModes && typeof existingConfig.playoffRoundModes === 'object') {
+        setPlayoffRoundModes(existingConfig.playoffRoundModes as Record<string, 'sequential' | 'same_time'>);
+      }
     } else {
       setCurrentConfigId(null);
+      setPlayoffRoundDates({});
+      setPlayoffRoundTimes({});
+      setPlayoffRoundDurations({});
+      setPlayoffRoundModes({});
     }
 
     // ═══ Automatically Configure Venue for Selected Event ═══
@@ -1349,11 +1390,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         !!v && !!v.courts && v.courts.length > 0 && (selectedCourts[v.id]?.length || 0) === 0);
 
   /**
-   * Resolve the court id to assign to a match. Prefers the user's selected
-   * courts for the venue, distributing matches across them round-robin by index.
+   * Resolve the court id to assign to a match according to venueAssignType:
+   * - 'Sequential' / 'Parallel': court index = index % pool.length
+   * - 'Snake': bounces back and forth across courts (0, 1, 2, 1, 0...)
+   * - 'Random': uses deterministic pseudo-random hash of index to select court
    * Falls back to the venue's first court, or null if the venue has no courts.
    */
-  const resolveCourtId = (venueId: number | null, index: number): string | null => {
+  const resolveCourtId = (venueId: number | null, index: number, assignTypeOverride?: string): string | null => {
     if (!venueId) return null;
     const venue = venues.find(v => v.id === venueId);
     if (!venue?.courts || venue.courts.length === 0) return null;
@@ -1361,7 +1404,24 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const pool = selectedNames.length > 0
       ? venue.courts.filter(c => selectedNames.includes(c.name))
       : venue.courts;
-    const chosen = pool.length > 0 ? pool[index % pool.length] : venue.courts[0];
+    if (pool.length === 0) return venue.courts[0]?.id ?? null;
+
+    const assignType = assignTypeOverride || venueAssignType;
+    let chosenCourtIdx = 0;
+
+    if (assignType === 'Snake' && pool.length > 1) {
+      const cycle = 2 * (pool.length - 1);
+      const mod = index % cycle;
+      chosenCourtIdx = mod < pool.length ? mod : cycle - mod;
+    } else if (assignType === 'Random' && pool.length > 1) {
+      // Deterministic pseudo-random distribution per index so fixtures stay stable
+      chosenCourtIdx = Math.abs((index * 997 + 101) % pool.length);
+    } else {
+      // Sequential, Parallel, or fallback
+      chosenCourtIdx = index % pool.length;
+    }
+
+    const chosen = pool[chosenCourtIdx] || pool[0];
     return chosen?.id ?? null;
   };
 
@@ -1411,6 +1471,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       teamsAdvancingPerGroup: isGroupKnockout ? Math.min(2, Math.max(1, Math.floor(Number(participants) / (Number(numberOfGroups) || 2)))) : null,
       teamIds: [],
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
+      seedingOrder: isGroupKnockout ? playoffSeedingOrder : seedingOrder,
+      byesFirstRoundOnly,
+      showByesInBracket,
       hasSeeding: isGroupKnockout
         ? (playoffSeedingOrder === 'TRADITIONAL' || playoffSeedingOrder === 'RANKING')
         : (seedingOrder === 'TRADITIONAL' || seedingOrder === 'RANKING'),
@@ -1422,6 +1485,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endTime: endTime || null,
       matchDays: matchDays.length < 7 ? matchDays : null,
       playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
+      usePlayoffDays,
+      limitMatchesPerDay,
+      maxMatchesPerDay: Number(maxMatchesPerDay) || 2,
+      venueAssignType,
+      selectedCourts,
+      generatedGroups: generatedGroups.map(g => ({
+        name: g.name,
+        rounds: g.rounds,
+        proceeders: g.proceeders,
+        limitMatches: g.limitMatches,
+        maxMatches: g.maxMatches,
+      })),
       playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
       playoffRoundTimes: Object.keys(playoffRoundTimes).length > 0 ? playoffRoundTimes : null,
       playoffRoundDurations: Object.keys(playoffRoundDurations).length > 0 ? playoffRoundDurations : null,
@@ -1778,7 +1853,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
       const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
       const defaultDate = new Date(baseDate);
-      defaultDate.setDate(baseDate.getDate() + groupIdx + mIdx * 2);
+      // When Limit Participant Matches Per Day is enabled, space matches out across days
+      const dayOffset = limitMatchesPerDay
+        ? Math.floor(mIdx / (Math.max(1, Number(maxMatchesPerDay) || 2))) + groupIdx
+        : groupIdx + mIdx * 2;
+      defaultDate.setDate(baseDate.getDate() + dayOffset);
       const adjusted = advanceToAllowedDay(defaultDate);
       const defaultDateStr = adjusted.toISOString().split('T')[0];
       
@@ -2524,6 +2603,31 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
     });
 
+    // 6. Limit Participant Matches Per Day Conflict
+    if (limitMatchesPerDay) {
+      const maxPerDay = Number(maxMatchesPerDay) || 2;
+      const dailyCounts: Record<string, Record<string, string[]>> = {}; // date -> participantId/name -> matchKeys[]
+      list.forEach(m => {
+        if (!m.date) return;
+        const parts = [m.home, m.away].filter(p => p.id && !p.id.includes('-') && !p.id.startsWith('dummy') && p.name !== 'BYE');
+        if (!dailyCounts[m.date]) dailyCounts[m.date] = {};
+        parts.forEach(p => {
+          const pKey = p.id || p.name;
+          if (!dailyCounts[m.date][pKey]) dailyCounts[m.date][pKey] = [];
+          dailyCounts[m.date][pKey].push(m.key);
+        });
+      });
+
+      Object.entries(dailyCounts).forEach(([date, participantMap]) => {
+        Object.entries(participantMap).forEach(([pKey, mKeys]) => {
+          if (mKeys.length > maxPerDay) {
+            const warningMsg = `Daily Limit Exceeded: Participant scheduled for ${mKeys.length} matches on ${date} (limit is ${maxPerDay} matches/day)`;
+            mKeys.forEach(k => addConflict(k, warningMsg));
+          }
+        });
+      });
+    }
+
     return conflictsMap;
   }, [
     generatedGroups,
@@ -2539,6 +2643,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     matchDays,
     playoffDays,
     usePlayoffDays,
+    limitMatchesPerDay,
+    maxMatchesPerDay,
     playoffRoundDates,
     playoffRoundTimes,
     playoffRoundDurations,

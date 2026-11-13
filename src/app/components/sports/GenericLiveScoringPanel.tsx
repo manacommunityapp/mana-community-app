@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -11,6 +11,7 @@ import {
   PERIOD_LABELS,
 } from "./utils/sportScoringConstants";
 import { toast } from "sonner";
+import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 
 interface GenericLiveScoringPanelProps {
   matchId: number;
@@ -33,10 +34,30 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 const isSetBased = (sport: string) =>
-  ["BADMINTON", "VOLLEYBALL", "TENNIS", "TABLE_TENNIS"].includes(sport);
+  [
+    "BADMINTON",
+    "VOLLEYBALL",
+    "BEACH_VOLLEYBALL",
+    "GRASS_VOLLEYBALL",
+    "THROWBALL",
+    "TENNIS",
+    "TABLE_TENNIS",
+    "PICKLEBALL",
+    "SQUASH",
+  ].includes(sport);
 
 const isTimedSport = (sport: string) =>
-  ["FOOTBALL", "SOCCER", "BASKETBALL"].includes(sport);
+  [
+    "FOOTBALL",
+    "SOCCER",
+    "BASKETBALL",
+    "KABADDI",
+    "HOCKEY",
+    "WATER_POLO",
+    "RUGBY",
+    "HANDBALL",
+    "FUTSAL",
+  ].includes(sport);
 
 export const isIndividualSport = (sport?: string): boolean => {
   if (!sport) return false;
@@ -73,6 +94,7 @@ export function GenericLiveScoringPanel({
   const [feedActive, setFeedActive] = useState<boolean>(true);
   const [publishingFeed, setPublishingFeed] = useState<boolean>(false);
   const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
+  const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
@@ -357,6 +379,15 @@ export function GenericLiveScoringPanel({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowRulesModal(true)}
+              title="Configure match scoring rules & sets format"
+              className="px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition cursor-pointer"
+            >
+              <Sliders className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+              <span>Rules</span>
+            </button>
+            <button
+              type="button"
               onClick={toggleFeedVisibility}
               title="Toggle whether live score appears on the top Live Now strip"
               className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
@@ -382,19 +413,30 @@ export function GenericLiveScoringPanel({
           {/* Pre-Match / Match Format Rules Banner */}
           {state.scoringConfig && (
             <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 mb-3 border border-slate-200/60 dark:border-slate-700">
-              <span className="font-medium">
+              <span className="font-medium truncate mr-2">
                 Format:{" "}
                 {isSetBased(sportType)
-                  ? `Best of ${state.scoringConfig.periodsCount || 3} Sets • ${state.scoringConfig.pointsToWinPeriod || 21} pts${state.scoringConfig.mustWinByTwo ? " (Deuce)" : ""}`
+                  ? `Best of ${state.scoringConfig.periodsCount || 3} Sets • ${state.scoringConfig.pointsToWinPeriod || 21} pts${state.scoringConfig.mustWinByTwo ? " (Deuce)" : ""}${state.scoringConfig.tiebreakPointsToWin ? ` • Cap ${state.scoringConfig.tiebreakPointsToWin}` : ""}`
                   : isTimedSport(sportType)
                   ? `${state.scoringConfig.periodsCount || 2} Halves • ${state.scoringConfig.periodDurationMinutes || 45} mins${state.scoringConfig.hasOvertime ? " + OT" : ""}`
                   : state.scoringConfig.targetScore
                   ? `Target: ${state.scoringConfig.targetScore} pts • ${state.scoringConfig.periodsCount || 1} Period`
                   : `${state.scoringConfig.periodsCount || 2} Periods`}
               </span>
-              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold uppercase">
-                {state.status === "COMPLETED" ? "Finished" : state.status === "LIVE" ? "In Progress" : "Scheduled"}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowRulesModal(true)}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Configure sets, points, or timing rules for this match"
+                >
+                  <Sliders className="w-2.5 h-2.5" />
+                  <span>Edit Rules</span>
+                </button>
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold uppercase">
+                  {state.status === "COMPLETED" ? "Finished" : state.status === "LIVE" ? "In Progress" : "Scheduled"}
+                </span>
+              </div>
             </div>
           )}
 
@@ -800,6 +842,21 @@ export function GenericLiveScoringPanel({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Single Match Scoring Rules Configuration Modal */}
+        {showRulesModal && (
+          <MatchScoringRulesModal
+            isOpen={showRulesModal}
+            onClose={() => setShowRulesModal(false)}
+            matchId={matchId}
+            sportType={sportType}
+            matchName={`${teamA?.name || "Team A"} vs ${teamB?.name || "Team B"}`}
+            onSaved={(updatedConfig) => {
+              setState((prev) => (prev ? { ...prev, scoringConfig: updatedConfig } : prev));
+              fetchState();
+            }}
+          />
         )}
       </div>
     </div>
