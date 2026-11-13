@@ -73,7 +73,7 @@ export function GenericLiveMatchView({
 
     reconnectTimer.current = setInterval(() => {
       fetchState(false);
-    }, 10000);
+    }, 5000);
 
     return () => {
       unsub();

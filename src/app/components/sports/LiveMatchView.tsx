@@ -78,10 +78,10 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
       fetchState(false);
     });
 
-    // Fallback polling every 15 seconds
+    // Fallback polling every 5 seconds
     reconnectTimer.current = setInterval(() => {
       fetchState(false);
-    }, 15000);
+    }, 5000);
 
     return () => {
       unsubState();
