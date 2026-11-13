@@ -272,6 +272,67 @@ export function GenericLiveScoringPanel({
   const currentPeriodLabel =
     periodLabels[state.currentPeriod - 1] || `Period ${state.currentPeriod}`;
 
+  // Check whether individual periods/sets are completed
+  const checkSetWon = (
+    scoreA: number,
+    scoreB: number,
+    sport: string,
+    config?: typeof state.scoringConfig
+  ) => {
+    const target =
+      config?.pointsToWinPeriod ??
+      (sport === "TENNIS" ? 6 : sport === "TABLE_TENNIS" || sport === "SQUASH" ? 11 : 21);
+    const mustWinByTwo = config?.mustWinByTwo ?? (sport !== "TENNIS");
+    const maxCap =
+      config?.tiebreakPointsToWin ??
+      (sport === "BADMINTON" ? 30 : sport === "PICKLEBALL" ? 15 : undefined);
+
+    if (maxCap && (scoreA >= maxCap || scoreB >= maxCap)) return true;
+    if (sport === "TENNIS") {
+      if ((scoreA >= target || scoreB >= target) && Math.abs(scoreA - scoreB) >= 2) return true;
+      if ((scoreA === 7 && scoreB === 6) || (scoreB === 7 && scoreA === 6)) return true;
+      return false;
+    }
+    if (mustWinByTwo) {
+      return (scoreA >= target || scoreB >= target) && Math.abs(scoreA - scoreB) >= 2;
+    }
+    return scoreA >= target || scoreB >= target;
+  };
+
+  let computedSetsWonA = 0;
+  let computedSetsWonB = 0;
+  let hasAnySetCompleted = false;
+
+  if (isSetBased(sportType)) {
+    for (const p of state.periods) {
+      const isPast = p.periodNumber < state.currentPeriod;
+      const isSetDone =
+        isPast ||
+        (p.periodNumber === state.currentPeriod && isCompleted) ||
+        checkSetWon(p.scoreTeamA, p.scoreTeamB, sportType, state.scoringConfig);
+
+      if (isSetDone) {
+        hasAnySetCompleted = true;
+        if (p.scoreTeamA > p.scoreTeamB) computedSetsWonA++;
+        else if (p.scoreTeamB > p.scoreTeamA) computedSetsWonB++;
+      }
+    }
+  } else {
+    computedSetsWonA = state.periodsWonA;
+    computedSetsWonB = state.periodsWonB;
+  }
+
+  // Sort events from last point of time (most recent first)
+  const sortedEvents = [...state.recentEvents].reverse().sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+    }
+    if (a.id != null && b.id != null && a.id !== b.id) return b.id - a.id;
+    return 0;
+  });
+
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div
@@ -369,9 +430,9 @@ export function GenericLiveScoringPanel({
                 </span>
                 {state.scoreTeamB}
               </div>
-              {isSetBased(sportType) && (
+              {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Sets: {state.periodsWonA} - {state.periodsWonB}
+                  Sets: {computedSetsWonA} - {computedSetsWonB}
                 </div>
               )}
             </div>
@@ -672,7 +733,7 @@ export function GenericLiveScoringPanel({
                 No events yet
               </p>
             )}
-            {state.recentEvents.map((evt) => (
+            {sortedEvents.map((evt) => (
               <div
                 key={evt.id}
                 className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg"

@@ -107,7 +107,8 @@ export const sportsEventService = {
       .then((x: any) => this.mapEvent(x));
   },
   async getEventById(id: number): Promise<SportsEvent> {
-    return this.getTournamentById(id);
+    return apiClient.get<SportsEvent>(`/sports/events/${id}`)
+      .then((x: any) => this.mapEvent(x));
   },
 
   /** GET /api/sports/events/by-uuid/{uuid} — public lookup for shareable registration links */
@@ -118,7 +119,38 @@ export const sportsEventService = {
 
   /** GET /api/sports/community-residents/{userId}/family-members — safe family choices for community registration */
   async getCommunityResidentFamilyMembers(userId: number): Promise<SportsCommunityFamilyMember[]> {
-    return apiClient.get<SportsCommunityFamilyMember[]>(`/sports/community-residents/${userId}/family-members`);
+    const normalize = (raw: any): SportsCommunityFamilyMember[] => {
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data) ? raw.data
+        : Array.isArray(raw?.content) ? raw.content
+        : Array.isArray(raw?.familyMembers) ? raw.familyMembers
+        : Array.isArray(raw?.members) ? raw.members
+        : [];
+      return list
+        .filter((m: any) => m && m.id != null)
+        .map((m: any) => ({
+          ...m,
+          id: m.id,
+          name: m.name || m.fullName || [m.firstName, m.lastName].filter(Boolean).join(" ") || "Family Member",
+          relation: m.relation || m.relationship,
+          dob: m.dob || m.dateOfBirth || m.birthDate,
+          age: m.age ?? m.approxAge,
+        }));
+    };
+
+    try {
+      const primary = normalize(await apiClient.get<any>(`/sports/community-residents/${userId}/family-members`, { bypassCache: true } as any));
+      if (primary.length > 0) return primary;
+    } catch (err) {
+      console.warn("Sports family-members endpoint failed, using generic family endpoints:", err);
+    }
+    try {
+      const { familyService } = await import("../common/familyService");
+      return normalize(await familyService.getAdminFamilyMembers(userId));
+    } catch {
+      return [];
+    }
   },
 
   /** GET /api/sports/tournament-list-map — lightweight list of tournament ID and Name */

@@ -6,7 +6,7 @@ import {
   getEventCategories,
   findBestEligibleCategory,
 } from './SportsMultiRegister';
-import type { PlayerCategory } from '../../../services/sports/sportsEventService';
+import type { PlayerCategory } from '../../../types/api';
 
 describe('SportsMultiRegister - Age Calculation & Synthesis', () => {
   it('calculates age correctly from DOB string', () => {
@@ -32,11 +32,11 @@ describe('SportsMultiRegister - Age Calculation & Synthesis', () => {
 
 describe('SportsMultiRegister - Category Pool & Age Bracket Resolution', () => {
   const sampleCategories: PlayerCategory[] = [
-    { id: 101, name: 'Kids U-14', minAge: 5, maxAge: 14, gender: 'ALL' },
-    { id: 102, name: 'Youth U-18', minAge: 15, maxAge: 18, gender: 'ALL' },
-    { id: 103, name: 'Men Open', minAge: 18, maxAge: 50, gender: 'MALE' },
-    { id: 104, name: 'Women Open', minAge: 18, maxAge: 50, gender: 'FEMALE' },
-    { id: 105, name: 'Veterans 50+', minAge: 50, maxAge: 99, gender: 'ALL' },
+    { id: 101, name: 'Kids U-14', minAge: 5, maxAge: 14, gender: 'ALL', categoryType: 'KIDS' },
+    { id: 102, name: 'Youth U-18', minAge: 15, maxAge: 18, gender: 'ALL', categoryType: 'BOYS' },
+    { id: 103, name: 'Men Open', minAge: 18, maxAge: 50, gender: 'MALE', categoryType: 'MENS' },
+    { id: 104, name: 'Women Open', minAge: 18, maxAge: 50, gender: 'FEMALE', categoryType: 'WOMENS' },
+    { id: 105, name: 'Veterans 50+', minAge: 50, maxAge: 99, gender: 'ALL', categoryType: 'SENIORS' },
   ];
 
   it('returns all applicable categories for generic event rather than truncating to 1', () => {

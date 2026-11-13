@@ -21,7 +21,7 @@ import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
-import { inferGender } from "./SportsRegister";
+import { inferGender, checkCategoryEligibility as checkDashboardEligibility } from "./SportsRegister";
 import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
 import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
@@ -256,7 +256,7 @@ export function checkCategoryEligibility(
   };
 }
 
-export function getEventCategories(
+function getEventCategoriesRaw(
   categories: PlayerCategory[],
   sportName: string,
   eventName?: string,
@@ -264,20 +264,37 @@ export function getEventCategories(
 ): PlayerCategory[] {
   if (!categories || categories.length === 0) return [];
 
+  const eName = (eventName || "").toLowerCase();
+  const sportKey = detectSport(sportName || eventName || "").toLowerCase();
+
+  // Exclude categories explicitly belonging to other sports FIRST
+  const ALL_OTHER_SPORTS = [
+    "cricket", "football", "soccer", "volleyball", "basketball",
+    "badminton", "kabaddi", "hockey", "throwball", "table tennis",
+    "tennis", "chess", "carrom", "swimming", "pickleball", "padel", "squash"
+  ].filter(s => s !== sportKey && !sportKey.includes(s) && !s.includes(sportKey));
+
+  const poolForSport = categories.filter(c => {
+    const cName = (c.name || "").toLowerCase();
+    const cDesc = (c.description || "").toLowerCase();
+    return !ALL_OTHER_SPORTS.some(other => cName.includes(other) || cDesc.includes(other));
+  });
+
+  // Never fall back to categories of other sports if this sport has no categories in DB!
+  const availableCategories = poolForSport;
+  if (availableCategories.length === 0) return [];
+
   // 1. Direct match by event's configured categoryName from backend/service
   if (eventCategoryName) {
-    const direct = categories.filter(
+    const direct = availableCategories.filter(
       c => c.name.trim().toLowerCase() === eventCategoryName.trim().toLowerCase()
     );
     if (direct.length > 0) return direct;
   }
 
-  const eName = (eventName || "").toLowerCase();
-  const sportKey = detectSport(sportName || eventName || "").toLowerCase();
-
   // 2. Check if event name directly mentions a specific category name (e.g. "Under 18", "Above 18", "Men's Singles", "Kids", "Open")
   // Sort categories by name length descending so specific names like "Under 18" match before shorter sub-tokens
-  const sortedCats = [...categories].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
+  const sortedCats = [...availableCategories].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
   const matchedDirectCats = sortedCats.filter(cat => {
     const cName = (cat.name || "").toLowerCase().trim();
     return cName && (eName.includes(cName) || (cName.length > 3 && cName.split(" ").every(w => eName.includes(w))));
@@ -308,13 +325,13 @@ export function getEventCategories(
 
   for (const { key, match } of ageKeywords) {
     if (eName.includes(key)) {
-      const matched = categories.filter(c => match((c.name || "").toLowerCase()));
+      const matched = availableCategories.filter(c => match((c.name || "").toLowerCase()));
       if (matched.length > 0) return matched;
     }
   }
 
   // 4. Sport-specific category (categories that specifically mention this sport)
-  const sportSpecific = categories.filter(c => {
+  const sportSpecific = availableCategories.filter(c => {
     const cName = (c.name || "").toLowerCase();
     const cDesc = (c.description || "").toLowerCase();
     return cName.includes(sportKey) || cDesc.includes(sportKey);
@@ -323,20 +340,71 @@ export function getEventCategories(
     return sportSpecific;
   }
 
-  // 5. Exclude categories belonging to other sports
-  const ALL_OTHER_SPORTS = [
-    "cricket", "football", "soccer", "volleyball", "basketball",
-    "badminton", "kabaddi", "hockey", "throwball", "table tennis",
-    "tennis", "chess", "carrom", "swimming", "pickleball", "padel", "squash"
-  ].filter(s => s !== sportKey && !sportKey.includes(s) && !s.includes(sportKey));
+  return availableCategories;
+}
 
-  const nonOther = categories.filter(c => {
-    const cName = (c.name || "").toLowerCase();
-    const cDesc = (c.description || "").toLowerCase();
-    return !ALL_OTHER_SPORTS.some(other => cName.includes(other) || cDesc.includes(other));
+export interface EventEligibilityInput {
+  name?: string | null;
+  sportName?: string | null;
+  categoryName?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  gender?: string | null;
+  allowedGenders?: string[] | null;
+  categories?: any[] | null;
+}
+
+/**
+ * Evaluates the event itself (name, category name, event min/max age, gender) with the exact validator
+ * used by the sports dashboard, so both pages agree.
+ */
+export function getEventOwnEligibility(ev: EventEligibilityInput, age: number | null, gender: string) {
+  const r = checkDashboardEligibility(
+    {
+      name: ev.name,
+      categoryName: ev.categoryName,
+      minAge: ev.minAge ?? null,
+      maxAge: ev.maxAge ?? null,
+      gender: ev.gender ?? null,
+      allowedGenders: ev.allowedGenders ?? null,
+      categories: ev.categories ?? null,
+    },
+    age ?? 0,
+    gender
+  );
+  const hasOwnRestriction =
+    r.minAge != null || r.maxAge != null || r.requiredGender === "MALE" || r.requiredGender === "FEMALE";
+  let badgeText = "Ineligible";
+  if (r.isAgeUnknown) badgeText = "Age/DOB required";
+  else if (r.isUnderAge) badgeText = r.minAge != null ? `Ineligible: Min age ${r.minAge} yrs` : "Ineligible: Under age";
+  else if (r.isOverAge) badgeText = `Ineligible: Max age ${r.maxAge} yrs`;
+  else if (r.isGenderMismatch) badgeText = r.requiredGender === "FEMALE" ? "Ineligible: Female only" : "Ineligible: Male only";
+  return { ...r, hasOwnRestriction, badgeText };
+}
+
+/** Category pool for an event, narrowed to the event's own age window / gender when it declares one. */
+export function getEventCategories(
+  categories: PlayerCategory[],
+  sportName: string,
+  eventName?: string,
+  eventCategoryName?: string
+): PlayerCategory[] {
+  const pool = getEventCategoriesRaw(categories, sportName, eventName, eventCategoryName);
+  if (pool.length <= 1) return pool;
+  const own = getEventOwnEligibility({ name: eventName, categoryName: eventCategoryName }, null, "MALE");
+  if (!own.hasOwnRestriction) return pool;
+  const evMin = own.minAge;
+  const evMax = own.maxAge;
+  const narrowed = pool.filter(c => {
+    const cMin = c.minAge != null && !isNaN(Number(c.minAge)) ? Number(c.minAge) : null;
+    const cMax = c.maxAge != null && !isNaN(Number(c.maxAge)) ? Number(c.maxAge) : null;
+    if (evMin != null && cMax != null && cMax < evMin) return false;
+    if (evMax != null && cMin != null && cMin > evMax) return false;
+    const cg = normalizeGender(c.gender);
+    if ((own.requiredGender === "MALE" && cg === "FEMALE") || (own.requiredGender === "FEMALE" && cg === "MALE")) return false;
+    return true;
   });
-
-  return nonOther.length > 0 ? nonOther : categories;
+  return narrowed.length > 0 ? narrowed : pool;
 }
 
 function getMultiCategoryMatchScore(
@@ -388,10 +456,7 @@ export function findBestEligibleCategory(
 ): PlayerCategory | undefined {
   if (!categories || categories.length === 0) return undefined;
   const eventPool = getEventCategories(categories, sportName, eventName, eventCategoryName);
-  if (eventPool.length === 0) return categories[0];
-  if (eventPool.length === 1) {
-    return eventPool[0];
-  }
+  if (eventPool.length === 0) return undefined;
 
   let best: PlayerCategory | undefined;
   let bestScore = -1;
@@ -404,7 +469,56 @@ export function findBestEligibleCategory(
     }
   }
 
-  return best || eventPool[0];
+  // Only return if an eligible category was found (score > -1)
+  return best;
+}
+
+/**
+ * Eligibility of a whole event for a participant. Mirrors the sports dashboard: the event's own
+ * name/category/min-max age/gender rules decide; the category bracket is only consulted for
+ * events that declare no restrictions of their own.
+ */
+export function evaluateEventEligibility(
+  ev: EventEligibilityInput,
+  categories: PlayerCategory[],
+  age: number | null,
+  gender: string
+): EligibilityResult & { category?: PlayerCategory } {
+  if (!gender || !gender.trim()) {
+    return { eligible: false, reason: "Gender is required to verify sports eligibility.", badgeText: "Missing Gender" };
+  }
+  const own = getEventOwnEligibility(ev, age, gender);
+  if (!own.eligible) {
+    return { eligible: false, reason: own.warningMsg, badgeText: own.badgeText };
+  }
+  const category = findBestEligibleCategory(categories, ev.sportName || ev.name || "", age, gender, ev.name || undefined, ev.categoryName || undefined);
+  if (own.hasOwnRestriction) {
+    return { eligible: true, badgeText: "Eligible", category };
+  }
+  const eventPool = getEventCategories(categories, ev.sportName || ev.name || "", ev.name || undefined, ev.categoryName || undefined);
+  if (eventPool.length > 0 && !category) {
+    return {
+      eligible: false,
+      reason: age != null ? `Participant (${age} yrs, ${gender}) is not eligible for any age/gender bracket in this event.` : "Age/DOB required to verify eligibility.",
+      badgeText: "Ineligible for category",
+    };
+  }
+  const catElig = checkCategoryEligibility(category, age, gender);
+  return { ...catElig, category };
+}
+
+
+/** Submit-time check: event rules first, then the bracket the user actually chose. */
+export function checkSelectionEligibility(
+  ev: EventEligibilityInput,
+  selectedCategory: PlayerCategory | undefined,
+  age: number | null,
+  gender: string
+): EligibilityResult {
+  const own = getEventOwnEligibility(ev, age, gender);
+  if (!own.eligible) return { eligible: false, reason: own.warningMsg, badgeText: own.badgeText };
+  if (own.hasOwnRestriction) return { eligible: true };
+  return checkCategoryEligibility(selectedCategory, age, gender);
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {
@@ -692,6 +806,81 @@ function getAvailableEventFormats(
   return ["SINGLES", "DOUBLES"];
 }
 
+export function getEventRoles(ev: any, participantGender?: string): string[] {
+  if (!ev) return ["Player"];
+  const sName = (ev.sportName || "").toLowerCase();
+  const eName = (ev.name || "").toLowerCase();
+  const cName = (ev.categoryName || "").toLowerCase();
+  const combined = `${sName} ${eName} ${cName}`;
+  const sportKey = detectSport(combined);
+  const cfg = SPORT_CONFIGS[sportKey];
+
+  // Team sports with specialized position roles (Cricket, Football, Volleyball, etc.)
+  if (["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball"].includes(sportKey)) {
+    return cfg ? cfg.categories.flatMap(c => c.roles) : ["Player"];
+  }
+
+  // Racket / Court / Board sports (Badminton, Tennis, Table Tennis, Pickleball, Squash, Padel, Carrom, Chess, etc.)
+  const normGender = normalizeGender(participantGender); // "MALE" | "FEMALE" | "OTHER" | ""
+  const formats: string[] = (ev.availableFormats && ev.availableFormats.length > 0)
+    ? ev.availableFormats
+    : (ev.matchTypes && ev.matchTypes.length > 0)
+      ? ev.matchTypes
+      : [ev.matchType || "SINGLES"];
+
+  const hasMixedFormat = formats.some((f: string) => f.includes("MIXED")) || /mixed/i.test(combined);
+  const hasDoublesFormat = formats.some((f: string) => f.includes("DOUBLE")) || /doubles?/i.test(combined);
+  const hasSinglesFormat = formats.some((f: string) => f.includes("SINGLE")) || /singles?/i.test(combined);
+
+  // If event specifically only mentions doubles (and not singles)
+  const isStrictlyDoubles = (hasDoublesFormat || hasMixedFormat) && !hasSinglesFormat && !/singles?/i.test(combined);
+  // If event specifically only mentions singles (and not doubles)
+  const isStrictlySingles = hasSinglesFormat && !hasDoublesFormat && !hasMixedFormat && !/doubles?/i.test(combined);
+
+  const roles: string[] = [];
+
+  if (isStrictlyDoubles) {
+    if (hasMixedFormat || /mixed/i.test(combined)) {
+      roles.push("Mixed Doubles Partner");
+    }
+    if (!hasMixedFormat || hasDoublesFormat) {
+      if (normGender === "MALE") {
+        roles.push("Men's Doubles", "Doubles Partner");
+      } else if (normGender === "FEMALE") {
+        roles.push("Women's Doubles", "Doubles Partner");
+      } else {
+        roles.push("Men's Doubles", "Women's Doubles", "Doubles Partner");
+      }
+    }
+    return roles.length > 0 ? roles : ["Doubles Partner"];
+  }
+
+  if (isStrictlySingles) {
+    if (normGender === "MALE") {
+      roles.push("Men's Singles", "Singles Player");
+    } else if (normGender === "FEMALE") {
+      roles.push("Women's Singles", "Singles Player");
+    } else {
+      roles.push("Men's Singles", "Women's Singles", "Singles Player");
+    }
+    return roles.length > 0 ? roles : ["Singles Player"];
+  }
+
+  // Mixed/both or unspecified formats: include singles & doubles filtered by gender
+  if (normGender === "MALE") {
+    roles.push("Men's Singles", "Singles Player", "Men's Doubles", "Doubles Partner");
+  } else if (normGender === "FEMALE") {
+    roles.push("Women's Singles", "Singles Player", "Women's Doubles", "Doubles Partner");
+  } else {
+    roles.push("Men's Singles", "Women's Singles", "Singles Player", "Men's Doubles", "Women's Doubles", "Doubles Partner");
+  }
+  if (hasMixedFormat || /mixed/i.test(combined)) {
+    roles.push("Mixed Doubles Partner");
+  }
+
+  return roles.length > 0 ? Array.from(new Set(roles)) : (cfg ? cfg.categories.flatMap(c => c.roles) : ["Player"]);
+}
+
 interface SportEventSelection {
   eventId: number;
   uuid?: string;
@@ -717,7 +906,11 @@ interface SportEventSelection {
   minAge?: number | null;
   maxAge?: number | null;
   allowHigherAgeCategory?: boolean;
+  gender?: string | null;
+  allowedGenders?: string[] | null;
+  categories?: any[] | null;
 }
+
 
 function registrationEventId(registration: any): number {
   return Number(registration?.eventId ?? registration?.event?.id ?? registration?.sportsEvent?.id);
@@ -1361,7 +1554,7 @@ export function SportsMultiRegister() {
 
         if (directTourney) {
           const rawTourney = directTourney;
-          const childEvents = (rawTourney as any).childEvents || (rawTourney as any).events;
+          const childEvents = (rawTourney as any).childEvents || (rawTourney as any).events || (rawTourney as any).sportsEvents;
           targetTourney = {
             id: rawTourney.id,
             name: rawTourney.name,
@@ -1391,6 +1584,11 @@ export function SportsMultiRegister() {
                     formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
                     myRegistrationId: ce.myRegistrationId || null,
                     myRegistrationStatus: ce.myRegistrationStatus || null,
+                    minAge: ce.minAge != null && !isNaN(Number(ce.minAge)) ? Number(ce.minAge) : null,
+                    maxAge: ce.maxAge != null && !isNaN(Number(ce.maxAge)) ? Number(ce.maxAge) : null,
+                    gender: ce.gender || (ce as any).genderCategory || null,
+                    allowedGenders: ce.allowedGenders || null,
+                    categories: ce.categories || null,
                   }))
               : targetTourney?.events && targetTourney.events.length > 0
                 ? targetTourney.events
@@ -1399,6 +1597,11 @@ export function SportsMultiRegister() {
                       ...te,
                       format: (rawTourney as any).format || (rawTourney as any).formats || (te as any).format || (te as any).formats || null,
                       formats: (rawTourney as any).formats || (rawTourney as any).format || (te as any).formats || (te as any).format || null,
+                      minAge: (te as any).minAge != null && !isNaN(Number((te as any).minAge)) ? Number((te as any).minAge) : null,
+                      maxAge: (te as any).maxAge != null && !isNaN(Number((te as any).maxAge)) ? Number((te as any).maxAge) : null,
+                      gender: (te as any).gender || (te as any).genderCategory || null,
+                      allowedGenders: (te as any).allowedGenders || null,
+                      categories: (te as any).categories || null,
                     }))
                 : [{
                     id: rawTourney.id,
@@ -1417,6 +1620,11 @@ export function SportsMultiRegister() {
                     formats: (rawTourney as any).formats || (rawTourney as any).format || null,
                     myRegistrationId: null,
                     myRegistrationStatus: null,
+                    minAge: (rawTourney as any).minAge != null && !isNaN(Number((rawTourney as any).minAge)) ? Number((rawTourney as any).minAge) : null,
+                    maxAge: (rawTourney as any).maxAge != null && !isNaN(Number((rawTourney as any).maxAge)) ? Number((rawTourney as any).maxAge) : null,
+                    gender: (rawTourney as any).gender || (rawTourney as any).genderCategory || null,
+                    allowedGenders: (rawTourney as any).allowedGenders || null,
+                    categories: (rawTourney as any).categories || null,
                   }],
           };
         }
@@ -1433,7 +1641,6 @@ export function SportsMultiRegister() {
             const resolvedSportName = ev.sportName || (targetTourney as any).sportName || (targetTourney as any).sport?.name || targetTourney.name || "Sports";
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
-            const defaultRole = cfg.categories[0]?.roles[0] || "Player";
 
             const matchedRegs = combinedRegs.filter(r => {
               const rEvId = registrationEventId(r);
@@ -1486,11 +1693,22 @@ export function SportsMultiRegister() {
 
             // Find single related category from service categories for this specific event
             const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
-            const isEligible = matchedCategory ? checkCategoryEligibility(matchedCategory, initialAge, gender).eligible : false;
+            const evAny = ev as any;
+            const toNum = (v: any) => (v != null && v !== "" && !isNaN(Number(v)) ? Number(v) : null);
+            const evMinAge = toNum(evAny.minAge ?? evAny.category?.minAge ?? evAny.playerCategory?.minAge ?? evAny.categories?.[0]?.minAge);
+            const evMaxAge = toNum(evAny.maxAge ?? evAny.category?.maxAge ?? evAny.playerCategory?.maxAge ?? evAny.categories?.[0]?.maxAge);
+            const evGender = evAny.gender || evAny.genderCategory || null;
+            const evAllowedGenders = evAny.allowedGenders || null;
+            const isEligible = evaluateEventEligibility(
+              { name: ev.name, sportName: resolvedSportName, categoryName: ev.categoryName, minAge: evMinAge, maxAge: evMaxAge, gender: evGender, allowedGenders: evAllowedGenders, categories: evAny.categories },
+              cats, initialAge, gender
+            ).eligible;
 
             // Detect available participation formats (e.g. Singles, Doubles, Mixed Doubles)
             const availableFormats = getAvailableEventFormats(ev, resolvedSportName, ev.name, targetTourney.name, metaList);
             const defaultFormat = availableFormats[0] || "SINGLES";
+            const eventRoles = getEventRoles({ ...ev, availableFormats, matchType: defaultFormat }, gender);
+            const defaultRole = eventRoles[0] || cfg.categories[0]?.roles[0] || "Player";
 
             return {
               eventId: ev.id,
@@ -1509,13 +1727,17 @@ export function SportsMultiRegister() {
               availableFormats: availableFormats,
               role: defaultRole,
               categoryId: matchedCategory?.id,
-              minAge: (ev as any).minAge ?? matchedCategory?.minAge ?? null,
-              maxAge: (ev as any).maxAge ?? matchedCategory?.maxAge ?? null,
+              minAge: evMinAge,
+              maxAge: evMaxAge,
+              gender: evGender,
+              allowedGenders: evAllowedGenders,
+              categories: evAny.categories || null,
               allowHigherAgeCategory: (ev as any).allowHigherAgeCategory ?? true,
               captainNominationOpen: Boolean((ev as any).captainNominationOpen ?? (ev as any).rawEvent?.captainNominationOpen),
             };
           });
           setEventSelections(initialSelections);
+
         } else {
           toast.error("Tournament not found or no longer open for registration");
         }
@@ -1565,16 +1787,16 @@ export function SportsMultiRegister() {
     setEventSelections(prev => prev.map(ev => {
       let catId = ev.categoryId;
       const currentCat = categories.find(c => c.id === ev.categoryId);
-      let isEligible = checkCategoryEligibility(currentCat, age, gender).eligible;
+      const pool = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+      const currentInPool = Boolean(currentCat && pool.some(c => c.id === currentCat.id));
+      const currentOk = currentInPool && checkCategoryEligibility(currentCat, age, gender).eligible;
 
-      // If current category is ineligible or not set, switch to best eligible category for this event
-      if (!isEligible) {
-        const best = findBestEligibleCategory(categories, ev.sportName || ev.name, age, gender, ev.name, ev.categoryName);
-        if (best && best.id !== ev.categoryId) {
-          catId = best.id;
-          isEligible = checkCategoryEligibility(best, age, gender).eligible;
-        }
+      // Keep the user's bracket only if it belongs to this event's pool and fits; otherwise pick the best one
+      const evaluation = evaluateEventEligibility(ev, categories, age, gender);
+      if (!currentOk && evaluation.category && evaluation.category.id !== ev.categoryId) {
+        catId = evaluation.category.id;
       }
+      const isEligible = evaluation.eligible;
 
       // If ineligible or already registered, uncheck it
       const shouldBeSelected = ev.isRegistered ? false : (isEligible ? ev.selected : false);
@@ -1727,7 +1949,7 @@ export function SportsMultiRegister() {
 
       setEventSelections(prev => prev.map(ev => {
         const best = findBestEligibleCategory(categories, ev.sportName || ev.name, memberAge, memberGender, ev.name, ev.categoryName);
-        const isElig = best ? checkCategoryEligibility(best, memberAge, memberGender).eligible : false;
+        const isElig = evaluateEventEligibility(ev, categories, memberAge, memberGender).eligible;
         return {
           ...ev,
           categoryId: best ? best.id : ev.categoryId,
@@ -1768,7 +1990,7 @@ export function SportsMultiRegister() {
 
     setEventSelections(prev => prev.map(ev => {
       const best = findBestEligibleCategory(categories, ev.sportName || ev.name, residentAge, residentGender, ev.name, ev.categoryName);
-      const isElig = best ? checkCategoryEligibility(best, residentAge, residentGender).eligible : false;
+      const isElig = evaluateEventEligibility(ev, categories, residentAge, residentGender).eligible;
       return {
         ...ev,
         categoryId: best ? best.id : ev.categoryId,
@@ -1810,7 +2032,7 @@ export function SportsMultiRegister() {
 
     setEventSelections(prev => prev.map(ev => {
       const best = findBestEligibleCategory(categories, ev.sportName || ev.name, memberAge, memberGender, ev.name, ev.categoryName);
-      const isElig = best ? checkCategoryEligibility(best, memberAge, memberGender).eligible : false;
+      const isElig = evaluateEventEligibility(ev, categories, memberAge, memberGender).eligible;
       return {
         ...ev,
         categoryId: best ? best.id : ev.categoryId,
@@ -1954,9 +2176,8 @@ export function SportsMultiRegister() {
       // Update eventSelections: mark as not registered and re-enable selection if eligible
       setEventSelections(prev => prev.map(e => {
         if (e.eventId === eventId) {
-          const age = calculateAge(dateOfBirth);
-          const matchedCategory = categories.find(c => c.id === e.categoryId) || findBestEligibleCategory(categories, e.sportName || e.name, age, gender, e.name, e.categoryName);
-          const isElig = matchedCategory ? checkCategoryEligibility(matchedCategory, age, gender).eligible : false;
+          const age = calculateAge(dateOfBirth, explicitAge);
+          const isElig = evaluateEventEligibility(e, categories, age, gender).eligible;
           return {
             ...e,
             isRegistered: false,
@@ -2039,7 +2260,7 @@ export function SportsMultiRegister() {
     }
 
     const calculatedAge = currentAge !== null ? currentAge : 25;
-    const eligibility = checkCategoryEligibility(selectedCategory, calculatedAge, gender);
+    const eligibility = checkSelectionEligibility(ev, selectedCategory, currentAge, gender);
     if (!eligibility.eligible) {
       setEventErrors(prev => ({ ...prev, [eventId]: eligibility.reason || "Ineligible for selected category" }));
       toast.error(`Ineligible: ${eligibility.reason}`);
@@ -2190,9 +2411,7 @@ export function SportsMultiRegister() {
         if (ev.isRegistered) {
           registered.push(ev);
         } else {
-          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
-          const elig = checkCategoryEligibility(selectedCat, currentAge, gender);
+          const elig = evaluateEventEligibility(ev, categories, currentAge, gender);
           if (elig.eligible) {
             eligible.push(ev);
           } else {
@@ -2228,9 +2447,10 @@ export function SportsMultiRegister() {
     }
     setEventSelections(prev => prev.map(e => {
       if (e.isRegistered) return e;
-      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
-      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
-      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      const evaluation = evaluateEventEligibility(e, categories, currentAge, gender);
+      const best = evaluation.category;
+      const isEligible = evaluation.eligible;
+      if (isEligible && best) return { ...e, categoryId: best.id, selected: true };
       return { ...e, selected: isEligible };
     }));
   };
@@ -2249,9 +2469,10 @@ export function SportsMultiRegister() {
     setEventSelections(prev => prev.map(e => {
       if ((e.sportName || "Other") !== sportName || e.isRegistered) return e;
       if (!select) return { ...e, selected: false };
-      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
-      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
-      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      const evaluation = evaluateEventEligibility(e, categories, currentAge, gender);
+      const best = evaluation.category;
+      const isEligible = evaluation.eligible;
+      if (isEligible && best) return { ...e, categoryId: best.id, selected: true };
       return { ...e, selected: isEligible };
     }));
   };
@@ -2325,7 +2546,7 @@ export function SportsMultiRegister() {
         hasEligibilityIssues = true;
         continue;
       }
-      const eligibility = checkCategoryEligibility(selectedCategory, calculatedAge, gender);
+      const eligibility = checkSelectionEligibility(ev, selectedCategory, currentAge, gender);
       if (!eligibility.eligible) {
         newEventErrors[ev.eventId] = eligibility.reason || "Ineligible for selected category";
         hasEligibilityIssues = true;
@@ -2652,7 +2873,7 @@ export function SportsMultiRegister() {
 
                             setEventSelections(prev => prev.map(ev => {
                               const best = findBestEligibleCategory(categories, ev.sportName || ev.name, residentAge, residentGender, ev.name, ev.categoryName);
-                              const isElig = best ? checkCategoryEligibility(best, residentAge, residentGender).eligible : false;
+                              const isElig = evaluateEventEligibility(ev, categories, residentAge, residentGender).eligible;
                               return {
                                 ...ev,
                                 categoryId: best ? best.id : ev.categoryId,
@@ -3104,7 +3325,7 @@ export function SportsMultiRegister() {
                 {selectedEvents.map(e => {
                   const meta = getSportMeta(e.sportName || e.name);
                   const selCat = categories.find(c => c.id === e.categoryId);
-                  const el = checkCategoryEligibility(selCat, currentAge, gender);
+                  const el = evaluateEventEligibility(e, categories, currentAge, gender);
 
                   return (
                     <div
@@ -3849,7 +4070,7 @@ export function SportsMultiRegister() {
                               {group.ineligible.map((ev) => {
                                 const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
                                 const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
-                                const el = checkCategoryEligibility(selectedCat, currentAge, gender);
+                                const el = evaluateEventEligibility(ev, categories, currentAge, gender);
                                 return (
                                   <div
                                     key={ev.eventId}
@@ -3857,9 +4078,9 @@ export function SportsMultiRegister() {
                                   >
                                     <div className="min-w-0">
                                       <span className="font-semibold text-slate-800 truncate block sm:inline">{ev.name}</span>
-                                      {selectedCat && (
+                                      {(ev.categoryName || selectedCat?.name) && (
                                         <span className="text-[10px] text-slate-500 sm:ml-1.5">
-                                          ({selectedCat.name})
+                                          ({ev.categoryName || selectedCat?.name})
                                         </span>
                                       )}
                                     </div>

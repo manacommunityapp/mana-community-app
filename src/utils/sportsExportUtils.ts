@@ -1410,6 +1410,7 @@ export interface ExportableBracketMatch {
   courtId?: string | null;
   venueName?: string;
   courtName?: string;
+  status?: string | null;
 }
 
 export function exportBracketToPDF(
@@ -1542,29 +1543,35 @@ export function exportBracketToPDF(
 
       const showMergerRight = !isLastRound;
       const showMergerLeft = colIdx > 0;
-      const venueCourt = [m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD";
+      const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
+      const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
+      const isByeMatch = isHomeBye || isAwayBye || m.status === 'AUTO_ADVANCED';
+      const venueCourt = isByeMatch ? "" : ([m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD");
 
       cardsHtml += `
         <div class="matchup" style="top:${top}px;">
           <div class="match-meta">
-            <span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>
+            ${isByeMatch 
+              ? `<span style="color:#059669; font-weight:800; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:1px 6px;">BYE • ADVANCES</span>`
+              : `<span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>`
+            }
           </div>
           <div class="match-box">
-            <div class="participant-row">
-              <span class="p-accent"></span>
-              <span class="p-name">${escapeHtml(m.home?.name || "TBD")}</span>
+            <div class="participant-row ${isHomeBye ? 'bye-row' : ''}">
+              <span class="p-accent ${isHomeBye ? 'bye-accent' : ''}"></span>
+              <span class="p-name ${isHomeBye ? 'bye-name' : ''}">${escapeHtml(m.home?.name || "TBD")}</span>
               ${m.home?.flatNumber ? `<span class="p-flat">${escapeHtml(m.home.flatNumber)}</span>` : ""}
             </div>
-            <div class="participant-row">
-              <span class="p-accent"></span>
-              <span class="p-name">${escapeHtml(m.away?.name || "TBD")}</span>
+            <div class="participant-row ${isAwayBye ? 'bye-row' : ''}">
+              <span class="p-accent ${isAwayBye ? 'bye-accent' : ''}"></span>
+              <span class="p-name ${isAwayBye ? 'bye-name' : ''}">${escapeHtml(m.away?.name || "TBD")}</span>
               ${m.away?.flatNumber ? `<span class="p-flat">${escapeHtml(m.away.flatNumber)}</span>` : ""}
             </div>
             ${showConnector ? `<div class="connector" style="height:${connectorHeight}px; transform:translateY(${connectorTop}px);"></div>` : ""}
             ${showMergerRight ? `<div class="merger-right"></div>` : ""}
             ${showMergerLeft ? `<div class="merger-left"></div>` : ""}
           </div>
-          <div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>
+          ${!isByeMatch ? `<div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>` : ""}
         </div>
       `;
     });
@@ -1742,6 +1749,18 @@ export function exportBracketToPDF(
       border-radius: 5px;
       font-size: 11px;
       position: relative;
+    }
+    .participant-row.bye-row {
+      background: #f1f5f9;
+      border: 1px dashed #cbd5e1;
+      opacity: 0.75;
+    }
+    .p-accent.bye-accent {
+      background: #94a3b8;
+    }
+    .p-name.bye-name {
+      color: #64748b;
+      font-style: italic;
     }
     .p-accent {
       width: 3px;
