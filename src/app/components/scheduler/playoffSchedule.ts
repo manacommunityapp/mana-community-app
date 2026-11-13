@@ -216,13 +216,18 @@ export function sanitizePlayoffMatches(
     }
   }
 
+  const koMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
+  const earliestRoundIndex = koMatches.length > 0
+    ? Math.min(...koMatches.map(m => m.roundIndex))
+    : 0;
+
   const realMatches = matches.filter(m => {
     const homeIsBye = isByeParticipant(m.home);
     const awayIsBye = isByeParticipant(m.away);
     const isByeMatch = homeIsBye || awayIsBye || m.status === 'AUTO_ADVANCED';
     if (!isByeMatch) return true;
-    // When preserveFirstRoundByes is requested, keep the round 0 BYE matches for the visual draw
-    return preserveFirstRoundByes && m.roundIndex === 0;
+    // When preserveFirstRoundByes is requested, keep the earliest round BYE matches for the visual draw
+    return preserveFirstRoundByes && m.roundIndex === earliestRoundIndex;
   });
 
   if (autoAdvancedWinners.size === 0) {
@@ -230,8 +235,8 @@ export function sanitizePlayoffMatches(
   }
 
   return realMatches.map(m => {
-    // If it's a preserved round 0 BYE match, don't overwrite its participants
-    if (preserveFirstRoundByes && m.roundIndex === 0 && (isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED')) {
+    // If it's a preserved earliest round BYE match, don't overwrite its participants
+    if (preserveFirstRoundByes && m.roundIndex === earliestRoundIndex && (isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED')) {
       return m;
     }
     let home = m.home;
@@ -1180,3 +1185,160 @@ export function reconstructKnockoutByes(
 
   return result;
 }
+// ═══════════════════════════════════════════════════════════════════════
+// Saved matches -> PlayoffMatchDraft[]
+// Rebuilds the COMPLETE knockout bracket exactly as it was saved (including
+// auto-advanced BYE slots), ordered by bracketSlot so feeder matches line up
+// with the next round. Shared by Setup Schedule (edit mode) and the Config
+// bracket view so both always show identical brackets.
+// ═══════════════════════════════════════════════════════════════════════
+
+const SAVED_KO_ROUND_INDEX: Record<string, number> = {
+  ROUND_OF_64: 0,
+  ROUND_OF_32: 1,
+  ROUND_OF_16: 2,
+  QUARTER_FINAL: 3,
+  SEMI_FINAL: 4,
+  FINAL: 5,
+  THIRD_PLACE: 6,
+};
+
+const isByeName = (n?: string | null) => !!n && n.trim().toUpperCase() === 'BYE';
+const isBlankName = (n?: string | null) => !n || ['', 'TBD'].includes(n.trim().toUpperCase());
+
+export function buildPlayoffDraftFromSavedMatches(
+  savedMatches: any[],
+  config?: { totalTeams?: number; tournamentType?: string } | null
+): PlayoffMatchDraft[] {
+  if (!Array.isArray(savedMatches) || savedMatches.length === 0) return [];
+
+  const completed = reconstructKnockoutByes(savedMatches.filter(Boolean), config);
+  const knockout = completed
+    .map((m, order) => ({ m, order, stage: getMatchStage(m) }))
+    .filter(x => x.stage !== 'GROUP' && x.stage !== 'ALL' && (x.stage in SAVED_KO_ROUND_INDEX || x.stage === 'THIRD_PLACE'));
+
+  // Normalize stages present in this tournament in chronological order: 0, 1, 2, ...
+  const presentStages = KO_ROUNDS_ORDER.filter(s => knockout.some(x => x.stage === s));
+  const stageRoundIndexMap = new Map<string, number>();
+  presentStages.forEach((s, idx) => stageRoundIndexMap.set(s, idx));
+  if (knockout.some(x => x.stage === 'THIRD_PLACE')) {
+    stageRoundIndexMap.set('THIRD_PLACE', presentStages.length);
+  }
+
+  knockout.sort((a, b) => {
+    const ra = stageRoundIndexMap.get(a.stage) ?? SAVED_KO_ROUND_INDEX[a.stage] ?? 99;
+    const rb = stageRoundIndexMap.get(b.stage) ?? SAVED_KO_ROUND_INDEX[b.stage] ?? 99;
+    if (ra !== rb) return ra - rb;
+    const sa = Number(a.m.bracketSlot ?? Number.MAX_SAFE_INTEGER);
+    const sb = Number(b.m.bracketSlot ?? Number.MAX_SAFE_INTEGER);
+    if (sa !== sb) return sa - sb;
+    const numA = Number(a.m.matchNumber ?? Number.MAX_SAFE_INTEGER);
+    const numB = Number(b.m.matchNumber ?? Number.MAX_SAFE_INTEGER);
+    if (numA !== numB) return numA - numB;
+    return a.order - b.order;
+  });
+
+  const byRound = new Map<number, PlayoffMatchDraft[]>();
+  const drafts: PlayoffMatchDraft[] = [];
+
+  knockout.forEach(({ m, stage }, idx) => {
+    const roundIndex = stageRoundIndexMap.get(stage) ?? (SAVED_KO_ROUND_INDEX[stage] ?? 0);
+    const { team1, team2 } = extractTeamNames(m);
+    const { team1Flat, team2Flat } = extractFlatDetails(m);
+    const status = String(m.status || '').toUpperCase();
+    const byeStatus = status === 'AUTO_ADVANCED' || status === 'BYE';
+
+    let homeBye = isByeName(team1) || (typeof m.home === 'object' && m.home?.id === 'bye');
+    let awayBye = isByeName(team2) || (typeof m.away === 'object' && m.away?.id === 'bye');
+    if (byeStatus && !homeBye && !awayBye) {
+      if (isBlankName(team2)) awayBye = true;
+      else if (isBlankName(team1)) homeBye = true;
+      else awayBye = true;
+    }
+    const isBye = homeBye || awayBye;
+
+    let date = '';
+    let time = '';
+    if (m.scheduledAt) {
+      const [d, t] = String(m.scheduledAt).split('T');
+      date = d || '';
+      if (t && !isBye) {
+        const [hh, mm] = t.substring(0, 5).split(':').map(Number);
+        time = !isNaN(hh) && !isNaN(mm) ? formatMinutesToTime(hh * 60 + mm) : t.substring(0, 5);
+      }
+    } else {
+      date = m.matchDate || m.date || '';
+      time = isBye ? '' : (m.matchTime || m.time || '');
+    }
+
+    const id = String(m.matchId ?? m.id ?? `saved-${idx}`);
+    const posInRound = (byRound.get(roundIndex) || []).length;
+    const prev = byRound.get(roundIndex - 1) || [];
+    const prevIds = new Set(prev.flatMap(pm => [pm.home.id, pm.away.id]));
+
+    const resolveRef = (
+      rawId: unknown,
+      name: string,
+      flat: string,
+      bye: boolean,
+      feederIdx: number
+    ) => {
+      if (bye) return { id: 'bye', name: 'BYE' };
+      const hasRealId = rawId !== null && rawId !== undefined && String(rawId) !== '';
+      const realId = hasRealId ? String(rawId) : '';
+      let refId = realId;
+      let refName = name;
+      let refFlat = flat && flat !== '—' ? flat : undefined;
+
+      if (roundIndex > 0 && stage !== 'THIRD_PLACE' && prev.length > feederIdx) {
+        const feederMatch = prev[feederIdx];
+        if (!realId || !prevIds.has(realId)) {
+          refId = `${feederMatch.id}-winner`;
+        }
+        if (isBlankName(refName)) {
+          const homeIsBye = isByeParticipant(feederMatch.home);
+          const awayIsBye = isByeParticipant(feederMatch.away);
+          if (feederMatch.status === 'AUTO_ADVANCED' || homeIsBye || awayIsBye) {
+            const adv = homeIsBye ? feederMatch.away : feederMatch.home;
+            if (adv && !isByeParticipant(adv)) {
+              refName = adv.name;
+              if (adv.flatNumber) refFlat = adv.flatNumber;
+            }
+          }
+        }
+      } else if (!realId) {
+        refId = `${id}-${feederIdx === posInRound * 2 ? 'h' : 'a'}`;
+      }
+
+      return {
+        id: refId,
+        name: isBlankName(refName) ? 'TBD' : refName,
+        flatNumber: refFlat,
+      };
+    };
+
+    const homeObjId = typeof m.home === 'object' ? m.home?.id : undefined;
+    const awayObjId = typeof m.away === 'object' ? m.away?.id : undefined;
+
+    const draft: PlayoffMatchDraft = {
+      id,
+      name: `${stage.replace(/_/g, ' ')} Match ${posInRound + 1}`,
+      round: stage as PlayoffRoundType,
+      roundIndex,
+      home: resolveRef(m.teamAId ?? homeObjId, team1, team1Flat, homeBye, posInRound * 2),
+      away: resolveRef(m.teamBId ?? awayObjId, team2, team2Flat, awayBye, posInRound * 2 + 1),
+      date,
+      time,
+      duration: m.duration || m.durationMinutes || 30,
+      venueId: isBye ? null : (m.venueId ?? null),
+      courtId: isBye ? null : (m.courtId != null ? String(m.courtId) : null),
+      moveSubsMatches: false,
+      status: isBye ? 'AUTO_ADVANCED' : (m.status ?? null),
+    };
+
+    drafts.push(draft);
+    byRound.set(roundIndex, [...(byRound.get(roundIndex) || []), draft]);
+  });
+
+  return drafts;
+}

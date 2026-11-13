@@ -45,6 +45,7 @@ import {
   buildPlayoffBracket,
   isByeParticipant,
   sanitizePlayoffMatches,
+  buildPlayoffDraftFromSavedMatches,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
 import {
@@ -1431,59 +1432,32 @@ export function SetupSchedule({
     // Generate local playoff draft to establish the bracket structure
     const initialDraft = generateLocalPlayoffDraft((target.seedingOrder as PlayoffSeedingOrder) || 'RANDOM');
 
-    // If matches were previously saved in the database, fetch and merge them into the draft
+    // If matches were previously saved, rebuild the COMPLETE bracket exactly as saved
+    // (all rounds + BYE slots, ordered by bracketSlot) rather than overlaying by index.
     if (target.id) {
       tournamentService.getSavedMatchesByConfigId(target.id).then(savedMatches => {
-        if (Array.isArray(savedMatches) && savedMatches.length > 0) {
-          const savedKoMatches = savedMatches.filter(m =>
-            m.roundName !== 'GROUP_STAGE' && m.roundName !== 'LEAGUE_MATCH' &&
-            (!m.groupName || m.groupName === 'Playoffs' || m.groupName === 'Knockout' || m.stage === 'PLAYOFF' || m.stage === 'KNOCKOUT')
+        const savedDraft = buildPlayoffDraftFromSavedMatches(savedMatches, target);
+        if (savedDraft.length > 0) {
+          setPlayoffDraft(savedDraft);
+          // Pin exactly what was saved (date/time/duration/venue/court) so schedule
+          // recomputation never replaces it with generated defaults.
+          const pinned: Record<string, any> = {};
+          savedDraft.forEach(m => {
+            if (m.status === 'AUTO_ADVANCED') return;
+            pinned[m.id] = {
+              date: m.date,
+              time: m.time,
+              duration: m.duration,
+              venueId: m.venueId,
+              courtId: m.courtId,
+            };
+          });
+          setMatchOverrides(pinned);
+          setShowByesInBracket(
+            typeof (target as any).showByesInBracket === 'boolean' ? (target as any).showByesInBracket : true
           );
-
-          if (savedKoMatches.length > 0 && initialDraft.length > 0) {
-            const updatedDraft = initialDraft.map((draftMatch, idx) => {
-              const saved = savedKoMatches.find(sm => sm.bracketSlot === idx) || savedKoMatches[idx];
-              if (!saved) return draftMatch;
-
-              let sDate = draftMatch.date;
-              let sTime = draftMatch.time;
-              if (saved.scheduledAt) {
-                const parts = saved.scheduledAt.split('T');
-                if (parts[0]) sDate = parts[0];
-                if (parts[1]) {
-                  const rawTime = parts[1].substring(0, 5);
-                  const [hh, mm] = rawTime.split(':').map(Number);
-                  if (!isNaN(hh) && !isNaN(mm)) {
-                    sTime = formatMinutesToTime(hh * 60 + mm);
-                  } else {
-                    sTime = rawTime;
-                  }
-                }
-              }
-
-              return {
-                ...draftMatch,
-                home: {
-                  ...draftMatch.home,
-                  id: saved.teamAId ? String(saved.teamAId) : draftMatch.home.id,
-                  name: saved.teamAName || draftMatch.home.name,
-                  flatNumber: saved.teamAFlat || draftMatch.home.flatNumber,
-                },
-                away: {
-                  ...draftMatch.away,
-                  id: saved.teamBId ? String(saved.teamBId) : draftMatch.away.id,
-                  name: saved.teamBName || draftMatch.away.name,
-                  flatNumber: saved.teamBFlat || draftMatch.away.flatNumber,
-                },
-                date: sDate,
-                time: sTime,
-                venueId: saved.venueId ?? draftMatch.venueId,
-                courtId: saved.courtId ? String(saved.courtId) : draftMatch.courtId,
-                status: saved.status || draftMatch.status,
-              };
-            });
-            setPlayoffDraft(updatedDraft);
-          }
+        } else if (initialDraft.length > 0) {
+          setPlayoffDraft(initialDraft);
         }
       }).catch(err => {
         console.warn('[SetupSchedule] Error loading saved matches for config:', err);
@@ -2366,10 +2340,17 @@ export function SetupSchedule({
     overrideOrder?: PlayoffSeedingOrder,
     overrideShowByes?: boolean
   ): PlayoffMatchDraft[] => {
+    // When editing an already saved tournament configuration or if schedule is published,
+    // preserve the saved tournament bracket matches; never re-generate from scratch!
+    if (currentConfigId) {
+      return playoffDraft;
+    }
     const activeOrder = overrideOrder || ((isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder);
     const activeShowByes = overrideShowByes !== undefined ? overrideShowByes : showByesInBracket;
-    const input = { ...buildPlayoffInput(activeOrder), includeByesInBracket: activeShowByes };
-    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(input), activeShowByes);
+    // Always preserve first-round BYEs in the underlying draft so that toggling showByesInBracket
+    // can dynamically show or hide BYEs in getPlayoffMatches without regenerating.
+    const input = { ...buildPlayoffInput(activeOrder), includeByesInBracket: true };
+    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(input), true);
     setPlayoffDraft(localDraft);
     return localDraft;
   };
@@ -3777,7 +3758,9 @@ export function SetupSchedule({
                 onChange={e => {
                   const nextVal = e.target.checked;
                   setShowByesInBracket(nextVal);
-                  generateLocalPlayoffDraft(undefined, nextVal);
+                  if (!currentConfigId && !isSchedulePublished) {
+                    generateLocalPlayoffDraft(undefined, nextVal);
+                  }
                 }}
                 className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
               />
@@ -4895,7 +4878,9 @@ export function SetupSchedule({
                       onChange={e => {
                         const nextVal = e.target.checked;
                         setShowByesInBracket(nextVal);
-                        generateLocalPlayoffDraft(undefined, nextVal);
+                        if (!currentConfigId && !isSchedulePublished) {
+                          generateLocalPlayoffDraft(undefined, nextVal);
+                        }
                       }}
                       className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
                     />
@@ -5461,9 +5446,18 @@ export function SetupSchedule({
                 (() => {
                   const playoffMatches = getPlayoffMatches();
                   if (playoffMatches.length === 0) return null;
-                  const numParticipants = Number(participants) || playoffMatches.length;
+                  const earliestPlayoffRound = playoffMatches.length > 0
+                    ? Math.min(...playoffMatches.filter(m => m.round !== 'THIRD_PLACE').map(m => m.roundIndex))
+                    : 0;
+                  const firstRoundMatchesCount = (showByesInBracket ? playoffMatches : playoffDraft)
+                    .filter(m => m.round !== 'THIRD_PLACE' && m.roundIndex === earliestPlayoffRound).length;
+                  let totalDrawCalc = firstRoundMatchesCount * 2;
                   let drawPower = 1;
-                  while (drawPower < numParticipants) drawPower <<= 1;
+                  while (drawPower < totalDrawCalc) drawPower <<= 1;
+                  if (drawPower < 2) {
+                    const numParticipants = Number(participants) || playoffMatches.length;
+                    while (drawPower < numParticipants) drawPower <<= 1;
+                  }
                   return (
                     <PlayoffBracketView
                       matches={playoffMatches}
@@ -5475,7 +5469,9 @@ export function SetupSchedule({
                       onToggleShowByes={() => {
                         const nextVal = !showByesInBracket;
                         setShowByesInBracket(nextVal);
-                        generateLocalPlayoffDraft(undefined, nextVal);
+                        if (!currentConfigId && !isSchedulePublished) {
+                          generateLocalPlayoffDraft(undefined, nextVal);
+                        }
                         showSuccess(nextVal ? `Showing full ${drawPower} draw with BYEs` : 'Hiding BYEs (compact bracket)');
                       }}
                       totalDrawCount={drawPower}
