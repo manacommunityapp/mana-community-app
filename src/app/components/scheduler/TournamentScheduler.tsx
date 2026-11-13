@@ -13,6 +13,7 @@ import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from 
 import {
   ScheduleExportModal,
   prepareExportableMatches,
+  detectSportName,
   getMatchStage,
   extractTeamNames,
   extractFlatDetails,
@@ -455,8 +456,19 @@ export function TournamentScheduler() {
       tournamentService.getSavedMatchesByConfigId(config.id),
       config.eventId ? sportsService.getEventRegistrations(config.eventId) : Promise.resolve([] as EventRegistration[]),
     ]);
-    if (matchesResult.status === "fulfilled") setViewMatches(matchesResult.value);
-    else setViewError("Could not load the saved match schedule.");
+    const matchedEvent = events.find((item) => item.id === config.eventId);
+    const resolvedSport = config.sportName || matchedEvent?.sportName || detectSportName(config.tournamentName) || detectSportName(config.eventName) || "Tournament";
+    if (matchesResult.status === "fulfilled") {
+      const enrichedMatches = (matchesResult.value || []).map((m: any) => ({
+        ...m,
+        sport: m.sport || m.sportName || resolvedSport,
+        sportName: m.sportName || m.sport || resolvedSport,
+        tournamentName: m.tournamentName || config.tournamentName,
+      }));
+      setViewMatches(enrichedMatches);
+    } else {
+      setViewError("Could not load the saved match schedule.");
+    }
     if (playersResult.status === "fulfilled") {
       setViewPlayers(playersResult.value.filter((player) => player.status === "CONFIRMED" || player.status === "REGISTERED"));
     } else {
@@ -675,7 +687,8 @@ export function TournamentScheduler() {
         );
         const handleExport = (formatType: "csv" | "excel" | "pdf", stageFilter: TournamentStageKey = "ALL") => {
           if (viewMatches.length === 0) return;
-          const exportData = prepareExportableMatches(viewMatches, stageFilter);
+          const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
+          const exportData = prepareExportableMatches(viewMatches, stageFilter, resolvedSport);
           if (exportData.length === 0) {
             showToast(`No matches found for stage: ${stageFilter}`, "error");
             return;
@@ -1317,6 +1330,7 @@ export function TournamentScheduler() {
               tournamentName={viewingConfig.tournamentName || "Tournament"}
               matches={viewMatches}
               defaultStage={stageModalDefaultStage}
+              sportName={viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName)}
             />
           )}
         </>

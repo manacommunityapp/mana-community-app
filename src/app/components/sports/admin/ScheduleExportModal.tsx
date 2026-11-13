@@ -205,7 +205,32 @@ export function extractVenueCourt(m: any): string {
   return venue || court || 'Main Arena';
 }
 
-export function prepareExportableMatches(matches: any[], stageFilter: TournamentStageKey = 'ALL'): any[] {
+export function detectSportName(text?: string | null): string | undefined {
+  if (!text) return undefined;
+  const t = text.toLowerCase();
+  if (t.includes('cricket')) return 'Cricket';
+  if (t.includes('badminton') || t.includes('shuttle')) return 'Badminton';
+  if (t.includes('table tennis') || t.includes('ping pong') || /\btt\b/.test(t)) return 'Table Tennis';
+  if (t.includes('tennis')) return 'Tennis';
+  if (t.includes('football') || t.includes('soccer')) return 'Football';
+  if (t.includes('basketball')) return 'Basketball';
+  if (t.includes('volleyball')) return 'Volleyball';
+  if (t.includes('pickleball')) return 'Pickleball';
+  if (t.includes('squash')) return 'Squash';
+  if (t.includes('chess')) return 'Chess';
+  if (t.includes('carrom')) return 'Carrom';
+  if (t.includes('swimming')) return 'Swimming';
+  if (t.includes('kabaddi')) return 'Kabaddi';
+  if (t.includes('throwball')) return 'Throwball';
+  if (t.includes('athletics') || t.includes('marathon') || t.includes('running')) return 'Athletics';
+  return undefined;
+}
+
+export function prepareExportableMatches(
+  matches: any[],
+  stageFilter: TournamentStageKey = 'ALL',
+  defaultSportName?: string
+): any[] {
   const filtered = stageFilter === 'ALL'
     ? matches
     : matches.filter(m => {
@@ -233,13 +258,24 @@ export function prepareExportableMatches(matches: any[], stageFilter: Tournament
     const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—';
 
+    const detectedSport =
+      m.sport ||
+      m.sportName ||
+      m.config?.sportName ||
+      m.config?.eventName ||
+      defaultSportName ||
+      detectSportName(m.tournamentName) ||
+      detectSportName(m.name) ||
+      detectSportName(m.eventName) ||
+      'Tournament';
+
     return {
       matchNumber: m.matchNumber || idx + 1,
       round: stageLabel,
       roundName: stageLabel,
       stage: stageLabel,
-      sport: m.sport || m.sportName || 'Badminton',
-      sportName: m.sport || m.sportName || 'Badminton',
+      sport: detectedSport,
+      sportName: detectedSport,
       date,
       time,
       venue: venueCourt,
@@ -259,12 +295,13 @@ export function prepareExportableMatches(matches: any[], stageFilter: Tournament
   });
 }
 
-interface ScheduleExportModalProps {
+export interface ScheduleExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   tournamentName: string;
   matches: any[];
   defaultStage?: TournamentStageKey;
+  sportName?: string;
 }
 
 export function ScheduleExportModal({
@@ -273,10 +310,13 @@ export function ScheduleExportModal({
   tournamentName,
   matches,
   defaultStage = 'ALL',
+  sportName,
 }: ScheduleExportModalProps) {
   const [selectedStage, setSelectedStage] = useState<TournamentStageKey>(defaultStage);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [isExporting, setIsExporting] = useState(false);
+
+  const resolvedSport = sportName || detectSportName(tournamentName);
 
   // Group matches by stage
   const stageStats = useMemo(() => {
@@ -311,7 +351,7 @@ export function ScheduleExportModal({
 
   if (!isOpen) return null;
 
-  const currentStageMatches = prepareExportableMatches(matches, selectedStage);
+  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport);
 
   const getStageFileName = (stageKey: TournamentStageKey): string => {
     const base = tournamentName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -358,7 +398,7 @@ export function ScheduleExportModal({
     let exportedCount = 0;
     try {
       for (const stg of stagesToExport) {
-        const stageList = prepareExportableMatches(matches, stg);
+        const stageList = prepareExportableMatches(matches, stg, resolvedSport);
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {

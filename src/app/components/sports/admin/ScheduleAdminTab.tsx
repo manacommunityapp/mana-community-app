@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X, FastForward } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { tournamentService, type ConfigInfo } from "../../../../services/sports/tournamentService";
@@ -14,6 +14,7 @@ import {
   prepareExportableMatches,
   type TournamentStageKey,
 } from "./ScheduleExportModal";
+import { BatchRescheduleModal } from "./BatchRescheduleModal";
 
 interface MatchRow {
   id: number;
@@ -88,6 +89,12 @@ export function ScheduleAdminTab() {
     tournamentName: string;
     matches: MatchRow[];
     defaultStage?: TournamentStageKey;
+  } | null>(null);
+  const [batchRescheduleModalState, setBatchRescheduleModalState] = useState<{
+    isOpen: boolean;
+    configId: number;
+    tournamentName: string;
+    matches: MatchRow[];
   } | null>(null);
 
   useEffect(() => {
@@ -474,6 +481,22 @@ export function ScheduleAdminTab() {
                             title="Broadcast all matches of this event on the community feed"
                           >
                             <Radio className="w-3 h-3 text-indigo-600 animate-pulse" /> Feed: Enable All
+                          </button>
+
+                          {/* Rain Delay / Batch Reschedule Button */}
+                          <button
+                            type="button"
+                            onClick={() => setBatchRescheduleModalState({
+                              isOpen: true,
+                              configId: cfg.id,
+                              tournamentName: cfg.tournamentName || 'Tournament',
+                              matches: cfgMatches,
+                            })}
+                            className="px-2.5 py-1 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            title="Delay remaining matches (e.g. for rain delays) or postpone to a new date"
+                          >
+                            <FastForward className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Rain Delay / Shift Remaining</span>
                           </button>
                         </div>
                       </div>
@@ -898,6 +921,41 @@ export function ScheduleAdminTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Batch Reschedule / Rain Delay Modal */}
+      {batchRescheduleModalState && (
+        <BatchRescheduleModal
+          isOpen={batchRescheduleModalState.isOpen}
+          onClose={() => setBatchRescheduleModalState(null)}
+          configId={batchRescheduleModalState.configId}
+          tournamentName={batchRescheduleModalState.tournamentName}
+          matches={batchRescheduleModalState.matches}
+          onSuccess={(updatedMatches) => {
+            if (updatedMatches && updatedMatches.length > 0) {
+              const map = new Map<number, any>(updatedMatches.map(m => [m.id, m]));
+              setMatches(prev => ({
+                ...prev,
+                [batchRescheduleModalState.configId]: (prev[batchRescheduleModalState.configId] || []).map(row => {
+                  const updated = map.get(row.id);
+                  if (updated) {
+                    return {
+                      ...row,
+                      scheduledAt: updated.scheduledAt,
+                      venueName: updated.venueName || row.venueName,
+                      courtName: updated.courtName || row.courtName,
+                    };
+                  }
+                  return row;
+                })
+              }));
+            } else {
+              tournamentService.getMatchesByConfigId(batchRescheduleModalState.configId).then(data => {
+                setMatches(prev => ({ ...prev, [batchRescheduleModalState.configId]: data }));
+              }).catch(() => {});
+            }
+          }}
+        />
       )}
     </div>
   );

@@ -204,6 +204,23 @@ export interface MatchDetailData {
   topWicketTakers?: PlayerStatsData[];
 }
 
+export interface BatchRescheduleRequest {
+  configId?: number;
+  mode: 'TIME_SHIFT' | 'NEW_DATE';
+  delayMinutes?: number;
+  newDate?: string;
+  startTime?: string;
+  intervalMinutes?: number;
+  fromDateTime?: string;
+  matchIds?: number[];
+}
+
+export interface BatchRescheduleResponse {
+  updatedCount: number;
+  message: string;
+  updatedMatches: any[];
+}
+
 export interface InningsDetailData {
   inningsNumber: number;
   battingTeamName: string;
@@ -645,6 +662,11 @@ export const tournamentService = {
   /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
   async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
     return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
+  },
+
+  /** POST /api/tournament/{configId}/matches/batch-reschedule - Batch reschedule / time-shift remaining uncompleted matches */
+  async batchRescheduleMatches(configId: number, data: BatchRescheduleRequest): Promise<BatchRescheduleResponse> {
+    return apiClient.post<BatchRescheduleResponse>(`/tournament/${configId}/matches/batch-reschedule`, data);
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
