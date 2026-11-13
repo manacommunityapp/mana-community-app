@@ -2418,6 +2418,13 @@ export function SetupSchedule({
     };
 
     if (isKnockoutOnly) {
+      // Distribute matches across venue/courts by venueAssignType (same logic as Group→Knockout).
+      const koVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
+      matches = matches.map((m, idx) => ({
+        ...m,
+        venueId: koVenueId,
+        courtId: resolveCourtId(koVenueId, idx),
+      }));
       let koMatches = computePlayoffRoundMatches(matches, {
         roundDates: playoffRoundDates,
         roundTimes: playoffRoundTimes,
