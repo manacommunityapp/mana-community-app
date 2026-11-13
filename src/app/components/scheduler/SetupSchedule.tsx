@@ -352,9 +352,10 @@ export function computePlayoffRoundMatches(
     const roundDate = roundDates[r] || matchesByRound[r][0]?.date;
     const dayOfWeek = roundDate ? new Date(roundDate + 'T00:00:00').getDay() : undefined;
 
-    if (roundTime) {
+    const effectiveRoundTime = roundTime || matchesByRound[r][0]?.time;
+    if (effectiveRoundTime) {
       roundTimelines[r] = calculateRoundTimeline(
-        roundTime,
+        effectiveRoundTime,
         matchesByRound[r].length,
         duration,
         breakMins,
