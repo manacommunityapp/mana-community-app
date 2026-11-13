@@ -25,10 +25,32 @@ import { FixturesListView } from "./FixturesListView";
 import { FixturesTableView, type FixtureTableRow } from "./FixturesTableView";
 import { getPlayerInitials } from "../sports/SportsSchedule";
 import { PlayoffBracketView } from "./PlayoffBracketView";
-import type { PlayoffMatchDraft } from "./playoffSchedule";
+import {
+  reconstructKnockoutByes,
+  sanitizePlayoffMatches,
+  type PlayoffMatchDraft,
+} from "./playoffSchedule";
 
-export function TournamentScheduler() {
+export interface TournamentSchedulerProps {
+  onEditSchedule?: (config: ConfigInfo) => void;
+}
+
+export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps = {}) {
   const { token, user } = useAuth() as any;
+
+  const handleEditSchedule = (config: ConfigInfo) => {
+    if (onEditSchedule) {
+      onEditSchedule(config);
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "setup");
+      url.searchParams.set("configId", String(config.id));
+      if (config.eventId) {
+        url.searchParams.set("eventId", String(config.eventId));
+      }
+      window.location.href = url.toString();
+    }
+  };
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
   const [tournaments, setTournaments] = useState<TournamentDropdownItem[]>([]);
   const [events, setEvents] = useState<EventInfo[]>([]);
@@ -44,6 +66,7 @@ export function TournamentScheduler() {
   const [showStageExportModal, setShowStageExportModal] = useState(false);
   const [stageModalDefaultStage, setStageModalDefaultStage] = useState<TournamentStageKey>("ALL");
   const [playoffSubView, setPlayoffSubView] = useState<"cards" | "bracket">("cards");
+  const [showByesInBracket, setShowByesInBracket] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -458,6 +481,7 @@ export function TournamentScheduler() {
     setViewDisplayMode("visual");
     setPlayoffSubView("cards");
     setShowExportMenu(false);
+    setShowByesInBracket(typeof (config as any).showByesInBracket === 'boolean' ? (config as any).showByesInBracket : true);
     setViewLoading(true);
     const [matchesResult, playersResult] = await Promise.allSettled([
       tournamentService.getSavedMatchesByConfigId(config.id),
@@ -472,7 +496,8 @@ export function TournamentScheduler() {
         sportName: m.sportName || m.sport || resolvedSport,
         tournamentName: m.tournamentName || config.tournamentName,
       }));
-      setViewMatches(enrichedMatches);
+      const completeMatchesWithByes = reconstructKnockoutByes(enrichedMatches, config);
+      setViewMatches(completeMatchesWithByes);
     } else {
       setViewError("Could not load the saved match schedule.");
     }
@@ -558,6 +583,14 @@ export function TournamentScheduler() {
                     >
                       Edit
                     </button>
+                    <button
+                      onClick={() => handleEditSchedule(c)}
+                      aria-label={`Edit ${c.tournamentName} complete schedule`}
+                      title="Edit complete schedule, rules & fixtures in Setup Schedule"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-purple-200 bg-purple-50 py-2 px-2 text-xs font-bold text-purple-700 active:scale-[0.98] transition cursor-pointer hover:bg-purple-100 hover:border-purple-300"
+                    >
+                      <Calendar className="h-3.5 w-3.5" /> Edit Schedule
+                    </button>
                     {c.status === "DRAFT" ? (
                       <>
                         <button
@@ -637,6 +670,14 @@ export function TournamentScheduler() {
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => openModal(c)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 hover:text-indigo-900">
                             Edit
+                          </button>
+                          <button
+                            onClick={() => handleEditSchedule(c)}
+                            aria-label={`Edit ${c.tournamentName} complete schedule`}
+                            title="Open setup schedule page with this configuration to edit complete schedule"
+                            className="inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-xs font-bold text-purple-700 transition hover:border-purple-300 hover:bg-purple-100 cursor-pointer"
+                          >
+                            <Calendar className="h-3.5 w-3.5" /> Edit Schedule
                           </button>
                           {c.status === "DRAFT" ? (
                             <>
@@ -794,22 +835,13 @@ export function TournamentScheduler() {
             if (!roundMap.has(rName)) roundMap.set(rName, []);
             roundMap.get(rName)!.push(m);
           }
-          return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
+            return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
             name,
-            matches: rMatches
-              .filter(m => {
-                const stageKey = getMatchStage(m);
-                if (stageKey !== 'GROUP') {
-                  const { team1, team2 } = extractTeamNames(m);
-                  if (team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED') return false;
-                }
-                return true;
-              })
-              .map((m, idx) => {
+            matches: rMatches.map((m, idx) => {
               const { team1, team2 } = extractTeamNames(m);
               const { team1Flat, team2Flat } = extractFlatDetails(m);
               const { date, time } = extractDateTime(m);
-              const isBye = !team1 || !team2 || team1 === "BYE" || team2 === "BYE";
+              const isBye = !team1 || !team2 || team1 === "BYE" || team2 === "BYE" || m.status === "AUTO_ADVANCED";
               const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
               const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
               const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : undefined;
@@ -823,7 +855,7 @@ export function TournamentScheduler() {
                 p2: { fullName: team2, flatNumber: team2Flat !== "—" ? team2Flat : undefined },
                 venue: { name: m.venueName || venue?.name || "Main Arena" },
                 courtName: m.courtName || "",
-                status: m.status || "SCHEDULED",
+                status: isBye ? "AUTO_ADVANCED" : (m.status || "SCHEDULED"),
                 score,
                 isBye,
               };
@@ -850,9 +882,7 @@ export function TournamentScheduler() {
         const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
           .filter(m => {
             const stageKey = getMatchStage(m);
-            if (stageKey === 'GROUP') return false;
-            const { team1, team2 } = extractTeamNames(m);
-            return team1 !== 'BYE' && team2 !== 'BYE' && m.status !== 'AUTO_ADVANCED';
+            return stageKey !== 'GROUP';
           })
           .map((m, idx) => {
             const { team1, team2 } = extractTeamNames(m);
@@ -861,18 +891,21 @@ export function TournamentScheduler() {
             const roundName = m.roundName || m.groupName || '';
             const roundType = stageToRound(roundName) as PlayoffMatchDraft['round'];
             const roundIdx = roundOrderMap[roundType] ?? 5;
+            const isBye = team1 === 'BYE' || team2 === 'BYE' || m.status === 'AUTO_ADVANCED';
+            const homeIsBye = team1 === 'BYE' || (typeof m.home === 'object' && m.home?.id === 'bye');
+            const awayIsBye = team2 === 'BYE' || (typeof m.away === 'object' && m.away?.id === 'bye');
             return {
               id: String(m.matchId || m.id || `playoff-${idx}`),
               name: `${roundType.replace(/_/g, ' ')} Match ${m.matchNumber || idx + 1}`,
               round: roundType,
               roundIndex: roundIdx,
               home: {
-                id: `h-${m.matchId || idx}`,
+                id: homeIsBye ? 'bye' : (typeof m.home === 'object' && m.home?.id ? m.home.id : `h-${m.matchId || idx}`),
                 name: team1 || 'TBD',
                 flatNumber: team1Flat !== '—' ? team1Flat : undefined,
               } as any,
               away: {
-                id: `a-${m.matchId || idx}`,
+                id: awayIsBye ? 'bye' : (typeof m.away === 'object' && m.away?.id ? m.away.id : `a-${m.matchId || idx}`),
                 name: team2 || 'TBD',
                 flatNumber: team2Flat !== '—' ? team2Flat : undefined,
               } as any,
@@ -882,18 +915,30 @@ export function TournamentScheduler() {
               venueId: m.venueId ?? null,
               courtId: m.courtId ?? null,
               moveSubsMatches: false,
-              status: m.status ?? null,
+              status: isBye ? 'AUTO_ADVANCED' : (m.status ?? null),
             } satisfies PlayoffMatchDraft;
           });
 
+        const earliestPlayoffRound = playoffMatchesForBracket.length > 0
+          ? Math.min(...playoffMatchesForBracket.map(m => m.roundIndex))
+          : 0;
+        const firstRoundMatchesCount = playoffMatchesForBracket.filter(m => m.roundIndex === earliestPlayoffRound).length;
+        let totalDrawCountCalc = firstRoundMatchesCount * 2;
+        let drawPower = 1;
+        while (drawPower < totalDrawCountCalc) drawPower <<= 1;
+        const totalDrawCount = drawPower >= 2 ? drawPower : (viewingConfig.totalTeams || undefined);
+
         const handleExportBracketPDF = () => {
-          if (playoffMatchesForBracket.length === 0) {
+          const matchesToExport = showByesInBracket
+            ? playoffMatchesForBracket
+            : sanitizePlayoffMatches(playoffMatchesForBracket, false);
+          if (matchesToExport.length === 0) {
             showToast("No bracket matches available to download", "error");
             return;
           }
           const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
           exportBracketToPDF(
-            playoffMatchesForBracket as any,
+            matchesToExport as any,
             `${viewingConfig.tournamentName || "Tournament"} Knockout Draw`,
             "Mana Community Sports",
             resolvedSport
@@ -914,7 +959,22 @@ export function TournamentScheduler() {
                     <p className="mt-0.5 text-xs text-slate-500">{event ? `${event.sportName} · ${event.communityName}` : "Tournament configuration details"}</p>
                   </div>
                 </div>
-                <button onClick={() => setViewingConfig(null)} aria-label="Close schedule details" className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"><X className="h-4 w-4" /></button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = viewingConfig;
+                      setViewingConfig(null);
+                      handleEditSchedule(c);
+                    }}
+                    aria-label="Edit complete schedule"
+                    title="Edit complete tournament schedule in Setup Schedule"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer"
+                  >
+                    <Calendar className="h-3.5 w-3.5" /> Edit Schedule
+                  </button>
+                  <button onClick={() => setViewingConfig(null)} aria-label="Close schedule details" className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"><X className="h-4 w-4" /></button>
+                </div>
               </header>
 
               <div className="max-h-[min(80vh,780px)] space-y-4 overflow-y-auto p-4 sm:p-6">
@@ -1139,11 +1199,18 @@ export function TournamentScheduler() {
                             {/* Bracket Tree View */}
                             {playoffSubView === "bracket" && playoffMatchesForBracket.length > 0 ? (
                               <PlayoffBracketView
-                                matches={playoffMatchesForBracket}
+                                matches={showByesInBracket ? playoffMatchesForBracket : sanitizePlayoffMatches(playoffMatchesForBracket, false)}
                                 onEditMatch={() => {}}
                                 onDownloadBracket={handleExportBracketPDF}
                                 resolveVenueName={(id) => venue?.name || ""}
                                 resolveCourtName={(_courtId) => ""}
+                                showByes={showByesInBracket}
+                                onToggleShowByes={() => {
+                                  const nextVal = !showByesInBracket;
+                                  setShowByesInBracket(nextVal);
+                                  showToast(nextVal ? `Showing full ${totalDrawCount || ''} draw with BYEs` : 'Hiding BYEs (compact bracket)', "info");
+                                }}
+                                totalDrawCount={totalDrawCount}
                               />
                             ) : (
                               bracketRounds.map((round) => (
@@ -1370,7 +1437,22 @@ export function TournamentScheduler() {
 
               <footer className="flex justify-between items-center border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">
                 <span className="text-xs text-slate-400 font-medium">Tournament ID: #{viewingConfig.id}</span>
-                <button onClick={() => setViewingConfig(null)} className="min-h-9 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700">Close</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = viewingConfig;
+                      setViewingConfig(null);
+                      handleEditSchedule(c);
+                    }}
+                    aria-label="Edit complete schedule"
+                    title="Edit complete tournament schedule in Setup Schedule"
+                    className="min-h-9 inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3.5 py-2 text-xs font-bold text-purple-700 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer"
+                  >
+                    <Calendar className="h-3.5 w-3.5" /> Edit Complete Schedule
+                  </button>
+                  <button onClick={() => setViewingConfig(null)} className="min-h-9 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700 cursor-pointer">Close</button>
+                </div>
               </footer>
             </section>
           </div>

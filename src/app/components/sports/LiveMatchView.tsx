@@ -43,6 +43,9 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   const [selectedInningsScorecard, setSelectedInningsScorecard] = useState<1 | 2>(1);
 
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stateRef = useRef<LiveMatchStateData | null>(null);
+  stateRef.current = state;
+  const prevMatchIdRef = useRef<number>(matchId);
 
   const fetchState = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -52,40 +55,50 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
       setLastUpdated(new Date());
       setError(null);
     } catch {
-      if (!state) {
+      if (!stateRef.current) {
         setError("Could not load live match data. Please try again.");
       }
     } finally {
       setLoading(false);
       if (isManual) setIsRefreshing(false);
     }
-  }, [matchId, state]);
+  }, [matchId]);
 
   useEffect(() => {
-    setState(null);
-    setLoading(true);
+    let isMounted = true;
+
+    // Only reset state and trigger full-screen loading on initial mount or when matchId changes
+    if (prevMatchIdRef.current !== matchId) {
+      prevMatchIdRef.current = matchId;
+      setState(null);
+      setLoading(true);
+    }
+
     fetchState(false);
 
     const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
+      if (!isMounted) return;
       setState(body as LiveMatchStateData);
       setLastUpdated(new Date());
       setError(null);
+      setLoading(false);
     });
 
     const unsubBall = stompClient.subscribe(`/topic/match/${matchId}`, () => {
-      fetchState(false);
+      if (isMounted) fetchState(false);
     });
 
     const unsubConnect = stompClient.onConnect(() => {
-      fetchState(false);
+      if (isMounted) fetchState(false);
     });
 
-    // Fallback polling every 5 seconds
+    // Fallback polling every 5 seconds without unmounting the modal
     reconnectTimer.current = setInterval(() => {
-      fetchState(false);
+      if (isMounted) fetchState(false);
     }, 5000);
 
     return () => {
+      isMounted = false;
       unsubState();
       unsubBall();
       unsubConnect();
@@ -100,7 +113,8 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
     }
   }, [state?.currentInnings]);
 
-  if (loading) {
+  // Only show full loading overlay if we don't have any state yet
+  if (loading && !state) {
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-slate-900 border border-slate-800 text-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-3">

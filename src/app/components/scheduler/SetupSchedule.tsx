@@ -387,9 +387,15 @@ export function to24HourTime(timeStr: string): string {
 
 interface SetupScheduleProps {
   initialEventId?: string;
+  initialConfigId?: number | null;
+  onClearConfigSelection?: () => void;
 }
 
-export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
+export function SetupSchedule({
+  initialEventId,
+  initialConfigId,
+  onClearConfigSelection,
+}: SetupScheduleProps = {}) {
   // Data
   const { hasPermission, user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const canEditTiming = isSuperAdmin || isAdmin || isSportsAdmin || (hasPermission ? hasPermission("Edit Venue Timing") : false);
@@ -404,12 +410,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [participants, setParticipants] = useState('8');
   const [numberOfGroups, setNumberOfGroups] = useState('2');
   const [thirdPlace, setThirdPlace] = useState(false);
-  const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
+  const [seedingOrder, setSeedingOrder] = useState('RANDOM');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
   // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
   const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
   const [showByesInBracket, setShowByesInBracket] = useState(true);
-  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
+  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('RANDOM');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
   const isKnockoutOnly =
@@ -733,6 +739,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   // Pre-select event when arriving from "Schedule Matches" button
   useEffect(() => {
+    if (initialConfigId) return;
     if (!initialEventId || events.length === 0) return;
     const match = events.find(e => e.id.toString() === initialEventId);
     if (match) {
@@ -745,7 +752,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, initialEventId]);
+  }, [events, initialEventId, initialConfigId]);
 
   const loadData = async () => {
     try {
@@ -1194,8 +1201,66 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const existingConfig = configs.find(c => c.eventId === Number(id));
     if (existingConfig) {
       setCurrentConfigId(existingConfig.id);
+      if (existingConfig.seedingOrder) {
+        setSeedingOrder(existingConfig.seedingOrder);
+        setPlayoffSeedingOrder(existingConfig.seedingOrder);
+      }
+      if (typeof existingConfig.byesFirstRoundOnly === 'boolean') {
+        setByesFirstRoundOnly(existingConfig.byesFirstRoundOnly);
+      }
+      if (typeof existingConfig.showByesInBracket === 'boolean') {
+        setShowByesInBracket(existingConfig.showByesInBracket);
+      }
+      if (typeof existingConfig.limitMatchesPerDay === 'boolean') {
+        setLimitMatchesPerDay(existingConfig.limitMatchesPerDay);
+      }
+      if (existingConfig.maxMatchesPerDay) {
+        setMaxMatchesPerDay(String(existingConfig.maxMatchesPerDay));
+      }
+      if (typeof existingConfig.usePlayoffDays === 'boolean') {
+        setUsePlayoffDays(existingConfig.usePlayoffDays);
+      }
+      if (Array.isArray(existingConfig.playoffDays)) {
+        setPlayoffDays(existingConfig.playoffDays);
+      }
+      if (existingConfig.venueAssignType) {
+        setVenueAssignType(existingConfig.venueAssignType);
+      }
+      if (existingConfig.playoffRoundDates && typeof existingConfig.playoffRoundDates === 'object') {
+        setPlayoffRoundDates(existingConfig.playoffRoundDates);
+      }
+      if (existingConfig.playoffRoundTimes && typeof existingConfig.playoffRoundTimes === 'object') {
+        setPlayoffRoundTimes(existingConfig.playoffRoundTimes);
+      }
+      if (existingConfig.playoffRoundDurations && typeof existingConfig.playoffRoundDurations === 'object') {
+        setPlayoffRoundDurations(existingConfig.playoffRoundDurations);
+      }
+      if (existingConfig.playoffRoundModes && typeof existingConfig.playoffRoundModes === 'object') {
+        setPlayoffRoundModes(existingConfig.playoffRoundModes as Record<string, 'sequential' | 'same_time'>);
+      }
+      if (existingConfig.startDate) setStartDate(existingConfig.startDate);
+      if (existingConfig.endDate) setEndDate(existingConfig.endDate);
+      if (existingConfig.endTime) setEndTime(existingConfig.endTime);
+      if (existingConfig.matchDurationMinutes) setMatchDuration(String(existingConfig.matchDurationMinutes));
+      if (existingConfig.breakBetweenMatchesMinutes != null) setBreakTime(`${existingConfig.breakBetweenMatchesMinutes} mins`);
+      if (existingConfig.numberOfGroups) setNumberOfGroups(String(existingConfig.numberOfGroups));
+      if (typeof existingConfig.thirdPlaceMatch === 'boolean') {
+        setThirdPlace(existingConfig.thirdPlaceMatch);
+        setPlayoffThirdPlace(existingConfig.thirdPlaceMatch);
+      }
+      if (existingConfig.pointsForWin != null) setPtsWin(String(existingConfig.pointsForWin));
+      if (existingConfig.pointsForDraw != null) setPtsDraw(String(existingConfig.pointsForDraw));
+      if (existingConfig.pointsForLoss != null) setPtsLoss(String(existingConfig.pointsForLoss));
+      if (existingConfig.breaksConfig && Array.isArray(existingConfig.breaksConfig) && existingConfig.breaksConfig.length > 0) {
+        setTournamentBreaks(existingConfig.breaksConfig);
+      }
+      if (Array.isArray(existingConfig.matchDays)) setMatchDays(existingConfig.matchDays);
     } else {
       setCurrentConfigId(null);
+      setPlayoffRoundDates({});
+      setPlayoffRoundTimes({});
+      setPlayoffRoundDurations({});
+      setPlayoffRoundModes({});
     }
 
     // ═══ Automatically Configure Venue for Selected Event ═══
@@ -1232,6 +1297,156 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setExpandedVenue(null);
     }
   };
+
+  const applyConfigToSetup = (target: ConfigInfo) => {
+    setCurrentConfigId(target.id);
+
+    // Format
+    let resolvedFormat = target.tournamentType || '';
+    if (resolvedFormat === 'KNOCKOUT') resolvedFormat = 'KNOCKOUT_SINGLE';
+    if (resolvedFormat === 'GROUP_KNOCKOUT') resolvedFormat = 'GROUP_PLAYOFF';
+    if (resolvedFormat) setFormat(resolvedFormat);
+
+    // Participants
+    if (target.totalTeams) setParticipants(String(target.totalTeams));
+
+    // Dates & Times
+    if (target.startDate) setStartDate(target.startDate);
+    if (target.endDate) setEndDate(target.endDate);
+    if (target.endTime) setEndTime(target.endTime);
+    if (target.matchDurationMinutes) setMatchDuration(String(target.matchDurationMinutes));
+    if (target.breakBetweenMatchesMinutes != null) setBreakTime(`${target.breakBetweenMatchesMinutes} mins`);
+
+    // Groups & Knockout
+    if (target.numberOfGroups) setNumberOfGroups(String(target.numberOfGroups));
+    if (typeof target.thirdPlaceMatch === 'boolean') {
+      setThirdPlace(target.thirdPlaceMatch);
+      setPlayoffThirdPlace(target.thirdPlaceMatch);
+    }
+    if (target.seedingOrder) {
+      setSeedingOrder(target.seedingOrder);
+      setPlayoffSeedingOrder(target.seedingOrder);
+    }
+    if (typeof target.byesFirstRoundOnly === 'boolean') setByesFirstRoundOnly(target.byesFirstRoundOnly);
+    if (typeof target.showByesInBracket === 'boolean') setShowByesInBracket(target.showByesInBracket);
+    if (typeof target.limitMatchesPerDay === 'boolean') setLimitMatchesPerDay(target.limitMatchesPerDay);
+    if (target.maxMatchesPerDay) setMaxMatchesPerDay(String(target.maxMatchesPerDay));
+    if (typeof target.usePlayoffDays === 'boolean') setUsePlayoffDays(target.usePlayoffDays);
+    if (Array.isArray(target.playoffDays)) setPlayoffDays(target.playoffDays);
+    if (Array.isArray(target.matchDays)) setMatchDays(target.matchDays);
+    if (target.venueAssignType) setVenueAssignType(target.venueAssignType);
+
+    // Scoring
+    if (target.pointsForWin != null) setPtsWin(String(target.pointsForWin));
+    if (target.pointsForDraw != null) setPtsDraw(String(target.pointsForDraw));
+    if (target.pointsForLoss != null) setPtsLoss(String(target.pointsForLoss));
+
+    // Breaks
+    if (target.breaksConfig && Array.isArray(target.breaksConfig) && target.breaksConfig.length > 0) {
+      setTournamentBreaks(target.breaksConfig);
+    }
+
+    // Playoff Round Overrides
+    if (target.playoffRoundDates && typeof target.playoffRoundDates === 'object') setPlayoffRoundDates(target.playoffRoundDates);
+    if (target.playoffRoundTimes && typeof target.playoffRoundTimes === 'object') setPlayoffRoundTimes(target.playoffRoundTimes);
+    if (target.playoffRoundDurations && typeof target.playoffRoundDurations === 'object') setPlayoffRoundDurations(target.playoffRoundDurations);
+    if (target.playoffRoundModes && typeof target.playoffRoundModes === 'object') {
+      setPlayoffRoundModes(target.playoffRoundModes as Record<string, 'sequential' | 'same_time'>);
+    }
+
+    // Event & Registrations
+    if (target.eventId) {
+      const evIdStr = String(target.eventId);
+      setSelectedEvent(evIdStr);
+      const ev = events.find(e => e.id === target.eventId);
+      if (ev) {
+        if (ev.tournamentId) setSelectedTournamentFilter(String(ev.tournamentId));
+        if (ev.sportName) setSelectedSportFilter(ev.sportName);
+      }
+
+      // Fetch confirmed registrations
+      sportsService.getEventRegistrations(target.eventId).then(regs => {
+        const confirmed = (regs || []).filter(
+          (r: EventRegistration) => r.status === 'CONFIRMED' || r.status === 'REGISTERED'
+        );
+        setConfirmedRegistrations(confirmed);
+
+        const rawFmt = ev?.formats || ev?.format;
+        const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+        const isEvDoubles = fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+          Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2) ||
+          Boolean(ev?.name && ev.name.toLowerCase().includes('doubles'));
+
+        if (isEvDoubles && confirmed.length > 0) {
+          const isMixed = fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+            Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+          const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmed, ev);
+          const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed });
+          setOpenPoolPairs(pairedTeams);
+          setUnpairedPoolPlayers(unpairedPlayers);
+          const totalTeams = fixedPairs.length + pairedTeams.length;
+          if (totalTeams > 0 && !target.totalTeams) {
+            setParticipants(String(totalTeams));
+          }
+        }
+      }).catch(err => {
+        console.warn('[SetupSchedule] Error loading registrations for config event:', err);
+      });
+    }
+
+    // Venue & Courts
+    const evTarget = events.find(e => e.id === target.eventId);
+    const targetVenueId = target.venueId || (evTarget?.venueId ? Number(evTarget.venueId) : null);
+    if (targetVenueId) {
+      setSelectedVenues([targetVenueId]);
+      setExpandedVenue(targetVenueId);
+      const vObj = venues.find(v => v.id === targetVenueId);
+      if (vObj?.courts && vObj.courts.length > 0) {
+        setSelectedCourts(prev => ({
+          ...prev,
+          [targetVenueId]: vObj.courts.map(c => c.name),
+        }));
+      } else {
+        venueService.getVenueById(targetVenueId).then(fetched => {
+          if (fetched?.courts && fetched.courts.length > 0) {
+            setSelectedCourts(prev => ({
+              ...prev,
+              [targetVenueId]: fetched.courts.map(c => c.name),
+            }));
+          }
+        }).catch(() => {});
+      }
+    }
+  };
+
+  const handleExitEditMode = () => {
+    setCurrentConfigId(null);
+    setSelectedEvent('');
+    setFormat('');
+    setParticipants('8');
+    setStartDate('');
+    setEndDate('');
+    setSelectedVenues([]);
+    setExpandedVenue(null);
+    setSelectedCourts({});
+    setScheduleGenerated(false);
+    setPlayoffsGenerated(false);
+    setGeneratedGroups([]);
+    setAllParticipantOptions([]);
+    setMatchOverrides({});
+    onClearConfigSelection?.();
+    showInfo('Exited configuration edit mode');
+  };
+
+  // Pre-load and apply configuration when arriving with initialConfigId
+  useEffect(() => {
+    if (!initialConfigId) return;
+    const target = configs.find(c => c.id === Number(initialConfigId));
+    if (target) {
+      applyConfigToSetup(target);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configs, initialConfigId, events, venues]);
 
   const handleReshuffleOpenPool = () => {
     if (!selectedEventObj || confirmedRegistrations.length === 0) return;
@@ -1349,11 +1564,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         !!v && !!v.courts && v.courts.length > 0 && (selectedCourts[v.id]?.length || 0) === 0);
 
   /**
-   * Resolve the court id to assign to a match. Prefers the user's selected
-   * courts for the venue, distributing matches across them round-robin by index.
+   * Resolve the court id to assign to a match according to venueAssignType:
+   * - 'Sequential' / 'Parallel': court index = index % pool.length
+   * - 'Snake': bounces back and forth across courts (0, 1, 2, 1, 0...)
+   * - 'Random': uses deterministic pseudo-random hash of index to select court
    * Falls back to the venue's first court, or null if the venue has no courts.
    */
-  const resolveCourtId = (venueId: number | null, index: number): string | null => {
+  const resolveCourtId = (venueId: number | null, index: number, assignTypeOverride?: string): string | null => {
     if (!venueId) return null;
     const venue = venues.find(v => v.id === venueId);
     if (!venue?.courts || venue.courts.length === 0) return null;
@@ -1361,7 +1578,24 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const pool = selectedNames.length > 0
       ? venue.courts.filter(c => selectedNames.includes(c.name))
       : venue.courts;
-    const chosen = pool.length > 0 ? pool[index % pool.length] : venue.courts[0];
+    if (pool.length === 0) return venue.courts[0]?.id ?? null;
+
+    const assignType = assignTypeOverride || venueAssignType;
+    let chosenCourtIdx = 0;
+
+    if (assignType === 'Snake' && pool.length > 1) {
+      const cycle = 2 * (pool.length - 1);
+      const mod = index % cycle;
+      chosenCourtIdx = mod < pool.length ? mod : cycle - mod;
+    } else if (assignType === 'Random' && pool.length > 1) {
+      // Deterministic pseudo-random distribution per index so fixtures stay stable
+      chosenCourtIdx = Math.abs((index * 997 + 101) % pool.length);
+    } else {
+      // Sequential, Parallel, or fallback
+      chosenCourtIdx = index % pool.length;
+    }
+
+    const chosen = pool[chosenCourtIdx] || pool[0];
     return chosen?.id ?? null;
   };
 
@@ -1411,6 +1645,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       teamsAdvancingPerGroup: isGroupKnockout ? Math.min(2, Math.max(1, Math.floor(Number(participants) / (Number(numberOfGroups) || 2)))) : null,
       teamIds: [],
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
+      seedingOrder: isGroupKnockout ? playoffSeedingOrder : seedingOrder,
+      byesFirstRoundOnly,
+      showByesInBracket,
       hasSeeding: isGroupKnockout
         ? (playoffSeedingOrder === 'TRADITIONAL' || playoffSeedingOrder === 'RANKING')
         : (seedingOrder === 'TRADITIONAL' || seedingOrder === 'RANKING'),
@@ -1422,6 +1659,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endTime: endTime || null,
       matchDays: matchDays.length < 7 ? matchDays : null,
       playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
+      usePlayoffDays,
+      limitMatchesPerDay,
+      maxMatchesPerDay: Number(maxMatchesPerDay) || 2,
+      venueAssignType,
+      selectedCourts,
+      generatedGroups: generatedGroups.map(g => ({
+        name: g.name,
+        rounds: g.rounds,
+        proceeders: g.proceeders,
+        limitMatches: g.limitMatches,
+        maxMatches: g.maxMatches,
+      })),
       playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
       playoffRoundTimes: Object.keys(playoffRoundTimes).length > 0 ? playoffRoundTimes : null,
       playoffRoundDurations: Object.keys(playoffRoundDurations).length > 0 ? playoffRoundDurations : null,
@@ -1574,7 +1823,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   /** Step 1 (Group + Knockout): assign groups and generate group-stage matches only. */
   const handleScheduleGroups = async () => {
-    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
+    const existing = existingConfigForEvent();
+    if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
+      showWarning('A tournament configuration already exists for this event');
+      return;
+    }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -1636,7 +1889,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   /** Single-step generate for Knockout-only and other non-group formats. */
   const handleGenerate = async () => {
-    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
+    const existing = existingConfigForEvent();
+    if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
+      showWarning('A tournament configuration already exists for this event');
+      return;
+    }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -1778,7 +2035,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
       const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
       const defaultDate = new Date(baseDate);
-      defaultDate.setDate(baseDate.getDate() + groupIdx + mIdx * 2);
+      // When Limit Participant Matches Per Day is enabled, space matches out across days
+      const dayOffset = limitMatchesPerDay
+        ? Math.floor(mIdx / (Math.max(1, Number(maxMatchesPerDay) || 2))) + groupIdx
+        : groupIdx + mIdx * 2;
+      defaultDate.setDate(baseDate.getDate() + dayOffset);
       const adjusted = advanceToAllowedDay(defaultDate);
       const defaultDateStr = adjusted.toISOString().split('T')[0];
       
@@ -2190,14 +2451,25 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
     // Collect playoff matches if generated
     if (playoffsGenerated || playoffOverride) {
-      const playoffMatches = getPlayoffMatches(playoffOverride);
-      // Strictly exclude any BYE or AUTO_ADVANCED matches from playoffs
-      const realPlayoffMatches = playoffMatches.filter(m =>
-        !isByeParticipant(m.home) && !isByeParticipant(m.away) && m.status !== 'AUTO_ADVANCED'
-      );
-      realPlayoffMatches.forEach((match: any, idx: number) => {
-        const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
-        const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
+      // Always preserve round 0 BYE matches for persistence so the full tournament draw is stored
+      const playoffMatches = getPlayoffMatches(playoffOverride, true);
+      playoffMatches.forEach((match: any, idx: number) => {
+        const homeIsBye = isByeParticipant(match.home);
+        const awayIsBye = isByeParticipant(match.away);
+        const isByeMatch = homeIsBye || awayIsBye || match.status === 'AUTO_ADVANCED';
+
+        const homeName = homeIsBye ? 'BYE' : (match.home?.name || 'TBD');
+        const homeId = homeIsBye ? 'bye' : (match.home?.id || null);
+        const awayName = awayIsBye ? 'BYE' : (match.away?.name || 'TBD');
+        const awayId = awayIsBye ? 'bye' : (match.away?.id || null);
+
+        const homeFlat = !homeIsBye
+          ? (match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null)
+          : null;
+        const awayFlat = !awayIsBye
+          ? (match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null)
+          : null;
+
         allMatches.push({
           eventId,
           configId: null,
@@ -2207,22 +2479,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           roundNumber: (match.roundIndex !== undefined ? match.roundIndex + 1 : 1),
           bracketSlot: idx,
           matchNumber: idx + 1,
-          homeName: match.home?.name || 'TBD',
-          homeId: match.home?.id || null,
+          homeName,
+          homeId,
           homeFlat,
           teamAFlat: homeFlat,
-          awayName: match.away?.name || 'TBD',
-          awayId: match.away?.id || null,
+          awayName,
+          awayId,
           awayFlat,
           teamBFlat: awayFlat,
           matchDate: match.date,
-          matchTime: to24HourTime(match.time),
+          matchTime: isByeMatch ? '' : to24HourTime(match.time),
           duration: match.duration,
-          venueId: match.venueId,
-          courtId: match.courtId || null,
+          venueId: isByeMatch ? null : match.venueId,
+          courtId: isByeMatch ? null : (match.courtId || null),
           // Auto-advanced BYE matches keep their AUTO_ADVANCED status; the backend save
           // preserves it (others get the global DRAFT/PUBLISHED on Save).
-          status: match.status || 'SCHEDULED',
+          status: isByeMatch ? 'AUTO_ADVANCED' : (match.status || 'SCHEDULED'),
         });
       });
     }
@@ -2297,8 +2569,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   };
 
   // Existing tournament config already saved for the selected event (in tournament_config table).
-  // When present, the schedule was already generated/configured — block re-generation.
   const existingConfig = existingConfigForEvent();
+  const isEditingExistingConfig = Boolean(currentConfigId && existingConfig && existingConfig.id === currentConfigId);
+  const isBlockedByOtherConfig = Boolean(existingConfig && (!currentConfigId || existingConfig.id !== currentConfigId));
 
   const showScheduleSaveFooter =
     scheduleGenerated && (isGroupKnockout ? playoffsGenerated : isKnockoutOnly ? playoffsGenerated : true);
@@ -2524,6 +2797,31 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
     });
 
+    // 6. Limit Participant Matches Per Day Conflict
+    if (limitMatchesPerDay) {
+      const maxPerDay = Number(maxMatchesPerDay) || 2;
+      const dailyCounts: Record<string, Record<string, string[]>> = {}; // date -> participantId/name -> matchKeys[]
+      list.forEach(m => {
+        if (!m.date) return;
+        const parts = [m.home, m.away].filter(p => p.id && !p.id.includes('-') && !p.id.startsWith('dummy') && p.name !== 'BYE');
+        if (!dailyCounts[m.date]) dailyCounts[m.date] = {};
+        parts.forEach(p => {
+          const pKey = p.id || p.name;
+          if (!dailyCounts[m.date][pKey]) dailyCounts[m.date][pKey] = [];
+          dailyCounts[m.date][pKey].push(m.key);
+        });
+      });
+
+      Object.entries(dailyCounts).forEach(([date, participantMap]) => {
+        Object.entries(participantMap).forEach(([pKey, mKeys]) => {
+          if (mKeys.length > maxPerDay) {
+            const warningMsg = `Daily Limit Exceeded: Participant scheduled for ${mKeys.length} matches on ${date} (limit is ${maxPerDay} matches/day)`;
+            mKeys.forEach(k => addConflict(k, warningMsg));
+          }
+        });
+      });
+    }
+
     return conflictsMap;
   }, [
     generatedGroups,
@@ -2539,6 +2837,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     matchDays,
     playoffDays,
     usePlayoffDays,
+    limitMatchesPerDay,
+    maxMatchesPerDay,
     playoffRoundDates,
     playoffRoundTimes,
     playoffRoundDurations,
@@ -3003,15 +3303,53 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             );
           })()}
 
-          {existingConfig && (
-            <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 rounded-lg px-3 py-2.5">
+          {isBlockedByOtherConfig && existingConfig && (
+            <div className="mt-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 rounded-lg px-3 py-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span className="text-xs font-semibold">
                 A tournament configuration already exists for this event
                 {existingConfig.tournamentName ? <> — <span className="font-semibold">{existingConfig.tournamentName}</span></> : null}
                 {` (${existingConfig.tournamentType}, ${existingConfig.totalTeams} teams, status: ${existingConfig.status}).`}
-                {' '}Schedule generation is disabled. Open the existing schedule to view or edit it.
+                {' '}Schedule generation for a new configuration is disabled. Click &quot;Edit Schedule&quot; in Tournament Configurations or select a different event.
               </span>
+            </div>
+          )}
+
+          {isEditingExistingConfig && existingConfig && (
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-purple-200/80 text-purple-950 rounded-xl px-4 py-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 mt-0.5">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700">Editing Tournament Schedule</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                      ${existingConfig.status === "DRAFT" ? "bg-slate-100 text-slate-700" :
+                        existingConfig.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" :
+                        existingConfig.status === "LIVE" ? "bg-indigo-100 text-indigo-800" :
+                        "bg-sky-100 text-sky-800"}`}>
+                      Config #{existingConfig.id} · {existingConfig.status}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                    {existingConfig.tournamentName || selectedEventObj?.name || 'Tournament'}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Pre-loaded with this tournament&apos;s format, dates, venues, courts and match rules. You can adjust settings, re-generate fixtures, or update and save.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleExitEditMode}
+                  className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer shadow-sm"
+                  title="Exit edit mode and start a new schedule"
+                >
+                  <X className="w-3.5 h-3.5" /> Exit Edit Mode
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -4114,7 +4452,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <div className="text-center pt-2 pb-4">
           <button
             onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
-            disabled={generating || !!existingConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
+            disabled={generating || isBlockedByOtherConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
             className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
             style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
           >
@@ -4123,8 +4461,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
               : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
           </button>
-          {existingConfig && (
-            <p className="text-xs text-emerald-700 mt-2 font-semibold">A tournament configuration already exists for this event — generation is disabled.</p>
+          {isBlockedByOtherConfig && (
+            <p className="text-xs text-amber-700 mt-2 font-semibold">A different tournament configuration already exists for this event — generation is disabled.</p>
           )}
           {isGroupKnockout && Number(numberOfGroups) < 2 && (
             <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>

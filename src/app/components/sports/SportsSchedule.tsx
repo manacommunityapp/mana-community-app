@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -51,6 +51,7 @@ import { TournamentStageManager } from "./admin/TournamentStageManager";
 import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
 import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
 import { TournamentEventSelector } from "./admin/TournamentEventSelector";
+import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 
 const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
@@ -613,10 +614,35 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission, isAdmin: authIsAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const isSportsAdminOnly = Boolean(isSuperAdmin || authIsAdmin || isSportsAdmin);
   const isAdmin = isSportsAdminOnly || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
+
+  const [setupScheduleConfigId, setSetupScheduleConfigId] = useState<number | null>(() => {
+    const cid = searchParams.get('configId');
+    return cid ? Number(cid) : null;
+  });
+  const [setupScheduleEventId, setSetupScheduleEventId] = useState<string | undefined>(() => {
+    return searchParams.get('eventId') || eventId;
+  });
+
+  const handleEditScheduleFromConfig = (config: ConfigInfo) => {
+    setSetupScheduleConfigId(config.id);
+    if (config.eventId) {
+      setSetupScheduleEventId(String(config.eventId));
+    }
+    setActiveTab("Setup Schedule");
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'setup');
+      next.set('configId', String(config.id));
+      if (config.eventId) {
+        next.set('eventId', String(config.eventId));
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tabParam = searchParams.get('tab');
@@ -672,6 +698,7 @@ export function SportsSchedule() {
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
   const [activeMatchFixture, setActiveMatchFixture] = useState<{ teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+  const [rulesModalFixture, setRulesModalFixture] = useState<any | null>(null);
 
   const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
     if (!fixture.matchId) return;
@@ -2318,6 +2345,17 @@ export function SportsSchedule() {
                         {fixture.matchId && fixture.status !== "COMPLETED" && (
                           <button
                             type="button"
+                            onClick={() => setRulesModalFixture(fixture)}
+                            title={`Configure scoring rules for ${fixture.name}`}
+                            className="p-1.5 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          >
+                            <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className="hidden sm:inline">Rules</span>
+                          </button>
+                        )}
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
                             onClick={() => {
                               setReschedulingFixture(fixture);
                               setRescheduleDate(fixture.date ? format(new Date(fixture.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
@@ -2972,7 +3010,7 @@ export function SportsSchedule() {
 
       {/* Config */}
       {activeTab === "Config" && (
-        isAdmin ? <TournamentScheduler /> : (
+        isAdmin ? <TournamentScheduler onEditSchedule={handleEditScheduleFromConfig} /> : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
@@ -2983,7 +3021,20 @@ export function SportsSchedule() {
 
       {/* Setup Schedule */}
       {activeTab === "Setup Schedule" && (
-        isAdmin ? <SetupSchedule initialEventId={eventId} /> : (
+        isAdmin ? (
+          <SetupSchedule
+            initialEventId={setupScheduleEventId || eventId}
+            initialConfigId={setupScheduleConfigId}
+            onClearConfigSelection={() => {
+              setSetupScheduleConfigId(null);
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('configId');
+                return next;
+              }, { replace: true });
+            }}
+          />
+        ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
@@ -3177,6 +3228,19 @@ export function SportsSchedule() {
             teamB={{ id: activeMatchFixture?.teamBId || 2, name: activeMatchFixture?.team2 || (isIndividualSport(activeSportType) ? "Player 2" : "Team B"), color: "#f97316" }}
           />
         )
+      )}
+      {/* Match Scoring Rules Modal (Admin / Single Match Override) */}
+      {rulesModalFixture && (
+        <MatchScoringRulesModal
+          isOpen={!!rulesModalFixture}
+          onClose={() => setRulesModalFixture(null)}
+          matchId={rulesModalFixture.matchId}
+          sportType={rulesModalFixture.sport || activeSport}
+          matchName={rulesModalFixture.name}
+          onSaved={() => {
+            loadData();
+          }}
+        />
       )}
         </div>
       </main>

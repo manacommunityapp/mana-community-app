@@ -97,4 +97,35 @@ describe("Sports Feed Live Visibility & FeedLiveMatch Handling", () => {
     expect(liveOnly).toHaveLength(2);
     expect(liveOnly.map((m) => m.id)).toEqual([10, 13]);
   });
+
+  it("fetches recent completed matches via tournamentService.getRecentCompletedMatches", async () => {
+    const mockCompleted: FeedLiveMatch[] = [
+      {
+        matchId: 101,
+        teamAName: "Challengers",
+        teamBName: "Warriors",
+        sportName: "Carrom",
+        status: "COMPLETED",
+        scoreTeamA: "25",
+        scoreTeamB: "18",
+        winnerName: "Challengers",
+        completedAt: "2026-11-13T19:30:00Z",
+      },
+    ];
+
+    const spy = vi.spyOn(tournamentService, "getRecentCompletedMatches").mockResolvedValue(mockCompleted);
+
+    const res = await tournamentService.getRecentCompletedMatches(5, 20);
+    expect(spy).toHaveBeenCalledWith(5, 20);
+    expect(res).toHaveLength(1);
+    expect(res[0].winnerName).toBe("Challengers");
+    expect(res[0].status).toBe("COMPLETED");
+  });
+
+  it("handles empty completed matches gracefully", async () => {
+    vi.spyOn(tournamentService, "getRecentCompletedMatches").mockResolvedValue([]);
+
+    const res = await tournamentService.getRecentCompletedMatches();
+    expect(res).toEqual([]);
+  });
 });
