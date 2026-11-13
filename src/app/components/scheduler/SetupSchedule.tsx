@@ -46,6 +46,7 @@ import {
   isByeParticipant,
   sanitizePlayoffMatches,
   buildPlayoffDraftFromSavedMatches,
+  createScheduleCursor,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
 import {
@@ -201,7 +202,8 @@ export function calculateRoundTimeline(
   breakMins: number = 10,
   breaks: TournamentBreak[] = [],
   mode: 'sequential' | 'same_time' = 'sequential',
-  dayOfWeek?: number
+  dayOfWeek?: number,
+  numCourts: number = 1
 ): RoundTimeline {
   if (matchCount <= 0 || !startTime) {
     return {
@@ -249,25 +251,36 @@ export function calculateRoundTimeline(
     };
   }
 
-  // Sequential mode:
+  // Sequential mode (with N-court parallel batching when numCourts > 1):
+  const courts = Math.max(1, numCourts);
   const slots: RoundTimelineSlot[] = [];
   let currentStartMin = initialMin;
 
   for (let i = 0; i < matchCount; i++) {
-    const { nextTimeMin: adjustedStartMin } = getNextAvailableSlotAfterBreaks(
-      currentStartMin,
-      effectiveDuration,
-      breaks,
-      dayOfWeek
-    );
-    const endMin = adjustedStartMin + effectiveDuration;
-    slots.push({
-      matchIndex: i,
-      startTime: formatMinutesToTime(adjustedStartMin),
-      endTime: formatMinutesToTime(endMin),
-      duration: effectiveDuration,
-    });
-    currentStartMin = endMin + breakMins;
+    if (i % courts === 0) {
+      const { nextTimeMin: adjustedStartMin } = getNextAvailableSlotAfterBreaks(
+        currentStartMin,
+        effectiveDuration,
+        breaks,
+        dayOfWeek
+      );
+      const endMin = adjustedStartMin + effectiveDuration;
+      slots.push({
+        matchIndex: i,
+        startTime: formatMinutesToTime(adjustedStartMin),
+        endTime: formatMinutesToTime(endMin),
+        duration: effectiveDuration,
+      });
+      currentStartMin = endMin + breakMins;
+    } else {
+      const prev = slots[slots.length - 1];
+      slots.push({
+        matchIndex: i,
+        startTime: prev.startTime,
+        endTime: prev.endTime,
+        duration: effectiveDuration,
+      });
+    }
   }
 
   const lastEndMin = slots.length > 0
@@ -304,6 +317,7 @@ export function computePlayoffRoundMatches(
     breaks?: TournamentBreak[];
     usePlayoffDays?: boolean;
     playoffDays?: number[];
+    numCourts?: number;
   }
 ): PlayoffMatchDraft[] {
   const {
@@ -316,6 +330,7 @@ export function computePlayoffRoundMatches(
     breaks = [],
     usePlayoffDays = false,
     playoffDays = [0, 1, 2, 3, 4, 5, 6],
+    numCourts = 1,
   } = options;
 
   // Group matches by round while preserving order
@@ -345,7 +360,8 @@ export function computePlayoffRoundMatches(
         breakMins,
         breaks,
         mode,
-        dayOfWeek
+        dayOfWeek,
+        numCourts
       );
     }
   });
@@ -637,7 +653,7 @@ export function SetupSchedule({
 
   // Venue Config
   const [selectedVenues, setSelectedVenues] = useState<number[]>([]);
-  const [venueAssignType, setVenueAssignType] = useState('Random');
+  const [venueAssignType, setVenueAssignType] = useState('Sequential');
   const [expandedVenue, setExpandedVenue] = useState<number | null>(null);
   // Selected courts per venue — keyed by venue id, value = list of selected court names
   const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});
@@ -1449,7 +1465,6 @@ export function SetupSchedule({
               time: m.time,
               duration: m.duration,
               venueId: m.venueId,
-              courtId: m.courtId,
             };
           });
           setMatchOverrides(pinned);
@@ -1605,6 +1620,14 @@ export function SetupSchedule({
         : [...current, courtName];
       return { ...prev, [venueId]: next };
     });
+    setMatchOverrides(prev => {
+      const next: Record<string, any> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const { courtId, ...rest } = v as any;
+        next[k] = rest;
+      }
+      return next;
+    });
   };
 
   /** Selected venues that have courts available but none selected yet. */
@@ -1629,7 +1652,7 @@ export function SetupSchedule({
     const pool = selectedNames.length > 0
       ? venue.courts.filter(c => selectedNames.includes(c.name))
       : venue.courts;
-    if (pool.length === 0) return venue.courts[0]?.id ?? null;
+    if (pool.length === 0) return venue.courts[0]?.id ?? venue.courts[0]?.name ?? null;
 
     const assignType = assignTypeOverride || venueAssignType;
     let chosenCourtIdx = 0;
@@ -1647,7 +1670,7 @@ export function SetupSchedule({
     }
 
     const chosen = pool[chosenCourtIdx] || pool[0];
-    return chosen?.id ?? null;
+    return chosen?.id ?? chosen?.name ?? null;
   };
 
   /** Resolve a venue id to its display name (for showing assigned venue per match). */
@@ -1658,7 +1681,7 @@ export function SetupSchedule({
   const resolveCourtName = (courtId: string | null): string => {
     if (courtId == null) return '';
     for (const v of venues) {
-      const c = v.courts?.find(ct => String(ct.id) === String(courtId));
+      const c = v.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
       if (c) return c.name;
     }
     return '';
@@ -2099,45 +2122,76 @@ export function SetupSchedule({
     return d;
   };
 
+  const getTotalSelectedCourts = (): number => {
+    return Math.max(1, selectedVenues.reduce((sum, vid) => {
+      const names = selectedCourts[vid] || [];
+      if (names.length > 0) return sum + names.length;
+      const v = venues.find(x => x.id === vid);
+      return sum + (v?.courts?.length || 1);
+    }, 0));
+  };
+
+  const computeGroupMatchSlots = (): Array<{ date: string; time: string }> => {
+    if (generatedGroups.length === 0) return [];
+
+    const numCourts = getTotalSelectedCourts();
+
+    const cursor = createScheduleCursor(
+      startDate || new Date().toISOString().split('T')[0],
+      startTime || '08:00 AM',
+      Number(matchDuration) || 30,
+      parseBreakMinutes(breakTime),
+      tournamentBreaks.filter(b => b.enabled),
+      endTime || undefined,
+      matchDays.length > 0 && matchDays.length < 7 ? matchDays : undefined
+    );
+
+    const totalMatches = generatedGroups.reduce(
+      (sum, g) => sum + getGroupMatches(g, 0).length,
+      0
+    );
+
+    const slots: Array<{ date: string; time: string }> = [];
+    for (let i = 0; i < totalMatches; i++) {
+      if (i % numCourts === 0) {
+        const slot = cursor.next();
+        slots.push({ date: slot.date, time: slot.time });
+      } else {
+        slots.push({ ...slots[slots.length - 1] });
+      }
+    }
+    return slots;
+  };
+
   const getActiveGroupMatches = (group: typeof generatedGroups[0], groupIdx: number) => {
     const baseMatches = getGroupMatches(group, groupIdx);
+
+    const slots = computeGroupMatchSlots();
+    let globalOffset = 0;
+    for (let g = 0; g < groupIdx; g++) {
+      globalOffset += getGroupMatches(generatedGroups[g], g).length;
+    }
 
     return baseMatches.map((m, mIdx) => {
       const key = `${groupIdx}-${mIdx}`;
       const override = matchOverrides[key];
+      const globalIdx = globalOffset + mIdx;
 
-      const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
-      const defaultDate = new Date(baseDate);
-      // When Limit Participant Matches Per Day is enabled, space matches out across days
-      const dayOffset = limitMatchesPerDay
-        ? Math.floor(mIdx / (Math.max(1, Number(maxMatchesPerDay) || 2))) + groupIdx
-        : groupIdx + mIdx * 2;
-      defaultDate.setDate(baseDate.getDate() + dayOffset);
-      const adjusted = advanceToAllowedDay(defaultDate);
-      const defaultDateStr = adjusted.toISOString().split('T')[0];
-      
+      const slot = slots[globalIdx];
+      const defaultDateStr = slot?.date || (startDate || new Date().toISOString().split('T')[0]);
+      const defaultTime = slot?.time || startTime;
+
       const defaultVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
-      const defaultCourtId = resolveCourtId(defaultVenueId, groupIdx + mIdx);
+      const defaultCourtId = resolveCourtId(defaultVenueId, globalIdx);
 
-      const rawTime = override?.time || startTime;
       const matchDur = override?.duration || Number(matchDuration) || 30;
-      let finalTime = rawTime;
-
-      if (!override?.time) {
-        const curMins = parseTimeToMinutes(rawTime);
-        const enabledBreaks = tournamentBreaks.filter(b => b.enabled);
-        const { nextTimeMin } = getNextAvailableSlotAfterBreaks(curMins, matchDur, enabledBreaks);
-        if (nextTimeMin !== curMins) {
-          finalTime = formatMinutesToTime(nextTimeMin);
-        }
-      }
 
       return {
         name: override?.name || `G${groupIdx + 1} Match ${mIdx + 1}`,
         home: override?.home || m.home,
         away: override?.away || m.away,
         date: override?.date || defaultDateStr,
-        time: finalTime,
+        time: override?.time || defaultTime,
         duration: matchDur,
         venueId: override?.venueId ?? defaultVenueId,
         courtId: override?.courtId ?? defaultCourtId,
@@ -2435,6 +2489,7 @@ export function SetupSchedule({
         breaks: tournamentBreaks.filter(b => b.enabled),
         usePlayoffDays,
         playoffDays,
+        numCourts: getTotalSelectedCourts(),
       });
       koMatches = applyPlayoffOverrides(koMatches, matchOverrides);
       return enrichFlats(koMatches);
@@ -2459,6 +2514,7 @@ export function SetupSchedule({
       breaks: tournamentBreaks.filter(b => b.enabled),
       usePlayoffDays,
       playoffDays,
+      numCourts: getTotalSelectedCourts(),
     });
 
     return enrichFlats(applyPlayoffOverrides(distributedMatches, matchOverrides));
@@ -2825,7 +2881,7 @@ export function SetupSchedule({
         if (m1.venueId && m1.courtId && m1.venueId === m2.venueId && String(m1.courtId) === String(m2.courtId)) {
           if (timeOverlap) {
             const v = venues.find(ven => ven.id === m1.venueId);
-            const c = v?.courts?.find(crt => String(crt.id) === String(m1.courtId));
+            const c = v?.courts?.find(crt => crt.name === m1.courtId || String(crt.id) === String(m1.courtId));
             const courtName = [v?.name, c?.name].filter(Boolean).join(' - ') || 'Court';
             const msg = `Court Overlap: ${courtName} double-booked between ${m1.time} and ${m2.time}`;
             addConflict(m1.key, msg);
@@ -2966,7 +3022,7 @@ export function SetupSchedule({
         matches.forEach((m, mIdx) => {
           const key = `${gIdx}-${mIdx}`;
           const v = venues.find(ven => ven.id === m.venueId);
-          const c = v?.courts?.find(crt => crt.id === m.courtId);
+          const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
           rows.push({
             id: key,
             key: `group-${key}`,
@@ -2996,7 +3052,7 @@ export function SetupSchedule({
       const pMatches = getPlayoffMatches();
       pMatches.forEach(m => {
         const v = venues.find(ven => ven.id === m.venueId);
-        const c = v?.courts?.find(crt => crt.id === m.courtId);
+        const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
         const roundNameFormatted = m.round.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
         rows.push({
           id: m.id,
@@ -3036,7 +3092,7 @@ export function SetupSchedule({
         const matches = getActiveGroupMatches(group, gIdx);
         matches.forEach((m, mIdx) => {
           const v = venues.find(ven => ven.id === m.venueId);
-          const c = v?.courts?.find(crt => crt.id === m.courtId);
+          const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
           const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
           const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
           const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
@@ -3074,7 +3130,7 @@ export function SetupSchedule({
       const playoffMatches = getPlayoffMatches();
       playoffMatches.forEach(m => {
         const v = venues.find(ven => ven.id === m.venueId);
-        const c = v?.courts?.find(crt => crt.id === m.courtId);
+        const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
         const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
         const roundFormatted = (m.round || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
         const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
@@ -3165,7 +3221,7 @@ export function SetupSchedule({
     const ev = events.find(e => e.id.toString() === selectedEvent);
     const resolvedMatches = playoffMatches.map(m => {
       const v = venues.find(ven => ven.id === m.venueId);
-      const c = v?.courts?.find(crt => crt.id === m.courtId);
+      const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
       return {
         ...m,
         venueName: v?.name || '',
@@ -4545,7 +4601,17 @@ export function SetupSchedule({
               {VENUE_ASSIGN_OPTIONS.map(opt => (
                 <button
                   key={opt}
-                  onClick={() => setVenueAssignType(opt)}
+                  onClick={() => {
+                    setVenueAssignType(opt);
+                    setMatchOverrides(prev => {
+                      const next: Record<string, any> = {};
+                      for (const [k, v] of Object.entries(prev)) {
+                        const { courtId, ...rest } = v as any;
+                        next[k] = rest;
+                      }
+                      return next;
+                    });
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${venueAssignType === opt ? 'bg-[#4f46e5] text-white shadow-md' : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-slate-500'}`}
                 >
                   {opt}
@@ -5223,7 +5289,7 @@ export function SetupSchedule({
                             <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
                               <i className="pi pi-map-marker text-[#4f46e5]"></i>
                               <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
-                              <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                              <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.name === match.courtId || String(c.id) === String(match.courtId))?.name || 'TBD'}</span>
                             </div>
                           </div>
 
@@ -5522,7 +5588,7 @@ export function SetupSchedule({
                           <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
                             <i className="pi pi-map-marker text-[#4f46e5]"></i>
                             <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
-                            <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                            <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.name === match.courtId || String(c.id) === String(match.courtId))?.name || 'TBD'}</span>
                           </div>
                         </div>
 
