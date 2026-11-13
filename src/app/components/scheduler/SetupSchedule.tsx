@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck } from 'lucide-react';
+import { Calendar, Clock, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck, Lock } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -671,6 +671,7 @@ export function SetupSchedule({
   const [playoffDraft, setPlayoffDraft] = useState<PlayoffMatchDraft[]>([]);
   const [showSetup, setShowSetup] = useState(false);
   const [currentConfigId, setCurrentConfigId] = useState<number | null>(null);
+  const [currentConfigStatus, setCurrentConfigStatus] = useState<string>('');
   const [generatedGroups, setGeneratedGroups] = useState<Array<{
     name: string;
     participants: Array<{ id: string; name: string; flatNumber?: string }>;
@@ -1300,6 +1301,7 @@ export function SetupSchedule({
 
   const applyConfigToSetup = (target: ConfigInfo) => {
     setCurrentConfigId(target.id);
+    setCurrentConfigStatus(target.status || 'DRAFT');
 
     // Format
     let resolvedFormat = target.tournamentType || '';
@@ -1417,10 +1419,79 @@ export function SetupSchedule({
         }).catch(() => {});
       }
     }
+
+    // Display the bracket view immediately when editing schedule
+    setScheduleGenerated(true);
+    setPlayoffsGenerated(true);
+    setPlayoffViewMode('bracket');
+    setScheduleViewMode('visual');
+
+    // Generate local playoff draft to establish the bracket structure
+    const initialDraft = generateLocalPlayoffDraft((target.seedingOrder as PlayoffSeedingOrder) || 'RANDOM');
+
+    // If matches were previously saved in the database, fetch and merge them into the draft
+    if (target.id) {
+      tournamentService.getSavedMatchesByConfigId(target.id).then(savedMatches => {
+        if (Array.isArray(savedMatches) && savedMatches.length > 0) {
+          const savedKoMatches = savedMatches.filter(m =>
+            m.roundName !== 'GROUP_STAGE' && m.roundName !== 'LEAGUE_MATCH' &&
+            (!m.groupName || m.groupName === 'Playoffs' || m.groupName === 'Knockout' || m.stage === 'PLAYOFF' || m.stage === 'KNOCKOUT')
+          );
+
+          if (savedKoMatches.length > 0 && initialDraft.length > 0) {
+            const updatedDraft = initialDraft.map((draftMatch, idx) => {
+              const saved = savedKoMatches.find(sm => sm.bracketSlot === idx) || savedKoMatches[idx];
+              if (!saved) return draftMatch;
+
+              let sDate = draftMatch.date;
+              let sTime = draftMatch.time;
+              if (saved.scheduledAt) {
+                const parts = saved.scheduledAt.split('T');
+                if (parts[0]) sDate = parts[0];
+                if (parts[1]) {
+                  const rawTime = parts[1].substring(0, 5);
+                  const [hh, mm] = rawTime.split(':').map(Number);
+                  if (!isNaN(hh) && !isNaN(mm)) {
+                    sTime = formatMinutesToTime(hh * 60 + mm);
+                  } else {
+                    sTime = rawTime;
+                  }
+                }
+              }
+
+              return {
+                ...draftMatch,
+                home: {
+                  ...draftMatch.home,
+                  id: saved.teamAId ? String(saved.teamAId) : draftMatch.home.id,
+                  name: saved.teamAName || draftMatch.home.name,
+                  flatNumber: saved.teamAFlat || draftMatch.home.flatNumber,
+                },
+                away: {
+                  ...draftMatch.away,
+                  id: saved.teamBId ? String(saved.teamBId) : draftMatch.away.id,
+                  name: saved.teamBName || draftMatch.away.name,
+                  flatNumber: saved.teamBFlat || draftMatch.away.flatNumber,
+                },
+                date: sDate,
+                time: sTime,
+                venueId: saved.venueId ?? draftMatch.venueId,
+                courtId: saved.courtId ? String(saved.courtId) : draftMatch.courtId,
+                status: saved.status || draftMatch.status,
+              };
+            });
+            setPlayoffDraft(updatedDraft);
+          }
+        }
+      }).catch(err => {
+        console.warn('[SetupSchedule] Error loading saved matches for config:', err);
+      });
+    }
   };
 
   const handleExitEditMode = () => {
     setCurrentConfigId(null);
+    setCurrentConfigStatus('');
     setSelectedEvent('');
     setFormat('');
     setParticipants('8');
@@ -1449,6 +1520,10 @@ export function SetupSchedule({
   }, [configs, initialConfigId, events, venues]);
 
   const handleReshuffleOpenPool = () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Open pool pairings are locked.');
+      return;
+    }
     if (!selectedEventObj || confirmedRegistrations.length === 0) return;
     const { openPool, fixedPairs } = partitionDoublesRegistrations(confirmedRegistrations, selectedEventObj);
     const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, {
@@ -1616,6 +1691,16 @@ export function SetupSchedule({
   /** Returns the existing tournament_config for the selected event, if one already exists. */
   const existingConfigForEvent = () =>
     selectedEvent ? configs.find(c => c.eventId === Number(selectedEvent)) : undefined;
+
+  const existingConfig = existingConfigForEvent();
+  const isEditingExistingConfig = Boolean(currentConfigId && existingConfig && existingConfig.id === currentConfigId);
+  const isBlockedByOtherConfig = Boolean(existingConfig && (!currentConfigId || existingConfig.id !== currentConfigId));
+  const activeConfigObj = currentConfigId ? configs.find(c => c.id === currentConfigId) : existingConfig;
+  const isSchedulePublished = Boolean(
+    (currentConfigStatus && currentConfigStatus.toUpperCase() !== 'DRAFT') ||
+    (currentConfigId && activeConfigObj?.status && activeConfigObj.status.toUpperCase() !== 'DRAFT') ||
+    (existingConfig && existingConfig.status && existingConfig.status.toUpperCase() !== 'DRAFT')
+  );
 
   const validateScheduleConfig = () => {
     if (!format) { showWarning('Please select a format'); return false; }
@@ -1823,6 +1908,10 @@ export function SetupSchedule({
 
   /** Step 1 (Group + Knockout): assign groups and generate group-stage matches only. */
   const handleScheduleGroups = async () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Group pairings and bracket draw are locked.');
+      return;
+    }
     const existing = existingConfigForEvent();
     if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
       showWarning('A tournament configuration already exists for this event');
@@ -1849,6 +1938,10 @@ export function SetupSchedule({
 
   /** Step 2 (Group + Knockout): generate knockout / playoff matches after groups are scheduled. */
   const handleGeneratePlayoffs = async () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Playoff pairings and bracket draw are locked.');
+      return;
+    }
     if (!scheduleGenerated) {
       showWarning('Schedule groups first');
       return;
@@ -1889,6 +1982,10 @@ export function SetupSchedule({
 
   /** Single-step generate for Knockout-only and other non-group formats. */
   const handleGenerate = async () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Match pairings and bracket draw are locked.');
+      return;
+    }
     const existing = existingConfigForEvent();
     if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
       showWarning('A tournament configuration already exists for this event');
@@ -2097,21 +2194,30 @@ export function SetupSchedule({
     const newHome = allowedParts.find(p => p.id === editMatchForm.homeId);
     const newAway = allowedParts.find(p => p.id === editMatchForm.awayId);
 
-    if (!newHome || !newAway) {
-      showWarning('Please select valid participants');
-      return;
-    }
-    if (newHome.id === newAway.id) {
-      showWarning('A participant cannot play against themselves');
-      return;
+    const existingPlayoffMatch = editingGroupIdx === -1
+      ? getPlayoffMatches().find(m => m.id === editingMatchKey)
+      : null;
+
+    const finalHome = newHome || (existingPlayoffMatch ? existingPlayoffMatch.home : null) || { id: editMatchForm.homeId, name: editMatchForm.homeId };
+    const finalAway = newAway || (existingPlayoffMatch ? existingPlayoffMatch.away : null) || { id: editMatchForm.awayId, name: editMatchForm.awayId };
+
+    if (!isSchedulePublished) {
+      if (!newHome || !newAway) {
+        showWarning('Please select valid participants');
+        return;
+      }
+      if (newHome.id === newAway.id) {
+        showWarning('A participant cannot play against themselves');
+        return;
+      }
     }
 
     setMatchOverrides(prev => ({
       ...prev,
       [editingMatchKey]: {
         name: editMatchForm.name,
-        home: newHome,
-        away: newAway,
+        home: finalHome,
+        away: finalAway,
         date: editMatchForm.date,
         time: editMatchForm.time,
         duration: editMatchForm.duration,
@@ -2272,6 +2378,10 @@ export function SetupSchedule({
   };
 
   const handleKnockoutSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Seeding sequence and bracket draw are locked.');
+      return;
+    }
     setSeedingOrder(newOrder);
     setMatchOverrides({});
     generateLocalPlayoffDraft(newOrder);
@@ -2284,6 +2394,10 @@ export function SetupSchedule({
   };
 
   const handlePlayoffSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Playoff seeding sequence and bracket draw are locked.');
+      return;
+    }
     setPlayoffSeedingOrder(newOrder);
     setMatchOverrides({});
     generateLocalPlayoffDraft(newOrder);
@@ -2377,6 +2491,10 @@ export function SetupSchedule({
   };
 
   const handleClearSchedule = async () => {
+    if (isSchedulePublished) {
+      showWarning('Cannot clear a published schedule.');
+      return;
+    }
     const confirmed = await confirmAction(
       'Clear Schedule',
       'Are you sure you want to clear this schedule? This will reset all generated matches.'
@@ -2534,10 +2652,12 @@ export function SetupSchedule({
       return;
     }
 
-    const confirmed = await confirmAction(
-      'Publish Schedule',
-      'Publish this schedule? Participants will be notified.'
-    );
+    const actionTitle = isSchedulePublished ? 'Update Schedule' : 'Publish Schedule';
+    const actionPrompt = isSchedulePublished
+      ? 'Save schedule updates? Match dates, times, durations, and venues will be updated.'
+      : 'Publish this schedule? Participants will be notified.';
+
+    const confirmed = await confirmAction(actionTitle, actionPrompt);
     if (!confirmed) {
       return;
     }
@@ -2552,9 +2672,14 @@ export function SetupSchedule({
         matches: collectAllMatches(),
       });
       setCurrentConfigId(result.config.id);
+      setCurrentConfigStatus('PUBLISHED');
       console.log('[Save Publish] Saved:', { configId: result.config.id, savedMatches: result.savedMatches });
 
-      showSuccess('Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.');
+      showSuccess(
+        isSchedulePublished
+          ? 'Schedule updates saved! Match dates, times, and venues updated.'
+          : 'Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.'
+      );
     } catch (err: any) {
       console.error('[Save Publish] Error:', err);
       const message = err?.message || 'Unknown error';
@@ -2567,11 +2692,6 @@ export function SetupSchedule({
   const handleDragDropScheduler = () => {
     showInfo('Drag & Drop Scheduler — open visual editor to adjust timings and venues');
   };
-
-  // Existing tournament config already saved for the selected event (in tournament_config table).
-  const existingConfig = existingConfigForEvent();
-  const isEditingExistingConfig = Boolean(currentConfigId && existingConfig && existingConfig.id === currentConfigId);
-  const isBlockedByOtherConfig = Boolean(existingConfig && (!currentConfigId || existingConfig.id !== currentConfigId));
 
   const showScheduleSaveFooter =
     scheduleGenerated && (isGroupKnockout ? playoffsGenerated : isKnockoutOnly ? playoffsGenerated : true);
@@ -4449,33 +4569,42 @@ export function SetupSchedule({
 
       {/* Generate — Group+Knockout: Schedule Groups first; Knockout-only / others: Generate Schedule */}
       {!scheduleGenerated && format && (
-        <div className="text-center pt-2 pb-4">
-          <button
-            onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
-            disabled={generating || isBlockedByOtherConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
-            className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
-            style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
-          >
-            <Zap className="h-4 w-4 shrink-0" />
-            {generating
-              ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
-              : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
-          </button>
-          {isBlockedByOtherConfig && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">A different tournament configuration already exists for this event — generation is disabled.</p>
-          )}
-          {isGroupKnockout && Number(numberOfGroups) < 2 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>
-          )}
-          {selectedVenues.length === 0 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">Select at least one venue in Venue Configuration to generate the schedule.</p>
-          )}
-          {selectedVenues.length > 0 && venuesNeedingCourt().length > 0 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">
-              Select at least one court for: {venuesNeedingCourt().map(v => v.name).join(', ')}.
-            </p>
-          )}
-        </div>
+        isSchedulePublished ? (
+          <div className="text-center pt-2 pb-4">
+            <div className="inline-flex items-center gap-2 p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-800 text-xs font-semibold shadow-xs">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>This schedule is PUBLISHED. Schedule re-generation is locked to preserve official bracket draw.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center pt-2 pb-4">
+            <button
+              onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
+              disabled={generating || isBlockedByOtherConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
+              className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
+              style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
+            >
+              <Zap className="h-4 w-4 shrink-0" />
+              {generating
+                ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
+                : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
+            </button>
+            {isBlockedByOtherConfig && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">A different tournament configuration already exists for this event — generation is disabled.</p>
+            )}
+            {isGroupKnockout && Number(numberOfGroups) < 2 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>
+            )}
+            {selectedVenues.length === 0 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">Select at least one venue in Venue Configuration to generate the schedule.</p>
+            )}
+            {selectedVenues.length > 0 && venuesNeedingCourt().length > 0 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">
+                Select at least one court for: {venuesNeedingCourt().map(v => v.name).join(', ')}.
+              </p>
+            )}
+          </div>
+        )
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -4590,14 +4719,20 @@ export function SetupSchedule({
 
           {/* Hide Setup Button */}
           <div className="flex justify-center">
-            <button
-              onClick={() => {
-                setScheduleGenerated(false);
-              }}
-              className="px-4 py-1.5 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-full hover:bg-[#4f46e5]/10 transition-colors inline-flex items-center gap-1"
-            >
-              Show Setup
-            </button>
+            {!isSchedulePublished ? (
+              <button
+                onClick={() => {
+                  setScheduleGenerated(false);
+                }}
+                className="px-4 py-1.5 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-full hover:bg-[#4f46e5]/10 transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                Show Setup
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-500 italic flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Schedule configuration is locked for this published event.
+              </span>
+            )}
           </div>
 
           {/* Sample Schedule Container — Show only when event and format are selected */}
@@ -5213,34 +5348,41 @@ export function SetupSchedule({
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 justify-end">
-                  <div className="flex items-center gap-1.5 bg-slate-50 border border-[rgba(99,102,241,0.12)] p-1 rounded-xl shadow-xs">
-                    <span className="text-[11px] font-semibold text-[#6b7094] px-1 hidden sm:inline">Sequence:</span>
-                    {SEEDING_OPTIONS.map(opt => {
-                      const currentVal = isGroupKnockout ? playoffSeedingOrder : seedingOrder;
-                      const isSelected = currentVal === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            if (isGroupKnockout) {
-                              handlePlayoffSeedingOrderChange(opt.value);
-                            } else {
-                              handleKnockoutSeedingOrderChange(opt.value);
-                            }
-                          }}
-                          className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none flex items-center gap-1"
-                          style={isSelected
-                            ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
-                            : { background: "transparent", color: "#6b7094" }}
-                          title={opt.value === 'RANDOM' ? 'Click to generate a fresh random draw' : `Switch to ${opt.label} sequence`}
-                        >
-                          <span>{opt.label}</span>
-                          {opt.value === 'RANDOM' && isSelected && <span className="text-[10px]">🔀</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {isSchedulePublished ? (
+                    <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl text-slate-700 text-xs font-semibold">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Sequence: {SEEDING_OPTIONS.find(opt => opt.value === (isGroupKnockout ? playoffSeedingOrder : seedingOrder))?.label || 'Traditional'} (Locked)</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-[rgba(99,102,241,0.12)] p-1 rounded-xl shadow-xs">
+                      <span className="text-[11px] font-semibold text-[#6b7094] px-1 hidden sm:inline">Sequence:</span>
+                      {SEEDING_OPTIONS.map(opt => {
+                        const currentVal = isGroupKnockout ? playoffSeedingOrder : seedingOrder;
+                        const isSelected = currentVal === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              if (isGroupKnockout) {
+                                handlePlayoffSeedingOrderChange(opt.value);
+                              } else {
+                                handleKnockoutSeedingOrderChange(opt.value);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none flex items-center gap-1"
+                            style={isSelected
+                              ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                              : { background: "transparent", color: "#6b7094" }}
+                            title={opt.value === 'RANDOM' ? 'Click to generate a fresh random draw' : `Switch to ${opt.label} sequence`}
+                          >
+                            <span>{opt.label}</span>
+                            {opt.value === 'RANDOM' && isSelected && <span className="text-[10px]">🔀</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Match Schedule</span>
                   <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
                     <button
@@ -5295,6 +5437,23 @@ export function SetupSchedule({
                   </div>
                 );
               })()}
+
+              {isSchedulePublished && (
+                <div className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-200/80 rounded-xl text-amber-900 shadow-sm">
+                  <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-amber-800 text-sm">Schedule is Published &amp; Locked</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        PUBLISHED
+                      </span>
+                    </div>
+                    <p className="text-amber-700 mt-0.5">
+                      Player bracket draw and pairings are locked. You can update match dates, times, durations, venues, and courts by clicking the edit icon on any match card.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {playoffViewMode === 'bracket' ? (
                 (() => {
@@ -5466,6 +5625,7 @@ export function SetupSchedule({
               onSaveDraft={handleSaveDraft}
               onSavePublish={handleSavePublish}
               onDragDropScheduler={handleDragDropScheduler}
+              isPublished={isSchedulePublished}
             />
           )}
         </div>
@@ -5518,31 +5678,67 @@ export function SetupSchedule({
                   </div>
                 </div>
 
-                {/* Participant Dropdowns */}
+                {/* Participant Dropdowns or Locked Display */}
                 <div className="flex flex-col md:flex-row gap-4 items-center w-full">
                   <div className="w-full">
-                    <label className={labelCls}>Participant 1 <span className="text-red-400">*</span></label>
-                    <select
-                      value={editMatchForm.homeId}
-                      onChange={e => setEditMatchForm(prev => ({ ...prev, homeId: e.target.value }))}
-                      className={inputCls}
-                    >
-                      {getEditParticipantOptions().map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
-                      ))}
-                    </select>
+                    <label className={labelCls}>
+                      Participant 1 {isSchedulePublished && <span className="text-[10px] text-amber-700 font-semibold">(Locked)</span>}
+                    </label>
+                    {isSchedulePublished ? (
+                      <div className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 flex items-center justify-between shadow-xs">
+                        <span className="font-semibold truncate">
+                          {(() => {
+                            const found = getEditParticipantOptions().find(p => p.id === editMatchForm.homeId);
+                            if (found) return `${found.name}${(found as any).flatNumber ? ` (${(found as any).flatNumber})` : ''}`;
+                            const pMatch = getPlayoffMatches().find(m => m.id === editingMatchKey);
+                            return pMatch?.home?.name || editMatchForm.homeId || 'TBD';
+                          })()}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> Locked (Published)
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={editMatchForm.homeId}
+                        onChange={e => setEditMatchForm(prev => ({ ...prev, homeId: e.target.value }))}
+                        className={inputCls}
+                      >
+                        {getEditParticipantOptions().map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div className="w-full">
-                    <label className={labelCls}>Participant 2 <span className="text-red-400">*</span></label>
-                    <select
-                      value={editMatchForm.awayId}
-                      onChange={e => setEditMatchForm(prev => ({ ...prev, awayId: e.target.value }))}
-                      className={inputCls}
-                    >
-                      {getEditParticipantOptions().map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
-                      ))}
-                    </select>
+                    <label className={labelCls}>
+                      Participant 2 {isSchedulePublished && <span className="text-[10px] text-amber-700 font-semibold">(Locked)</span>}
+                    </label>
+                    {isSchedulePublished ? (
+                      <div className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 flex items-center justify-between shadow-xs">
+                        <span className="font-semibold truncate">
+                          {(() => {
+                            const found = getEditParticipantOptions().find(p => p.id === editMatchForm.awayId);
+                            if (found) return `${found.name}${(found as any).flatNumber ? ` (${(found as any).flatNumber})` : ''}`;
+                            const pMatch = getPlayoffMatches().find(m => m.id === editingMatchKey);
+                            return pMatch?.away?.name || editMatchForm.awayId || 'TBD';
+                          })()}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> Locked (Published)
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={editMatchForm.awayId}
+                        onChange={e => setEditMatchForm(prev => ({ ...prev, awayId: e.target.value }))}
+                        className={inputCls}
+                      >
+                        {getEditParticipantOptions().map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
