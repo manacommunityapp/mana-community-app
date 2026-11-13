@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -38,6 +38,22 @@ const isSetBased = (sport: string) =>
 const isTimedSport = (sport: string) =>
   ["FOOTBALL", "SOCCER", "BASKETBALL"].includes(sport);
 
+export const isIndividualSport = (sport?: string): boolean => {
+  if (!sport) return false;
+  const s = sport.toUpperCase().replace(/[\s_-]/g, "");
+  return (
+    s.includes("BADMINTON") ||
+    s.includes("TENNIS") ||
+    s.includes("TABLETENNIS") ||
+    s.includes("SQUASH") ||
+    s.includes("CHESS") ||
+    s.includes("CARROM") ||
+    s.includes("BILLIARDS") ||
+    s.includes("POOL") ||
+    s.includes("SNOOKER")
+  );
+};
+
 export function GenericLiveScoringPanel({
   matchId,
   sportType,
@@ -55,15 +71,30 @@ export function GenericLiveScoringPanel({
   const [matchMinute, setMatchMinute] = useState<number | undefined>();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [feedActive, setFeedActive] = useState<boolean>(true);
+  const [publishingFeed, setPublishingFeed] = useState<boolean>(false);
+  const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
     try {
-      await tournamentService.setFeedVisibility("match", matchId, next);
+      await tournamentService.setFeedSettings("match", matchId, { showInFeed: next });
       setFeedActive(next);
-      toast.success(next ? "Match broadcast live on Community Feed" : "Match removed from Community Feed");
+      toast.success(next ? "Match score visible on Live Now strip" : "Match hidden from Live Now strip");
     } catch {
-      toast.error("Failed to update feed visibility");
+      toast.error("Failed to update live strip setting");
+    }
+  };
+
+  const handlePublishResultToFeed = async () => {
+    setPublishingFeed(true);
+    try {
+      const res = await tournamentService.publishMatchResultToFeed(matchId);
+      setHasPublishedResult(true);
+      toast.success(res.message || "Match result posted to Community Feed!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to publish result to feed");
+    } finally {
+      setPublishingFeed(false);
     }
   };
 
@@ -97,6 +128,46 @@ export function GenericLiveScoringPanel({
     };
   }, [fetchState, matchId]);
 
+  const isIndividual = isIndividualSport(sportType);
+  const defaultSideAName = isIndividual ? "Player 1" : "Team A";
+  const defaultSideBName = isIndividual ? "Player 2" : "Team B";
+
+  const resolveCompetitorName = (
+    serverName?: string | null,
+    propName?: string | null,
+    fallback: string = "TBD"
+  ): string => {
+    const isGeneric = (name?: string | null) =>
+      !name ||
+      ["TEAM A", "TEAM B", "PLAYER 1", "PLAYER 2", "COMPETITOR A", "COMPETITOR B", "TBD"].includes(
+        name.trim().toUpperCase()
+      );
+
+    if (!isGeneric(serverName)) return serverName!.trim();
+    if (!isGeneric(propName)) return propName!.trim();
+    return (serverName && serverName.trim()) || (propName && propName.trim()) || fallback;
+  };
+
+  // Prefer the real competitor names: real player/team name > server name > prop name > fallback
+  const teamA = {
+    ...teamAProp,
+    id: (state?.teamAId && state.teamAId > 0) ? state.teamAId : (teamAProp.id || 1),
+    name: resolveCompetitorName(state?.teamAName, teamAProp.name, defaultSideAName),
+  };
+  const teamB = {
+    ...teamBProp,
+    id: (state?.teamBId && state.teamBId > 0) ? state.teamBId : (teamBProp.id || 2),
+    name: resolveCompetitorName(state?.teamBName, teamBProp.name, defaultSideBName),
+  };
+
+  const isUnassigned =
+    !teamA.name ||
+    !teamB.name ||
+    teamA.name.toUpperCase() === "TBD" ||
+    teamB.name.toUpperCase() === "TBD" ||
+    teamA.name.toUpperCase() === "BYE" ||
+    teamB.name.toUpperCase() === "BYE";
+
   const handleScore = useCallback(
     async (
       teamId: number,
@@ -105,15 +176,16 @@ export function GenericLiveScoringPanel({
       playerId?: number
     ) => {
       if (!state || saving || state.status === "COMPLETED") return;
-      if (!teamId) {
-        toast.error("Both teams must be assigned to this match before scoring.");
+      if (isUnassigned) {
+        toast.error(`Both ${isIndividual ? "players" : "teams"} must be assigned to this match before scoring.`);
         return;
       }
+      const targetTeamId = teamId || (teamA.name === state?.teamAName ? teamA.id : teamB.id) || 1;
       setSaving(true);
       try {
         const req: GenericScoreRequest = {
           matchId,
-          teamId,
+          teamId: targetTeamId,
           eventType,
           periodNumber: state.currentPeriod,
           pointsAwarded: points,
@@ -129,7 +201,7 @@ export function GenericLiveScoringPanel({
         setSaving(false);
       }
     },
-    [state, saving, matchId, sportType, matchMinute, fetchState]
+    [state, saving, matchId, sportType, matchMinute, fetchState, isUnassigned, teamA, teamB]
   );
 
   const handleUndo = useCallback(async () => {
@@ -159,19 +231,6 @@ export function GenericLiveScoringPanel({
       setSaving(false);
     }
   }, [state, saving, matchId, fetchState, periodLabels]);
-
-  // Prefer the server's match state for team ids/names: the fixture passed in by the parent can
-  // lack team ids (they fall back to 0), which the backend rejects as "Team 0 does not belong".
-  const teamA = {
-    ...teamAProp,
-    id: state?.teamAId || teamAProp.id,
-    name: state?.teamAName && (!teamAProp.name || teamAProp.name === "Team A") ? state.teamAName : teamAProp.name,
-  };
-  const teamB = {
-    ...teamBProp,
-    id: state?.teamBId || teamBProp.id,
-    name: state?.teamBName && (!teamBProp.name || teamBProp.name === "Team B") ? state.teamBName : teamBProp.name,
-  };
 
   const playersA = players?.filter((p) => p.teamId === teamA.id) || [];
   const playersB = players?.filter((p) => p.teamId === teamB.id) || [];
@@ -238,7 +297,7 @@ export function GenericLiveScoringPanel({
             <button
               type="button"
               onClick={toggleFeedVisibility}
-              title="Toggle whether this match appears live on the community feed"
+              title="Toggle whether live score appears on the top Live Now strip"
               className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 feedActive
                   ? "bg-red-50 text-red-600 border-red-200"
@@ -246,7 +305,7 @@ export function GenericLiveScoringPanel({
               }`}
             >
               <Radio className="w-3 h-3 text-red-500 animate-pulse" />
-              <span>{feedActive ? "Feed: Live" : "Feed: Off"}</span>
+              <span>{feedActive ? "Live Strip: ON" : "Live Strip: OFF"}</span>
             </button>
             <button
               onClick={() => setShowCloseConfirm(true)}
@@ -274,6 +333,15 @@ export function GenericLiveScoringPanel({
               </span>
               <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold uppercase">
                 {state.status === "COMPLETED" ? "Finished" : state.status === "LIVE" ? "In Progress" : "Scheduled"}
+              </span>
+            </div>
+          )}
+
+          {isUnassigned && (
+            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span>
+                Both {isIndividual ? "players" : "teams"} must be determined and assigned before live scoring can begin.
               </span>
             </div>
           )}
@@ -481,10 +549,10 @@ export function GenericLiveScoringPanel({
                 {eventTypes.map((evt) => (
                   <button
                     key={evt.eventType}
-                    disabled={saving}
+                    disabled={saving || isUnassigned}
                     onClick={() =>
                       handleScore(
-                        teamA.id,
+                        teamA.id || 1,
                         evt.eventType,
                         evt.points,
                         selectedPlayerA
@@ -516,10 +584,10 @@ export function GenericLiveScoringPanel({
                 {eventTypes.map((evt) => (
                   <button
                     key={evt.eventType}
-                    disabled={saving}
+                    disabled={saving || isUnassigned}
                     onClick={() =>
                       handleScore(
-                        teamB.id,
+                        teamB.id || 2,
                         evt.eventType,
                         evt.points,
                         selectedPlayerB
@@ -536,6 +604,34 @@ export function GenericLiveScoringPanel({
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completed Match Post-to-Feed Banner */}
+        {isCompleted && (
+          <div className="px-4 pb-3">
+            <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div className="text-xs">
+                <span className="font-bold text-indigo-900 dark:text-indigo-200 block">Match Completed</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Publish official result card to Community Feed stream</span>
+              </div>
+              {hasPublishedResult ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-xs">
+                  <Check className="w-3.5 h-3.5" /> Posted
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={publishingFeed}
+                  onClick={handlePublishResultToFeed}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Create an official result post in the Community Feed"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{publishingFeed ? "Posting..." : "Post Result to Feed"}</span>
+                </button>
+              )}
             </div>
           </div>
         )}

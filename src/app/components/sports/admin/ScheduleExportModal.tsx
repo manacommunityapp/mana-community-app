@@ -23,6 +23,8 @@ import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
 export type TournamentStageKey =
   | 'ALL'
   | 'GROUP'
+  | 'ROUND_OF_64'
+  | 'ROUND_OF_32'
   | 'ROUND_OF_16'
   | 'QUARTER_FINAL'
   | 'SEMI_FINAL'
@@ -84,14 +86,56 @@ export function getMatchStage(m: any): TournamentStageKey {
     return 'QUARTER_FINAL';
   }
 
-  // 6. Round of 16 / Pre-Quarters / Round 1 of knockout
+  // 6. Round of 64
   if (
-    roundStr === 'ROUND_OF_16' || roundStr === 'ROUND_OF_32' || roundStr === 'ROUND_OF_64' ||
-    roundStr.includes('ROUND OF 16') || roundStr.includes('ROUND OF 32') || roundStr.includes('ROUND OF 64') ||
-    roundStr.includes('R16') || roundStr.includes('R32') || roundStr.includes('1/8') ||
-    roundStr === 'ROUND 1' || roundStr === 'ROUND_1' ||
-    groupStr.includes('ROUND OF 16') || /ROUND[\s_-]*1\b/i.test(groupStr) || /ROUND[\s_-]*1\b/i.test(roundStr)
+    roundStr === 'ROUND_OF_64' ||
+    roundStr.includes('ROUND OF 64') ||
+    roundStr.includes('R64') ||
+    roundStr.includes('1/32') ||
+    /\b64\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 64') ||
+    /\b64\b/.test(groupStr)
   ) {
+    return 'ROUND_OF_64';
+  }
+
+  // 7. Round of 32
+  if (
+    roundStr === 'ROUND_OF_32' ||
+    roundStr.includes('ROUND OF 32') ||
+    roundStr.includes('R32') ||
+    roundStr.includes('1/16') ||
+    /\b32\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 32') ||
+    /\b32\b/.test(groupStr)
+  ) {
+    return 'ROUND_OF_32';
+  }
+
+  // 8. Round of 16 / Pre-Quarters
+  if (
+    roundStr === 'ROUND_OF_16' ||
+    roundStr.includes('ROUND OF 16') ||
+    roundStr.includes('R16') ||
+    roundStr.includes('1/8') ||
+    roundStr.includes('PRE-QUARTER') ||
+    /\b16\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 16') ||
+    groupStr.includes('PRE-QUARTER') ||
+    /\b16\b/.test(groupStr)
+  ) {
+    return 'ROUND_OF_16';
+  }
+
+  // Generic "Round 1" of a knockout bracket
+  if (
+    roundStr === 'ROUND 1' || roundStr === 'ROUND_1' ||
+    /ROUND[\s_-]*1\b/i.test(groupStr) || /ROUND[\s_-]*1\b/i.test(roundStr)
+  ) {
+    const matchNum = Number(m.matchNumber || m.matchId || 0);
+    const bracketSlot = Number(m.bracketSlot || 0);
+    if (matchNum > 16 || bracketSlot > 32) return 'ROUND_OF_64';
+    if (matchNum > 8 || bracketSlot > 16) return 'ROUND_OF_32';
     return 'ROUND_OF_16';
   }
 
@@ -205,7 +249,32 @@ export function extractVenueCourt(m: any): string {
   return venue || court || 'Main Arena';
 }
 
-export function prepareExportableMatches(matches: any[], stageFilter: TournamentStageKey = 'ALL'): any[] {
+export function detectSportName(text?: string | null): string | undefined {
+  if (!text) return undefined;
+  const t = text.toLowerCase();
+  if (t.includes('cricket')) return 'Cricket';
+  if (t.includes('badminton') || t.includes('shuttle')) return 'Badminton';
+  if (t.includes('table tennis') || t.includes('ping pong') || /\btt\b/.test(t)) return 'Table Tennis';
+  if (t.includes('tennis')) return 'Tennis';
+  if (t.includes('football') || t.includes('soccer')) return 'Football';
+  if (t.includes('basketball')) return 'Basketball';
+  if (t.includes('volleyball')) return 'Volleyball';
+  if (t.includes('pickleball')) return 'Pickleball';
+  if (t.includes('squash')) return 'Squash';
+  if (t.includes('chess')) return 'Chess';
+  if (t.includes('carrom')) return 'Carrom';
+  if (t.includes('swimming')) return 'Swimming';
+  if (t.includes('kabaddi')) return 'Kabaddi';
+  if (t.includes('throwball')) return 'Throwball';
+  if (t.includes('athletics') || t.includes('marathon') || t.includes('running')) return 'Athletics';
+  return undefined;
+}
+
+export function prepareExportableMatches(
+  matches: any[],
+  stageFilter: TournamentStageKey = 'ALL',
+  defaultSportName?: string
+): any[] {
   const filtered = stageFilter === 'ALL'
     ? matches
     : matches.filter(m => {
@@ -227,19 +296,32 @@ export function prepareExportableMatches(matches: any[], stageFilter: Tournament
       stageKey === 'SEMI_FINAL' ? 'Semi-Finals' :
       stageKey === 'FINAL' ? 'Final' :
       stageKey === 'THIRD_PLACE' ? '3rd Place' :
+      stageKey === 'ROUND_OF_64' ? 'Round of 64' :
+      stageKey === 'ROUND_OF_32' ? 'Round of 32' :
       stageKey === 'ROUND_OF_16' ? 'Round of 16' : 'Match';
 
     const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
     const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—';
 
+    const detectedSport =
+      m.sport ||
+      m.sportName ||
+      m.config?.sportName ||
+      m.config?.eventName ||
+      defaultSportName ||
+      detectSportName(m.tournamentName) ||
+      detectSportName(m.name) ||
+      detectSportName(m.eventName) ||
+      'Tournament';
+
     return {
       matchNumber: m.matchNumber || idx + 1,
       round: stageLabel,
       roundName: stageLabel,
       stage: stageLabel,
-      sport: m.sport || m.sportName || 'Badminton',
-      sportName: m.sport || m.sportName || 'Badminton',
+      sport: detectedSport,
+      sportName: detectedSport,
       date,
       time,
       venue: venueCourt,
@@ -259,12 +341,13 @@ export function prepareExportableMatches(matches: any[], stageFilter: Tournament
   });
 }
 
-interface ScheduleExportModalProps {
+export interface ScheduleExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   tournamentName: string;
   matches: any[];
   defaultStage?: TournamentStageKey;
+  sportName?: string;
 }
 
 export function ScheduleExportModal({
@@ -273,16 +356,21 @@ export function ScheduleExportModal({
   tournamentName,
   matches,
   defaultStage = 'ALL',
+  sportName,
 }: ScheduleExportModalProps) {
   const [selectedStage, setSelectedStage] = useState<TournamentStageKey>(defaultStage);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [isExporting, setIsExporting] = useState(false);
+
+  const resolvedSport = sportName || detectSportName(tournamentName);
 
   // Group matches by stage
   const stageStats = useMemo(() => {
     const counts: Record<TournamentStageKey, number> = {
       ALL: matches.length,
       GROUP: 0,
+      ROUND_OF_64: 0,
+      ROUND_OF_32: 0,
       ROUND_OF_16: 0,
       QUARTER_FINAL: 0,
       SEMI_FINAL: 0,
@@ -300,6 +388,8 @@ export function ScheduleExportModal({
     const list: StageOption[] = [
       { key: 'ALL', label: 'All Stages', count: counts.ALL },
       { key: 'GROUP', label: 'Group Stages', count: counts.GROUP },
+      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64 }] : []),
+      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32 }] : []),
       ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16 }] : []),
       { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL },
       { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL },
@@ -311,7 +401,7 @@ export function ScheduleExportModal({
 
   if (!isOpen) return null;
 
-  const currentStageMatches = prepareExportableMatches(matches, selectedStage);
+  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport);
 
   const getStageFileName = (stageKey: TournamentStageKey): string => {
     const base = tournamentName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -321,6 +411,8 @@ export function ScheduleExportModal({
       case 'SEMI_FINAL': return `${base}_Semi_Finals`;
       case 'FINAL': return `${base}_Final`;
       case 'THIRD_PLACE': return `${base}_3rd_Place`;
+      case 'ROUND_OF_64': return `${base}_Round_of_64`;
+      case 'ROUND_OF_32': return `${base}_Round_of_32`;
       case 'ROUND_OF_16': return `${base}_Round_of_16`;
       default: return `${base}_Schedule`;
     }
@@ -349,6 +441,8 @@ export function ScheduleExportModal({
     setIsExporting(true);
     const stagesToExport: TournamentStageKey[] = [
       'GROUP',
+      ...(stageStats.some(s => s.key === 'ROUND_OF_64' && s.count > 0) ? ['ROUND_OF_64' as const] : []),
+      ...(stageStats.some(s => s.key === 'ROUND_OF_32' && s.count > 0) ? ['ROUND_OF_32' as const] : []),
       ...(stageStats.some(s => s.key === 'ROUND_OF_16' && s.count > 0) ? ['ROUND_OF_16' as const] : []),
       'QUARTER_FINAL',
       'SEMI_FINAL',
@@ -358,7 +452,7 @@ export function ScheduleExportModal({
     let exportedCount = 0;
     try {
       for (const stg of stagesToExport) {
-        const stageList = prepareExportableMatches(matches, stg);
+        const stageList = prepareExportableMatches(matches, stg, resolvedSport);
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {

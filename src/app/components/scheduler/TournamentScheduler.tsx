@@ -2,17 +2,19 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Layers, Sparkles } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
-import { tournamentService } from "../../../services/sports/tournamentService";
+import { tournamentService, type FeedVisibilityLevel } from "../../../services/sports/tournamentService";
+import { BroadcastSettingsModal } from "../sports/admin/BroadcastSettingsModal";
 import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { sportsService } from "../../../services/sports/sportsService";
 import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
-import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../utils/sportsExportUtils";
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF, exportBracketToPDF } from "../../../utils/sportsExportUtils";
 import {
   ScheduleExportModal,
   prepareExportableMatches,
+  detectSportName,
   getMatchStage,
   extractTeamNames,
   extractFlatDetails,
@@ -47,6 +49,12 @@ export function TournamentScheduler() {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [actionConfig, setActionConfig] = useState<{ config: ConfigInfo; type: "delete" | "publish" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [broadcastModalState, setBroadcastModalState] = useState<{
+    isOpen: boolean;
+    id: number;
+    level: FeedVisibilityLevel;
+    title: string;
+  } | null>(null);
 
   // Form State
   const [fTournamentId, setFTournamentId] = useState("");
@@ -455,8 +463,19 @@ export function TournamentScheduler() {
       tournamentService.getSavedMatchesByConfigId(config.id),
       config.eventId ? sportsService.getEventRegistrations(config.eventId) : Promise.resolve([] as EventRegistration[]),
     ]);
-    if (matchesResult.status === "fulfilled") setViewMatches(matchesResult.value);
-    else setViewError("Could not load the saved match schedule.");
+    const matchedEvent = events.find((item) => item.id === config.eventId);
+    const resolvedSport = config.sportName || matchedEvent?.sportName || detectSportName(config.tournamentName) || detectSportName(config.eventName) || "Tournament";
+    if (matchesResult.status === "fulfilled") {
+      const enrichedMatches = (matchesResult.value || []).map((m: any) => ({
+        ...m,
+        sport: m.sport || m.sportName || resolvedSport,
+        sportName: m.sportName || m.sport || resolvedSport,
+        tournamentName: m.tournamentName || config.tournamentName,
+      }));
+      setViewMatches(enrichedMatches);
+    } else {
+      setViewError("Could not load the saved match schedule.");
+    }
     if (playersResult.status === "fulfilled") {
       setViewPlayers(playersResult.value.filter((player) => player.status === "CONFIRMED" || player.status === "REGISTERED"));
     } else {
@@ -558,16 +577,18 @@ export function TournamentScheduler() {
                       </>
                     ) : (
                       <button
-                        onClick={() => handleToggleFeed(c)}
-                        aria-label={`Toggle feed visibility for ${c.tournamentName}`}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg border py-2 px-2.5 text-xs font-bold transition cursor-pointer ${
-                          c.showInFeed === false
-                            ? "border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-indigo-200 bg-indigo-50 text-indigo-700"
-                        }`}
+                        onClick={() => setBroadcastModalState({
+                          isOpen: true,
+                          id: (c.eventId || c.tournamentId || c.id) as number,
+                          level: c.eventId ? "event" : "tournament",
+                          title: c.tournamentName || "Tournament Broadcast Settings",
+                        })}
+                        aria-label={`Configure broadcast & feed settings for ${c.tournamentName}`}
+                        title="Configure Live Now strip and Feed Result Posting Policy"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 py-2 px-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 cursor-pointer"
                       >
                         <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
-                        <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                        <span>Broadcast &amp; Feed</span>
                       </button>
                     )}
                   </div>
@@ -638,17 +659,18 @@ export function TournamentScheduler() {
                             </>
                           ) : (
                             <button
-                              onClick={() => handleToggleFeed(c)}
-                              aria-label={`Toggle feed visibility for ${c.tournamentName}`}
-                              title={c.showInFeed === false ? "Hidden from Feed (click to show)" : "Shown in Live Feed (click to hide)"}
-                              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
-                                c.showInFeed === false
-                                  ? "border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-600"
-                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100"
-                              }`}
+                              onClick={() => setBroadcastModalState({
+                                isOpen: true,
+                                id: (c.eventId || c.tournamentId || c.id) as number,
+                                level: c.eventId ? "event" : "tournament",
+                                title: c.tournamentName || "Tournament Broadcast Settings",
+                              })}
+                              aria-label={`Configure broadcast & feed settings for ${c.tournamentName}`}
+                              title="Configure Live Now strip and Feed Result Posting Policy"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 cursor-pointer"
                             >
                               <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
-                              <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                              <span>Broadcast &amp; Feed</span>
                             </button>
                           )}
                         </div>
@@ -675,13 +697,17 @@ export function TournamentScheduler() {
         );
         const handleExport = (formatType: "csv" | "excel" | "pdf", stageFilter: TournamentStageKey = "ALL") => {
           if (viewMatches.length === 0) return;
-          const exportData = prepareExportableMatches(viewMatches, stageFilter);
+          const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
+          const exportData = prepareExportableMatches(viewMatches, stageFilter, resolvedSport);
           if (exportData.length === 0) {
             showToast(`No matches found for stage: ${stageFilter}`, "error");
             return;
           }
           const stageSuffix = stageFilter === "ALL" ? "Full_Schedule" :
             stageFilter === "GROUP" ? "Group_Stage" :
+            stageFilter === "ROUND_OF_64" ? "Round_of_64" :
+            stageFilter === "ROUND_OF_32" ? "Round_of_32" :
+            stageFilter === "ROUND_OF_16" ? "Round_of_16" :
             stageFilter === "QUARTER_FINAL" ? "Quarter_Finals" :
             stageFilter === "SEMI_FINAL" ? "Semi_Finals" :
             stageFilter === "FINAL" ? "Finals" : stageFilter;
@@ -696,6 +722,8 @@ export function TournamentScheduler() {
         const stageCounts: Record<TournamentStageKey, number> = {
           ALL: viewMatches.length,
           GROUP: 0,
+          ROUND_OF_64: 0,
+          ROUND_OF_32: 0,
           ROUND_OF_16: 0,
           QUARTER_FINAL: 0,
           SEMI_FINAL: 0,
@@ -710,6 +738,8 @@ export function TournamentScheduler() {
         const availableStages: { key: TournamentStageKey; label: string; count: number }[] = [
           { key: "ALL", label: "Full Tournament", count: stageCounts.ALL },
           ...(stageCounts.GROUP > 0 ? [{ key: "GROUP" as const, label: "Group Stage", count: stageCounts.GROUP }] : []),
+          ...(stageCounts.ROUND_OF_64 > 0 ? [{ key: "ROUND_OF_64" as const, label: "Round of 64", count: stageCounts.ROUND_OF_64 }] : []),
+          ...(stageCounts.ROUND_OF_32 > 0 ? [{ key: "ROUND_OF_32" as const, label: "Round of 32", count: stageCounts.ROUND_OF_32 }] : []),
           ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: "ROUND_OF_16" as const, label: "Round of 16", count: stageCounts.ROUND_OF_16 }] : []),
           ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: "QUARTER_FINAL" as const, label: "Quarter-Finals", count: stageCounts.QUARTER_FINAL }] : []),
           ...(stageCounts.SEMI_FINAL > 0 ? [{ key: "SEMI_FINAL" as const, label: "Semi-Finals", count: stageCounts.SEMI_FINAL }] : []),
@@ -731,6 +761,8 @@ export function TournamentScheduler() {
             stageKey === "SEMI_FINAL" ? "Semi-Finals" :
             stageKey === "FINAL" ? "Final" :
             stageKey === "THIRD_PLACE" ? "3rd Place" :
+            stageKey === "ROUND_OF_64" ? "Round of 64" :
+            stageKey === "ROUND_OF_32" ? "Round of 32" :
             stageKey === "ROUND_OF_16" ? "Round of 16" : (m.roundName || `Round ${m.roundNumber || 1}`);
 
           return {
@@ -810,9 +842,9 @@ export function TournamentScheduler() {
           if (s.includes('SEMI')) return 'SEMI_FINAL';
           if (s.includes('FINAL') && !s.includes('SEMI') && !s.includes('QUARTER') && !s.includes('THIRD')) return 'FINAL';
           if (s.includes('THIRD') || s.includes('3RD') || s.includes('BRONZE')) return 'THIRD_PLACE';
-          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
-          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
           if (s.includes('64') || s.includes('ROUND_OF_64')) return 'ROUND_OF_64';
+          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
+          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
           return 'FINAL';
         };
         const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
@@ -853,6 +885,21 @@ export function TournamentScheduler() {
               status: m.status ?? null,
             } satisfies PlayoffMatchDraft;
           });
+
+        const handleExportBracketPDF = () => {
+          if (playoffMatchesForBracket.length === 0) {
+            showToast("No bracket matches available to download", "error");
+            return;
+          }
+          const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
+          exportBracketToPDF(
+            playoffMatchesForBracket as any,
+            `${viewingConfig.tournamentName || "Tournament"} Knockout Draw`,
+            "Mana Community Sports",
+            resolvedSport
+          );
+          showToast("Exported tournament bracket draw as PDF", "success");
+        };
 
         return (
           <>
@@ -967,6 +1014,24 @@ export function TournamentScheduler() {
                                 </div>
                               </button>
 
+                              {/* Visual Bracket PDF Draw Download */}
+                              {playoffMatchesForBracket.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowExportMenu(false);
+                                    handleExportBracketPDF();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 p-2.5 text-xs text-purple-700 bg-purple-50/80 hover:bg-purple-100/90 rounded-lg transition-colors cursor-pointer text-left font-medium border border-purple-200/80"
+                                >
+                                  <Download className="h-4 w-4 text-purple-600 shrink-0" />
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-purple-900">Download Bracket Draw (PDF)</span>
+                                    <span className="text-[10px] text-purple-600">Printable multi-round tree diagram with connectors</span>
+                                  </div>
+                                </button>
+                              )}
+
                               {/* Stage Specific Download Sections */}
                               <div className="px-2 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100">
                                 Stage-wise Downloads
@@ -1076,7 +1141,7 @@ export function TournamentScheduler() {
                               <PlayoffBracketView
                                 matches={playoffMatchesForBracket}
                                 onEditMatch={() => {}}
-                                onDownloadBracket={() => handleExport("pdf", "FINAL")}
+                                onDownloadBracket={handleExportBracketPDF}
                                 resolveVenueName={(id) => venue?.name || ""}
                                 resolveCourtName={(_courtId) => ""}
                               />
@@ -1317,6 +1382,7 @@ export function TournamentScheduler() {
               tournamentName={viewingConfig.tournamentName || "Tournament"}
               matches={viewMatches}
               defaultStage={stageModalDefaultStage}
+              sportName={viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName)}
             />
           )}
         </>
@@ -1697,6 +1763,17 @@ export function TournamentScheduler() {
             </div>
           </div>
         </div>
+      )}
+
+      {broadcastModalState && (
+        <BroadcastSettingsModal
+          isOpen={broadcastModalState.isOpen}
+          onClose={() => setBroadcastModalState(null)}
+          targetId={broadcastModalState.id}
+          targetType={broadcastModalState.level}
+          targetTitle={broadcastModalState.title}
+          onUpdated={() => loadData()}
+        />
       )}
 
       {actionConfig && (

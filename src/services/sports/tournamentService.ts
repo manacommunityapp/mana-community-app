@@ -3,6 +3,15 @@ import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from 
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
 
 export type FeedVisibilityLevel = "tournament" | "event" | "match";
+export type FeedPostPolicy = "FINALS_ONLY" | "KNOCKOUTS_ONLY" | "ALL_MATCHES" | "NONE" | "CUSTOM";
+
+export interface FeedBroadcastSettings {
+  showInFeed: boolean;
+  explicit?: boolean;
+  feedPostPolicy?: FeedPostPolicy;
+  feedPostStages?: string;
+  postToFeed?: boolean | null;
+}
 
 /** A match shown in the community feed "Live Now" strip. */
 export interface FeedLiveMatch {
@@ -202,6 +211,23 @@ export interface MatchDetailData {
   innings?: InningsDetailData[];
   topRunScorers?: PlayerStatsData[];
   topWicketTakers?: PlayerStatsData[];
+}
+
+export interface BatchRescheduleRequest {
+  configId?: number;
+  mode: 'TIME_SHIFT' | 'NEW_DATE';
+  delayMinutes?: number;
+  newDate?: string;
+  startTime?: string;
+  intervalMinutes?: number;
+  fromDateTime?: string;
+  matchIds?: number[];
+}
+
+export interface BatchRescheduleResponse {
+  updatedCount: number;
+  message: string;
+  updatedMatches: any[];
 }
 
 export interface InningsDetailData {
@@ -642,6 +668,16 @@ export const tournamentService = {
     return apiClient.delete<void>(`/tournament/match/${matchId}`);
   },
 
+  /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
+  async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
+    return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
+  },
+
+  /** POST /api/tournament/{configId}/matches/batch-reschedule - Batch reschedule / time-shift remaining uncompleted matches */
+  async batchRescheduleMatches(configId: number, data: BatchRescheduleRequest): Promise<BatchRescheduleResponse> {
+    return apiClient.post<BatchRescheduleResponse>(`/tournament/${configId}/matches/batch-reschedule`, data);
+  },
+
   /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
   async publishSchedule(configId: number): Promise<any> {
     return this.updateMatchesStatus(configId, 'PUBLISHED');
@@ -882,6 +918,41 @@ export const tournamentService = {
   ): Promise<void> {
     const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
     await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, { showInFeed, cascade });
+  },
+
+  /** Get feed visibility and stage policy for a tournament, event, or match. */
+  async getFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+  ): Promise<FeedBroadcastSettings> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    return apiClient.get<FeedBroadcastSettings>(`/sports/${segment}/${id}/feed-visibility`);
+  },
+
+  /** Configure both live strip visibility and completed match feed-posting policy. */
+  async setFeedSettings(
+    level: FeedVisibilityLevel,
+    id: number,
+    settings: {
+      showInFeed?: boolean | null;
+      feedPostPolicy?: FeedPostPolicy;
+      feedPostStages?: string;
+      postToFeed?: boolean | null;
+      cascade?: boolean;
+    },
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, settings);
+  },
+
+  /** Manually publish an official result post to the community feed for a completed match. */
+  async publishMatchResultToFeed(
+    matchId: number,
+  ): Promise<{ matchId: number; postId: number; success: boolean; message?: string }> {
+    return apiClient.post<{ matchId: number; postId: number; success: boolean; message?: string }>(
+      `/sports/matches/${matchId}/publish-result-post`,
+      {},
+    );
   },
 
   /** Live matches (and ones completed in the last ~15 min) flagged for the community feed. */

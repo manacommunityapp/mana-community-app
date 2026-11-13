@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight } from "lucide-react";
+import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame } from "lucide-react";
 import { tournamentService, type FeedLiveMatch } from "../../../../services/sports/tournamentService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { getStoredUser } from "../../../../services/common/apiClient";
@@ -37,9 +37,24 @@ function getSportEmoji(sport?: string): string {
   return "🏆";
 }
 
-const isLiveStatus = (status?: string) => {
+const isLiveStatus = (status?: string, hasScores?: boolean) => {
   const s = String(status || "").toUpperCase().trim();
-  return s === "LIVE" || s === "IN_PROGRESS" || s === "ONGOING" || s === "MATCHES_RUNNING";
+  if (
+    s === "LIVE" ||
+    s === "IN_PROGRESS" ||
+    s === "INPROGRESS" ||
+    s === "ACTIVE" ||
+    s === "ONGOING" ||
+    s === "STARTED" ||
+    s === "MATCHES_RUNNING"
+  ) {
+    return true;
+  }
+  // Matches with recorded points/scores that haven't concluded or been cancelled
+  if (hasScores && s !== "COMPLETED" && s !== "CANCELLED" && s !== "DRAFT" && s !== "BYE") {
+    return true;
+  }
+  return false;
 };
 
 /**
@@ -49,6 +64,44 @@ const isLiveStatus = (status?: string) => {
  * Subscribes to /topic/match/{id}/state and /topic/sports/live for real-time score updates,
  * and re-fetches every 30s so cards are added and removed dynamically without stale feed posts.
  */
+// ── Cricbuzz-Style Format Helpers ──────────────────────────────────────────
+
+function formatCricketScore(score?: string | null): string {
+  if (!score || score === "0" || score === "—") return "—";
+  const s = String(score).trim();
+  // If already formatted like "142/3 (18.2 ov)" or "142/3"
+  if (s.includes("/") || s.includes("ov")) return s;
+  return s;
+}
+
+function getMatchContextNarrative(m: FeedLiveMatch, isLive: boolean): { text: string; highlight?: boolean } {
+  if (!isLive) {
+    if (m.winnerName) {
+      return { text: `Winner: ${m.winnerName}`, highlight: true };
+    }
+    return { text: "Match Concluded", highlight: false };
+  }
+
+  const isCricket = /cricket/i.test(m.sportName || "");
+  if (isCricket) {
+    if (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—" && m.scoreTeamA && m.scoreTeamA !== "0") {
+      return { text: "2nd Innings in progress · Chase on", highlight: true };
+    }
+    if (m.scoreTeamA && m.scoreTeamA !== "0" && (!m.scoreTeamB || m.scoreTeamB === "0" || m.scoreTeamB === "—")) {
+      return { text: "1st Innings in progress", highlight: false };
+    }
+    return { text: "Live Action · In Progress", highlight: false };
+  }
+
+  // Badminton / Tennis / Table Tennis / Pickleball
+  if (/badminton|tennis|pickleball|table|squash/i.test(m.sportName || "")) {
+    return { text: "Live Rally · Real-time Scorecard", highlight: true };
+  }
+
+  // Football / Basketball / Volleyball
+  return { text: m.roundName ? `${m.roundName} · Live` : "Live Action", highlight: false };
+}
+
 export function LiveMatchesStrip() {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<FeedLiveMatch[]>([]);
@@ -60,69 +113,119 @@ export function LiveMatchesStrip() {
   const [modalSportFilter, setModalSportFilter] = useState("ALL");
   const [modalStatusFilter, setModalStatusFilter] = useState<"ALL" | "LIVE_ONLY">("ALL");
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [flashingMatchIds, setFlashingMatchIds] = useState<Record<number, "score" | "wicket">>({});
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 10);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+  }, []);
+
+  const scrollByAmount = (amount: number) => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: amount, behavior: "smooth" });
+    }
+  };
 
   const load = useCallback(async () => {
     try {
       const user = getStoredUser();
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
-      let feedMatches: FeedLiveMatch[] = [];
+      const combinedMap = new Map<number, FeedLiveMatch>();
 
+      // 1. Fetch from /sports/live-feed
       try {
-        feedMatches = await tournamentService.getLiveFeedMatches(communityId);
+        let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
         // Fallback: If community-scoped query returns no matches, check across all communities
         if ((!feedMatches || feedMatches.length === 0) && communityId) {
           feedMatches = await tournamentService.getLiveFeedMatches(undefined);
         }
+        if (Array.isArray(feedMatches)) {
+          feedMatches.forEach((m) => {
+            if (m && m.matchId) combinedMap.set(m.matchId, m);
+          });
+        }
       } catch {
-        // Backend live-feed endpoint may be unavailable or unconfigured; will try config matches below
+        // Backend live-feed endpoint may be unavailable or unconfigured; will continue to configs below
       }
 
-      // If feed endpoint returned no matches or is unconfigured, fall back to schedule configs
-      if (!feedMatches || feedMatches.length === 0) {
-        try {
-          const configs = await tournamentService.getConfigs().catch(() => []);
-          if (Array.isArray(configs) && configs.length > 0) {
-            const matchPromises = configs.map(async (cfg) => {
-              try {
-                const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
-                if (!Array.isArray(cfgMatches)) return [];
-                return cfgMatches
-                  .filter((m: any) => {
-                    if (!m || m.status === "BYE") return false;
-                    if (m.showInFeed === false) return false;
-                    return isLiveStatus(m.status);
-                  })
-                  .map((m: any): FeedLiveMatch => ({
+      // 2. ALWAYS query tournament schedule configs to discover any active live matches in tournaments
+      try {
+        const configs = await tournamentService.getConfigs().catch(() => []);
+        if (Array.isArray(configs) && configs.length > 0) {
+          const matchPromises = configs.map(async (cfg) => {
+            try {
+              const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
+              if (!Array.isArray(cfgMatches)) return [];
+              return cfgMatches
+                .filter((m: any) => {
+                  if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED") return false;
+                  if (m.showInFeed === false) return false;
+                  const hasScores = Boolean(
+                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
+                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
+                    (m.score1 && m.score1 !== "0") ||
+                    (m.score2 && m.score2 !== "0")
+                  );
+                  return isLiveStatus(m.status, hasScores);
+                })
+                .map((m: any): FeedLiveMatch => {
+                  const hasScores = Boolean(
+                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
+                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
+                    (m.score1 && m.score1 !== "0") ||
+                    (m.score2 && m.score2 !== "0")
+                  );
+                  const isLive = isLiveStatus(m.status) || hasScores;
+                  return {
                     matchId: m.id || m.matchId,
                     configId: cfg.id,
                     sportName: cfg.sportName || cfg.eventName || "Sports",
                     tournamentName: cfg.tournamentName || "Tournament",
                     eventName: cfg.eventName,
                     roundName: m.roundName || m.round,
-                    teamAName: m.teamAName || m.homeName || "Team A",
-                    teamBName: m.teamBName || m.awayName || "Team B",
+                    teamAName: m.teamAName || m.homeName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 1" : "Team A"),
+                    teamBName: m.teamBName || m.awayName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 2" : "Team B"),
                     teamAFlat: m.teamAFlat || m.homeFlat,
                     teamBFlat: m.teamBFlat || m.awayFlat,
-                    scoreTeamA: m.scoreTeamA || "",
-                    scoreTeamB: m.scoreTeamB || "",
-                    status: m.status || "LIVE",
+                    scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
+                    scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
+                    status: isLive ? (m.status === "COMPLETED" ? "COMPLETED" : "LIVE") : (m.status || "SCHEDULED"),
                     winnerName: m.winnerName,
                     scheduledAt: m.scheduledAt,
                     venueName: m.venueName || m.courtName,
-                  }));
-              } catch {
-                return [];
+                  };
+                });
+            } catch {
+              return [];
+            }
+          });
+          const nested = await Promise.all(matchPromises);
+          nested.flat().forEach((m) => {
+            if (m && m.matchId) {
+              const existing = combinedMap.get(m.matchId);
+              if (!existing) {
+                combinedMap.set(m.matchId, m);
+              } else {
+                combinedMap.set(m.matchId, {
+                  ...m,
+                  ...existing,
+                  scoreTeamA: existing.scoreTeamA || m.scoreTeamA || "",
+                  scoreTeamB: existing.scoreTeamB || m.scoreTeamB || "",
+                });
               }
-            });
-            const nested = await Promise.all(matchPromises);
-            feedMatches = nested.flat();
-          }
-        } catch {
-          // Keep current state on error
+            }
+          });
         }
+      } catch {
+        // Keep current state on error
       }
 
-      setMatches(feedMatches || []);
+      setMatches(Array.from(combinedMap.values()));
     } catch {
       // The strip is optional; fail silently and keep the last known state.
     }
@@ -134,6 +237,18 @@ export function LiveMatchesStrip() {
     const id = window.setInterval(load, POLL_MS);
     return () => window.clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, matches]);
 
   // 2. Global live lifecycle topic: listen for tournament/event match start/finish broadcasts
   useEffect(() => {
@@ -155,16 +270,37 @@ export function LiveMatchesStrip() {
     matchIds.forEach((id) => {
       // Cricket state updates
       unsubs.push(
-        stompClient.subscribe(`/topic/match/${id}/state`, () => {
+        stompClient.subscribe(`/topic/match/${id}/state`, (msg: any) => {
+          const matchNum = Number(id);
+          const isWicket = msg?.body?.includes?.("WICKET") || msg?.body?.includes?.("isWicket");
+          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: isWicket ? "wicket" : "score" }));
+          setTimeout(() => {
+            setFlashingMatchIds(prev => {
+              const copy = { ...prev };
+              delete copy[matchNum];
+              return copy;
+            });
+          }, 1500);
+
           if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 500);
+          refreshTimer.current = setTimeout(load, 400);
         })
       );
       // Generic sports state updates (badminton, football, tennis, etc.)
       unsubs.push(
         stompClient.subscribe(`/topic/match/${id}/generic-state`, () => {
+          const matchNum = Number(id);
+          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: "score" }));
+          setTimeout(() => {
+            setFlashingMatchIds(prev => {
+              const copy = { ...prev };
+              delete copy[matchNum];
+              return copy;
+            });
+          }, 1500);
+
           if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 500);
+          refreshTimer.current = setTimeout(load, 400);
         })
       );
     });
@@ -291,108 +427,161 @@ export function LiveMatchesStrip() {
         </div>
       </div>
 
-      {/* Cards Horizontal Carousel */}
-      <div className="flex gap-3 overflow-x-auto pb-1.5 pt-0.5 snap-x scrollbar-thin">
-        {shown.map((m) => {
-          const live = isLiveStatus(m.status);
-          return (
-            <div
-              key={m.matchId}
-              className="snap-start shrink-0 w-[270px] sm:w-[290px] rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
-            >
-              <div>
-                {/* Top Line: Sport, Status Badge, Dismiss */}
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[130px]">
-                    <span>{getSportEmoji(m.sportName ?? undefined)}</span>
-                    <span className="truncate">{m.sportName || "Sports"}</span>
-                  </span>
+      {/* Cards Horizontal Carousel with Cricbuzz Desktop Nav Chevrons */}
+      <div className="relative group/carousel">
+        {/* Left Floating Chevron (Desktop) */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            aria-label="Scroll left"
+            onClick={() => scrollByAmount(-300)}
+            className="hidden sm:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-700 shadow-md border border-slate-200 items-center justify-center transition-all hover:scale-105 cursor-pointer backdrop-blur-xs"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {live ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded-full shadow-2xs animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
+        {/* Right Floating Chevron (Desktop) */}
+        {canScrollRight && (
+          <button
+            type="button"
+            aria-label="Scroll right"
+            onClick={() => scrollByAmount(300)}
+            className="hidden sm:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-700 shadow-md border border-slate-200 items-center justify-center transition-all hover:scale-105 cursor-pointer backdrop-blur-xs"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+
+        <div
+          ref={scrollContainerRef}
+          className="flex gap-3 overflow-x-auto pb-2 pt-0.5 snap-x scrollbar-thin scroll-smooth"
+        >
+          {shown.map((m) => {
+            const live = isLiveStatus(m.status);
+            const isCricketMatch = isCricket(m);
+            const narrative = getMatchContextNarrative(m, live);
+            const flashType = flashingMatchIds[m.matchId];
+
+            return (
+              <div
+                key={m.matchId}
+                onClick={() => setWatching(m)}
+                className={`group snap-start shrink-0 w-[280px] sm:w-[310px] rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden ${
+                  flashType === "wicket"
+                    ? "border-rose-400 bg-rose-50/40 shadow-rose-100 ring-2 ring-rose-400"
+                    : flashType === "score"
+                    ? "border-emerald-400 bg-emerald-50/40 shadow-emerald-100 ring-2 ring-emerald-400"
+                    : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
+                } p-3.5 shadow-2xs`}
+              >
+                <div>
+                  {/* Top Line: Sport, Status Badge, Dismiss */}
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[140px]">
+                      <span>{getSportEmoji(m.sportName ?? undefined)}</span>
+                      <span className="truncate">{m.sportName || "Sports"}</span>
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {live ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded-full shadow-2xs animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+                          FINAL
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        aria-label="Dismiss card"
+                        title="Dismiss card"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismiss(m.matchId);
+                        }}
+                        className="text-slate-300 hover:text-slate-600 hover:bg-slate-100 p-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tournament / Event subtitle */}
+                  <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
+                    {[m.tournamentName, m.eventName].filter(Boolean).join(" · ")}
+                  </p>
+
+                  {/* Teams & Scores (Cricbuzz Bold Layout) */}
+                  <div className="space-y-1.5 bg-slate-50/90 group-hover:bg-indigo-50/30 rounded-xl p-2.5 border border-slate-100 group-hover:border-indigo-100 transition-colors">
+                    {/* Team A */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-950 truncate">
+                          {m.teamAName}
+                        </span>
+                        {m.teamAFlat && (
+                          <span className="text-[9px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
+                            {m.teamAFlat}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
+                        flashType ? "text-emerald-600 font-extrabold scale-105" : "text-slate-900"
+                      }`}>
+                        {isCricketMatch ? formatCricketScore(m.scoreTeamA) : (m.scoreTeamA || "0")}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                        FINAL
+                    </div>
+
+                    {/* Team B */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-950 truncate">
+                          {m.teamBName}
+                        </span>
+                        {m.teamBFlat && (
+                          <span className="text-[9px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
+                            {m.teamBFlat}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
+                        flashType ? "text-emerald-600 font-extrabold scale-105" : "text-slate-900"
+                      }`}>
+                        {isCricketMatch ? formatCricketScore(m.scoreTeamB) : (m.scoreTeamB || "0")}
                       </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cricbuzz-Style Contextual Dynamic Narrative & Action CTA */}
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[11px] truncate font-medium ${
+                      narrative.highlight
+                        ? "text-indigo-600 font-bold"
+                        : "text-slate-500"
+                    }`}>
+                      {narrative.text}
+                    </p>
+                    {m.venueName && (
+                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                        📍 {m.venueName}
+                      </p>
                     )}
-
-                    <button
-                      type="button"
-                      aria-label="Dismiss card"
-                      title="Dismiss card"
-                      onClick={() => dismiss(m.matchId)}
-                      className="text-slate-300 hover:text-slate-500 hover:bg-slate-100 p-0.5 rounded transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tournament / Event subtitle */}
-                <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
-                  {[m.tournamentName, m.eventName].filter(Boolean).join(" · ")}
-                </p>
-
-                {/* Teams & Scores */}
-                <div className="space-y-1.5 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-bold text-slate-900 truncate">{m.teamAName}</span>
-                      {m.teamAFlat && (
-                        <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
-                          {m.teamAFlat}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
-                      {m.scoreTeamA || "0"}
-                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-bold text-slate-900 truncate">{m.teamBName}</span>
-                      {m.teamBFlat && (
-                        <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
-                          {m.teamBFlat}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
-                      {m.scoreTeamB || "0"}
-                    </span>
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-black text-indigo-600 group-hover:text-indigo-700 bg-indigo-50/90 group-hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors shrink-0">
+                    <Play className="w-2.5 h-2.5 fill-indigo-600" />
+                    <span>{live ? "Watch" : "Card"}</span>
+                  </span>
                 </div>
               </div>
-
-              {/* Bottom Line: Details + "Watch" Link to Live View */}
-              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                {!live && m.winnerName ? (
-                  <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 truncate max-w-[150px]">
-                    <Trophy className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{m.winnerName}</span>
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[150px]">
-                    {m.roundName || m.venueName || "Live Action"}
-                  </span>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setWatching(m)}
-                  className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50/90 hover:bg-indigo-100 active:scale-95 px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0"
-                >
-                  <Play className="w-3 h-3 fill-indigo-600" />
-                  <span>{live ? "Watch →" : "Scorecard →"}</span>
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Live View Overlay / Modal */}

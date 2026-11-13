@@ -370,6 +370,8 @@ export function SportsAdmin() {
       <AddPlayerModal
         showAddPlayerModal={s.showAddPlayerModal}
         setShowAddPlayerModal={s.setShowAddPlayerModal}
+        selectedEvent={s.selectedEventForAdd}
+        onRefreshCategories={s.refreshCategories}
         addPlayerForms={s.addPlayerForms}
         setAddPlayerForms={s.setAddPlayerForms}
         communityUsers={s.communityUsers}
