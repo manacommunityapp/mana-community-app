@@ -20,7 +20,7 @@ import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
 import { FixturesListView } from './FixturesListView';
 import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
 import { formatFlatLabel } from '../../../utils/sportsValidationUtils';
-import { ScheduleExportModal } from '../sports/admin/ScheduleExportModal';
+import { ScheduleExportModal, detectSportName } from '../sports/admin/ScheduleExportModal';
 import {
   type DoublesTeamPair,
   partitionDoublesRegistrations,
@@ -2577,7 +2577,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const collectExportableMatches = (): ExportableMatch[] => {
     const ev = events.find(e => e.id.toString() === selectedEvent);
-    const sportName = ev?.sportName || 'Table Tennis';
+    const sportName = ev?.sportName || detectSportName(ev?.name) || 'Tournament';
     const list: ExportableMatch[] = [];
 
     if (isGroupKnockout || isRoundRobin) {
@@ -5850,6 +5850,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           onClose={() => setShowStageExportModal(false)}
           tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
           matches={collectExportableMatches()}
+          sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
         />
       )}
     </div>

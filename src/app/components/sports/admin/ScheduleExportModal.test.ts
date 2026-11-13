@@ -6,6 +6,7 @@ import {
   extractTeamNames,
   extractVenueCourt,
   prepareExportableMatches,
+  detectSportName,
 } from './ScheduleExportModal';
 
 describe('ScheduleExportModal Helpers', () => {
@@ -252,6 +253,91 @@ describe('ScheduleExportModal Helpers', () => {
       const finalsExport = prepareExportableMatches(matchesWith3rdPlace, 'FINAL');
       expect(finalsExport).toHaveLength(2); // Both Championship Final + 3rd place match
       expect(finalsExport.map(m => m.round)).toEqual(['Final', '3rd Place']);
+    });
+
+    it('preserves sport when present on the match object', () => {
+      const cricketMatches = [
+        {
+          matchNumber: 1,
+          round: 'GROUP',
+          sport: 'Cricket',
+          teamAName: 'Tigers',
+          teamBName: 'Lions',
+        },
+      ];
+      const result = prepareExportableMatches(cricketMatches, 'ALL');
+      expect(result[0].sport).toBe('Cricket');
+      expect(result[0].sportName).toBe('Cricket');
+    });
+
+    it('uses defaultSportName when match does not contain sport field', () => {
+      const matchesWithoutSport = [
+        {
+          matchNumber: 1,
+          round: 'GROUP',
+          teamAName: 'Alpha',
+          teamBName: 'Beta',
+        },
+      ];
+      const result = prepareExportableMatches(matchesWithoutSport, 'ALL', 'Football');
+      expect(result[0].sport).toBe('Football');
+      expect(result[0].sportName).toBe('Football');
+    });
+
+    it('auto-detects sport from tournamentName or eventName if missing', () => {
+      const ttMatches = [
+        {
+          matchNumber: 1,
+          round: 'FINAL',
+          tournamentName: 'LEPL Table Tennis Championship 2026',
+          teamAName: 'Player 1',
+          teamBName: 'Player 2',
+        },
+      ];
+      const result = prepareExportableMatches(ttMatches, 'ALL');
+      expect(result[0].sport).toBe('Table Tennis');
+      expect(result[0].sportName).toBe('Table Tennis');
+    });
+
+    it('never hardcodes Badminton when sport is unknown', () => {
+      const unknownMatches = [
+        {
+          matchNumber: 1,
+          round: 'FINAL',
+          tournamentName: 'Annual Society Championship',
+          teamAName: 'Team A',
+          teamBName: 'Team B',
+        },
+      ];
+      const result = prepareExportableMatches(unknownMatches, 'ALL');
+      expect(result[0].sport).toBe('Tournament');
+      expect(result[0].sport).not.toBe('Badminton');
+    });
+  });
+
+  describe('detectSportName', () => {
+    it('detects Cricket, Football, Table Tennis, Badminton, Tennis, etc.', () => {
+      expect(detectSportName('LEPL 2026 Cricket Premier League')).toBe('Cricket');
+      expect(detectSportName('Annual Football Cup 2026')).toBe('Football');
+      expect(detectSportName('Society Table Tennis Tournament')).toBe('Table Tennis');
+      expect(detectSportName('LE TT Championship')).toBe('Table Tennis');
+      expect(detectSportName('LE Badminton Open')).toBe('Badminton');
+      expect(detectSportName('Lawn Tennis Singles')).toBe('Tennis');
+      expect(detectSportName('Basketball 3v3 League')).toBe('Basketball');
+      expect(detectSportName('Volleyball Spikers')).toBe('Volleyball');
+      expect(detectSportName('Pickleball Double')).toBe('Pickleball');
+      expect(detectSportName('Squash Masters')).toBe('Squash');
+      expect(detectSportName('Chess Rapid')).toBe('Chess');
+      expect(detectSportName('Carrom Board Kings')).toBe('Carrom');
+      expect(detectSportName('Swimming 50m')).toBe('Swimming');
+      expect(detectSportName('Pro Kabaddi')).toBe('Kabaddi');
+    });
+
+    it('returns undefined for non-sport strings or falsy input', () => {
+      expect(detectSportName(undefined)).toBeUndefined();
+      expect(detectSportName(null)).toBeUndefined();
+      expect(detectSportName('')).toBeUndefined();
+      expect(detectSportName('Society General Gathering')).toBeUndefined();
     });
   });
 });

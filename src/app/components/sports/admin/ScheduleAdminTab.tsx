@@ -12,6 +12,7 @@ import {
   ScheduleExportModal,
   getMatchStage,
   prepareExportableMatches,
+  detectSportName,
   type TournamentStageKey,
 } from "./ScheduleExportModal";
 import { BatchRescheduleModal } from "./BatchRescheduleModal";
@@ -89,13 +90,43 @@ export function ScheduleAdminTab() {
     tournamentName: string;
     matches: MatchRow[];
     defaultStage?: TournamentStageKey;
+    sportName?: string;
   } | null>(null);
   const [batchRescheduleModalState, setBatchRescheduleModalState] = useState<{
     isOpen: boolean;
     configId: number;
     tournamentName: string;
     matches: MatchRow[];
+    selectedMatchIds?: number[];
   } | null>(null);
+  const [selectedMatches, setSelectedMatches] = useState<Record<number, number[]>>({});
+
+  const toggleSelectMatch = (configId: number, matchId: number) => {
+    setSelectedMatches(prev => {
+      const current = prev[configId] || [];
+      const next = current.includes(matchId)
+        ? current.filter(id => id !== matchId)
+        : [...current, matchId];
+      return { ...prev, [configId]: next };
+    });
+  };
+
+  const toggleSelectAll = (configId: number, matchIds: number[]) => {
+    setSelectedMatches(prev => {
+      const current = prev[configId] || [];
+      const allSelected = matchIds.length > 0 && matchIds.every(id => current.includes(id));
+      return {
+        ...prev,
+        [configId]: allSelected
+          ? current.filter(id => !matchIds.includes(id))
+          : Array.from(new Set([...current, ...matchIds]))
+      };
+    });
+  };
+
+  const clearSelection = (configId: number) => {
+    setSelectedMatches(prev => ({ ...prev, [configId]: [] }));
+  };
 
   useEffect(() => {
     venueService.getVenues(user?.communityId ?? null).then(setVenues).catch(() => {});
@@ -368,8 +399,13 @@ export function ScheduleAdminTab() {
                         return s === activeStage;
                       });
 
+                  const selectedList = selectedMatches[cfg.id] || [];
+                  const uncompletedDisplayed = displayedMatches.filter(m => m.status !== 'COMPLETED');
+                  const isAllSelected = uncompletedDisplayed.length > 0 && uncompletedDisplayed.every(m => selectedList.includes(m.id));
+
                   const handleExportQuick = (format: 'csv' | 'excel' | 'pdf') => {
-                    const exportData = prepareExportableMatches(cfgMatches, activeStage);
+                    const resolvedSport = cfg.sportName || detectSportName(cfg.tournamentName) || detectSportName(cfg.eventName) || 'Tournament';
+                    const exportData = prepareExportableMatches(cfgMatches, activeStage, resolvedSport);
                     const stageName = activeStage === 'ALL' ? 'Full_Schedule' :
                       activeStage === 'GROUP' ? 'Group_Stage' :
                       activeStage === 'ROUND_OF_16' ? 'Round_of_16' :
@@ -423,12 +459,16 @@ export function ScheduleAdminTab() {
                           {/* Advanced Stage-wise Export Modal Trigger */}
                           <button
                             type="button"
-                            onClick={() => setExportModalState({
-                              isOpen: true,
-                              tournamentName: cfg.tournamentName || 'Tournament',
-                              matches: cfgMatches,
-                              defaultStage: activeStage,
-                            })}
+                            onClick={() => {
+                              const resolvedSport = cfg.sportName || detectSportName(cfg.tournamentName) || detectSportName(cfg.eventName) || 'Tournament';
+                              setExportModalState({
+                                isOpen: true,
+                                tournamentName: cfg.tournamentName || 'Tournament',
+                                matches: cfgMatches,
+                                defaultStage: activeStage,
+                                sportName: resolvedSport,
+                              });
+                            }}
                             className="px-2.5 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                             title="Open stage-wise export modal with options for CSV, Excel, PDF & separate files"
                           >
@@ -501,6 +541,46 @@ export function ScheduleAdminTab() {
                         </div>
                       </div>
 
+                      {/* Multi-Select Floating Action Banner */}
+                      {selectedList.length > 0 && (
+                        <div className="px-4 py-2 bg-gradient-to-r from-amber-500/20 via-amber-400/25 to-indigo-500/20 border-b border-amber-300 flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full bg-amber-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                              {selectedList.length}
+                            </div>
+                            <span className="text-xs font-bold text-amber-950">
+                              {selectedList.length} match{selectedList.length !== 1 ? 'es' : ''} selected
+                            </span>
+                            <span className="text-[11px] text-amber-800 hidden sm:inline">
+                              (selective multi-reschedule)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setBatchRescheduleModalState({
+                                isOpen: true,
+                                configId: cfg.id,
+                                tournamentName: cfg.tournamentName || 'Tournament',
+                                matches: cfgMatches,
+                                selectedMatchIds: selectedList,
+                              })}
+                              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                            >
+                              <FastForward className="w-3.5 h-3.5" />
+                              <span>Reschedule Selected ({selectedList.length})</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => clearSelection(cfg.id)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-white/70 rounded-lg transition cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Matches Table & Mobile Cards */}
                       {displayedMatches.length === 0 ? (
                         <div className="py-8 text-center text-xs text-slate-400">
@@ -529,9 +609,18 @@ export function ScheduleAdminTab() {
                                 'bg-slate-50 text-slate-600 border-slate-200';
 
                               return (
-                                <div key={m.id} className="bg-white rounded-xl p-3 border border-slate-100 shadow-2xs space-y-2">
+                                <div key={m.id} className={`rounded-xl p-3 border shadow-2xs space-y-2 ${selectedList.includes(m.id) ? "bg-amber-50/70 border-amber-300" : "bg-white border-slate-100"}`}>
                                   <div className="flex items-center justify-between text-xs">
                                     <div className="flex items-center gap-1.5">
+                                      {m.status !== "COMPLETED" && (
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedList.includes(m.id)}
+                                          onChange={() => toggleSelectMatch(cfg.id, m.id)}
+                                          className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer mr-0.5"
+                                          title="Select for multi-reschedule"
+                                        />
+                                      )}
                                       <span className="font-mono text-[10px] text-slate-400 font-bold">#{m.matchNumber || i + 1}</span>
                                       <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${stageBadge}`}>
                                         {(m.round || m.roundName || "").replace(/_/g, " ")}
@@ -631,6 +720,15 @@ export function ScheduleAdminTab() {
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                  <th className="px-3 py-2 text-center w-8">
+                                    <input
+                                      type="checkbox"
+                                      checked={isAllSelected}
+                                      onChange={() => toggleSelectAll(cfg.id, uncompletedDisplayed.map(m => m.id))}
+                                      className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                                      title={isAllSelected ? "Deselect all uncompleted" : "Select all uncompleted matches"}
+                                    />
+                                  </th>
                                   <th className="px-4 py-2 text-left font-medium">#</th>
                                   <th className="px-4 py-2 text-left font-medium">Stage / Round</th>
                                   <th className="px-4 py-2 text-left font-medium">Match Details</th>
@@ -655,7 +753,20 @@ export function ScheduleAdminTab() {
                                     'bg-slate-50 text-slate-600 border-slate-200';
 
                                   return (
-                                    <tr key={m.id} className={`border-b border-slate-50 ${i % 2 === 0 ? "bg-white/60" : ""}`}>
+                                    <tr key={m.id} className={`border-b border-slate-50 ${selectedList.includes(m.id) ? "bg-amber-50/70" : i % 2 === 0 ? "bg-white/60" : ""}`}>
+                                      <td className="px-3 py-2.5 text-center">
+                                        {m.status !== "COMPLETED" ? (
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedList.includes(m.id)}
+                                            onChange={() => toggleSelectMatch(cfg.id, m.id)}
+                                            className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                                            title="Select for multi-reschedule"
+                                          />
+                                        ) : (
+                                          <span className="text-slate-300 text-[10px]">—</span>
+                                        )}
+                                      </td>
                                       <td className="px-4 py-2.5 text-slate-400 font-mono text-[11px]">{m.matchNumber || i + 1}</td>
                                       <td className="px-4 py-2.5">
                                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${stageBadge}`}>
@@ -758,12 +869,16 @@ export function ScheduleAdminTab() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => setExportModalState({
-                            isOpen: true,
-                            tournamentName: cfg.tournamentName || 'Tournament',
-                            matches: cfgMatches,
-                            defaultStage: activeStage,
-                          })}
+                          onClick={() => {
+                            const resolvedSport = cfg.sportName || detectSportName(cfg.tournamentName) || detectSportName(cfg.eventName) || 'Tournament';
+                            setExportModalState({
+                              isOpen: true,
+                              tournamentName: cfg.tournamentName || 'Tournament',
+                              matches: cfgMatches,
+                              defaultStage: activeStage,
+                              sportName: resolvedSport,
+                            });
+                          }}
                           className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
                         >
                           <Download className="w-3 h-3" /> Stage-Wise Export Options →
@@ -786,6 +901,7 @@ export function ScheduleAdminTab() {
           tournamentName={exportModalState.tournamentName}
           matches={exportModalState.matches}
           defaultStage={exportModalState.defaultStage || 'ALL'}
+          sportName={exportModalState.sportName}
         />
       )}
 
@@ -931,7 +1047,9 @@ export function ScheduleAdminTab() {
           configId={batchRescheduleModalState.configId}
           tournamentName={batchRescheduleModalState.tournamentName}
           matches={batchRescheduleModalState.matches}
+          selectedMatchIds={batchRescheduleModalState.selectedMatchIds}
           onSuccess={(updatedMatches) => {
+            clearSelection(batchRescheduleModalState.configId);
             if (updatedMatches && updatedMatches.length > 0) {
               const map = new Map<number, any>(updatedMatches.map(m => [m.id, m]));
               setMatches(prev => ({

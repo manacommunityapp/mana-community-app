@@ -1827,10 +1827,14 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                     type="button"
                     onClick={() => {
                       const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const selectedCfg = configs.find(c => c.id === selectedConfigId);
+                      const currentSport = selectedCfg?.sportName || 'Tournament';
                       const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        sport: currentSport,
+                        sportName: currentSport,
                         home: m.home,
                         homeFlat: m.homeFlat,
                         away: m.away,
@@ -1842,7 +1846,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         court: m.courtName || m.venueName || 'Court 1',
                         status: m.status || 'SCHEDULED',
                       }));
-                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      const tournamentName = selectedCfg?.tournamentName || 'Tournament';
                       exportScheduleToCSV(exportData, tournamentName);
                     }}
                     title="Export CSV with flat details"
@@ -1855,10 +1859,14 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                     type="button"
                     onClick={() => {
                       const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const selectedCfg = configs.find(c => c.id === selectedConfigId);
+                      const currentSport = selectedCfg?.sportName || 'Tournament';
                       const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        sport: currentSport,
+                        sportName: currentSport,
                         home: m.home,
                         homeFlat: m.homeFlat,
                         away: m.away,
@@ -1870,7 +1878,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         court: m.courtName || m.venueName || 'Court 1',
                         status: m.status || 'SCHEDULED',
                       }));
-                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      const tournamentName = selectedCfg?.tournamentName || 'Tournament';
                       exportScheduleToExcel(exportData, tournamentName);
                     }}
                     title="Export Excel with flat details"
@@ -1883,10 +1891,14 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                     type="button"
                     onClick={() => {
                       const exportSource = filteredMasterMatches.length > 0 ? filteredMasterMatches : matches;
+                      const selectedCfg = configs.find(c => c.id === selectedConfigId);
+                      const currentSport = selectedCfg?.sportName || 'Tournament';
                       const exportData = exportSource.map((m, idx) => ({
                         matchNumber: idx + 1,
                         round: m.stage,
                         groupName: m.type === 'GROUP_STAGE' ? m.stage : undefined,
+                        sport: currentSport,
+                        sportName: currentSport,
                         home: m.home,
                         homeFlat: m.homeFlat,
                         away: m.away,
@@ -1898,7 +1910,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         court: m.courtName || m.venueName || 'Court 1',
                         status: m.status || 'SCHEDULED',
                       }));
-                      const tournamentName = configs.find(c => c.id === selectedConfigId)?.tournamentName || 'Tournament';
+                      const tournamentName = selectedCfg?.tournamentName || 'Tournament';
                       exportScheduleToPDF(exportData, tournamentName);
                     }}
                     title="Export PDF with flat details"

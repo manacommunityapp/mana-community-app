@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Clock,
   Calendar,
@@ -28,6 +28,7 @@ interface BatchRescheduleModalProps {
   configId: number;
   tournamentName: string;
   matches: MatchRowLike[];
+  selectedMatchIds?: number[];
   onSuccess: (updatedMatches: any[]) => void;
 }
 
@@ -37,6 +38,7 @@ export function BatchRescheduleModal({
   configId,
   tournamentName,
   matches,
+  selectedMatchIds,
   onSuccess,
 }: BatchRescheduleModalProps) {
   const [mode, setMode] = useState<'TIME_SHIFT' | 'NEW_DATE'>('TIME_SHIFT');
@@ -61,17 +63,23 @@ export function BatchRescheduleModal({
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  const isSelective = Boolean(selectedMatchIds && selectedMatchIds.length > 0);
+
   // Match statistics
   const stats = useMemo(() => {
-    const total = matches.length;
-    const completed = matches.filter(
+    const sourceMatches = isSelective
+      ? matches.filter((m) => selectedMatchIds!.includes(m.id))
+      : matches;
+
+    const total = sourceMatches.length;
+    const completed = sourceMatches.filter(
       (m) => (m.status || '').toUpperCase() === 'COMPLETED'
     ).length;
-    const byes = matches.filter((m) =>
+    const byes = sourceMatches.filter((m) =>
       ['BYE', 'AUTO_ADVANCED'].includes((m.status || '').toUpperCase())
     ).length;
 
-    let uncompleted = matches.filter((m) => {
+    let uncompleted = sourceMatches.filter((m) => {
       const s = (m.status || '').toUpperCase();
       return s !== 'COMPLETED' && s !== 'CANCELLED' && s !== 'BYE' && s !== 'AUTO_ADVANCED';
     });
@@ -97,7 +105,7 @@ export function BatchRescheduleModal({
       byes,
       eligible: uncompleted.length,
     };
-  }, [matches, applyCutoff, cutoffTime]);
+  }, [matches, selectedMatchIds, isSelective, applyCutoff, cutoffTime]);
 
   if (!isOpen) return null;
 
@@ -133,6 +141,7 @@ export function BatchRescheduleModal({
             ? parseInt(spacingOption, 10)
             : undefined,
         fromDateTime: applyCutoff && cutoffTime ? cutoffTime : undefined,
+        matchIds: isSelective ? selectedMatchIds : undefined,
       };
 
       const res = await tournamentService.batchRescheduleMatches(configId, req);
@@ -157,7 +166,9 @@ export function BatchRescheduleModal({
             </div>
             <div>
               <h3 className="text-sm font-bold leading-tight">
-                Reschedule Remaining Matches / Delay
+                {isSelective
+                  ? `Reschedule ${selectedMatchIds!.length} Selected Matches`
+                  : 'Reschedule Remaining Matches / Delay'}
               </h3>
               <p className="text-[11px] text-amber-200 truncate max-w-sm">
                 {tournamentName}
@@ -180,10 +191,20 @@ export function BatchRescheduleModal({
           <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-900">
             <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
             <div className="leading-relaxed">
-              <span className="font-bold text-slate-800">Safety Guarantee: </span>
-              {stats.completed} completed match{stats.completed !== 1 ? 'es are' : ' is'} locked and will{' '}
-              <strong className="text-emerald-700">NOT</strong> be touched.
-              Only the <strong>{stats.eligible} uncompleted</strong> matches will be shifted.
+              <span className="font-bold text-slate-800">
+                {isSelective ? 'Selective Reschedule: ' : 'Safety Guarantee: '}
+              </span>
+              {isSelective ? (
+                <>
+                  Applying only to the <strong>{stats.eligible} selected</strong> matches. All other unselected and completed matches will remain completely untouched.
+                </>
+              ) : (
+                <>
+                  {stats.completed} completed match{stats.completed !== 1 ? 'es are' : ' is'} locked and will{' '}
+                  <strong className="text-emerald-700">NOT</strong> be touched.
+                  Only the <strong>{stats.eligible} uncompleted</strong> matches will be shifted.
+                </>
+              )}
             </div>
           </div>
 
