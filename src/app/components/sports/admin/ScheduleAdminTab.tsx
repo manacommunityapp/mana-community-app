@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X, FastForward } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X, FastForward, Send, Check } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { tournamentService, type ConfigInfo } from "../../../../services/sports/tournamentService";
+import { tournamentService, type ConfigInfo, type FeedVisibilityLevel } from "../../../../services/sports/tournamentService";
 import { venueService } from "../../../../services/bookings/venueService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type { Venue } from "../../../../types/api";
@@ -16,6 +16,7 @@ import {
   type TournamentStageKey,
 } from "./ScheduleExportModal";
 import { BatchRescheduleModal } from "./BatchRescheduleModal";
+import { BroadcastSettingsModal } from "./BroadcastSettingsModal";
 
 interface MatchRow {
   id: number;
@@ -37,6 +38,8 @@ interface MatchRow {
   venueName?: string;
   courtName?: string;
   showInFeed?: boolean | null;
+  postToFeed?: boolean | null;
+  feedResultPostId?: number | null;
 }
 
 
@@ -100,6 +103,13 @@ export function ScheduleAdminTab() {
     selectedMatchIds?: number[];
   } | null>(null);
   const [selectedMatches, setSelectedMatches] = useState<Record<number, number[]>>({});
+  const [broadcastModalState, setBroadcastModalState] = useState<{
+    isOpen: boolean;
+    id: number;
+    level: FeedVisibilityLevel;
+    title: string;
+  } | null>(null);
+  const [publishingMatchId, setPublishingMatchId] = useState<number | null>(null);
 
   const toggleSelectMatch = (configId: number, matchId: number) => {
     setSelectedMatches(prev => {
@@ -504,23 +514,17 @@ export function ScheduleAdminTab() {
                           </button>
                           <button
                             type="button"
-                            onClick={async () => {
-                              if (!cfg.eventId) return;
-                              try {
-                                await tournamentService.setFeedVisibility("event", cfg.eventId, true, true);
-                                setMatches(prev => ({
-                                  ...prev,
-                                  [cfg.id]: (prev[cfg.id] || []).map(row => ({ ...row, showInFeed: true }))
-                                }));
-                                toast.success("All matches in this event enabled for community feed");
-                              } catch {
-                                showError("Failed to update event feed visibility");
-                              }
-                            }}
-                            className="px-2 py-1 text-[11px] font-semibold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Broadcast all matches of this event on the community feed"
+                            onClick={() => setBroadcastModalState({
+                              isOpen: true,
+                              id: cfg.eventId || cfg.id,
+                              level: cfg.eventId ? "event" : "tournament",
+                              title: cfg.tournamentName || cfg.eventName || "Tournament Broadcast Settings",
+                            })}
+                            className="px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-white hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                            title="Configure Live Now strip scoreboard and Community Feed result posting policy"
                           >
-                            <Radio className="w-3 h-3 text-indigo-600 animate-pulse" /> Feed: Enable All
+                            <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                            <span>Broadcast &amp; Feed Policy</span>
                           </button>
 
                           {/* Rain Delay / Batch Reschedule Button */}
@@ -692,9 +696,9 @@ export function ScheduleAdminTab() {
                                               ...prev,
                                               [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, showInFeed: next } : row)
                                             }));
-                                            toast.success(`Match #${m.matchNumber || i + 1} feed broadcast set to ${next ? "ON" : "OFF"}`);
+                                            toast.success(`Match #${m.matchNumber || i + 1} live scoreboard set to ${next ? "ON" : "OFF"}`);
                                           } catch {
-                                            showError("Failed to update match feed setting");
+                                            showError("Failed to update match live setting");
                                           }
                                         }}
                                         className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
@@ -704,10 +708,42 @@ export function ScheduleAdminTab() {
                                             ? "bg-slate-100 text-slate-400 border-slate-200"
                                             : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
                                         }`}
+                                        title="Toggle live scoreboard on feed"
                                       >
                                         <Radio className="w-2.5 h-2.5" />
-                                        <span>Feed: {m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
+                                        <span>Live: {m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
                                       </button>
+
+                                      {m.feedResultPostId ? (
+                                        <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                                          <Check className="w-2.5 h-2.5 text-purple-600" /> Posted
+                                        </span>
+                                      ) : m.status === "COMPLETED" ? (
+                                        <button
+                                          type="button"
+                                          disabled={publishingMatchId === m.id}
+                                          onClick={async () => {
+                                            try {
+                                              setPublishingMatchId(m.id);
+                                              const res = await tournamentService.publishMatchResultToFeed(m.id);
+                                              setMatches(prev => ({
+                                                ...prev,
+                                                [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, feedResultPostId: res.postId, postToFeed: true } : row)
+                                              }));
+                                              toast.success(`Match #${m.matchNumber || i + 1} result published to Community Feed!`);
+                                            } catch (err: any) {
+                                              toast.error(err?.message || "Failed to publish result to feed");
+                                            } finally {
+                                              setPublishingMatchId(null);
+                                            }
+                                          }}
+                                          className="px-2 py-1 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                                          title="Publish official result to community feed"
+                                        >
+                                          <Send className="w-2.5 h-2.5" />
+                                          <span>{publishingMatchId === m.id ? "Posting..." : "Post to Feed"}</span>
+                                        </button>
+                                      ) : null}
                                     </div>
                                   </div>
                                 </div>
@@ -735,7 +771,8 @@ export function ScheduleAdminTab() {
                                   <th className="px-4 py-2 text-left font-medium">Schedule (Date &amp; Time)</th>
                                   <th className="px-4 py-2 text-left font-medium">Venue &amp; Court</th>
                                   <th className="px-4 py-2 text-left font-medium">Score</th>
-                                  <th className="px-4 py-2 text-left font-medium">Feed</th>
+                                  <th className="px-4 py-2 text-left font-medium" title="Real-time scoreboard on feed">Live Strip</th>
+                                  <th className="px-4 py-2 text-left font-medium" title="Official result post on feed stream">Feed Post</th>
                                   <th className="px-4 py-2 text-left font-medium">Status</th>
                                   <th className="px-4 py-2 text-right font-medium">Actions</th>
                                 </tr>
@@ -816,14 +853,14 @@ export function ScheduleAdminTab() {
                                           onClick={async () => {
                                             try {
                                               const next = m.showInFeed === true ? false : true;
-                                              await tournamentService.setFeedVisibility("match", m.id, next);
+                                              await tournamentService.setFeedSettings("match", m.id, { showInFeed: next });
                                               setMatches(prev => ({
                                                 ...prev,
                                                 [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, showInFeed: next } : row)
                                               }));
-                                              toast.success(`Match #${m.matchNumber || i + 1} feed broadcast set to ${next ? "ON" : "OFF"}`);
+                                              toast.success(`Match #${m.matchNumber || i + 1} live scoreboard set to ${next ? "ON" : "OFF"}`);
                                             } catch {
-                                              showError("Failed to update match feed setting");
+                                              showError("Failed to update match live setting");
                                             }
                                           }}
                                           className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
@@ -833,11 +870,49 @@ export function ScheduleAdminTab() {
                                               ? "bg-slate-100 text-slate-400 border-slate-200"
                                               : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
                                           }`}
-                                          title={m.showInFeed === true ? "Explicitly ON (click to turn OFF)" : m.showInFeed === false ? "Explicitly OFF (click to turn ON)" : "Inherit from Event (click to toggle)"}
+                                          title={m.showInFeed === true ? "Explicitly ON (click to turn OFF)" : m.showInFeed === false ? "Explicitly OFF (click to turn ON)" : "Inherits from Event"}
                                         >
                                           <Radio className="w-2.5 h-2.5" />
                                           <span>{m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
                                         </button>
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        {m.feedResultPostId ? (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Result has been published to Community Feed">
+                                            <Check className="w-2.5 h-2.5" /> Posted
+                                          </span>
+                                        ) : m.status === "COMPLETED" ? (
+                                          <button
+                                            type="button"
+                                            disabled={publishingMatchId === m.id}
+                                            onClick={async () => {
+                                              setPublishingMatchId(m.id);
+                                              try {
+                                                const res = await tournamentService.publishMatchResultToFeed(m.id);
+                                                if (res.postId) {
+                                                  setMatches(prev => ({
+                                                    ...prev,
+                                                    [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, feedResultPostId: res.postId, postToFeed: true } : row)
+                                                  }));
+                                                  toast.success("Match result posted to Community Feed!");
+                                                } else {
+                                                  toast.info(res.message || "Match result post handled");
+                                                }
+                                              } catch {
+                                                showError("Failed to publish result to feed");
+                                              } finally {
+                                                setPublishingMatchId(null);
+                                              }
+                                            }}
+                                            className="px-1.5 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer disabled:opacity-50"
+                                            title="Post official result to Community Feed"
+                                          >
+                                            <Send className="w-2.5 h-2.5" />
+                                            <span>{publishingMatchId === m.id ? "Posting..." : "Post to Feed"}</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400 font-medium">Stage Policy</span>
+                                        )}
                                       </td>
                                       <td className="px-4 py-2.5">
                                         <StatusBadge status={m.status} />
@@ -1040,6 +1115,19 @@ export function ScheduleAdminTab() {
       )}
 
       {/* Batch Reschedule / Rain Delay Modal */}
+      {broadcastModalState && (
+        <BroadcastSettingsModal
+          isOpen={broadcastModalState.isOpen}
+          onClose={() => setBroadcastModalState(null)}
+          targetId={broadcastModalState.id}
+          targetType={broadcastModalState.level}
+          targetTitle={broadcastModalState.title}
+          onUpdated={() => {
+            fetchConfigs();
+          }}
+        />
+      )}
+
       {batchRescheduleModalState && (
         <BatchRescheduleModal
           isOpen={batchRescheduleModalState.isOpen}

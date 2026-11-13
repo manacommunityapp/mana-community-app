@@ -62,6 +62,8 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   }, [matchId, state]);
 
   useEffect(() => {
+    setState(null);
+    setLoading(true);
     fetchState(false);
 
     const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {

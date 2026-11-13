@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -71,15 +71,30 @@ export function GenericLiveScoringPanel({
   const [matchMinute, setMatchMinute] = useState<number | undefined>();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [feedActive, setFeedActive] = useState<boolean>(true);
+  const [publishingFeed, setPublishingFeed] = useState<boolean>(false);
+  const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
     try {
-      await tournamentService.setFeedVisibility("match", matchId, next);
+      await tournamentService.setFeedSettings("match", matchId, { showInFeed: next });
       setFeedActive(next);
-      toast.success(next ? "Match broadcast live on Community Feed" : "Match removed from Community Feed");
+      toast.success(next ? "Match score visible on Live Now strip" : "Match hidden from Live Now strip");
     } catch {
-      toast.error("Failed to update feed visibility");
+      toast.error("Failed to update live strip setting");
+    }
+  };
+
+  const handlePublishResultToFeed = async () => {
+    setPublishingFeed(true);
+    try {
+      const res = await tournamentService.publishMatchResultToFeed(matchId);
+      setHasPublishedResult(true);
+      toast.success(res.message || "Match result posted to Community Feed!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to publish result to feed");
+    } finally {
+      setPublishingFeed(false);
     }
   };
 
@@ -282,7 +297,7 @@ export function GenericLiveScoringPanel({
             <button
               type="button"
               onClick={toggleFeedVisibility}
-              title="Toggle whether this match appears live on the community feed"
+              title="Toggle whether live score appears on the top Live Now strip"
               className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 feedActive
                   ? "bg-red-50 text-red-600 border-red-200"
@@ -290,7 +305,7 @@ export function GenericLiveScoringPanel({
               }`}
             >
               <Radio className="w-3 h-3 text-red-500 animate-pulse" />
-              <span>{feedActive ? "Feed: Live" : "Feed: Off"}</span>
+              <span>{feedActive ? "Live Strip: ON" : "Live Strip: OFF"}</span>
             </button>
             <button
               onClick={() => setShowCloseConfirm(true)}
@@ -589,6 +604,34 @@ export function GenericLiveScoringPanel({
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Completed Match Post-to-Feed Banner */}
+        {isCompleted && (
+          <div className="px-4 pb-3">
+            <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div className="text-xs">
+                <span className="font-bold text-indigo-900 dark:text-indigo-200 block">Match Completed</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[11px]">Publish official result card to Community Feed stream</span>
+              </div>
+              {hasPublishedResult ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-xs">
+                  <Check className="w-3.5 h-3.5" /> Posted
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={publishingFeed}
+                  onClick={handlePublishResultToFeed}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-xs cursor-pointer disabled:opacity-50"
+                  title="Create an official result post in the Community Feed"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{publishingFeed ? "Posting..." : "Post Result to Feed"}</span>
+                </button>
+              )}
             </div>
           </div>
         )}

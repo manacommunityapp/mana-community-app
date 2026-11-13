@@ -45,11 +45,11 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
     try {
-      await tournamentService.setFeedVisibility("match", matchId, next);
+      await tournamentService.setFeedSettings("match", matchId, { showInFeed: next });
       setFeedActive(next);
-      toast.success(next ? "Match is now visible on Community Feed" : "Match removed from Community Feed");
+      toast.success(next ? "Match score visible on Live Now strip" : "Match score hidden from Live Now strip");
     } catch {
-      toast.error("Failed to update feed visibility");
+      toast.error("Failed to update live strip setting");
     }
   };
   const [showOversAdjust, setShowOversAdjust] = useState(false);
@@ -267,7 +267,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
             <button
               type="button"
               onClick={toggleFeedVisibility}
-              title="Toggle whether this match appears live on the community feed"
+              title="Toggle whether live score appears on top Live Now strip"
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
                 feedActive
                   ? "bg-red-500/25 text-white border-red-300/60"
@@ -275,7 +275,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
               }`}
             >
               <Radio className="w-2.5 h-2.5" />
-              <span>{feedActive ? "Feed ON" : "Feed OFF"}</span>
+              <span>{feedActive ? "Live Strip ON" : "Live Strip OFF"}</span>
             </button>
           </div>
           <button onClick={handleClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">

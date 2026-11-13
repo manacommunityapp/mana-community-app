@@ -56,6 +56,8 @@ export function GenericLiveMatchView({
   }, [matchId, state]);
 
   useEffect(() => {
+    setState(null);
+    setLoading(true);
     fetchState(false);
 
     const unsub = stompClient.subscribe(
@@ -132,6 +134,16 @@ export function GenericLiveMatchView({
     periodLabels[state.currentPeriod - 1] || `Period ${state.currentPeriod}`;
   const isCompleted = state.status === "COMPLETED";
   const periodsToWin = state.scoringConfig?.periodsToWin || Math.max(state.periodsWonA, state.periodsWonB, 2);
+
+  const currentPeriodScore = state.periods.find(
+    (p) => p.periodNumber === state.currentPeriod
+  );
+  const activeScoreA = isSetBased(sportType)
+    ? (isCompleted ? state.periodsWonA : (currentPeriodScore ? currentPeriodScore.scoreTeamA : 0))
+    : state.scoreTeamA;
+  const activeScoreB = isSetBased(sportType)
+    ? (isCompleted ? state.periodsWonB : (currentPeriodScore ? currentPeriodScore.scoreTeamB : 0))
+    : state.scoreTeamB;
 
   return (
     <div
@@ -226,9 +238,9 @@ export function GenericLiveMatchView({
             {/* Score in Current Period */}
             <div className="text-center px-2 sm:px-6 shrink-0">
               <div className="text-3xl sm:text-5xl font-black text-white font-mono tracking-tight drop-shadow-sm">
-                {state.scoreTeamA}
+                {activeScoreA}
                 <span className="text-slate-400 mx-2 sm:mx-3 font-normal">:</span>
-                {state.scoreTeamB}
+                {activeScoreB}
               </div>
 
               {!isCompleted ? (

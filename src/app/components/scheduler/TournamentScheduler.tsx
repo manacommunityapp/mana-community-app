@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Layers, Sparkles } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
-import { tournamentService } from "../../../services/sports/tournamentService";
+import { tournamentService, type FeedVisibilityLevel } from "../../../services/sports/tournamentService";
+import { BroadcastSettingsModal } from "../sports/admin/BroadcastSettingsModal";
 import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { sportsService } from "../../../services/sports/sportsService";
 import type { EventRegistration } from "../../../types/api";
@@ -48,6 +49,12 @@ export function TournamentScheduler() {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [actionConfig, setActionConfig] = useState<{ config: ConfigInfo; type: "delete" | "publish" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [broadcastModalState, setBroadcastModalState] = useState<{
+    isOpen: boolean;
+    id: number;
+    level: FeedVisibilityLevel;
+    title: string;
+  } | null>(null);
 
   // Form State
   const [fTournamentId, setFTournamentId] = useState("");
@@ -570,16 +577,18 @@ export function TournamentScheduler() {
                       </>
                     ) : (
                       <button
-                        onClick={() => handleToggleFeed(c)}
-                        aria-label={`Toggle feed visibility for ${c.tournamentName}`}
-                        className={`inline-flex items-center justify-center gap-1 rounded-lg border py-2 px-2.5 text-xs font-bold transition cursor-pointer ${
-                          c.showInFeed === false
-                            ? "border-slate-200 bg-slate-50 text-slate-400"
-                            : "border-indigo-200 bg-indigo-50 text-indigo-700"
-                        }`}
+                        onClick={() => setBroadcastModalState({
+                          isOpen: true,
+                          id: (c.eventId || c.tournamentId || c.id) as number,
+                          level: c.eventId ? "event" : "tournament",
+                          title: c.tournamentName || "Tournament Broadcast Settings",
+                        })}
+                        aria-label={`Configure broadcast & feed settings for ${c.tournamentName}`}
+                        title="Configure Live Now strip and Feed Result Posting Policy"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 py-2 px-2.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 cursor-pointer"
                       >
                         <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
-                        <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                        <span>Broadcast &amp; Feed</span>
                       </button>
                     )}
                   </div>
@@ -650,17 +659,18 @@ export function TournamentScheduler() {
                             </>
                           ) : (
                             <button
-                              onClick={() => handleToggleFeed(c)}
-                              aria-label={`Toggle feed visibility for ${c.tournamentName}`}
-                              title={c.showInFeed === false ? "Hidden from Feed (click to show)" : "Shown in Live Feed (click to hide)"}
-                              className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
-                                c.showInFeed === false
-                                  ? "border-slate-200 bg-slate-50 text-slate-400 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-600"
-                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100"
-                              }`}
+                              onClick={() => setBroadcastModalState({
+                                isOpen: true,
+                                id: (c.eventId || c.tournamentId || c.id) as number,
+                                level: c.eventId ? "event" : "tournament",
+                                title: c.tournamentName || "Tournament Broadcast Settings",
+                              })}
+                              aria-label={`Configure broadcast & feed settings for ${c.tournamentName}`}
+                              title="Configure Live Now strip and Feed Result Posting Policy"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 cursor-pointer"
                             >
                               <Radio className={`h-3.5 w-3.5 ${c.showInFeed !== false ? "text-red-500 animate-pulse" : "text-slate-400"}`} />
-                              <span>{c.showInFeed === false ? "Feed Off" : "Feed Live"}</span>
+                              <span>Broadcast &amp; Feed</span>
                             </button>
                           )}
                         </div>
@@ -1711,6 +1721,17 @@ export function TournamentScheduler() {
             </div>
           </div>
         </div>
+      )}
+
+      {broadcastModalState && (
+        <BroadcastSettingsModal
+          isOpen={broadcastModalState.isOpen}
+          onClose={() => setBroadcastModalState(null)}
+          targetId={broadcastModalState.id}
+          targetType={broadcastModalState.level}
+          targetTitle={broadcastModalState.title}
+          onUpdated={() => loadData()}
+        />
       )}
 
       {actionConfig && (
