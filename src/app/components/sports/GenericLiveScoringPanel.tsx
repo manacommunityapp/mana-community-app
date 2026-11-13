@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders, Crown } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -95,6 +95,12 @@ export function GenericLiveScoringPanel({
   const [publishingFeed, setPublishingFeed] = useState<boolean>(false);
   const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+
+  const isCarrom = (sportType || "").toUpperCase().replace(/[\s-]/g, "_") === "CARROM";
+  const [carromMode, setCarromMode] = useState<"BOARD" | "STROKE">("BOARD");
+  const [carromWinner, setCarromWinner] = useState<"A" | "B">("A");
+  const [carromOpponentMen, setCarromOpponentMen] = useState<number>(3);
+  const [carromQueenCovered, setCarromQueenCovered] = useState<boolean>(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
@@ -294,6 +300,35 @@ export function GenericLiveScoringPanel({
   const currentPeriodLabel =
     periodLabels[state.currentPeriod - 1] || `Period ${state.currentPeriod}`;
 
+  const winnerPreScore = carromWinner === "A" ? (Number(state.scoreTeamA) || 0) : (Number(state.scoreTeamB) || 0);
+  const canCoverQueen = winnerPreScore < 21;
+  const effectiveQueenPoints = (carromQueenCovered && canCoverQueen) ? 3 : 0;
+  const carromBoardPoints = carromOpponentMen + effectiveQueenPoints;
+
+  const handleCarromBoardFinish = async () => {
+    if (!state || saving || isCompleted) return;
+    if (isUnassigned) {
+      toast.error(`Both ${isIndividual ? "players" : "teams"} must be assigned before recording score.`);
+      return;
+    }
+    setSaving(true);
+    const scoreA = carromWinner === "A" ? carromBoardPoints : 0;
+    const scoreB = carromWinner === "B" ? carromBoardPoints : 0;
+    const winnerName = carromWinner === "A" ? teamA.name : teamB.name;
+    try {
+      await tournamentService.recordPeriodScore(matchId, state.currentPeriod, scoreA, scoreB);
+      await tournamentService.completePeriod(matchId, state.currentPeriod);
+      await fetchState();
+      toast.success(`${currentPeriodLabel} saved: ${winnerName} awarded +${carromBoardPoints} pts!`);
+      setCarromOpponentMen(3);
+      setCarromQueenCovered(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to record board score");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Check whether individual periods/sets are completed
   const checkSetWon = (
     scoreA: number,
@@ -419,6 +454,8 @@ export function GenericLiveScoringPanel({
                   ? `Best of ${state.scoringConfig.periodsCount || 3} Sets • ${state.scoringConfig.pointsToWinPeriod || 21} pts${state.scoringConfig.mustWinByTwo ? " (Deuce)" : ""}${state.scoringConfig.tiebreakPointsToWin ? ` • Cap ${state.scoringConfig.tiebreakPointsToWin}` : ""}`
                   : isTimedSport(sportType)
                   ? `${state.scoringConfig.periodsCount || 2} Halves • ${state.scoringConfig.periodDurationMinutes || 45} mins${state.scoringConfig.hasOvertime ? " + OT" : ""}`
+                  : isCarrom
+                  ? `Carrom: First to ${state.scoringConfig.targetScore || 25} pts or lead after ${state.scoringConfig.periodsCount || 8} Boards`
                   : state.scoringConfig.targetScore
                   ? `Target: ${state.scoringConfig.targetScore} pts • ${state.scoringConfig.periodsCount || 1} Period`
                   : `${state.scoringConfig.periodsCount || 2} Periods`}
@@ -475,6 +512,11 @@ export function GenericLiveScoringPanel({
               {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
                 <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   Sets: {computedSetsWonA} - {computedSetsWonB}
+                </div>
+              )}
+              {isCarrom && (
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                  Target: {state.scoringConfig?.targetScore || 25} pts
                 </div>
               )}
             </div>
@@ -550,6 +592,49 @@ export function GenericLiveScoringPanel({
                   }}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Target score progress bar for Carrom */}
+          {isCarrom && (
+            <div className="mb-3">
+              {(() => {
+                const target = state.scoringConfig?.targetScore || 25;
+                const scoreA = Number(state.scoreTeamA) || 0;
+                const scoreB = Number(state.scoreTeamB) || 0;
+                return (
+                  <>
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+                      <span className="font-bold" style={{ color: teamA.color || "#6366f1" }}>
+                        {teamA.name}: {scoreA} / {target} pts
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        First to {target} pts
+                      </span>
+                      <span className="font-bold" style={{ color: teamB.color || "#f97316" }}>
+                        {teamB.name}: {scoreB} / {target} pts
+                      </span>
+                    </div>
+                    <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700">
+                      <div
+                        className="rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min((scoreA / target) * 50, 50)}%`,
+                          backgroundColor: teamA.color || "#6366f1",
+                        }}
+                      />
+                      <div className="flex-1" />
+                      <div
+                        className="rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min((scoreB / target) * 50, 50)}%`,
+                          backgroundColor: teamB.color || "#f97316",
+                        }}
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -634,8 +719,194 @@ export function GenericLiveScoringPanel({
           </div>
         )}
 
-        {/* Action buttons grid */}
-        {!isCompleted && (
+        {/* Carrom Mode Switch (Board vs Stroke) */}
+        {!isCompleted && isCarrom && (
+          <div className="px-4 pb-2.5 flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>👑</span>
+              <span>{currentPeriodLabel} Scoring</span>
+            </span>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setCarromMode("BOARD")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                  carromMode === "BOARD"
+                    ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Board Finisher (ICF)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCarromMode("STROKE")}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition cursor-pointer ${
+                  carromMode === "STROKE"
+                    ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Coin / Stroke
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Dedicated Carrom Board Finisher Interface */}
+        {!isCompleted && isCarrom && carromMode === "BOARD" && (
+          <div className="px-4 pb-3 space-y-3">
+            <div className="p-3.5 bg-gradient-to-b from-amber-50/50 to-orange-50/30 dark:from-slate-800/80 dark:to-slate-800/40 rounded-2xl border border-amber-200/70 dark:border-slate-700 shadow-sm space-y-3">
+              {/* Winner Selector */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  1. Which player won {currentPeriodLabel}?
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCarromWinner("A")}
+                    className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex items-center justify-center gap-2 ${
+                      carromWinner === "A"
+                        ? "bg-white dark:bg-slate-700 border-indigo-500 ring-2 ring-indigo-400/30 shadow-xs"
+                        : "bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                    }`}
+                  >
+                    <div
+                      className="w-3.5 h-3.5 rounded-full"
+                      style={{ backgroundColor: teamA.color || "#6366f1" }}
+                    />
+                    <span className="text-xs font-bold truncate text-slate-800 dark:text-slate-100">
+                      {teamA.name}
+                    </span>
+                    {carromWinner === "A" && (
+                      <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ml-auto" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCarromWinner("B")}
+                    className={`p-2.5 rounded-xl border text-center transition cursor-pointer flex items-center justify-center gap-2 ${
+                      carromWinner === "B"
+                        ? "bg-white dark:bg-slate-700 border-orange-500 ring-2 ring-orange-400/30 shadow-xs"
+                        : "bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                    }`}
+                  >
+                    <div
+                      className="w-3.5 h-3.5 rounded-full"
+                      style={{ backgroundColor: teamB.color || "#f97316" }}
+                    />
+                    <span className="text-xs font-bold truncate text-slate-800 dark:text-slate-100">
+                      {teamB.name}
+                    </span>
+                    {carromWinner === "B" && (
+                      <Check className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 ml-auto" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Opponent Carrom Men Remaining */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    2. Opponent Men Remaining on Board (1 pt each)
+                  </label>
+                  <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                    +{carromOpponentMen} {carromOpponentMen === 1 ? "pt" : "pts"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((men) => (
+                    <button
+                      key={men}
+                      type="button"
+                      onClick={() => setCarromOpponentMen(men)}
+                      className={`h-9 rounded-lg font-bold text-xs transition cursor-pointer ${
+                        carromOpponentMen === men
+                          ? "bg-indigo-600 text-white shadow-xs scale-105"
+                          : "bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-indigo-300"
+                      }`}
+                    >
+                      {men}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Queen Covered Toggle */}
+              <div className="p-2.5 bg-white dark:bg-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Queen Pocketed & Covered (+3 pts)
+                      </span>
+                      {canCoverQueen ? (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                          +3 pts
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                          Capped at 21
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {canCoverQueen
+                        ? "Awarded to the winner if queen was covered before last piece."
+                        : `ICF Rule: Winner pre-score is ${winnerPreScore} (>=21), so Queen earns 0 pts.`}
+                    </p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    disabled={!canCoverQueen}
+                    checked={carromQueenCovered && canCoverQueen}
+                    onChange={(e) => setCarromQueenCovered(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-500 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div>
+                </label>
+              </div>
+
+              {/* Total Board Points summary & Submit button */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  disabled={saving || isUnassigned}
+                  onClick={handleCarromBoardFinish}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white shadow-md active:scale-[0.98] transition cursor-pointer disabled:opacity-50 flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>👑 Complete {currentPeriodLabel}</span>
+                  </span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[11px] font-extrabold tracking-wide">
+                    Award +{carromBoardPoints} pts to {carromWinner === "A" ? teamA.name : teamB.name}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                Undo Last Event / Board
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons grid (Standard or Carrom Stroke mode) */}
+        {!isCompleted && (!isCarrom || carromMode === "STROKE") && (
           <div className="px-4 pb-3">
             <div className="grid grid-cols-2 gap-3">
               {/* Team A column */}
@@ -739,8 +1010,8 @@ export function GenericLiveScoringPanel({
           </div>
         )}
 
-        {/* Undo + Complete Period row */}
-        {!isCompleted && (
+        {/* Undo + Complete Period row (Standard or Carrom Stroke mode) */}
+        {!isCompleted && (!isCarrom || carromMode === "STROKE") && (
           <div className="px-4 pb-3 flex gap-2">
             <button
               onClick={handleUndo}

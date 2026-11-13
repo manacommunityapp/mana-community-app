@@ -43,7 +43,8 @@ export function MatchScoringRulesModal({
     "GRASS_VOLLEYBALL",
     "THROWBALL",
   ].includes(normSport);
-  const isTargetScore = ["CARROM", "FOOSBALL", "DART", "POOL", "BILLIARDS", "SNOOKER"].includes(normSport);
+  const isCarrom = normSport === "CARROM";
+  const isTargetScore = !isCarrom && ["FOOSBALL", "DART", "POOL", "BILLIARDS", "SNOOKER"].includes(normSport);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -149,7 +150,7 @@ export function MatchScoringRulesModal({
     setSaving(true);
     const payload: Partial<ScoringConfig> = {
       periodsCount,
-      periodsToWin,
+      periodsToWin: isCarrom ? undefined : periodsToWin,
       pointsToWinPeriod: isSetBased ? pointsToWinPeriod : undefined,
       mustWinByTwo: isSetBased ? mustWinByTwo : false,
       tiebreakPointsToWin: isSetBased ? tiebreakPointsToWin : undefined,
@@ -159,7 +160,7 @@ export function MatchScoringRulesModal({
       oversPerInnings: isCricket ? oversPerInnings : undefined,
       maxOversPerBowler: isCricket ? maxOversPerBowler : undefined,
       ballsPerOver: isCricket ? ballsPerOver : 6,
-      targetScore: isTargetScore ? targetScore : undefined,
+      targetScore: isTargetScore || isCarrom ? targetScore : undefined,
     };
 
     try {
@@ -242,6 +243,67 @@ export function MatchScoringRulesModal({
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
+                  {isCarrom && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyPreset({
+                            periodsCount: 8,
+                            targetScore: 25,
+                            periodsToWin: undefined,
+                            pointsToWinPeriod: undefined,
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 font-medium transition cursor-pointer active:scale-95"
+                      >
+                        🔴 ICF Standard (25 pts • 8 Boards)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyPreset({
+                            periodsCount: 6,
+                            targetScore: 15,
+                            periodsToWin: undefined,
+                            pointsToWinPeriod: undefined,
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 font-medium transition cursor-pointer active:scale-95"
+                      >
+                        ⚡ Fast Society (15 pts • 6 Boards)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyPreset({
+                            periodsCount: 4,
+                            targetScore: 15,
+                            periodsToWin: undefined,
+                            pointsToWinPeriod: undefined,
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 font-medium transition cursor-pointer active:scale-95"
+                      >
+                        🎯 Quick 4 Boards (15 pts)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyPreset({
+                            periodsCount: 1,
+                            targetScore: 25,
+                            periodsToWin: undefined,
+                            pointsToWinPeriod: undefined,
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-400 font-medium transition cursor-pointer active:scale-95"
+                      >
+                        ⏱ Single Board Decider
+                      </button>
+                    </>
+                  )}
+
                   {isSetBased && normSport.includes("BADMINTON") && (
                     <>
                       <button
@@ -742,6 +804,92 @@ export function MatchScoringRulesModal({
                 </div>
               )}
 
+              {/* Carrom Sport Configuration Fields */}
+              {isCarrom && (
+                <div className="space-y-3.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Target Score to Win
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={targetScore}
+                        onChange={(e) => setTargetScore(Number(e.target.value) || 25)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                      <div className="flex gap-1.5 mt-1.5">
+                        {[25, 15, 21, 29].map((pts) => (
+                          <button
+                            key={pts}
+                            type="button"
+                            onClick={() => setTargetScore(pts)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
+                              targetScore === pts
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                : "text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            {pts} pts
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                        Max Boards Limit
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={periodsCount}
+                        onChange={(e) => setPeriodsCount(Number(e.target.value) || 8)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                      <div className="flex gap-1.5 mt-1.5">
+                        {[8, 6, 4, 1].map((b) => (
+                          <button
+                            key={b}
+                            type="button"
+                            onClick={() => setPeriodsCount(b)}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border cursor-pointer ${
+                              periodsCount === b
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                : "text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            {b} {b === 1 ? "Board" : "Boards"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rules Explainer Box */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] space-y-1.5 text-slate-600 dark:text-slate-300">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span>👑</span>
+                      <span>Carrom Scoring & Queen Rules</span>
+                    </div>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-500 dark:text-slate-400 text-[10px]">
+                      <li>
+                        <strong>Board Points:</strong> Only the winner of each board scores: (opponent carrom men remaining, 1 pt each) + (Queen 3 pts if covered).
+                      </li>
+                      <li>
+                        <strong>Queen Rule:</strong> Queen 3-point bonus is only awarded if the winning player's score is <strong>less than 21 points</strong> before the board.
+                      </li>
+                      <li>
+                        <strong>Match Win:</strong> First to reach <strong>{targetScore} points</strong> OR whoever has the higher cumulative score after <strong>{periodsCount} boards</strong>.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+
               {/* Target Score Sport Fields */}
               {isTargetScore && (
                 <div className="space-y-3.5 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -791,6 +939,8 @@ export function MatchScoringRulesModal({
                       }`
                     : isCricket
                     ? `${oversPerInnings} Overs per Innings (${maxOversPerBowler} overs max per bowler)`
+                    : isCarrom
+                    ? `Carrom Board Format: First to ${targetScore} pts or lead after ${periodsCount} Boards`
                     : isTargetScore
                     ? `Target: ${targetScore} pts across ${periodsCount} boards`
                     : `${periodsCount} Periods`}
