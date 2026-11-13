@@ -181,7 +181,10 @@ function getRoundHeader(roundName: string): string {
   if (roundName === 'FINAL') return 'Finals';
   if (roundName === 'SEMI_FINAL') return 'Semi-Finals';
   if (roundName === 'QUARTER_FINAL') return 'Quarter-Finals';
-  return roundName;
+  if (roundName === 'ROUND_OF_16') return 'Round of 16';
+  if (roundName === 'ROUND_OF_32') return 'Round of 32';
+  if (roundName === 'ROUND_OF_64') return 'Round of 64';
+  return roundName.replace(/_/g, ' ');
 }
 
 function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: number }) {
@@ -256,8 +259,13 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
     const rMatches = roundsMatches[rIndex] || [];
     
     rMatches.forEach((m, idx) => {
-      const homeParentId = findParentMatchId(m.home.id, prevMatches);
-      const awayParentId = findParentMatchId(m.away.id, prevMatches);
+      let homeParentId = findParentMatchId(m.home.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
 
       const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
       const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
@@ -334,8 +342,13 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
                   if (colIdx > 0) {
                     const prevRoundIdx = roundIndices[colIdx - 1];
                     const prevMatches = roundsMatches[prevRoundIdx] || [];
-                    const homeParentId = findParentMatchId(m.home.id, prevMatches);
-                    const awayParentId = findParentMatchId(m.away.id, prevMatches);
+                    let homeParentId = findParentMatchId(m.home.id, prevMatches);
+                    let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+                    if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+                      homeParentId = prevMatches[idx * 2]?.id;
+                      awayParentId = prevMatches[idx * 2 + 1]?.id;
+                    }
 
                     const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
                     const awayTop = awayParentId ? matchTops[awayParentId] : undefined;

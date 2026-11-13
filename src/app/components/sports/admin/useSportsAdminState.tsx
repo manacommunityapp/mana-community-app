@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3, Dumbbell } from "lucide-react";
 import { format } from "date-fns";

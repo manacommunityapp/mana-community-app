@@ -1433,7 +1433,8 @@ export function exportBracketToPDF(
     roundsMatches[rIndex] = bracketMatches.filter(m => m.roundIndex === rIndex);
   });
 
-  const baseSpacing = 160;
+  const firstRoundMatches = roundIndices.length > 0 ? (roundsMatches[roundIndices[0]] || []) : [];
+  const baseSpacing = firstRoundMatches.length > 8 ? 120 : 160;
   const matchTops: Record<string, number> = {};
 
   function findParentMatchId(participantId: string | undefined, prevMatches: ExportableBracketMatch[]): string | undefined {
@@ -1446,9 +1447,7 @@ export function exportBracketToPDF(
 
   // First round spacing
   if (roundIndices.length > 0) {
-    const firstRoundIdx = roundIndices[0];
-    const firstMatches = roundsMatches[firstRoundIdx] || [];
-    firstMatches.forEach((m, idx) => {
+    firstRoundMatches.forEach((m, idx) => {
       matchTops[m.id] = 50 + idx * baseSpacing;
     });
   }
@@ -1461,8 +1460,14 @@ export function exportBracketToPDF(
     const prevMatches = roundsMatches[prevRIdx] || [];
 
     currMatches.forEach((m, idx) => {
-      const homeParentId = findParentMatchId(m.home?.id, prevMatches);
-      const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+      let homeParentId = findParentMatchId(m.home?.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away?.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
+
       const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
       const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
 
@@ -1488,6 +1493,7 @@ export function exportBracketToPDF(
     if (roundName === "QUARTER_FINAL") return "Quarter-Finals";
     if (roundName === "ROUND_OF_16") return "Round of 16";
     if (roundName === "ROUND_OF_32") return "Round of 32";
+    if (roundName === "ROUND_OF_64") return "Round of 64";
     return roundName.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
   }
 
@@ -1508,8 +1514,14 @@ export function exportBracketToPDF(
       if (colIdx > 0) {
         const prevRoundIdx = roundIndices[colIdx - 1];
         const prevMatches = roundsMatches[prevRoundIdx] || [];
-        const homeParentId = findParentMatchId(m.home?.id, prevMatches);
-        const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+        let homeParentId = findParentMatchId(m.home?.id, prevMatches);
+        let awayParentId = findParentMatchId(m.away?.id, prevMatches);
+
+        if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+          homeParentId = prevMatches[idx * 2]?.id;
+          awayParentId = prevMatches[idx * 2 + 1]?.id;
+        }
+
         const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
         const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
 

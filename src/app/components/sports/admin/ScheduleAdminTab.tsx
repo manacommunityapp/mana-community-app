@@ -378,6 +378,8 @@ export function ScheduleAdminTab() {
                   const stageCounts: Record<TournamentStageKey, number> = {
                     ALL: validCfgMatches.length,
                     GROUP: 0,
+                    ROUND_OF_64: 0,
+                    ROUND_OF_32: 0,
                     ROUND_OF_16: 0,
                     QUARTER_FINAL: 0,
                     SEMI_FINAL: 0,
@@ -393,6 +395,8 @@ export function ScheduleAdminTab() {
                   const stagePills: { key: TournamentStageKey; label: string; count: number }[] = [
                     { key: 'ALL', label: 'All Stages', count: stageCounts.ALL },
                     ...(stageCounts.GROUP > 0 ? [{ key: 'GROUP' as const, label: 'Group Stages', count: stageCounts.GROUP }] : []),
+                    ...(stageCounts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: stageCounts.ROUND_OF_64 }] : []),
+                    ...(stageCounts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: stageCounts.ROUND_OF_32 }] : []),
                     ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: stageCounts.ROUND_OF_16 }] : []),
                     ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: 'QUARTER_FINAL' as const, label: 'Quarter-Finals', count: stageCounts.QUARTER_FINAL }] : []),
                     ...(stageCounts.SEMI_FINAL > 0 ? [{ key: 'SEMI_FINAL' as const, label: 'Semi-Finals', count: stageCounts.SEMI_FINAL }] : []),
@@ -418,6 +422,8 @@ export function ScheduleAdminTab() {
                     const exportData = prepareExportableMatches(cfgMatches, activeStage, resolvedSport);
                     const stageName = activeStage === 'ALL' ? 'Full_Schedule' :
                       activeStage === 'GROUP' ? 'Group_Stage' :
+                      activeStage === 'ROUND_OF_64' ? 'Round_of_64' :
+                      activeStage === 'ROUND_OF_32' ? 'Round_of_32' :
                       activeStage === 'ROUND_OF_16' ? 'Round_of_16' :
                       activeStage === 'QUARTER_FINAL' ? 'Quarter_Finals' :
                       activeStage === 'SEMI_FINAL' ? 'Semi_Finals' :
@@ -610,6 +616,8 @@ export function ScheduleAdminTab() {
                                 stage === 'SEMI_FINAL' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                                 stage === 'QUARTER_FINAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 stage === 'ROUND_OF_16' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                                stage === 'ROUND_OF_32' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' :
+                                stage === 'ROUND_OF_64' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                                 'bg-slate-50 text-slate-600 border-slate-200';
 
                               return (
@@ -787,6 +795,8 @@ export function ScheduleAdminTab() {
                                     stage === 'SEMI_FINAL' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                                     stage === 'QUARTER_FINAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                     stage === 'ROUND_OF_16' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                                    stage === 'ROUND_OF_32' ? 'bg-cyan-50 text-cyan-700 border-cyan-200' :
+                                    stage === 'ROUND_OF_64' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                                     'bg-slate-50 text-slate-600 border-slate-200';
 
                                   return (

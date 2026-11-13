@@ -10,7 +10,7 @@ import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
-import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../utils/sportsExportUtils";
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF, exportBracketToPDF } from "../../../utils/sportsExportUtils";
 import {
   ScheduleExportModal,
   prepareExportableMatches,
@@ -705,6 +705,9 @@ export function TournamentScheduler() {
           }
           const stageSuffix = stageFilter === "ALL" ? "Full_Schedule" :
             stageFilter === "GROUP" ? "Group_Stage" :
+            stageFilter === "ROUND_OF_64" ? "Round_of_64" :
+            stageFilter === "ROUND_OF_32" ? "Round_of_32" :
+            stageFilter === "ROUND_OF_16" ? "Round_of_16" :
             stageFilter === "QUARTER_FINAL" ? "Quarter_Finals" :
             stageFilter === "SEMI_FINAL" ? "Semi_Finals" :
             stageFilter === "FINAL" ? "Finals" : stageFilter;
@@ -719,6 +722,8 @@ export function TournamentScheduler() {
         const stageCounts: Record<TournamentStageKey, number> = {
           ALL: viewMatches.length,
           GROUP: 0,
+          ROUND_OF_64: 0,
+          ROUND_OF_32: 0,
           ROUND_OF_16: 0,
           QUARTER_FINAL: 0,
           SEMI_FINAL: 0,
@@ -733,6 +738,8 @@ export function TournamentScheduler() {
         const availableStages: { key: TournamentStageKey; label: string; count: number }[] = [
           { key: "ALL", label: "Full Tournament", count: stageCounts.ALL },
           ...(stageCounts.GROUP > 0 ? [{ key: "GROUP" as const, label: "Group Stage", count: stageCounts.GROUP }] : []),
+          ...(stageCounts.ROUND_OF_64 > 0 ? [{ key: "ROUND_OF_64" as const, label: "Round of 64", count: stageCounts.ROUND_OF_64 }] : []),
+          ...(stageCounts.ROUND_OF_32 > 0 ? [{ key: "ROUND_OF_32" as const, label: "Round of 32", count: stageCounts.ROUND_OF_32 }] : []),
           ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: "ROUND_OF_16" as const, label: "Round of 16", count: stageCounts.ROUND_OF_16 }] : []),
           ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: "QUARTER_FINAL" as const, label: "Quarter-Finals", count: stageCounts.QUARTER_FINAL }] : []),
           ...(stageCounts.SEMI_FINAL > 0 ? [{ key: "SEMI_FINAL" as const, label: "Semi-Finals", count: stageCounts.SEMI_FINAL }] : []),
@@ -754,6 +761,8 @@ export function TournamentScheduler() {
             stageKey === "SEMI_FINAL" ? "Semi-Finals" :
             stageKey === "FINAL" ? "Final" :
             stageKey === "THIRD_PLACE" ? "3rd Place" :
+            stageKey === "ROUND_OF_64" ? "Round of 64" :
+            stageKey === "ROUND_OF_32" ? "Round of 32" :
             stageKey === "ROUND_OF_16" ? "Round of 16" : (m.roundName || `Round ${m.roundNumber || 1}`);
 
           return {
@@ -833,9 +842,9 @@ export function TournamentScheduler() {
           if (s.includes('SEMI')) return 'SEMI_FINAL';
           if (s.includes('FINAL') && !s.includes('SEMI') && !s.includes('QUARTER') && !s.includes('THIRD')) return 'FINAL';
           if (s.includes('THIRD') || s.includes('3RD') || s.includes('BRONZE')) return 'THIRD_PLACE';
-          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
-          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
           if (s.includes('64') || s.includes('ROUND_OF_64')) return 'ROUND_OF_64';
+          if (s.includes('32') || s.includes('ROUND_OF_32')) return 'ROUND_OF_32';
+          if (s.includes('16') || s.includes('ROUND_OF_16')) return 'ROUND_OF_16';
           return 'FINAL';
         };
         const playoffMatchesForBracket: PlayoffMatchDraft[] = viewMatches
@@ -876,6 +885,21 @@ export function TournamentScheduler() {
               status: m.status ?? null,
             } satisfies PlayoffMatchDraft;
           });
+
+        const handleExportBracketPDF = () => {
+          if (playoffMatchesForBracket.length === 0) {
+            showToast("No bracket matches available to download", "error");
+            return;
+          }
+          const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
+          exportBracketToPDF(
+            playoffMatchesForBracket as any,
+            `${viewingConfig.tournamentName || "Tournament"} Knockout Draw`,
+            "Mana Community Sports",
+            resolvedSport
+          );
+          showToast("Exported tournament bracket draw as PDF", "success");
+        };
 
         return (
           <>
@@ -990,6 +1014,24 @@ export function TournamentScheduler() {
                                 </div>
                               </button>
 
+                              {/* Visual Bracket PDF Draw Download */}
+                              {playoffMatchesForBracket.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowExportMenu(false);
+                                    handleExportBracketPDF();
+                                  }}
+                                  className="w-full flex items-center gap-2.5 p-2.5 text-xs text-purple-700 bg-purple-50/80 hover:bg-purple-100/90 rounded-lg transition-colors cursor-pointer text-left font-medium border border-purple-200/80"
+                                >
+                                  <Download className="h-4 w-4 text-purple-600 shrink-0" />
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-purple-900">Download Bracket Draw (PDF)</span>
+                                    <span className="text-[10px] text-purple-600">Printable multi-round tree diagram with connectors</span>
+                                  </div>
+                                </button>
+                              )}
+
                               {/* Stage Specific Download Sections */}
                               <div className="px-2 pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100">
                                 Stage-wise Downloads
@@ -1099,7 +1141,7 @@ export function TournamentScheduler() {
                               <PlayoffBracketView
                                 matches={playoffMatchesForBracket}
                                 onEditMatch={() => {}}
-                                onDownloadBracket={() => handleExport("pdf", "FINAL")}
+                                onDownloadBracket={handleExportBracketPDF}
                                 resolveVenueName={(id) => venue?.name || ""}
                                 resolveCourtName={(_courtId) => ""}
                               />

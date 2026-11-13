@@ -23,6 +23,8 @@ import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
 export type TournamentStageKey =
   | 'ALL'
   | 'GROUP'
+  | 'ROUND_OF_64'
+  | 'ROUND_OF_32'
   | 'ROUND_OF_16'
   | 'QUARTER_FINAL'
   | 'SEMI_FINAL'
@@ -84,14 +86,56 @@ export function getMatchStage(m: any): TournamentStageKey {
     return 'QUARTER_FINAL';
   }
 
-  // 6. Round of 16 / Pre-Quarters / Round 1 of knockout
+  // 6. Round of 64
   if (
-    roundStr === 'ROUND_OF_16' || roundStr === 'ROUND_OF_32' || roundStr === 'ROUND_OF_64' ||
-    roundStr.includes('ROUND OF 16') || roundStr.includes('ROUND OF 32') || roundStr.includes('ROUND OF 64') ||
-    roundStr.includes('R16') || roundStr.includes('R32') || roundStr.includes('1/8') ||
-    roundStr === 'ROUND 1' || roundStr === 'ROUND_1' ||
-    groupStr.includes('ROUND OF 16') || /ROUND[\s_-]*1\b/i.test(groupStr) || /ROUND[\s_-]*1\b/i.test(roundStr)
+    roundStr === 'ROUND_OF_64' ||
+    roundStr.includes('ROUND OF 64') ||
+    roundStr.includes('R64') ||
+    roundStr.includes('1/32') ||
+    /\b64\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 64') ||
+    /\b64\b/.test(groupStr)
   ) {
+    return 'ROUND_OF_64';
+  }
+
+  // 7. Round of 32
+  if (
+    roundStr === 'ROUND_OF_32' ||
+    roundStr.includes('ROUND OF 32') ||
+    roundStr.includes('R32') ||
+    roundStr.includes('1/16') ||
+    /\b32\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 32') ||
+    /\b32\b/.test(groupStr)
+  ) {
+    return 'ROUND_OF_32';
+  }
+
+  // 8. Round of 16 / Pre-Quarters
+  if (
+    roundStr === 'ROUND_OF_16' ||
+    roundStr.includes('ROUND OF 16') ||
+    roundStr.includes('R16') ||
+    roundStr.includes('1/8') ||
+    roundStr.includes('PRE-QUARTER') ||
+    /\b16\b/.test(roundStr) ||
+    groupStr.includes('ROUND OF 16') ||
+    groupStr.includes('PRE-QUARTER') ||
+    /\b16\b/.test(groupStr)
+  ) {
+    return 'ROUND_OF_16';
+  }
+
+  // Generic "Round 1" of a knockout bracket
+  if (
+    roundStr === 'ROUND 1' || roundStr === 'ROUND_1' ||
+    /ROUND[\s_-]*1\b/i.test(groupStr) || /ROUND[\s_-]*1\b/i.test(roundStr)
+  ) {
+    const matchNum = Number(m.matchNumber || m.matchId || 0);
+    const bracketSlot = Number(m.bracketSlot || 0);
+    if (matchNum > 16 || bracketSlot > 32) return 'ROUND_OF_64';
+    if (matchNum > 8 || bracketSlot > 16) return 'ROUND_OF_32';
     return 'ROUND_OF_16';
   }
 
@@ -252,6 +296,8 @@ export function prepareExportableMatches(
       stageKey === 'SEMI_FINAL' ? 'Semi-Finals' :
       stageKey === 'FINAL' ? 'Final' :
       stageKey === 'THIRD_PLACE' ? '3rd Place' :
+      stageKey === 'ROUND_OF_64' ? 'Round of 64' :
+      stageKey === 'ROUND_OF_32' ? 'Round of 32' :
       stageKey === 'ROUND_OF_16' ? 'Round of 16' : 'Match';
 
     const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
@@ -323,6 +369,8 @@ export function ScheduleExportModal({
     const counts: Record<TournamentStageKey, number> = {
       ALL: matches.length,
       GROUP: 0,
+      ROUND_OF_64: 0,
+      ROUND_OF_32: 0,
       ROUND_OF_16: 0,
       QUARTER_FINAL: 0,
       SEMI_FINAL: 0,
@@ -340,6 +388,8 @@ export function ScheduleExportModal({
     const list: StageOption[] = [
       { key: 'ALL', label: 'All Stages', count: counts.ALL },
       { key: 'GROUP', label: 'Group Stages', count: counts.GROUP },
+      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64 }] : []),
+      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32 }] : []),
       ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16 }] : []),
       { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL },
       { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL },
@@ -361,6 +411,8 @@ export function ScheduleExportModal({
       case 'SEMI_FINAL': return `${base}_Semi_Finals`;
       case 'FINAL': return `${base}_Final`;
       case 'THIRD_PLACE': return `${base}_3rd_Place`;
+      case 'ROUND_OF_64': return `${base}_Round_of_64`;
+      case 'ROUND_OF_32': return `${base}_Round_of_32`;
       case 'ROUND_OF_16': return `${base}_Round_of_16`;
       default: return `${base}_Schedule`;
     }
@@ -389,6 +441,8 @@ export function ScheduleExportModal({
     setIsExporting(true);
     const stagesToExport: TournamentStageKey[] = [
       'GROUP',
+      ...(stageStats.some(s => s.key === 'ROUND_OF_64' && s.count > 0) ? ['ROUND_OF_64' as const] : []),
+      ...(stageStats.some(s => s.key === 'ROUND_OF_32' && s.count > 0) ? ['ROUND_OF_32' as const] : []),
       ...(stageStats.some(s => s.key === 'ROUND_OF_16' && s.count > 0) ? ['ROUND_OF_16' as const] : []),
       'QUARTER_FINAL',
       'SEMI_FINAL',

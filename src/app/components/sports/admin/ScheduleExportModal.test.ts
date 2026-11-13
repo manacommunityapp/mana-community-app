@@ -39,9 +39,24 @@ describe('ScheduleExportModal Helpers', () => {
       expect(getMatchStage({ round: 'ROUND_OF_16' })).toBe('ROUND_OF_16');
       expect(getMatchStage({ roundName: 'Round of 16' })).toBe('ROUND_OF_16');
       expect(getMatchStage({ round: 'R16 Match 4' })).toBe('ROUND_OF_16');
-      expect(getMatchStage({ round: 'R16 Match 4' })).toBe('ROUND_OF_16');
       expect(getMatchStage({ roundName: 'Round 1 Match 1' })).toBe('ROUND_OF_16');
       expect(getMatchStage({ groupName: 'Round 1 Match 5' })).toBe('ROUND_OF_16');
+    });
+
+    it('identifies Round of 32 correctly', () => {
+      expect(getMatchStage({ round: 'ROUND_OF_32' })).toBe('ROUND_OF_32');
+      expect(getMatchStage({ roundName: 'Round of 32' })).toBe('ROUND_OF_32');
+      expect(getMatchStage({ round: 'R32 Match 7' })).toBe('ROUND_OF_32');
+      expect(getMatchStage({ groupName: 'Round of 32 - Match 1' })).toBe('ROUND_OF_32');
+      expect(getMatchStage({ round: 'Round 1', matchNumber: 12 })).toBe('ROUND_OF_32');
+    });
+
+    it('identifies Round of 64 correctly', () => {
+      expect(getMatchStage({ round: 'ROUND_OF_64' })).toBe('ROUND_OF_64');
+      expect(getMatchStage({ roundName: 'Round of 64' })).toBe('ROUND_OF_64');
+      expect(getMatchStage({ round: 'R64 Match 22' })).toBe('ROUND_OF_64');
+      expect(getMatchStage({ groupName: 'Round of 64' })).toBe('ROUND_OF_64');
+      expect(getMatchStage({ round: 'Round 1', matchNumber: 25 })).toBe('ROUND_OF_64');
     });
 
     it('identifies Group Stage matches correctly even if tournament or match title contains Final', () => {
@@ -71,6 +86,28 @@ describe('ScheduleExportModal Helpers', () => {
       expect(counts.SEMI_FINAL).toBe(2);
       expect(counts.QUARTER_FINAL).toBe(4);
       expect(counts.ROUND_OF_16).toBe(8);
+    });
+
+    it('accurately distributes a 32-player knockout tournament (16 R32, 8 R16, 4 QF, 2 SF, 1 Final)', () => {
+      const matches = [
+        ...Array.from({ length: 16 }, (_, i) => ({ matchNumber: i + 1, roundName: 'ROUND_OF_32', groupName: `Round of 32 Match ${i + 1}` })),
+        ...Array.from({ length: 8 }, (_, i) => ({ matchNumber: i + 17, roundName: 'ROUND_OF_16', groupName: `Round of 16 Match ${i + 1}` })),
+        ...Array.from({ length: 4 }, (_, i) => ({ matchNumber: i + 25, roundName: 'QUARTER_FINAL', groupName: `Quarter Final ${i + 1}` })),
+        ...Array.from({ length: 2 }, (_, i) => ({ matchNumber: i + 29, roundName: 'SEMI_FINAL', groupName: `Semi-Final ${i + 1}` })),
+        { matchNumber: 31, roundName: 'FINAL', groupName: 'Final' },
+      ];
+
+      const counts = { ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINAL: 0, SEMI_FINAL: 0, FINAL: 0 };
+      matches.forEach(m => {
+        const stage = getMatchStage(m) as keyof typeof counts;
+        counts[stage]++;
+      });
+
+      expect(counts.FINAL).toBe(1);
+      expect(counts.SEMI_FINAL).toBe(2);
+      expect(counts.QUARTER_FINAL).toBe(4);
+      expect(counts.ROUND_OF_16).toBe(8);
+      expect(counts.ROUND_OF_32).toBe(16);
     });
   });
 
@@ -253,6 +290,28 @@ describe('ScheduleExportModal Helpers', () => {
       const finalsExport = prepareExportableMatches(matchesWith3rdPlace, 'FINAL');
       expect(finalsExport).toHaveLength(2); // Both Championship Final + 3rd place match
       expect(finalsExport.map(m => m.round)).toEqual(['Final', '3rd Place']);
+    });
+
+    it('labels Round of 32 and Round of 64 accurately and keeps stages separated', () => {
+      const mixedMatches = [
+        { matchNumber: 1, round: 'ROUND_OF_32', teamAName: 'A1', teamBName: 'A2' },
+        { matchNumber: 2, round: 'ROUND_OF_32', teamAName: 'A3', teamBName: 'A4' },
+        { matchNumber: 3, round: 'ROUND_OF_16', teamAName: 'B1', teamBName: 'B2' },
+        { matchNumber: 4, round: 'ROUND_OF_64', teamAName: 'C1', teamBName: 'C2' },
+      ];
+
+      const r32Export = prepareExportableMatches(mixedMatches, 'ROUND_OF_32');
+      expect(r32Export).toHaveLength(2);
+      expect(r32Export[0].round).toBe('Round of 32');
+      expect(r32Export[1].round).toBe('Round of 32');
+
+      const r16Export = prepareExportableMatches(mixedMatches, 'ROUND_OF_16');
+      expect(r16Export).toHaveLength(1);
+      expect(r16Export[0].round).toBe('Round of 16');
+
+      const r64Export = prepareExportableMatches(mixedMatches, 'ROUND_OF_64');
+      expect(r64Export).toHaveLength(1);
+      expect(r64Export[0].round).toBe('Round of 64');
     });
 
     it('preserves sport when present on the match object', () => {
