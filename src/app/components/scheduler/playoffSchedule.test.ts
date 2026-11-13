@@ -193,5 +193,135 @@ describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
       expect(m.away.name).not.toBe('BYE');
     }
   });
+
+  it('correctly produces distinct matchups for TRADITIONAL, SEQUENTIAL, RANKING, and RANDOM sequences', () => {
+    const players = [
+      { id: 'p1', name: 'Alice', flatNumber: 'A101', rating: 1100 },
+      { id: 'p2', name: 'Bob', flatNumber: 'B101', rating: 1200 },
+      { id: 'p3', name: 'Charlie', flatNumber: 'C101', rating: 1300 },
+      { id: 'p4', name: 'David', flatNumber: 'D101', rating: 1400 },
+      { id: 'p5', name: 'Eve', flatNumber: 'E101', rating: 1500 },
+      { id: 'p6', name: 'Frank', flatNumber: 'F101', rating: 1600 },
+      { id: 'p7', name: 'Grace', flatNumber: 'G101', rating: 1700 },
+      { id: 'p8', name: 'Heidi', flatNumber: 'H101', rating: 1800 },
+    ];
+
+    const baseConfig = {
+      numGroups: 1,
+      proceedersPerGroup: 8,
+      thirdPlaceMatch: false,
+      startDate: '2026-06-20',
+      startTime: '08:00 AM',
+      matchDurationMinutes: 30,
+      breakMinutes: 10,
+      venueId: null,
+      courtId: null,
+      participants: players,
+    };
+
+    // 1. TRADITIONAL: seed 1 (Alice) vs seed 8 (Heidi), seed 4 (David) vs seed 5 (Eve), seed 2 (Bob) vs seed 7 (Grace), seed 3 (Charlie) vs seed 6 (Frank)
+    const trad = buildPlayoffBracket({ ...baseConfig, seedingOrder: 'TRADITIONAL' });
+    const tradR1 = trad.filter(m => m.round === 'QUARTER_FINAL');
+    expect(tradR1).toHaveLength(4);
+    expect(tradR1[0].home.name).toBe('Alice');
+    expect(tradR1[0].away.name).toBe('Heidi');
+    expect(tradR1[1].home.name).toBe('David');
+    expect(tradR1[1].away.name).toBe('Eve');
+    expect(tradR1[2].home.name).toBe('Bob');
+    expect(tradR1[2].away.name).toBe('Grace');
+    expect(tradR1[3].home.name).toBe('Charlie');
+    expect(tradR1[3].away.name).toBe('Frank');
+
+    // 2. SEQUENTIAL: consecutive adjacent pairs (P1 vs P2, P3 vs P4, P5 vs P6, P7 vs P8)
+    const seq = buildPlayoffBracket({ ...baseConfig, seedingOrder: 'SEQUENTIAL' });
+    const seqR1 = seq.filter(m => m.round === 'QUARTER_FINAL');
+    expect(seqR1).toHaveLength(4);
+    expect(seqR1[0].home.name).toBe('Alice');
+    expect(seqR1[0].away.name).toBe('Bob');
+    expect(seqR1[1].home.name).toBe('Charlie');
+    expect(seqR1[1].away.name).toBe('David');
+    expect(seqR1[2].home.name).toBe('Eve');
+    expect(seqR1[2].away.name).toBe('Frank');
+    expect(seqR1[3].home.name).toBe('Grace');
+    expect(seqR1[3].away.name).toBe('Heidi');
+
+    // 3. RANKING: sorted by rating descending (Heidi=1800, Grace=1700, Frank=1600, Eve=1500, David=1400, Charlie=1300, Bob=1200, Alice=1100)
+    // Seed 1 (Heidi) vs Seed 8 (Alice) in Match 0, Seed 4 (Eve) vs Seed 5 (David) in Match 1, Seed 2 (Grace) vs Seed 7 (Bob) in Match 2, Seed 3 (Frank) vs Seed 6 (Charlie) in Match 3
+    const rank = buildPlayoffBracket({ ...baseConfig, seedingOrder: 'RANKING' });
+    const rankR1 = rank.filter(m => m.round === 'QUARTER_FINAL');
+    expect(rankR1).toHaveLength(4);
+    expect(rankR1[0].home.name).toBe('Heidi');
+    expect(rankR1[0].away.name).toBe('Alice');
+    expect(rankR1[1].home.name).toBe('Eve');
+    expect(rankR1[1].away.name).toBe('David');
+    expect(rankR1[2].home.name).toBe('Grace');
+    expect(rankR1[2].away.name).toBe('Bob');
+    expect(rankR1[3].home.name).toBe('Frank');
+    expect(rankR1[3].away.name).toBe('Charlie');
+
+    // 4. RANDOM: matches all 8 players in 4 quarter-finals
+    const rand = buildPlayoffBracket({ ...baseConfig, seedingOrder: 'RANDOM' });
+    const randR1 = rand.filter(m => m.round === 'QUARTER_FINAL');
+    expect(randR1).toHaveLength(4);
+    const scheduledNames = new Set(randR1.flatMap(m => [m.home.name, m.away.name]));
+    expect(scheduledNames.size).toBe(8);
+  });
+
+  it('renders initial 16 draw with BYEs for odd number of players (e.g. 11 players in a 16-draw bracket)', () => {
+    const players11 = [
+      { id: 'P1', name: 'Player 1', flatNumber: 'A101' },
+      { id: 'P2', name: 'Player 2', flatNumber: 'A102' },
+      { id: 'P3', name: 'Player 3', flatNumber: 'A103' },
+      { id: 'P4', name: 'Player 4', flatNumber: 'A104' },
+      { id: 'P5', name: 'Player 5', flatNumber: 'A105' },
+      { id: 'P6', name: 'Player 6', flatNumber: 'A106' },
+      { id: 'P7', name: 'Player 7', flatNumber: 'A107' },
+      { id: 'P8', name: 'Player 8', flatNumber: 'A108' },
+      { id: 'P9', name: 'Player 9', flatNumber: 'A109' },
+      { id: 'P10', name: 'Player 10', flatNumber: 'A110' },
+      { id: 'P11', name: 'Player 11', flatNumber: 'A111' },
+    ];
+
+    // With includeByesInBracket: true -> R1 (ROUND_OF_16) has 8 matches (3 regular + 5 with BYEs)
+    const bracketWithByes = buildPlayoffBracket({
+      numGroups: 1,
+      proceedersPerGroup: 11,
+      seedingOrder: 'TRADITIONAL',
+      thirdPlaceMatch: false,
+      startDate: '2026-06-20',
+      startTime: '08:00 AM',
+      matchDurationMinutes: 30,
+      breakMinutes: 10,
+      venueId: null,
+      courtId: null,
+      participants: players11,
+      includeByesInBracket: true,
+    });
+
+    const r1WithByes = bracketWithByes.filter(m => m.round === 'ROUND_OF_16');
+    expect(r1WithByes).toHaveLength(8);
+
+    const byeMatches = r1WithByes.filter(m => m.home.name === 'BYE' || m.away.name === 'BYE');
+    expect(byeMatches).toHaveLength(5); // 16 - 11 = 5 byes
+
+    // Without includeByesInBracket: false -> R1 has only 3 real matches
+    const compactBracket = buildPlayoffBracket({
+      numGroups: 1,
+      proceedersPerGroup: 11,
+      seedingOrder: 'TRADITIONAL',
+      thirdPlaceMatch: false,
+      startDate: '2026-06-20',
+      startTime: '08:00 AM',
+      matchDurationMinutes: 30,
+      breakMinutes: 10,
+      venueId: null,
+      courtId: null,
+      participants: players11,
+      includeByesInBracket: false,
+    });
+
+    const compactR1 = compactBracket.filter(m => m.round === 'ROUND_OF_16');
+    expect(compactR1).toHaveLength(3);
+  });
 });
 

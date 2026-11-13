@@ -12,6 +12,9 @@ type Props = {
   onDownloadBracket?: () => void;
   resolveVenueName?: (venueId: number | null) => string;
   resolveCourtName?: (courtId: string | null) => string;
+  showByes?: boolean;
+  onToggleShowByes?: () => void;
+  totalDrawCount?: number;
 };
 
 function formatBracketDateOnly(dateStr: string): string {
@@ -119,7 +122,11 @@ function MatchCard({
       style={{ top }}
     >
       <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
-        {!isByeMatch && (
+        {isByeMatch ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <span>BYE • Advances to R2</span>
+          </div>
+        ) : (
           <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#6b7094]">
             <span>{formatBracketDateOnly(match.date)}</span>
             <span className="opacity-40">|</span>
@@ -225,7 +232,16 @@ function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: numb
   );
 }
 
-export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, resolveVenueName, resolveCourtName }: Props) {
+export function PlayoffBracketView({
+  matches,
+  onEditMatch,
+  onDownloadBracket,
+  resolveVenueName,
+  resolveCourtName,
+  showByes,
+  onToggleShowByes,
+  totalDrawCount,
+}: Props) {
   if (matches.length === 0) return null;
 
   const bracketMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
@@ -293,8 +309,29 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
   return (
     <div className="playoff-bracket flex flex-col">
       <div className="flex items-center justify-between text-xs text-[#6b7094] mb-3 px-1">
-        <div className="flex items-center gap-2.5">
-          <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+            {totalDrawCount && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {totalDrawCount} Draw
+              </span>
+            )}
+          </div>
+          {onToggleShowByes && (
+            <button
+              type="button"
+              onClick={onToggleShowByes}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                showByes
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+              title="Toggle display of 1st round BYE match slots (16/32/64/128 draw)"
+            >
+              <span>{showByes ? '✓ Showing BYEs' : 'Show BYEs (Draw)'}</span>
+            </button>
+          )}
           {onDownloadBracket && (
             <button
               type="button"

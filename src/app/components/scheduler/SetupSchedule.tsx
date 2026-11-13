@@ -408,6 +408,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
   // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
   const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
+  const [showByesInBracket, setShowByesInBracket] = useState(true);
   const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
@@ -1465,7 +1466,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     };
   };
 
-  const buildParticipantList = (count: number): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
+  const buildParticipantList = (
+    count: number,
+    orderOverride?: PlayoffSeedingOrder
+  ): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
     const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
     const customLines = useCustomNames
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
@@ -1504,10 +1508,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       return allParts;
     }
 
-    // Sort by rating descending so Seed 1 (highest rated) → P1, Seed 2 → P2, etc.
-    const effectiveRegistrations = deduplicateReciprocalRegistrations(confirmedRegistrations, false)
-      .slice()
-      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    // For RANKING mode, sort by rating descending so Seed 1 (highest rated) → P1, Seed 2 → P2, etc.
+    // For TRADITIONAL, SEQUENTIAL, and RANDOM, preserve base registration order (RANDOM shuffles bracket seeds).
+    const currentOrder = orderOverride || (isGroupKnockout ? playoffSeedingOrder : seedingOrder);
+    const baseRegs = deduplicateReciprocalRegistrations(confirmedRegistrations, false);
+    const effectiveRegistrations = currentOrder === 'RANKING'
+      ? baseRegs.slice().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      : baseRegs;
 
     for (let i = 0; i < count; i++) {
       if (customLines[i]) {
@@ -1614,7 +1621,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       // Preview-only: generate the playoff ("rounds to final") bracket on the
       // backend (stateless) and hold it in local state. Nothing is persisted
       // until the admin clicks Save as Draft / Save & Publish.
-      await fetchPlayoffDraft();
+      setMatchOverrides({});
+      generateLocalPlayoffDraft(playoffSeedingOrder as PlayoffSeedingOrder);
 
       setPlayoffsGenerated(true);
       showSuccess('Knockout bracket generated! Review and Save when ready.');
@@ -1640,7 +1648,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setAllParticipantOptions(allParts);
 
       if (isKnockoutOnly) {
-        await fetchPlayoffDraft();
+        setMatchOverrides({});
+        generateLocalPlayoffDraft(seedingOrder as PlayoffSeedingOrder);
         setGeneratedGroups([]);
         setPlayoffsGenerated(true);
         showSuccess('Knockout schedule generated! Review and Save when ready.');
@@ -1881,7 +1890,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * Mirrors the shape the in-browser generator used; the actual bracket is
    * now produced server-side via tournamentService.generatePlayoffBracket().
    */
-  const buildPlayoffInput = (): PlayoffScheduleInput => {
+  const buildPlayoffInput = (overrideOrder?: PlayoffSeedingOrder): PlayoffScheduleInput => {
+    const activeSeedingOrder = (overrideOrder || (isGroupKnockout ? playoffSeedingOrder : seedingOrder)) as PlayoffSeedingOrder;
     const numGroups = isKnockoutOnly
       ? 1
       : generatedGroups.length || Number(numberOfGroups) || 2;
@@ -1909,7 +1919,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // selected courts so the backend does BYE auto-advance, flat/tower-aware first-round
     // pairing, and parallel court allocation (Rule 4).
     const playerParticipants = isKnockoutOnly
-      ? buildParticipantList(Number(participants) || 8).map(p => ({
+      ? buildParticipantList(Number(participants) || 8, activeSeedingOrder).map(p => ({
           id: p.id,
           name: p.name,
           flatNumber: p.flatNumber ?? null,
@@ -1943,7 +1953,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return {
       numGroups,
       proceedersPerGroup,
-      seedingOrder: (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder,
+      seedingOrder: activeSeedingOrder,
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
       startDate: groupEnd.date,
       startTime: initialStartTime,
@@ -1958,6 +1968,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       matchDays: effectiveMatchDays,
       roundTimings: Object.keys(roundTimings).length > 0 ? roundTimings : undefined,
       byesFirstRoundOnly,
+      includeByesInBracket: showByesInBracket,
     };
   };
 
@@ -1978,20 +1989,49 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * synchronous render/save paths (getPlayoffMatches) can read it.
    * Falls back seamlessly to the client-side generator if the backend is unreachable.
    */
-  const fetchPlayoffDraft = async (): Promise<PlayoffMatchDraft[]> => {
-    try {
-      const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
-      if (draft && Array.isArray(draft) && draft.length > 0) {
-        const sanitized = sanitizePlayoffMatches(draft);
-        setPlayoffDraft(sanitized);
-        return sanitized;
-      }
-    } catch (err: any) {
-      console.warn('[fetchPlayoffDraft] Server playoff generation failed, using client-side bracket fallback:', err);
-    }
-    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(buildPlayoffInput()));
+  /**
+   * Generates the playoff bracket draft immediately on the client using buildPlayoffBracket,
+   * ensuring real-time UI updates (0ms) and true random re-shuffling on every invocation.
+   */
+  const generateLocalPlayoffDraft = (
+    overrideOrder?: PlayoffSeedingOrder,
+    overrideShowByes?: boolean
+  ): PlayoffMatchDraft[] => {
+    const activeOrder = overrideOrder || ((isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder);
+    const activeShowByes = overrideShowByes !== undefined ? overrideShowByes : showByesInBracket;
+    const input = { ...buildPlayoffInput(activeOrder), includeByesInBracket: activeShowByes };
+    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(input), activeShowByes);
     setPlayoffDraft(localDraft);
     return localDraft;
+  };
+
+  const fetchPlayoffDraft = async (overrideOrder?: PlayoffSeedingOrder): Promise<PlayoffMatchDraft[]> => {
+    const localDraft = generateLocalPlayoffDraft(overrideOrder);
+    return localDraft;
+  };
+
+  const handleKnockoutSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    setSeedingOrder(newOrder);
+    setMatchOverrides({});
+    generateLocalPlayoffDraft(newOrder);
+    if (newOrder === 'RANDOM') {
+      showSuccess('Bracket randomized with fresh draw!');
+    } else {
+      const opt = SEEDING_OPTIONS.find(o => o.value === newOrder);
+      showSuccess(`Bracket sequence set to ${opt?.label || newOrder}!`);
+    }
+  };
+
+  const handlePlayoffSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    setPlayoffSeedingOrder(newOrder);
+    setMatchOverrides({});
+    generateLocalPlayoffDraft(newOrder);
+    if (newOrder === 'RANDOM') {
+      showSuccess('Playoffs randomized with fresh draw!');
+    } else {
+      const opt = SEEDING_OPTIONS.find(o => o.value === newOrder);
+      showSuccess(`Playoffs sequence set to ${opt?.label || newOrder}!`);
+    }
   };
 
   /**
@@ -1999,8 +2039,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * manual overrides) on top of the backend-generated bracket draft.
    * Pass `draftOverride` to use a freshly-fetched draft before React state updates.
    */
-  const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
-    let matches = sanitizePlayoffMatches(draftOverride ?? playoffDraft);
+  const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[], preserveByes?: boolean) => {
+    const shouldPreserveByes = preserveByes !== undefined ? preserveByes : showByesInBracket;
+    let matches = sanitizePlayoffMatches(draftOverride ?? playoffDraft, shouldPreserveByes);
 
     const enrichFlats = (list: PlayoffMatchDraft[]) => {
       return list.map(m => {
@@ -3268,6 +3309,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </span>
             </label>
 
+            {/* Show BYEs in bracket draw (16/32/64/128) */}
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={showByesInBracket}
+                onChange={e => {
+                  const nextVal = e.target.checked;
+                  setShowByesInBracket(nextVal);
+                  generateLocalPlayoffDraft(undefined, nextVal);
+                }}
+                className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>
+                Show BYEs in Bracket Draw (16 / 32 / 64 / 128)
+                <span className="block text-xs text-[#6b7094]">
+                  When participants are an odd number, displays all 1st round BYE match slots and advances seeded players to round 2.
+                </span>
+              </span>
+            </label>
+
             {/* Seeding Order */}
             <div className="text-center">
               <label className={labelCls}>Choose Your Schedule Sequence <span className="text-red-400">*</span></label>
@@ -3277,7 +3338,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${seedingOrder === opt.value ? 'border-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}>
                       {seedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#4f46e5]" />}
                     </div>
-                    <input type="radio" name="seeding" value={opt.value} checked={seedingOrder === opt.value} onChange={() => setSeedingOrder(opt.value)} className="sr-only" />
+                    <input type="radio" name="seeding" value={opt.value} checked={seedingOrder === opt.value} onChange={() => handleKnockoutSeedingOrderChange(opt.value)} className="sr-only" />
                     {opt.label}
                   </label>
                 ))}
@@ -4351,6 +4412,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </span>
                   </label>
 
+                  {/* Show BYEs in bracket draw (16/32/64/128) */}
+                  <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700 max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={showByesInBracket}
+                      onChange={e => {
+                        const nextVal = e.target.checked;
+                        setShowByesInBracket(nextVal);
+                        generateLocalPlayoffDraft(undefined, nextVal);
+                      }}
+                      className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+                    />
+                    <span>
+                      Show BYEs in Bracket Draw (16 / 32 / 64 / 128)
+                      <span className="block text-xs text-[#6b7094]">
+                        When qualifiers are odd or non-power-of-2, renders initial draw with BYEs.
+                      </span>
+                    </span>
+                  </label>
+
                   {/* Choose Playoffs Schedule Sequence */}
                   <div className="flex flex-col gap-4 items-center justify-center">
                     <label className="text-sm text-slate-700">
@@ -4363,7 +4444,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${playoffSeedingOrder === opt.value ? 'border-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}>
                             {playoffSeedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#4f46e5]" />}
                           </div>
-                          <input type="radio" name="playoffSeeding" value={opt.value} checked={playoffSeedingOrder === opt.value} onChange={() => setPlayoffSeedingOrder(opt.value)} className="sr-only" />
+                          <input type="radio" name="playoffSeeding" value={opt.value} checked={playoffSeedingOrder === opt.value} onChange={() => handlePlayoffSeedingOrderChange(opt.value)} className="sr-only" />
                           {opt.label}
                         </label>
                       ))}
@@ -4793,7 +4874,35 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     {isKnockoutOnly ? 'Knockout Bracket' : 'Playoffs'}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 justify-end">
+                <div className="flex flex-wrap items-center gap-3 justify-end">
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-[rgba(99,102,241,0.12)] p-1 rounded-xl shadow-xs">
+                    <span className="text-[11px] font-semibold text-[#6b7094] px-1 hidden sm:inline">Sequence:</span>
+                    {SEEDING_OPTIONS.map(opt => {
+                      const currentVal = isGroupKnockout ? playoffSeedingOrder : seedingOrder;
+                      const isSelected = currentVal === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            if (isGroupKnockout) {
+                              handlePlayoffSeedingOrderChange(opt.value);
+                            } else {
+                              handleKnockoutSeedingOrderChange(opt.value);
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none flex items-center gap-1"
+                          style={isSelected
+                            ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                            : { background: "transparent", color: "#6b7094" }}
+                          title={opt.value === 'RANDOM' ? 'Click to generate a fresh random draw' : `Switch to ${opt.label} sequence`}
+                        >
+                          <span>{opt.label}</span>
+                          {opt.value === 'RANDOM' && isSelected && <span className="text-[10px]">🔀</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Match Schedule</span>
                   <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
                     <button
@@ -4853,6 +4962,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 (() => {
                   const playoffMatches = getPlayoffMatches();
                   if (playoffMatches.length === 0) return null;
+                  const numParticipants = Number(participants) || playoffMatches.length;
+                  let drawPower = 1;
+                  while (drawPower < numParticipants) drawPower <<= 1;
                   return (
                     <PlayoffBracketView
                       matches={playoffMatches}
@@ -4860,6 +4972,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       onDownloadBracket={handleExportBracketPDF}
                       resolveVenueName={resolveVenueName}
                       resolveCourtName={resolveCourtName}
+                      showByes={showByesInBracket}
+                      onToggleShowByes={() => {
+                        const nextVal = !showByesInBracket;
+                        setShowByesInBracket(nextVal);
+                        generateLocalPlayoffDraft(undefined, nextVal);
+                        showSuccess(nextVal ? `Showing full ${drawPower} draw with BYEs` : 'Hiding BYEs (compact bracket)');
+                      }}
+                      totalDrawCount={drawPower}
                     />
                   );
                 })()

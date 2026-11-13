@@ -133,17 +133,86 @@ export function GenericLiveMatchView({
   const currentPeriodLabel =
     periodLabels[state.currentPeriod - 1] || `Period ${state.currentPeriod}`;
   const isCompleted = state.status === "COMPLETED";
-  const periodsToWin = state.scoringConfig?.periodsToWin || Math.max(state.periodsWonA, state.periodsWonB, 2);
+
+  // Check whether individual periods/sets are completed according to sport rules
+  const checkSetWon = (
+    scoreA: number,
+    scoreB: number,
+    sport: string,
+    config?: typeof state.scoringConfig
+  ) => {
+    const target =
+      config?.pointsToWinPeriod ??
+      (sport === "TENNIS" ? 6 : sport === "TABLE_TENNIS" || sport === "SQUASH" ? 11 : 21);
+    const mustWinByTwo = config?.mustWinByTwo ?? (sport !== "TENNIS");
+    const maxCap =
+      config?.tiebreakPointsToWin ??
+      (sport === "BADMINTON" ? 30 : sport === "PICKLEBALL" ? 15 : undefined);
+
+    if (maxCap && (scoreA >= maxCap || scoreB >= maxCap)) {
+      return true;
+    }
+    if (sport === "TENNIS") {
+      if ((scoreA >= target || scoreB >= target) && Math.abs(scoreA - scoreB) >= 2) return true;
+      if ((scoreA === 7 && scoreB === 6) || (scoreB === 7 && scoreA === 6)) return true;
+      return false;
+    }
+    if (mustWinByTwo) {
+      return (scoreA >= target || scoreB >= target) && Math.abs(scoreA - scoreB) >= 2;
+    }
+    return scoreA >= target || scoreB >= target;
+  };
+
+  let computedSetsWonA = 0;
+  let computedSetsWonB = 0;
+  let hasAnySetCompleted = false;
+
+  if (isSetBased(sportType)) {
+    for (const p of state.periods) {
+      const isPast = p.periodNumber < state.currentPeriod;
+      const isSetDone =
+        isPast ||
+        (p.periodNumber === state.currentPeriod && isCompleted) ||
+        checkSetWon(p.scoreTeamA, p.scoreTeamB, sportType, state.scoringConfig);
+
+      if (isSetDone) {
+        hasAnySetCompleted = true;
+        if (p.scoreTeamA > p.scoreTeamB) computedSetsWonA++;
+        else if (p.scoreTeamB > p.scoreTeamA) computedSetsWonB++;
+      }
+    }
+  } else {
+    computedSetsWonA = state.periodsWonA;
+    computedSetsWonB = state.periodsWonB;
+  }
+
+  const periodsToWin =
+    state.scoringConfig?.periodsToWin || Math.max(computedSetsWonA, computedSetsWonB, 2);
 
   const currentPeriodScore = state.periods.find(
     (p) => p.periodNumber === state.currentPeriod
   );
   const activeScoreA = isSetBased(sportType)
-    ? (isCompleted ? state.periodsWonA : (currentPeriodScore ? currentPeriodScore.scoreTeamA : 0))
+    ? (isCompleted ? computedSetsWonA : (currentPeriodScore ? currentPeriodScore.scoreTeamA : 0))
     : state.scoreTeamA;
   const activeScoreB = isSetBased(sportType)
-    ? (isCompleted ? state.periodsWonB : (currentPeriodScore ? currentPeriodScore.scoreTeamB : 0))
+    ? (isCompleted ? computedSetsWonB : (currentPeriodScore ? currentPeriodScore.scoreTeamB : 0))
     : state.scoreTeamB;
+
+  // Match Events: order from last point of time (most recent first)
+  const sortedEvents = [...state.recentEvents].reverse().sort((a, b) => {
+    if (a.timestamp && b.timestamp) {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
+      }
+    }
+    if (a.id != null && b.id != null && a.id !== b.id) {
+      return b.id - a.id;
+    }
+    return 0;
+  });
 
   return (
     <div
@@ -228,9 +297,9 @@ export function GenericLiveMatchView({
               <p className="text-xs sm:text-sm font-bold text-white truncate max-w-[130px] sm:max-w-[180px] mx-auto">
                 {state.teamAName}
               </p>
-              {isSetBased(sportType) && (
+              {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
                 <div className="text-[11px] text-indigo-300 font-semibold mt-0.5">
-                  Sets: {state.periodsWonA}
+                  Sets: {computedSetsWonA}
                 </div>
               )}
             </div>
@@ -267,16 +336,16 @@ export function GenericLiveMatchView({
               <p className="text-xs sm:text-sm font-bold text-white truncate max-w-[130px] sm:max-w-[180px] mx-auto">
                 {state.teamBName}
               </p>
-              {isSetBased(sportType) && (
+              {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
                 <div className="text-[11px] text-amber-300 font-semibold mt-0.5">
-                  Sets: {state.periodsWonB}
+                  Sets: {computedSetsWonB}
                 </div>
               )}
             </div>
           </div>
 
           {/* Set-based Visual Progress Dots */}
-          {isSetBased(sportType) && (
+          {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
             <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-slate-700/60">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-slate-300 font-medium mr-1 truncate max-w-[80px]">
@@ -286,12 +355,12 @@ export function GenericLiveMatchView({
                   <div
                     key={i}
                     className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
-                      i < state.periodsWonA
+                      i < computedSetsWonA
                         ? "border-transparent shadow-sm"
                         : "border-slate-500 bg-slate-800"
                     }`}
                     style={
-                      i < state.periodsWonA
+                      i < computedSetsWonA
                         ? { backgroundColor: state.teamAColor || "#6366f1" }
                         : {}
                     }
@@ -306,12 +375,12 @@ export function GenericLiveMatchView({
                   <div
                     key={i}
                     className={`w-3.5 h-3.5 rounded-full border-2 transition-all ${
-                      i < state.periodsWonB
+                      i < computedSetsWonB
                         ? "border-transparent shadow-sm"
                         : "border-slate-500 bg-slate-800"
                     }`}
                     style={
-                      i < state.periodsWonB
+                      i < computedSetsWonB
                         ? { backgroundColor: state.teamBColor || "#f97316" }
                         : {}
                     }
@@ -354,9 +423,11 @@ export function GenericLiveMatchView({
                           {p.periodLabel}
                         </th>
                       ))}
-                      <th className="text-center py-2.5 px-3 sm:px-4 font-bold text-slate-800 dark:text-slate-100">
-                        {isSetBased(sportType) ? "Sets" : "Total"}
-                      </th>
+                      {(!isSetBased(sportType) || hasAnySetCompleted || isCompleted) && (
+                        <th className="text-center py-2.5 px-3 sm:px-4 font-bold text-slate-800 dark:text-slate-100">
+                          {isSetBased(sportType) ? "Sets" : "Total"}
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
@@ -376,9 +447,11 @@ export function GenericLiveMatchView({
                           {p.scoreTeamA}
                         </td>
                       ))}
-                      <td className="text-center py-2.5 px-3 sm:px-4 font-black text-indigo-600 dark:text-indigo-400 font-mono text-sm">
-                        {isSetBased(sportType) ? state.periodsWonA : state.scoreTeamA}
-                      </td>
+                      {(!isSetBased(sportType) || hasAnySetCompleted || isCompleted) && (
+                        <td className="text-center py-2.5 px-3 sm:px-4 font-black text-indigo-600 dark:text-indigo-400 font-mono text-sm">
+                          {isSetBased(sportType) ? computedSetsWonA : state.scoreTeamA}
+                        </td>
+                      )}
                     </tr>
                     <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="py-2.5 px-3 sm:px-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -396,9 +469,11 @@ export function GenericLiveMatchView({
                           {p.scoreTeamB}
                         </td>
                       ))}
-                      <td className="text-center py-2.5 px-3 sm:px-4 font-black text-amber-600 dark:text-amber-400 font-mono text-sm">
-                        {isSetBased(sportType) ? state.periodsWonB : state.scoreTeamB}
-                      </td>
+                      {(!isSetBased(sportType) || hasAnySetCompleted || isCompleted) && (
+                        <td className="text-center py-2.5 px-3 sm:px-4 font-black text-amber-600 dark:text-amber-400 font-mono text-sm">
+                          {isSetBased(sportType) ? computedSetsWonB : state.scoreTeamB}
+                        </td>
+                      )}
                     </tr>
                   </tbody>
                 </table>
@@ -428,7 +503,7 @@ export function GenericLiveMatchView({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {state.recentEvents.map((evt) => (
+                  {sortedEvents.map((evt) => (
                     <div
                       key={evt.id}
                       className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50 text-xs sm:text-sm"
