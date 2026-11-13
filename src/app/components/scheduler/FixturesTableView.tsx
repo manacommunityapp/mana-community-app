@@ -65,15 +65,9 @@ export function FixturesTableView({
   const [stageFilter, setStageFilter] = useState<'ALL' | 'GROUP' | 'PLAYOFF' | 'CONFLICTS'>('ALL');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
 
-  // Strictly exclude any BYE matches from playoffs (BYEs are only permitted in group stage)
+  // Preserve all fixtures (including BYE matches so draw & auto-advancement are visible)
   const sanitizedFixtures = useMemo(() => {
-    return fixtures.filter(f => {
-      if (f.isPlayoff) {
-        const isBye = f.home.id === 'bye' || f.away.id === 'bye' || f.home.name === 'BYE' || f.away.name === 'BYE';
-        if (isBye) return false;
-      }
-      return true;
-    });
+    return fixtures;
   }, [fixtures]);
 
   // Group stats
@@ -325,7 +319,12 @@ export function FixturesTableView({
 
                 return filteredFixtures.map(f => {
                   const hasConflict = f.conflicts && f.conflicts.length > 0;
-                  const isBye = f.home.id === 'bye' || f.away.id === 'bye' || f.home.name === 'BYE' || f.away.name === 'BYE';
+                  const isBye =
+                    f.home.id === 'bye' ||
+                    f.away.id === 'bye' ||
+                    f.home.name?.trim().toUpperCase() === 'BYE' ||
+                    f.away.name?.trim().toUpperCase() === 'BYE' ||
+                    (f.rawMatch as any)?.status === 'AUTO_ADVANCED';
                   const matchTimeMin = parseTimeToMinutes(f.time);
 
                   // Check if any enabled break on this date starts before or at this match and hasn't been displayed yet

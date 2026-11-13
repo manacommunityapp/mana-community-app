@@ -39,7 +39,7 @@ export interface StageOption {
 
 /** Determines which tournament stage a match belongs to. */
 export function getMatchStage(m: any): TournamentStageKey {
-  const roundStr = String(m.round || m.roundName || '').trim().toUpperCase();
+  const roundStr = String(m.round || m.roundName || m.roundType || '').trim().toUpperCase();
   const stageStr = String(m.stage || '').trim().toUpperCase();
   const groupStr = String(m.groupName || '').trim().toUpperCase();
 

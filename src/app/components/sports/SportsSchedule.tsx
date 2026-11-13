@@ -614,10 +614,35 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission, isAdmin: authIsAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const isSportsAdminOnly = Boolean(isSuperAdmin || authIsAdmin || isSportsAdmin);
   const isAdmin = isSportsAdminOnly || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
+
+  const [setupScheduleConfigId, setSetupScheduleConfigId] = useState<number | null>(() => {
+    const cid = searchParams.get('configId');
+    return cid ? Number(cid) : null;
+  });
+  const [setupScheduleEventId, setSetupScheduleEventId] = useState<string | undefined>(() => {
+    return searchParams.get('eventId') || eventId;
+  });
+
+  const handleEditScheduleFromConfig = (config: ConfigInfo) => {
+    setSetupScheduleConfigId(config.id);
+    if (config.eventId) {
+      setSetupScheduleEventId(String(config.eventId));
+    }
+    setActiveTab("Setup Schedule");
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'setup');
+      next.set('configId', String(config.id));
+      if (config.eventId) {
+        next.set('eventId', String(config.eventId));
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tabParam = searchParams.get('tab');
@@ -2985,7 +3010,7 @@ export function SportsSchedule() {
 
       {/* Config */}
       {activeTab === "Config" && (
-        isAdmin ? <TournamentScheduler /> : (
+        isAdmin ? <TournamentScheduler onEditSchedule={handleEditScheduleFromConfig} /> : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
@@ -2996,7 +3021,20 @@ export function SportsSchedule() {
 
       {/* Setup Schedule */}
       {activeTab === "Setup Schedule" && (
-        isAdmin ? <SetupSchedule initialEventId={eventId} /> : (
+        isAdmin ? (
+          <SetupSchedule
+            initialEventId={setupScheduleEventId || eventId}
+            initialConfigId={setupScheduleConfigId}
+            onClearConfigSelection={() => {
+              setSetupScheduleConfigId(null);
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('configId');
+                return next;
+              }, { replace: true });
+            }}
+          />
+        ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>

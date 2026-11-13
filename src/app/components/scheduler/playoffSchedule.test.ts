@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createScheduleCursor, buildPlayoffBracket } from './playoffSchedule';
+import { createScheduleCursor, buildPlayoffBracket, reconstructKnockoutByes } from './playoffSchedule';
 
 describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
   it('rolls over to next day when match would spill past endTime', () => {
@@ -324,4 +324,113 @@ describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
     expect(compactR1).toHaveLength(3);
   });
 });
+
+describe('reconstructKnockoutByes', () => {
+  it('reconstructs missing Round of 32 BYE matches for a 24-player knockout saved without BYEs', () => {
+    // In a 24-player knockout (32 draw), Round of 16 has 8 matches (16 players).
+    // Round of 32 originally has 8 played matches (16 players -> 8 winners).
+    // The other 8 players in R16 received BYEs in R32.
+    // If the database only stored the 8 played R32 matches, reconstructKnockoutByes should reconstruct the 8 BYE matches, making 16 total R32 matches.
+    const r16Matches: any[] = [];
+    const r32PlayedMatches: any[] = [];
+
+    for (let i = 0; i < 8; i++) {
+      const winnerFromR32 = { id: `winner-${i}`, name: `Winner ${i}` };
+      const byePlayer = { id: `seed-${i}`, name: `Top Seed ${i}` };
+
+      // In Round of 16, match i is between Winner i and Top Seed i
+      r16Matches.push({
+        matchId: `r16-${i}`,
+        roundIndex: 1,
+        roundType: 'ROUND_OF_16',
+        stage: 'PLAYOFF',
+        home: winnerFromR32,
+        away: byePlayer,
+        team1: winnerFromR32.name,
+        team2: byePlayer.name,
+        homeId: winnerFromR32.id,
+        awayId: byePlayer.id,
+      });
+
+      // In Round of 32, Winner i played against Loser i
+      r32PlayedMatches.push({
+        matchId: `r32-${i}`,
+        roundIndex: 0,
+        roundType: 'ROUND_OF_32',
+        stage: 'PLAYOFF',
+        home: winnerFromR32,
+        away: { id: `loser-${i}`, name: `Loser ${i}` },
+        team1: winnerFromR32.name,
+        team2: `Loser ${i}`,
+        homeId: winnerFromR32.id,
+        awayId: `loser-${i}`,
+        scheduledAt: '2026-06-20T09:00:00',
+      });
+    }
+
+    const savedMatches = [...r32PlayedMatches, ...r16Matches];
+
+    const result = reconstructKnockoutByes(savedMatches, { tournamentType: 'KNOCKOUT', totalTeams: 24 });
+
+    const r32After = result.filter((m: any) => m.roundType === 'ROUND_OF_32' || m.roundIndex === 0);
+    expect(r32After).toHaveLength(16);
+
+    const byeMatches = r32After.filter((m: any) => m.status === 'AUTO_ADVANCED' || m.team1 === 'BYE' || m.team2 === 'BYE');
+    expect(byeMatches).toHaveLength(8);
+
+    // Each bye match should have the top seed paired with BYE
+    const byePlayerNames = byeMatches.map((m: any) => m.team1 === 'BYE' ? m.team2 : m.team1);
+    for (let i = 0; i < 8; i++) {
+      expect(byePlayerNames).toContain(`Top Seed ${i}`);
+    }
+
+    // Verify ordering: each R16 match i corresponds to slot 2*i and 2*i + 1
+    for (let i = 0; i < 8; i++) {
+      const slotA = r32After[2 * i];
+      const slotB = r32After[2 * i + 1];
+      const slotPlayers = [slotA.team1, slotA.team2, slotB.team1, slotB.team2];
+      expect(slotPlayers).toContain(`Winner ${i}`);
+      expect(slotPlayers).toContain(`Top Seed ${i}`);
+    }
+  });
+
+  it('leaves matches intact when all BYE matches are already present', () => {
+    const r32Matches: any[] = [];
+    for (let i = 0; i < 16; i++) {
+      r32Matches.push({
+        matchId: `r32-${i}`,
+        roundIndex: 0,
+        roundType: 'ROUND_OF_32',
+        stage: 'PLAYOFF',
+        team1: i < 8 ? `Player ${i}` : 'BYE',
+        team2: `Player ${i + 16}`,
+      });
+    }
+    const r16Matches: any[] = [];
+    for (let i = 0; i < 8; i++) {
+      r16Matches.push({
+        matchId: `r16-${i}`,
+        roundIndex: 1,
+        roundType: 'ROUND_OF_16',
+        stage: 'PLAYOFF',
+        team1: `Adv ${i}`,
+        team2: `Adv ${i + 8}`,
+      });
+    }
+
+    const input = [...r32Matches, ...r16Matches];
+    const result = reconstructKnockoutByes(input, { tournamentType: 'KNOCKOUT' });
+    expect(result).toHaveLength(input.length);
+  });
+
+  it('returns original matches untouched for non-knockout stage or group stages', () => {
+    const groupMatches = [
+      { matchId: 'g1', stage: 'GROUP', roundIndex: 0, roundType: 'ROUND_1', team1: 'A', team2: 'B' },
+      { matchId: 'g2', stage: 'GROUP', roundIndex: 0, roundType: 'ROUND_1', team1: 'C', team2: 'D' },
+    ];
+    const result = reconstructKnockoutByes(groupMatches, { tournamentType: 'ROUND_ROBIN' });
+    expect(result).toEqual(groupMatches);
+  });
+});
+
 

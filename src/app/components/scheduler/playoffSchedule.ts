@@ -902,3 +902,281 @@ export function buildPlayoffBracket(input: PlayoffScheduleInput): PlayoffMatchDr
 
   return sanitizePlayoffMatches(matches, Boolean(input.includeByesInBracket));
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// TOURNAMENT BYE RECONSTRUCTION ENGINE
+// Reconstructs missing first-round BYEs for legacy/saved tournament matches
+// so the visual bracket tree and list/table views maintain complete parity
+// with Setup Schedule.
+// ═══════════════════════════════════════════════════════════════════════
+
+import {
+  getMatchStage,
+  extractTeamNames,
+  extractFlatDetails,
+  type TournamentStageKey,
+} from '../sports/admin/ScheduleExportModal';
+
+const KO_ROUNDS_ORDER: TournamentStageKey[] = [
+  'ROUND_OF_64',
+  'ROUND_OF_32',
+  'ROUND_OF_16',
+  'QUARTER_FINAL',
+  'SEMI_FINAL',
+  'FINAL',
+];
+
+const STAGE_DISPLAY_LABELS: Record<TournamentStageKey, string> = {
+  ALL: 'All Stages',
+  GROUP: 'Group Stage',
+  ROUND_OF_64: 'Round of 64',
+  ROUND_OF_32: 'Round of 32',
+  ROUND_OF_16: 'Round of 16',
+  QUARTER_FINAL: 'Quarter-Finals',
+  SEMI_FINAL: 'Semi-Finals',
+  FINAL: 'Final',
+  THIRD_PLACE: '3rd Place',
+};
+
+/**
+ * Reconstructs missing first-round BYE matches for single-elimination knockout tournaments.
+ * If the earliest knockout round has fewer matches than required by the next round (2 * N),
+ * it synthesizes the auto-advanced BYE matches and orders them so that feeder slots
+ * (2 * idx and 2 * idx + 1) connect directly to each next-round match.
+ */
+export function reconstructKnockoutByes(
+  matches: any[],
+  config?: { totalTeams?: number; tournamentType?: string } | null
+): any[] {
+  if (!matches || matches.length === 0) return matches;
+
+  // Filter out any invalid items
+  const validMatches = matches.filter(Boolean);
+
+  // Group knockout matches by stage
+  const matchesByStage = new Map<TournamentStageKey, any[]>();
+  KO_ROUNDS_ORDER.forEach(r => matchesByStage.set(r, []));
+  const otherMatches: any[] = [];
+
+  for (const m of validMatches) {
+    const stage = getMatchStage(m);
+    if (stage === 'GROUP' || stage === 'THIRD_PLACE' || stage === 'ALL') {
+      otherMatches.push(m);
+    } else if (matchesByStage.has(stage)) {
+      matchesByStage.get(stage)!.push(m);
+    } else {
+      otherMatches.push(m);
+    }
+  }
+
+  // Find the earliest knockout round that has matches
+  let earliestIdx = -1;
+  for (let i = 0; i < KO_ROUNDS_ORDER.length; i++) {
+    if ((matchesByStage.get(KO_ROUNDS_ORDER[i])?.length ?? 0) > 0) {
+      earliestIdx = i;
+      break;
+    }
+  }
+
+  // If no knockout matches or only Final exists, nothing to reconstruct
+  if (earliestIdx === -1 || earliestIdx >= KO_ROUNDS_ORDER.length - 1) {
+    return matches;
+  }
+
+  const earliestStage = KO_ROUNDS_ORDER[earliestIdx];
+  const nextStage = KO_ROUNDS_ORDER[earliestIdx + 1];
+  const earliestMatches = matchesByStage.get(earliestStage) || [];
+  const nextMatches = matchesByStage.get(nextStage) || [];
+
+  if (nextMatches.length === 0) {
+    return matches;
+  }
+
+  // Next round has N matches. A complete binary tree requires 2 * N matches in the preceding round.
+  const expectedCount = nextMatches.length * 2;
+  if (earliestMatches.length >= expectedCount) {
+    // Earliest round already has the complete draw (BYEs are already stored)
+    return matches;
+  }
+
+  const earliestDate =
+    earliestMatches[0]?.scheduledAt ||
+    earliestMatches[0]?.matchDate ||
+    earliestMatches[0]?.date ||
+    nextMatches[0]?.matchDate ||
+    '';
+  const earliestSport =
+    earliestMatches[0]?.sport ||
+    earliestMatches[0]?.sportName ||
+    nextMatches[0]?.sport ||
+    nextMatches[0]?.sportName ||
+    '';
+  const earliestTourn =
+    earliestMatches[0]?.tournamentName ||
+    nextMatches[0]?.tournamentName ||
+    '';
+  const earliestVenueId = earliestMatches[0]?.venueId ?? nextMatches[0]?.venueId ?? null;
+  const earliestVenueName = earliestMatches[0]?.venueName || nextMatches[0]?.venueName || '';
+
+  const availableRealMatches = [...earliestMatches];
+  const orderedEarliest: any[] = [];
+
+  nextMatches.forEach((nextM, nextIdx) => {
+    const { team1: nextHome, team2: nextAway } = extractTeamNames(nextM);
+    const { team1Flat: nextHomeFlat, team2Flat: nextAwayFlat } = extractFlatDetails(nextM);
+
+    // Slot 2 * nextIdx (feeds nextHome)
+    const homePlayedIdx = availableRealMatches.findIndex(rm => {
+      const { team1, team2 } = extractTeamNames(rm);
+      const hClean = (nextHome || '').trim().toLowerCase();
+      if (!hClean || hClean === 'tbd' || hClean === 'bye') return false;
+      return (
+        (team1 && team1.trim().toLowerCase() === hClean) ||
+        (team2 && team2.trim().toLowerCase() === hClean)
+      );
+    });
+
+    if (homePlayedIdx !== -1) {
+      // Real match produced nextHome
+      const realMatch = availableRealMatches.splice(homePlayedIdx, 1)[0];
+      orderedEarliest.push({
+        ...realMatch,
+        bracketSlot: nextIdx * 2,
+      });
+    } else {
+      // nextHome did not play in earliest round => received a BYE!
+      const playerObj = typeof nextM.home === 'object' ? nextM.home : null;
+      orderedEarliest.push({
+        matchId: `bye-${earliestStage}-${nextIdx * 2}`,
+        id: `bye-${earliestStage}-${nextIdx * 2}`,
+        matchNumber: 0,
+        stage: earliestStage,
+        round: earliestStage,
+        roundType: earliestStage,
+        roundIndex: earliestIdx,
+        roundName: STAGE_DISPLAY_LABELS[earliestStage],
+        groupName: STAGE_DISPLAY_LABELS[earliestStage],
+        team1: nextHome || 'TBD',
+        team2: 'BYE',
+        homeName: nextHome || 'TBD',
+        awayName: 'BYE',
+        team1Flat: nextHomeFlat !== '—' ? nextHomeFlat : undefined,
+        team2Flat: undefined,
+        homeFlat: nextHomeFlat !== '—' ? nextHomeFlat : undefined,
+        awayFlat: undefined,
+        home: {
+          id: playerObj?.id || `p-bye-${nextIdx * 2}`,
+          name: nextHome || 'TBD',
+          flatNumber: nextHomeFlat !== '—' ? nextHomeFlat : undefined,
+        },
+        away: { id: 'bye', name: 'BYE' },
+        status: 'AUTO_ADVANCED',
+        matchDate: earliestDate,
+        date: earliestDate,
+        scheduledAt: earliestDate
+          ? (String(earliestDate).includes('T') ? String(earliestDate) : `${earliestDate}T00:00:00`)
+          : undefined,
+        matchTime: '',
+        time: '',
+        duration: 30,
+        venueId: earliestVenueId,
+        courtId: null,
+        venueName: earliestVenueName,
+        courtName: '',
+        sport: earliestSport,
+        sportName: earliestSport,
+        tournamentName: earliestTourn,
+        isPlayoff: true,
+        bracketSlot: nextIdx * 2,
+      });
+    }
+
+    // Slot 2 * nextIdx + 1 (feeds nextAway)
+    const awayPlayedIdx = availableRealMatches.findIndex(rm => {
+      const { team1, team2 } = extractTeamNames(rm);
+      const aClean = (nextAway || '').trim().toLowerCase();
+      if (!aClean || aClean === 'tbd' || aClean === 'bye') return false;
+      return (
+        (team1 && team1.trim().toLowerCase() === aClean) ||
+        (team2 && team2.trim().toLowerCase() === aClean)
+      );
+    });
+
+    if (awayPlayedIdx !== -1) {
+      // Real match produced nextAway
+      const realMatch = availableRealMatches.splice(awayPlayedIdx, 1)[0];
+      orderedEarliest.push({
+        ...realMatch,
+        bracketSlot: nextIdx * 2 + 1,
+      });
+    } else {
+      // nextAway did not play in earliest round => received a BYE!
+      const playerObj = typeof nextM.away === 'object' ? nextM.away : null;
+      orderedEarliest.push({
+        matchId: `bye-${earliestStage}-${nextIdx * 2 + 1}`,
+        id: `bye-${earliestStage}-${nextIdx * 2 + 1}`,
+        matchNumber: 0,
+        stage: earliestStage,
+        round: earliestStage,
+        roundType: earliestStage,
+        roundIndex: earliestIdx,
+        roundName: STAGE_DISPLAY_LABELS[earliestStage],
+        groupName: STAGE_DISPLAY_LABELS[earliestStage],
+        team1: nextAway || 'TBD',
+        team2: 'BYE',
+        homeName: nextAway || 'TBD',
+        awayName: 'BYE',
+        team1Flat: nextAwayFlat !== '—' ? nextAwayFlat : undefined,
+        team2Flat: undefined,
+        homeFlat: nextAwayFlat !== '—' ? nextAwayFlat : undefined,
+        awayFlat: undefined,
+        home: {
+          id: playerObj?.id || `p-bye-${nextIdx * 2 + 1}`,
+          name: nextAway || 'TBD',
+          flatNumber: nextAwayFlat !== '—' ? nextAwayFlat : undefined,
+        },
+        away: { id: 'bye', name: 'BYE' },
+        status: 'AUTO_ADVANCED',
+        matchDate: earliestDate,
+        date: earliestDate,
+        scheduledAt: earliestDate
+          ? (String(earliestDate).includes('T') ? String(earliestDate) : `${earliestDate}T00:00:00`)
+          : undefined,
+        matchTime: '',
+        time: '',
+        duration: 30,
+        venueId: earliestVenueId,
+        courtId: null,
+        venueName: earliestVenueName,
+        courtName: '',
+        sport: earliestSport,
+        sportName: earliestSport,
+        tournamentName: earliestTourn,
+        isPlayoff: true,
+        bracketSlot: nextIdx * 2 + 1,
+      });
+    }
+  });
+
+  // Append any extra real matches if present
+  if (availableRealMatches.length > 0) {
+    orderedEarliest.push(...availableRealMatches);
+  }
+
+  // Update matchesByStage
+  matchesByStage.set(earliestStage, orderedEarliest);
+
+  // Combine back in round order: earliest -> next -> ... -> final, followed by group/3rd-place
+  const result: any[] = [];
+  KO_ROUNDS_ORDER.forEach(r => {
+    result.push(...(matchesByStage.get(r) || []));
+  });
+  result.push(...otherMatches);
+
+  // Renumber matches sequentially
+  result.forEach((m, idx) => {
+    m.matchNumber = idx + 1;
+  });
+
+  return result;
+}
