@@ -754,6 +754,80 @@ export function useSportsAdminState() {
     }
   }, [user, selectedCommId]);
 
+  const selectedEventForAdd = useMemo(() => {
+    if (!selectedEventIdForAdd) return null;
+    const all = [...draftEvents, ...liveEvents, ...completedEvents];
+    for (const item of all) {
+      if (item.sportsEvents && Array.isArray(item.sportsEvents)) {
+        const found = item.sportsEvents.find((ev: any) => ev.id === selectedEventIdForAdd);
+        if (found) return found;
+      }
+      const single = (item as any).event || item;
+      if (single.id === selectedEventIdForAdd) return single;
+    }
+    return null;
+  }, [selectedEventIdForAdd, draftEvents, liveEvents, completedEvents]);
+
+  const resolveDefaultCategory = useCallback(() => {
+    if (selectedEventForAdd) {
+      const eventCats = selectedEventForAdd.categories || [];
+      if (eventCats.length > 0 && eventCats[0]?.id) {
+        return String(eventCats[0].id);
+      }
+      const matched = playerCategories.find((c: any) =>
+        (selectedEventForAdd.categoryName && c.name?.toLowerCase() === selectedEventForAdd.categoryName.toLowerCase()) ||
+        (selectedEventForAdd.category && typeof selectedEventForAdd.category === "string" && c.name?.toLowerCase() === selectedEventForAdd.category.toLowerCase()) ||
+        (selectedEventForAdd.category?.name && c.name?.toLowerCase() === selectedEventForAdd.category.name.toLowerCase()) ||
+        (Array.isArray(selectedEventForAdd.categoryIds) && selectedEventForAdd.categoryIds.includes(c.id))
+      );
+      if (matched) return String(matched.id);
+    }
+    return playerCategories[0]?.id ? String(playerCategories[0].id) : "";
+  }, [selectedEventForAdd, playerCategories]);
+
+  const resolveDefaultMatchType = useCallback(() => {
+    if (selectedEventForAdd?.format && Array.isArray(selectedEventForAdd.format) && selectedEventForAdd.format.length > 0) {
+      return String(selectedEventForAdd.format[0]);
+    }
+    const nameLower = (selectedEventForAdd?.name || "").toLowerCase();
+    if (nameLower.includes("mixed doubles")) return "MIXED_DOUBLES";
+    if (nameLower.includes("doubles")) return "DOUBLES";
+    return "SINGLES";
+  }, [selectedEventForAdd]);
+
+  // When Add Player modal opens, ensure categories are fetched if empty
+  useEffect(() => {
+    if (!showAddPlayerModal) return;
+    if (playerCategories.length === 0) {
+      refreshCategories();
+    }
+  }, [showAddPlayerModal, playerCategories.length, refreshCategories]);
+
+  // Once categories or selected event are resolved, auto-populate any empty categoryId in forms
+  useEffect(() => {
+    if (!showAddPlayerModal) return;
+    const defaultCat = resolveDefaultCategory();
+    const defaultMatch = resolveDefaultMatchType();
+    if (!defaultCat && !defaultMatch) return;
+    setAddPlayerForms(prev => {
+      let changed = false;
+      const updated = prev.map(f => {
+        const needsCat = !f.categoryId && !!defaultCat;
+        const needsMatch = f.matchType === "SINGLES" && defaultMatch !== "SINGLES" && !f.playerName;
+        if (needsCat || needsMatch) {
+          changed = true;
+          return {
+            ...f,
+            categoryId: needsCat ? defaultCat : f.categoryId,
+            matchType: needsMatch ? defaultMatch : f.matchType,
+          };
+        }
+        return f;
+      });
+      return changed ? updated : prev;
+    });
+  }, [showAddPlayerModal, resolveDefaultCategory, resolveDefaultMatchType]);
+
   useEffect(() => {
     if (!showAddPlayerModal) return;
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -787,9 +861,9 @@ export function useSportsAdminState() {
         id: Math.random().toString(),
         playerName: friend.fullName,
         playerEmail: friend.email || "",
-        categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
+        categoryId: resolveDefaultCategory(),
         avatarUrl: friend.avatarUrl || DEFAULT_AVATAR_URL,
-        matchType: "SINGLES",
+        matchType: resolveDefaultMatchType(),
         gender: friend.gender || "",
         age: friend.dateOfBirth ? new Date().getFullYear() - new Date(friend.dateOfBirth).getFullYear() : 25,
         flatNumber: friend.flatNo || "",
@@ -839,9 +913,9 @@ export function useSportsAdminState() {
         id: Math.random().toString(),
         playerName: familyMember.name,
         playerEmail: familyMember.email || resident.email || "",
-        categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
+        categoryId: resolveDefaultCategory(),
         avatarUrl: DEFAULT_AVATAR_URL,
-        matchType: "SINGLES",
+        matchType: resolveDefaultMatchType(),
         gender: familyMember.gender || "",
         age: memberAge,
         flatNumber: resident.flatNo || "",
@@ -872,14 +946,14 @@ export function useSportsAdminState() {
 
 
   const handleAddNewPlayerCard = () => {
-    setAddPlayerForms(prev => [...prev, createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
+    setAddPlayerForms(prev => [...prev, createDefaultPlayerForm(resolveDefaultCategory())]);
   };
 
   const handleDeletePlayerCard = (cardId: string) => {
     setAddPlayerForms(prev => {
       const updated = prev.filter(c => c.id !== cardId);
       if (updated.length === 0) {
-        return [createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")];
+        return [createDefaultPlayerForm(resolveDefaultCategory())];
       }
       return updated;
     });
@@ -1235,9 +1309,10 @@ export function useSportsAdminState() {
   const loadTournamentsListData = useCallback(() => {
     refreshEvents();
     refreshTournaments();
+    refreshCategories();
     eventsFetchedRef.current = true;
     tournamentsFetchedRef.current = true;
-  }, [refreshEvents, refreshTournaments]);
+  }, [refreshEvents, refreshTournaments, refreshCategories]);
 
   const loadConfigureEventsData = useCallback(() => {
     sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
@@ -1253,9 +1328,11 @@ export function useSportsAdminState() {
         fetchTournamentsOnce();
         fetchEventsOnce();
         refreshVenues();
+        refreshCategories();
         break;
       case "sports-event":
-        // Data is loaded lazily per sub-tab (see loadTournamentsListData /
+        refreshCategories();
+        // Sub-tabs also load lazily (see loadTournamentsListData /
         // loadConfigureEventsData, wired through SportsEventTab).
         break;
       case "teams":
@@ -3328,6 +3405,7 @@ export function useSportsAdminState() {
     // Manual add player
     showAddPlayerModal, setShowAddPlayerModal,
     selectedEventIdForAdd, setSelectedEventIdForAdd,
+    selectedEventForAdd,
     addPlayerForms, setAddPlayerForms,
     communityUsers, loadingUsers,
     loadingMoreUsers,
