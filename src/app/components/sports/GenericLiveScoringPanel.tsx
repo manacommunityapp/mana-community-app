@@ -264,7 +264,7 @@ export function GenericLiveScoringPanel({
   const playersB = players?.filter((p) => p.teamId === teamB.id) || [];
   const isCompleted = state?.status === "COMPLETED";
 
-  if (loading) {
+  if (loading && !state) {
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -412,6 +412,12 @@ export function GenericLiveScoringPanel({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {saving && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                <span>Saving...</span>
+              </span>
+            )}
             <button
               type="button"
               onClick={() => setShowRulesModal(true)}
@@ -1080,12 +1086,6 @@ export function GenericLiveScoringPanel({
           </div>
         </div>
 
-        {/* Saving indicator */}
-        {saving && (
-          <div className="absolute inset-0 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center z-20 rounded-2xl">
-            <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-          </div>
-        )}
 
         {/* Close confirmation */}
         {showCloseConfirm && (

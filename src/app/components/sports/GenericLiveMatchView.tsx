@@ -37,6 +37,9 @@ export function GenericLiveMatchView({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stateRef = useRef<GenericMatchState | null>(null);
+  stateRef.current = state;
+  const prevMatchIdRef = useRef<number>(matchId);
 
   const fetchState = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -46,45 +49,58 @@ export function GenericLiveMatchView({
       setLastUpdated(new Date());
       setError(null);
     } catch {
-      if (!state) {
+      if (!stateRef.current) {
         setError("Could not load live match data. Please try again.");
       }
     } finally {
       setLoading(false);
       if (isManual) setIsRefreshing(false);
     }
-  }, [matchId, state]);
+  }, [matchId]);
 
   useEffect(() => {
-    setState(null);
-    setLoading(true);
+    let isMounted = true;
+
+    // Only reset state and trigger full-screen loading on initial mount or when matchId changes
+    if (prevMatchIdRef.current !== matchId) {
+      prevMatchIdRef.current = matchId;
+      setState(null);
+      setLoading(true);
+    }
+
     fetchState(false);
 
     const unsub = stompClient.subscribe(
       `/topic/match/${matchId}/generic-state`,
       (body) => {
+        if (!isMounted) return;
+        // Dynamically update match state without refreshing or re-mounting the modal
         setState(body as GenericMatchState);
         setLastUpdated(new Date());
         setError(null);
+        setLoading(false);
       }
     );
 
     const unsubConnect = stompClient.onConnect(() => {
-      fetchState(false);
+      if (isMounted) fetchState(false);
     });
 
+    // Background polling fallback without tearing down the UI
     reconnectTimer.current = setInterval(() => {
-      fetchState(false);
+      if (isMounted) fetchState(false);
     }, 5000);
 
     return () => {
+      isMounted = false;
       unsub();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     };
   }, [matchId, fetchState]);
 
-  if (loading) {
+  // Only show full loading overlay if we don't have any state yet
+  if (loading && !state) {
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-slate-900 border border-slate-800 text-white p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-3">
@@ -506,7 +522,7 @@ export function GenericLiveMatchView({
                   {sortedEvents.map((evt) => (
                     <div
                       key={evt.id}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50 text-xs sm:text-sm"
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50 text-xs sm:text-sm transition-all duration-200 animate-in fade-in slide-in-from-top-1"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div
