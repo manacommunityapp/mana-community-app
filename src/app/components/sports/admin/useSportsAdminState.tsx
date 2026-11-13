@@ -182,6 +182,9 @@ export function useSportsAdminState() {
   const isAdmin = hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_EVENT_REGISTRATIONS, DELETE_SPORTS_MAIN);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
   const [playerCategories, setPlayerCategories] = useState<PlayerCategory[]>([]);
+  const refreshCategories = useCallback(() => {
+    sportsService.getCategories().then(setPlayerCategories).catch(() => { /* data fetch fallback */ });
+  }, []);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
 
   const [selectedTemplates, setSelectedTemplates] = useState<Record<string, string>>({});
@@ -1288,10 +1291,6 @@ export function useSportsAdminState() {
       sportsService.getCommunityEvents(targetId, true).then(setActiveEvents).catch(() => { /* data fetch fallback */ });
     }
   }, [user?.role, user?.communityId]);
-
-  const refreshCategories = useCallback(() => {
-    sportsService.getCategories().then(setPlayerCategories).catch(() => { /* data fetch fallback */ });
-  }, []);
 
   const fetchTournamentsOnce = useCallback(() => {
     if (tournamentsFetchedRef.current) return;
