@@ -38,6 +38,22 @@ const isSetBased = (sport: string) =>
 const isTimedSport = (sport: string) =>
   ["FOOTBALL", "SOCCER", "BASKETBALL"].includes(sport);
 
+export const isIndividualSport = (sport?: string): boolean => {
+  if (!sport) return false;
+  const s = sport.toUpperCase().replace(/[\s_-]/g, "");
+  return (
+    s.includes("BADMINTON") ||
+    s.includes("TENNIS") ||
+    s.includes("TABLETENNIS") ||
+    s.includes("SQUASH") ||
+    s.includes("CHESS") ||
+    s.includes("CARROM") ||
+    s.includes("BILLIARDS") ||
+    s.includes("POOL") ||
+    s.includes("SNOOKER")
+  );
+};
+
 export function GenericLiveScoringPanel({
   matchId,
   sportType,
@@ -97,6 +113,46 @@ export function GenericLiveScoringPanel({
     };
   }, [fetchState, matchId]);
 
+  const isIndividual = isIndividualSport(sportType);
+  const defaultSideAName = isIndividual ? "Player 1" : "Team A";
+  const defaultSideBName = isIndividual ? "Player 2" : "Team B";
+
+  const resolveCompetitorName = (
+    serverName?: string | null,
+    propName?: string | null,
+    fallback: string = "TBD"
+  ): string => {
+    const isGeneric = (name?: string | null) =>
+      !name ||
+      ["TEAM A", "TEAM B", "PLAYER 1", "PLAYER 2", "COMPETITOR A", "COMPETITOR B", "TBD"].includes(
+        name.trim().toUpperCase()
+      );
+
+    if (!isGeneric(serverName)) return serverName!.trim();
+    if (!isGeneric(propName)) return propName!.trim();
+    return (serverName && serverName.trim()) || (propName && propName.trim()) || fallback;
+  };
+
+  // Prefer the real competitor names: real player/team name > server name > prop name > fallback
+  const teamA = {
+    ...teamAProp,
+    id: (state?.teamAId && state.teamAId > 0) ? state.teamAId : (teamAProp.id || 1),
+    name: resolveCompetitorName(state?.teamAName, teamAProp.name, defaultSideAName),
+  };
+  const teamB = {
+    ...teamBProp,
+    id: (state?.teamBId && state.teamBId > 0) ? state.teamBId : (teamBProp.id || 2),
+    name: resolveCompetitorName(state?.teamBName, teamBProp.name, defaultSideBName),
+  };
+
+  const isUnassigned =
+    !teamA.name ||
+    !teamB.name ||
+    teamA.name.toUpperCase() === "TBD" ||
+    teamB.name.toUpperCase() === "TBD" ||
+    teamA.name.toUpperCase() === "BYE" ||
+    teamB.name.toUpperCase() === "BYE";
+
   const handleScore = useCallback(
     async (
       teamId: number,
@@ -105,15 +161,16 @@ export function GenericLiveScoringPanel({
       playerId?: number
     ) => {
       if (!state || saving || state.status === "COMPLETED") return;
-      if (!teamId) {
-        toast.error("Both teams must be assigned to this match before scoring.");
+      if (isUnassigned) {
+        toast.error(`Both ${isIndividual ? "players" : "teams"} must be assigned to this match before scoring.`);
         return;
       }
+      const targetTeamId = teamId || (teamA.name === state?.teamAName ? teamA.id : teamB.id) || 1;
       setSaving(true);
       try {
         const req: GenericScoreRequest = {
           matchId,
-          teamId,
+          teamId: targetTeamId,
           eventType,
           periodNumber: state.currentPeriod,
           pointsAwarded: points,
@@ -129,7 +186,7 @@ export function GenericLiveScoringPanel({
         setSaving(false);
       }
     },
-    [state, saving, matchId, sportType, matchMinute, fetchState]
+    [state, saving, matchId, sportType, matchMinute, fetchState, isUnassigned, teamA, teamB]
   );
 
   const handleUndo = useCallback(async () => {
@@ -159,19 +216,6 @@ export function GenericLiveScoringPanel({
       setSaving(false);
     }
   }, [state, saving, matchId, fetchState, periodLabels]);
-
-  // Prefer the server's match state for team ids/names: the fixture passed in by the parent can
-  // lack team ids (they fall back to 0), which the backend rejects as "Team 0 does not belong".
-  const teamA = {
-    ...teamAProp,
-    id: state?.teamAId || teamAProp.id,
-    name: state?.teamAName && (!teamAProp.name || teamAProp.name === "Team A") ? state.teamAName : teamAProp.name,
-  };
-  const teamB = {
-    ...teamBProp,
-    id: state?.teamBId || teamBProp.id,
-    name: state?.teamBName && (!teamBProp.name || teamBProp.name === "Team B") ? state.teamBName : teamBProp.name,
-  };
 
   const playersA = players?.filter((p) => p.teamId === teamA.id) || [];
   const playersB = players?.filter((p) => p.teamId === teamB.id) || [];
@@ -274,6 +318,15 @@ export function GenericLiveScoringPanel({
               </span>
               <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold uppercase">
                 {state.status === "COMPLETED" ? "Finished" : state.status === "LIVE" ? "In Progress" : "Scheduled"}
+              </span>
+            </div>
+          )}
+
+          {isUnassigned && (
+            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span>
+                Both {isIndividual ? "players" : "teams"} must be determined and assigned before live scoring can begin.
               </span>
             </div>
           )}
@@ -481,10 +534,10 @@ export function GenericLiveScoringPanel({
                 {eventTypes.map((evt) => (
                   <button
                     key={evt.eventType}
-                    disabled={saving}
+                    disabled={saving || isUnassigned}
                     onClick={() =>
                       handleScore(
-                        teamA.id,
+                        teamA.id || 1,
                         evt.eventType,
                         evt.points,
                         selectedPlayerA
@@ -516,10 +569,10 @@ export function GenericLiveScoringPanel({
                 {eventTypes.map((evt) => (
                   <button
                     key={evt.eventType}
-                    disabled={saving}
+                    disabled={saving || isUnassigned}
                     onClick={() =>
                       handleScore(
-                        teamB.id,
+                        teamB.id || 2,
                         evt.eventType,
                         evt.points,
                         selectedPlayerB

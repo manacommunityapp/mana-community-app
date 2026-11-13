@@ -39,7 +39,7 @@ import { LiveMatchView } from "./LiveMatchView";
 import { LiveScoringPanel } from "./LiveScoringPanel";
 import { GenericMatchDetailView } from "./GenericMatchDetailView";
 import { GenericLiveMatchView } from "./GenericLiveMatchView";
-import { GenericLiveScoringPanel } from "./GenericLiveScoringPanel";
+import { GenericLiveScoringPanel, isIndividualSport } from "./GenericLiveScoringPanel";
 import { isCricketSport, getSportType, isTimeSport } from "./utils/sportScoringConstants";
 import { Leaderboard } from "./Leaderboard";
 import { GenericLeaderboard } from "./GenericLeaderboard";
@@ -658,6 +658,12 @@ export function SportsSchedule() {
 
   const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
   const [goLiveFeedVisibility, setGoLiveFeedVisibility] = useState<"inherit" | "show" | "hide">("inherit");
+  const [reschedulingFixture, setReschedulingFixture] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleVenueId, setRescheduleVenueId] = useState<string>("");
+  const [rescheduleCourtId, setRescheduleCourtId] = useState<string>("");
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
@@ -1107,8 +1113,8 @@ export function SportsSchedule() {
                   matchId: m.matchId,
                   configId: cfg.id,
                   tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
-                  teamAId: m.teamAId,
-                  teamBId: m.teamBId,
+                  teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
+                  teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
                   name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
                   sport: cfg.sportName || cfg.eventName || "Tournament",
                   venue: m.venueName || "TBD",
@@ -1119,8 +1125,8 @@ export function SportsSchedule() {
                     : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
                       ? "LIVE"
                       : "SCHEDULED",
-                  team1: m.teamAName || "TBD",
-                  team2: m.teamBName || "TBD",
+                  team1: m.teamAName || m.homeName || m.teamA?.name || "TBD",
+                  team2: m.teamBName || m.awayName || m.teamB?.name || "TBD",
                   team1Flat: m.teamAFlat || m.homeFlat,
                   team2Flat: m.teamBFlat || m.awayFlat,
                   score1: m.scoreTeamA || "",
@@ -2309,6 +2315,24 @@ export function SportsSchedule() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReschedulingFixture(fixture);
+                              setRescheduleDate(fixture.date ? format(new Date(fixture.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
+                              setRescheduleTime(fixture.time || "09:00 AM");
+                              const matchedVenue = venues.find(v => v.name.toLowerCase() === (fixture.venue || "").toLowerCase());
+                              setRescheduleVenueId(matchedVenue ? String(matchedVenue.id) : "");
+                              setRescheduleCourtId("");
+                            }}
+                            title={`Reschedule ${fixture.name}`}
+                            className="p-1.5 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className="hidden sm:inline">Reschedule</span>
+                          </button>
+                        )}
                         {fixture.matchId && (
                           <button
                             onClick={() => handleFixtureDelete(fixture.id)}
@@ -2397,27 +2421,29 @@ export function SportsSchedule() {
                         onClick={() => {
                           if (scoringFixture?.teamAId) setScoreWinnerId(scoringFixture.teamAId);
                           setScoreWinnerSide("A");
-                          setScoreWinnerName(scoringFixture?.team1 || "Team A");
+                          const isIndiv = isIndividualSport(scoringFixture?.sport);
+                          setScoreWinnerName(scoringFixture?.team1 || (isIndiv ? "Player 1" : "Team A"));
                         }}
                         className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "A" || (scoringFixture?.teamAId && scoreWinnerId === scoringFixture.teamAId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}>
-                        {scoringFixture?.team1 || "Team A"}
+                        {scoringFixture?.team1 || (isIndividualSport(scoringFixture?.sport) ? "Player 1" : "Team A")}
                       </button>
                       <button type="button"
                         onClick={() => {
                           if (scoringFixture?.teamBId) setScoreWinnerId(scoringFixture.teamBId);
                           setScoreWinnerSide("B");
-                          setScoreWinnerName(scoringFixture?.team2 || "Team B");
+                          const isIndiv = isIndividualSport(scoringFixture?.sport);
+                          setScoreWinnerName(scoringFixture?.team2 || (isIndiv ? "Player 2" : "Team B"));
                         }}
                         className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "B" || (scoringFixture?.teamBId && scoreWinnerId === scoringFixture.teamBId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}>
-                        {scoringFixture?.team2 || "Team B"}
+                        {scoringFixture?.team2 || (isIndividualSport(scoringFixture?.sport) ? "Player 2" : "Team B")}
                       </button>
                     </div>
                   </div>
@@ -2671,6 +2697,220 @@ export function SportsSchedule() {
               document.body
             );
           })()}
+
+          {/* Reschedule Match Modal */}
+          {reschedulingFixture && createPortal(
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] overflow-y-auto"
+              onClick={(e) => { if (e.target === e.currentTarget && !isSubmittingReschedule) setReschedulingFixture(null); }}
+            >
+              <div className="min-h-full flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left">
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight m-0">Reschedule Match</h3>
+                        <p className="text-xs text-slate-400 mt-1 m-0">Update match date, time, and court</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule}
+                      onClick={() => setReschedulingFixture(null)}
+                      className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Match Info Summary */}
+                  <div className="mt-4 p-3 bg-slate-50/80 rounded-2xl border border-slate-100">
+                    <div className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded inline-block mb-1.5">
+                      {reschedulingFixture.sport || "Sport"}
+                    </div>
+                    <div className="text-xs font-bold text-slate-800 leading-snug">
+                      {reschedulingFixture.name}
+                    </div>
+                    {(reschedulingFixture.team1 || reschedulingFixture.team2) && (
+                      <div className="mt-2 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                        <span className="truncate">{reschedulingFixture.team1 || "TBD"}</span>
+                        <span className="text-[10px] font-black text-indigo-500 uppercase px-1 rounded bg-indigo-50">VS</span>
+                        <span className="truncate">{reschedulingFixture.team2 || "TBD"}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form fields */}
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Scheduled Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                        className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Scheduled Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 09:30 AM or 14:00"
+                        value={rescheduleTime}
+                        onChange={(e) => setRescheduleTime(e.target.value)}
+                        className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Accepts 12-hour (e.g. 10:00 AM) or 24-hour (14:30) format</p>
+                    </div>
+
+                    {venues.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Venue</label>
+                        <select
+                          value={rescheduleVenueId}
+                          onChange={(e) => {
+                            setRescheduleVenueId(e.target.value);
+                            setRescheduleCourtId("");
+                          }}
+                          className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                        >
+                          <option value="">-- Keep Current Venue --</option>
+                          {venues.map((v) => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {(() => {
+                      const selectedV = venues.find(v => String(v.id) === rescheduleVenueId);
+                      if (!selectedV || !selectedV.courts || selectedV.courts.length === 0) return null;
+                      return (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Court</label>
+                          <select
+                            value={rescheduleCourtId}
+                            onChange={(e) => setRescheduleCourtId(e.target.value)}
+                            className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                          >
+                            <option value="">-- Any / Unassigned Court --</option>
+                            {selectedV.courts.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule}
+                      onClick={() => setReschedulingFixture(null)}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule || !rescheduleDate}
+                      onClick={async () => {
+                        if (!reschedulingFixture.matchId) {
+                          toast.error("Match record not linked to server");
+                          return;
+                        }
+                        if (!rescheduleDate) {
+                          toast.error("Please pick a scheduled date");
+                          return;
+                        }
+                        setIsSubmittingReschedule(true);
+                        try {
+                          // Parse time into HH:mm
+                          let hours = 9;
+                          let minutes = 0;
+                          const t = (rescheduleTime || "").trim().toUpperCase();
+                          const match12 = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+                          if (match12) {
+                            hours = parseInt(match12[1], 10);
+                            minutes = parseInt(match12[2], 10);
+                            const meridiem = match12[3];
+                            if (meridiem === "PM" && hours < 12) hours += 12;
+                            if (meridiem === "AM" && hours === 12) hours = 0;
+                          } else {
+                            const match24 = t.match(/^(\d{1,2}):(\d{2})$/);
+                            if (match24) {
+                              hours = parseInt(match24[1], 10);
+                              minutes = parseInt(match24[2], 10);
+                            }
+                          }
+                          const hh = String(hours).padStart(2, "0");
+                          const mm = String(minutes).padStart(2, "0");
+                          const scheduledAtIso = `${rescheduleDate}T${hh}:${mm}:00`;
+
+                          await tournamentService.rescheduleMatch(reschedulingFixture.matchId, {
+                            scheduledAt: scheduledAtIso,
+                            venue: rescheduleVenueId || undefined,
+                            court: rescheduleCourtId || undefined,
+                          });
+
+                          // Optimistic update in fixturesList
+                          const formattedTime = format(new Date(scheduledAtIso), "hh:mm a");
+                          const venueObj = venues.find(v => String(v.id) === rescheduleVenueId);
+                          const courtObj = venueObj?.courts?.find(c => String(c.id) === rescheduleCourtId);
+                          const updatedVenueName = venueObj ? (courtObj ? `${venueObj.name} · ${courtObj.name}` : venueObj.name) : reschedulingFixture.venue;
+
+                          setFixturesList(prev => prev.map(f => {
+                            if (f.id === reschedulingFixture.id) {
+                              return {
+                                ...f,
+                                date: rescheduleDate,
+                                time: formattedTime,
+                                venue: updatedVenueName,
+                                rawStartDate: scheduledAtIso,
+                              };
+                            }
+                            return f;
+                          }));
+
+                          toast.success(`Match rescheduled to ${rescheduleDate} at ${formattedTime}`);
+                          setReschedulingFixture(null);
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to reschedule match on server");
+                        } finally {
+                          setIsSubmittingReschedule(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingReschedule ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Schedule</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
       )}
 
@@ -2933,8 +3173,8 @@ export function SportsSchedule() {
             matchId={liveScoringMatchId}
             sportType={activeSportType}
             onClose={() => setLiveScoringMatchId(null)}
-            teamA={{ id: activeMatchFixture?.teamAId || 0, name: activeMatchFixture?.team1 || "Team A", color: "#6366f1" }}
-            teamB={{ id: activeMatchFixture?.teamBId || 0, name: activeMatchFixture?.team2 || "Team B", color: "#f97316" }}
+            teamA={{ id: activeMatchFixture?.teamAId || 1, name: activeMatchFixture?.team1 || (isIndividualSport(activeSportType) ? "Player 1" : "Team A"), color: "#6366f1" }}
+            teamB={{ id: activeMatchFixture?.teamBId || 2, name: activeMatchFixture?.team2 || (isIndividualSport(activeSportType) ? "Player 2" : "Team B"), color: "#f97316" }}
           />
         )
       )}

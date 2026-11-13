@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles } from "lucide-react";
+import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink, Download, FileSpreadsheet, FileText, Radio, Layers, Sparkles, X } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { tournamentService, type ConfigInfo } from "../../../../services/sports/tournamentService";
+import { venueService } from "../../../../services/bookings/venueService";
+import { useAuth } from "../../../../contexts/AuthContext";
+import type { Venue } from "../../../../types/api";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../../utils/sportsExportUtils";
 import {
@@ -66,18 +69,120 @@ function formatDateTime(iso: string | null | undefined): string {
 }
 
 export function ScheduleAdminTab() {
+  const { user } = useAuth();
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [matches, setMatches] = useState<Record<number, MatchRow[]>>({});
   const [loadingMatches, setLoadingMatches] = useState<number | null>(null);
   const [stageFilters, setStageFilters] = useState<Record<number, TournamentStageKey>>({});
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [reschedulingMatch, setReschedulingMatch] = useState<{ match: MatchRow; configId: number } | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleVenueId, setRescheduleVenueId] = useState<string>("");
+  const [rescheduleCourtId, setRescheduleCourtId] = useState<string>("");
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
   const [exportModalState, setExportModalState] = useState<{
     isOpen: boolean;
     tournamentName: string;
     matches: MatchRow[];
     defaultStage?: TournamentStageKey;
   } | null>(null);
+
+  useEffect(() => {
+    venueService.getVenues(user?.communityId ?? null).then(setVenues).catch(() => {});
+  }, [user?.communityId]);
+
+  const openRescheduleModal = (m: MatchRow, cfgId: number) => {
+    setReschedulingMatch({ match: m, configId: cfgId });
+    let initialDate = "";
+    let initialTime = "09:00 AM";
+    if (m.scheduledAt) {
+      try {
+        const dt = new Date(m.scheduledAt);
+        if (!isNaN(dt.getTime())) {
+          initialDate = dt.toISOString().split("T")[0];
+          initialTime = dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
+      } catch {
+        // fallback
+      }
+    }
+    setRescheduleDate(initialDate);
+    setRescheduleTime(initialTime);
+
+    const matchedVenue = venues.find(v => v.name?.toLowerCase() === m.venueName?.toLowerCase());
+    setRescheduleVenueId(matchedVenue ? String(matchedVenue.id) : "");
+    if (matchedVenue && m.courtName) {
+      const matchedCourt = matchedVenue.courts?.find(c => c.name?.toLowerCase() === m.courtName?.toLowerCase());
+      setRescheduleCourtId(matchedCourt ? String(matchedCourt.id) : "");
+    } else {
+      setRescheduleCourtId("");
+    }
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!reschedulingMatch) return;
+    if (!rescheduleDate) {
+      showError("Please pick a scheduled date");
+      return;
+    }
+    setIsSubmittingReschedule(true);
+    try {
+      let hours = 9;
+      let minutes = 0;
+      const t = (rescheduleTime || "").trim().toUpperCase();
+      const match12 = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (match12) {
+        hours = parseInt(match12[1], 10);
+        minutes = parseInt(match12[2], 10);
+        const meridiem = match12[3];
+        if (meridiem === "PM" && hours < 12) hours += 12;
+        if (meridiem === "AM" && hours === 12) hours = 0;
+      } else {
+        const match24 = t.match(/^(\d{1,2}):(\d{2})$/);
+        if (match24) {
+          hours = parseInt(match24[1], 10);
+          minutes = parseInt(match24[2], 10);
+        }
+      }
+      const hh = String(hours).padStart(2, "0");
+      const mm = String(minutes).padStart(2, "0");
+      const scheduledAtIso = `${rescheduleDate}T${hh}:${mm}:00`;
+
+      const venueObj = venues.find(v => String(v.id) === rescheduleVenueId);
+      const courtObj = venueObj?.courts?.find(c => String(c.id) === rescheduleCourtId);
+
+      await tournamentService.rescheduleMatch(reschedulingMatch.match.id, {
+        scheduledAt: scheduledAtIso,
+        venue: rescheduleVenueId || undefined,
+        court: rescheduleCourtId || undefined,
+      });
+
+      setMatches(prev => ({
+        ...prev,
+        [reschedulingMatch.configId]: (prev[reschedulingMatch.configId] || []).map(row => {
+          if (row.id === reschedulingMatch.match.id) {
+            return {
+              ...row,
+              scheduledAt: scheduledAtIso,
+              venueName: venueObj ? venueObj.name : row.venueName,
+              courtName: courtObj ? courtObj.name : (rescheduleCourtId ? row.courtName : undefined),
+            };
+          }
+          return row;
+        })
+      }));
+
+      showSuccess(`Match #${reschedulingMatch.match.matchNumber || ''} rescheduled to ${rescheduleDate}`);
+      setReschedulingMatch(null);
+    } catch (err: any) {
+      showError(err?.message || "Failed to reschedule match on server");
+    } finally {
+      setIsSubmittingReschedule(false);
+    }
+  };
 
   const fetchConfigs = useCallback(async () => {
     setLoading(true);
@@ -453,32 +558,45 @@ export function ScheduleAdminTab() {
                                         </div>
                                       )}
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        try {
-                                          const next = m.showInFeed === true ? false : true;
-                                          await tournamentService.setFeedVisibility("match", m.id, next);
-                                          setMatches(prev => ({
-                                            ...prev,
-                                            [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, showInFeed: next } : row)
-                                          }));
-                                          toast.success(`Match #${m.matchNumber || i + 1} feed broadcast set to ${next ? "ON" : "OFF"}`);
-                                        } catch {
-                                          showError("Failed to update match feed setting");
-                                        }
-                                      }}
-                                      className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer shrink-0 ${
-                                        m.showInFeed === true
-                                          ? "bg-red-50 text-red-600 border-red-200"
-                                          : m.showInFeed === false
-                                          ? "bg-slate-100 text-slate-400 border-slate-200"
-                                          : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
-                                      }`}
-                                    >
-                                      <Radio className="w-2.5 h-2.5" />
-                                      <span>Feed: {m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {m.status !== "COMPLETED" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => openRescheduleModal(m, cfg.id)}
+                                          className="px-2 py-1 rounded-md text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="Reschedule match"
+                                        >
+                                          <CalendarIcon className="w-2.5 h-2.5" />
+                                          <span>Reschedule</span>
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          try {
+                                            const next = m.showInFeed === true ? false : true;
+                                            await tournamentService.setFeedVisibility("match", m.id, next);
+                                            setMatches(prev => ({
+                                              ...prev,
+                                              [cfg.id]: (prev[cfg.id] || []).map(row => row.id === m.id ? { ...row, showInFeed: next } : row)
+                                            }));
+                                            toast.success(`Match #${m.matchNumber || i + 1} feed broadcast set to ${next ? "ON" : "OFF"}`);
+                                          } catch {
+                                            showError("Failed to update match feed setting");
+                                          }
+                                        }}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border transition-colors cursor-pointer ${
+                                          m.showInFeed === true
+                                            ? "bg-red-50 text-red-600 border-red-200"
+                                            : m.showInFeed === false
+                                            ? "bg-slate-100 text-slate-400 border-slate-200"
+                                            : "bg-indigo-50/70 text-indigo-600 border-indigo-200"
+                                        }`}
+                                      >
+                                        <Radio className="w-2.5 h-2.5" />
+                                        <span>Feed: {m.showInFeed === true ? "ON" : m.showInFeed === false ? "OFF" : "Auto"}</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -498,6 +616,7 @@ export function ScheduleAdminTab() {
                                   <th className="px-4 py-2 text-left font-medium">Score</th>
                                   <th className="px-4 py-2 text-left font-medium">Feed</th>
                                   <th className="px-4 py-2 text-left font-medium">Status</th>
+                                  <th className="px-4 py-2 text-right font-medium">Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -589,6 +708,18 @@ export function ScheduleAdminTab() {
                                       <td className="px-4 py-2.5">
                                         <StatusBadge status={m.status} />
                                       </td>
+                                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                        {m.status !== "COMPLETED" && (
+                                          <button
+                                            type="button"
+                                            onClick={() => openRescheduleModal(m, cfg.id)}
+                                            className="px-2 py-1 rounded-md text-[10px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                            title="Reschedule date, time, venue or court"
+                                          >
+                                            <CalendarIcon className="w-3 h-3" /> Reschedule
+                                          </button>
+                                        )}
+                                      </td>
                                     </tr>
                                   );
                                 })}
@@ -633,6 +764,140 @@ export function ScheduleAdminTab() {
           matches={exportModalState.matches}
           defaultStage={exportModalState.defaultStage || 'ALL'}
         />
+      )}
+
+      {/* Reschedule Match Modal */}
+      {reschedulingMatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+            {/* Header */}
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                  <CalendarIcon className="w-4 h-4 text-indigo-200" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold leading-tight">Reschedule Match</h3>
+                  <p className="text-[11px] text-indigo-200">
+                    Match #{reschedulingMatch.match.matchNumber} · {reschedulingMatch.match.round?.replace(/_/g, " ") || "Fixture"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmittingReschedule}
+                onClick={() => setReschedulingMatch(null)}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Match matchup */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                  <span className="truncate">{reschedulingMatch.match.teamAName || "TBD"}</span>
+                  <span className="text-[10px] font-black text-indigo-500 uppercase px-2 py-0.5 rounded bg-indigo-50 shrink-0 mx-2">VS</span>
+                  <span className="truncate text-right">{reschedulingMatch.match.teamBName || "TBD"}</span>
+                </div>
+              </div>
+
+              {/* Form fields */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Scheduled Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Scheduled Time <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 09:30 AM or 14:00"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Accepts 12-hour (e.g. 10:00 AM) or 24-hour (14:30) format</p>
+              </div>
+
+              {venues.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Venue</label>
+                  <select
+                    value={rescheduleVenueId}
+                    onChange={(e) => {
+                      setRescheduleVenueId(e.target.value);
+                      setRescheduleCourtId("");
+                    }}
+                    className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                  >
+                    <option value="">-- Keep Current / No Venue --</option>
+                    {venues.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(() => {
+                const selectedV = venues.find(v => String(v.id) === rescheduleVenueId);
+                if (!selectedV || !selectedV.courts || selectedV.courts.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Court</label>
+                    <select
+                      value={rescheduleCourtId}
+                      onChange={(e) => setRescheduleCourtId(e.target.value)}
+                      className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                    >
+                      <option value="">-- Any / Unassigned Court --</option>
+                      {selectedV.courts.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={isSubmittingReschedule}
+                  onClick={() => setReschedulingMatch(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingReschedule || !rescheduleDate}
+                  onClick={handleRescheduleSubmit}
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingReschedule ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving…</span>
+                    </>
+                  ) : (
+                    <span>Save New Schedule</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -642,6 +642,11 @@ export const tournamentService = {
     return apiClient.delete<void>(`/tournament/match/${matchId}`);
   },
 
+  /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
+  async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
+    return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
+  },
+
   /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
   async publishSchedule(configId: number): Promise<any> {
     return this.updateMatchesStatus(configId, 'PUBLISHED');
