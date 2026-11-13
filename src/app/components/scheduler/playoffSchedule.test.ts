@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createScheduleCursor, buildPlayoffBracket, reconstructKnockoutByes } from './playoffSchedule';
+import {
+  createScheduleCursor,
+  buildPlayoffBracket,
+  reconstructKnockoutByes,
+  buildPlayoffDraftFromSavedMatches,
+  sanitizePlayoffMatches,
+} from './playoffSchedule';
 
 describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
   it('rolls over to next day when match would spill past endTime', () => {
@@ -432,5 +438,102 @@ describe('reconstructKnockoutByes', () => {
     expect(result).toEqual(groupMatches);
   });
 });
+
+describe('buildPlayoffDraftFromSavedMatches', () => {
+  it('normalizes roundIndex consecutively starting at 0 and links parent feeder matches', () => {
+    // 6-team single elimination knockout tournament starting at Quarter-Finals
+    // Quarter-Finals: 2 played matches, 2 BYE matches to feed 2 Semi-Finals
+    // Semi-Finals: 2 matches
+    // Final: 1 match
+    const savedMatches = [
+      // QF played matches
+      {
+        matchId: 'qf-1',
+        stage: 'QUARTER_FINAL',
+        roundName: 'Quarter-Finals',
+        matchNumber: 1,
+        team1: 'Player C',
+        team2: 'Player D',
+        scheduledAt: '2026-06-20T10:00:00',
+      },
+      {
+        matchId: 'qf-2',
+        stage: 'QUARTER_FINAL',
+        roundName: 'Quarter-Finals',
+        matchNumber: 2,
+        team1: 'Player E',
+        team2: 'Player F',
+        scheduledAt: '2026-06-20T10:30:00',
+      },
+      // SF matches (Player A & Player B received BYEs in QF and were saved in SF)
+      {
+        matchId: 'sf-1',
+        stage: 'SEMI_FINAL',
+        roundName: 'Semi-Finals',
+        matchNumber: 3,
+        team1: 'Player A',
+        team2: 'Player C',
+        scheduledAt: '2026-06-20T14:00:00',
+      },
+      {
+        matchId: 'sf-2',
+        stage: 'SEMI_FINAL',
+        roundName: 'Semi-Finals',
+        matchNumber: 4,
+        team1: 'Player B',
+        team2: 'Player E',
+        scheduledAt: '2026-06-20T14:30:00',
+      },
+      // Final match
+      {
+        matchId: 'final-1',
+        stage: 'FINAL',
+        roundName: 'Final',
+        matchNumber: 5,
+        team1: '',
+        team2: '',
+        scheduledAt: '2026-06-20T17:00:00',
+      },
+    ];
+
+    const draft = buildPlayoffDraftFromSavedMatches(savedMatches, {
+      totalTeams: 6,
+      tournamentType: 'KNOCKOUT',
+    });
+
+    // 4 QF + 2 SF + 1 Final = 7 matches
+    expect(draft).toHaveLength(7);
+
+    // QF matches should have roundIndex = 0
+    const qfMatches = draft.filter(m => m.round === 'QUARTER_FINAL');
+    expect(qfMatches).toHaveLength(4);
+    qfMatches.forEach(m => expect(m.roundIndex).toBe(0));
+
+    // SF matches should have roundIndex = 1
+    const sfMatches = draft.filter(m => m.round === 'SEMI_FINAL');
+    expect(sfMatches).toHaveLength(2);
+    sfMatches.forEach(m => expect(m.roundIndex).toBe(1));
+
+    // Final match should have roundIndex = 2
+    const finalMatches = draft.filter(m => m.round === 'FINAL');
+    expect(finalMatches).toHaveLength(1);
+    expect(finalMatches[0].roundIndex).toBe(2);
+
+    // Final should have feeder links ending in -winner pointing to SF matches
+    expect(finalMatches[0].home.id).toBe(`${sfMatches[0].id}-winner`);
+    expect(finalMatches[0].away.id).toBe(`${sfMatches[1].id}-winner`);
+
+    // Preserving BYEs: sanitizePlayoffMatches with preserveFirstRoundByes: true keeps all 4 QF matches
+    const withByes = sanitizePlayoffMatches(draft, true);
+    expect(withByes).toHaveLength(7);
+    expect(withByes.filter(m => m.round === 'QUARTER_FINAL')).toHaveLength(4);
+
+    // Hiding BYEs: sanitizePlayoffMatches with preserveFirstRoundByes: false strips the 2 BYE matches
+    const withoutByes = sanitizePlayoffMatches(draft, false);
+    expect(withoutByes).toHaveLength(5);
+    expect(withoutByes.filter(m => m.round === 'QUARTER_FINAL')).toHaveLength(2);
+  });
+});
+
 
 
