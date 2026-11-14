@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
-import { ballColor } from "./utils/cricketUtils";
+import { ballColor, remainingBalls, requiredRunRate } from "./utils/cricketUtils";
 import { toast } from "sonner";
 import { SportsDisputeModal } from "./SportsDisputeModal";
 
@@ -232,6 +232,13 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   }
 
   const inn = state ? (inningsNumber === 1 ? state.innings1 : state.innings2) : null;
+  const ballsRemaining = state && inn ? remainingBalls(inn.totalOvers, state.oversLimit || 20) : 0;
+  const runsNeeded = state?.target != null && inn && inningsNumber === 2
+    ? Math.max(0, state.target - inn.totalRuns)
+    : null;
+  const requiredRate = state?.target != null && inn && inningsNumber === 2
+    ? requiredRunRate(state.target, inn.totalRuns, inn.totalOvers, state.oversLimit || 20)
+    : null;
   const battingTeamPlayers = players.filter(p => {
     if (!state) return true;
     const battingTeamId = inningsNumber === 1 ? state.teamAId : state.teamBId;
@@ -250,9 +257,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={handleClose}>
       <div
-        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[96dvh] sm:max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -285,25 +292,32 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
 
         {/* Mini Scoreboard */}
         {state && inn && (
-          <div className="bg-slate-800 px-3 py-2 sm:px-5 sm:py-3 text-white flex items-center justify-between">
-            <div>
-              <div className="text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
-              <div className="text-lg sm:text-2xl font-extrabold">
-                {inn.totalRuns}/{inn.totalWickets}
-                <span className="text-[10px] text-slate-400 font-normal ml-1.5 sm:ml-2">
-                  ({inn.totalOvers}{state.oversLimit ? ` / ${state.oversLimit}` : ""} ov)
-                </span>
+          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-4 sm:px-6 sm:py-5 text-white border-b border-slate-800">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30">Innings {inningsNumber}</span>
+                  <span className="text-xs text-slate-300 truncate">{inn.battingTeamName}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-4xl sm:text-5xl font-black tracking-tight">{inn.totalRuns}</span>
+                  <span className="font-mono text-3xl font-bold text-rose-400">/</span>
+                  <span className="font-mono text-4xl sm:text-5xl font-black text-rose-300">{inn.totalWickets}</span>
+                </div>
+                <div className="mt-1 text-[11px] font-semibold text-amber-300">Overs {inn.totalOvers}{state.oversLimit ? ` / ${state.oversLimit}` : ""}</div>
+              </div>
+              <div className="shrink-0 text-right space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400">Current Run Rate</div>
+                <div className="font-mono text-lg font-black text-emerald-300">{inn.runRate}</div>
+                {state.maxOversPerBowler && <div className="text-[10px] text-slate-400">Max {state.maxOversPerBowler} ov / bowler</div>}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-slate-400">CRR: {inn.runRate}</div>
-              {state.target && inningsNumber === 2 && (
-                <div className="text-xs text-amber-400">Need {state.target - inn.totalRuns}</div>
-              )}
-              {state.maxOversPerBowler && (
-                <div className="text-[10px] text-slate-400">Max {state.maxOversPerBowler} ov/bowler</div>
-              )}
-            </div>
+            {runsNeeded !== null && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2">
+                <div className="text-xs font-bold text-amber-200">Target {state.target} · Need {runsNeeded} runs in {ballsRemaining} balls</div>
+                <div className="text-[10px] font-semibold text-slate-300">Required rate <span className="font-mono font-black text-emerald-300">{requiredRate}</span></div>
+              </div>
+            )}
           </div>
         )}
 
@@ -384,10 +398,10 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
 
         {/* This Over */}
         {inn && inn.thisOver.length > 0 && (
-          <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1 sm:gap-2 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">This Over:</span>
+          <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-slate-950 border-b border-slate-800 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">This Over:</span>
             {inn.thisOver.map((ball, i) => (
-              <span key={i} className={`w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}>
+              <span key={i} className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] font-black border border-white/10 ${ballColor(ball)}`}>
                 {ball}
               </span>
             ))}
@@ -448,9 +462,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
           </div>
 
           {/* Run Buttons */}
-          <div>
-            <div className="text-xs text-slate-400 font-semibold uppercase mb-1.5 sm:mb-2">Runs</div>
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          <div className="rounded-2xl bg-slate-950 p-3 sm:p-4 border border-slate-800 shadow-inner">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2.5">Record Ball Delivery</div>
+            <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
               {[0, 1, 2, 3, 4, 5, 6].map((r) => (
                 <button
                   key={r}
@@ -459,14 +473,15 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
                     isSix: r === 6,
                   })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className={`py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition hover:scale-105 active:scale-95 disabled:opacity-40 ${
-                    r === 4 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" :
-                    r === 6 ? "bg-purple-100 text-purple-700 hover:bg-purple-200" :
-                    r === 0 ? "bg-slate-100 text-slate-500 hover:bg-slate-200" :
-                    "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  aria-label={`Record ${r} run${r === 1 ? "" : "s"}`}
+                  className={`min-h-14 rounded-xl text-lg sm:text-xl font-black font-mono transition active:scale-[0.97] disabled:opacity-40 ${
+                    r === 4 ? "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-950/30" :
+                    r === 6 ? "bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-lg shadow-amber-950/20" :
+                    r === 0 ? "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700" :
+                    "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700"
                   }`}
                 >
-                  {r}
+                  {r}<span className="block text-[9px] font-semibold tracking-normal">{r === 0 ? "Dot" : r === 4 ? "Four" : r === 6 ? "Six" : "Runs"}</span>
                 </button>
               ))}
             </div>

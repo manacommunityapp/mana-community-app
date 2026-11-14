@@ -379,6 +379,18 @@ export function GenericLiveScoringPanel({
     computedSetsWonB = state.periodsWonB;
   }
 
+  const pointTarget = state.scoringConfig?.pointsToWinPeriod ??
+    (sportType === "TENNIS" ? 6 : sportType === "TABLE_TENNIS" || sportType === "SQUASH" ? 11 : 21);
+  const scoreA = Number(state.scoreTeamA) || 0;
+  const scoreB = Number(state.scoreTeamB) || 0;
+  const isDeuce = isSetBased(sportType) && sportType !== "TENNIS" && scoreA === scoreB && scoreA >= pointTarget - 1;
+  const teamAHasGamePoint = isSetBased(sportType) && checkSetWon(scoreA + 1, scoreB, sportType, state.scoringConfig);
+  const teamBHasGamePoint = isSetBased(sportType) && checkSetWon(scoreA, scoreB + 1, sportType, state.scoringConfig);
+  const setsToWin = Math.ceil((state.scoringConfig?.periodsCount || 3) / 2);
+  const isMatchPoint =
+    (teamAHasGamePoint && computedSetsWonA + 1 >= setsToWin) ||
+    (teamBHasGamePoint && computedSetsWonB + 1 >= setsToWin);
+
   // Sort events from last point of time (most recent first)
   const sortedEvents = [...state.recentEvents].reverse().sort((a, b) => {
     if (a.timestamp && b.timestamp) {
@@ -507,21 +519,21 @@ export function GenericLiveScoringPanel({
             </div>
 
             {/* Score */}
-            <div className="text-center px-3">
-              <div className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+            <div className="text-center px-4 py-2 rounded-2xl bg-slate-950 text-white shadow-inner min-w-[116px]">
+              <div className="font-mono text-4xl sm:text-5xl font-black tracking-tight">
                 {state.scoreTeamA}
-                <span className="text-slate-300 dark:text-slate-600 mx-1">
+                <span className="text-slate-500 mx-1">
                   -
                 </span>
                 {state.scoreTeamB}
               </div>
               {isSetBased(sportType) && (hasAnySetCompleted || isCompleted) && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <div className="text-[10px] text-slate-300 mt-1">
                   Sets: {computedSetsWonA} - {computedSetsWonB}
                 </div>
               )}
               {isCarrom && (
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                <div className="text-[10px] font-semibold text-amber-300 mt-1">
                   Target: {state.scoringConfig?.targetScore || 25} pts
                 </div>
               )}
@@ -540,6 +552,18 @@ export function GenericLiveScoringPanel({
               </p>
             </div>
           </div>
+
+          {(isDeuce || teamAHasGamePoint || teamBHasGamePoint) && !isCompleted && (
+            <div className={`mb-3 rounded-xl border px-3 py-2 text-center text-xs font-extrabold tracking-wide ${
+              isDeuce
+                ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200"
+                : "bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-200"
+            }`} role="status" aria-live="polite">
+              {isDeuce
+                ? `DEUCE · ${scoreA}-${scoreB} · Win by 2 points`
+                : `${isMatchPoint ? "MATCH POINT" : sportType === "TENNIS" ? "SET POINT" : "GAME POINT"} · ${teamAHasGamePoint ? teamA.name : teamB.name}`}
+            </div>
+          )}
 
           {/* Period scores */}
           {state.periods.length > 0 && (
@@ -938,7 +962,7 @@ export function GenericLiveScoringPanel({
                         selectedPlayerA
                       )
                     }
-                    className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
+                    className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
                       COLOR_MAP[evt.color] || COLOR_MAP.green
                     }`}
                   >
@@ -973,7 +997,7 @@ export function GenericLiveScoringPanel({
                         selectedPlayerB
                       )
                     }
-                    className={`w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
+                    className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
                       COLOR_MAP[evt.color] || COLOR_MAP.green
                     }`}
                   >
