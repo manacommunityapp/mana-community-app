@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2 } from "lucide-react";
-import { tournamentService, type FeedLiveMatch } from "../../../../services/sports/tournamentService";
+import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock } from "lucide-react";
+import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState } from "../../../../services/sports/tournamentService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { getStoredUser } from "../../../../services/common/apiClient";
 import { LiveMatchView } from "../../sports/LiveMatchView";
@@ -81,6 +81,55 @@ const isLiveStatus = (status?: string, hasScores?: boolean) => {
   return false;
 };
 
+const isUpcomingStatus = (status?: string, hasScores?: boolean) => {
+  if (isLiveStatus(status, hasScores)) return false;
+  const s = String(status || "").toUpperCase().trim();
+  if (s === "COMPLETED" || s === "CANCELLED" || s === "BYE" || s === "AUTO_ADVANCED") {
+    return false;
+  }
+  return true;
+};
+
+function formatScheduledDateTime(iso?: string | null): string {
+  if (!iso) return "Upcoming";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "Upcoming";
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (isToday) return `Today, ${timeStr}`;
+    if (isTomorrow) return `Tomorrow, ${timeStr}`;
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${timeStr}`;
+  } catch {
+    return "Upcoming";
+  }
+}
+
+function formatNextScheduled(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (isToday) return `Today ${timeStr}`;
+    if (isTomorrow) return `Tomorrow ${timeStr}`;
+    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + ` ${timeStr}`;
+  } catch {
+    return "";
+  }
+}
+
 /**
  * "Live Now" strip for the community feed.
  * Placed at the top of FeedPage (above posts) as a live widget.
@@ -96,6 +145,55 @@ function formatCricketScore(score?: string | null): string {
   // If already formatted like "142/3 (18.2 ov)" or "142/3"
   if (s.includes("/") || s.includes("ov")) return s;
   return s;
+}
+
+function extractCricketScores(state: LiveMatchStateData, match: FeedLiveMatch): { scoreA: string; scoreB: string; isWicket: boolean } {
+  let isWicket = false;
+  if (state.recentBalls && state.recentBalls.length > 0) {
+    isWicket = Boolean(state.recentBalls[0]?.isWicket);
+  }
+
+  const inn1 = state.innings1;
+  const inn2 = state.innings2;
+
+  let scoreA = match.scoreTeamA || "";
+  let scoreB = match.scoreTeamB || "";
+
+  const inn1ScoreStr = inn1 && inn1.totalRuns != null
+    ? `${inn1.totalRuns}/${inn1.totalWickets ?? 0} (${inn1.totalOvers || "0.0"} ov)`
+    : "";
+  const inn2ScoreStr = inn2 && inn2.totalRuns != null && (inn2.totalRuns > 0 || inn2.totalWickets > 0 || (inn2.totalOvers && inn2.totalOvers !== "0.0"))
+    ? `${inn2.totalRuns}/${inn2.totalWickets ?? 0} (${inn2.totalOvers || "0.0"} ov)`
+    : "";
+
+  const isTeamABattingFirst = Boolean(
+    (inn1?.battingTeamId && (inn1.battingTeamId === state.teamAId || (match.teamAId && inn1.battingTeamId === match.teamAId))) ||
+    (inn1?.battingTeamName && match.teamAName && inn1.battingTeamName.toLowerCase().includes(match.teamAName.toLowerCase())) ||
+    (inn1?.battingTeamName && state.teamAName && inn1.battingTeamName.toLowerCase().includes(state.teamAName.toLowerCase()))
+  );
+
+  if (isTeamABattingFirst) {
+    if (inn1ScoreStr) scoreA = inn1ScoreStr;
+    if (inn2ScoreStr) scoreB = inn2ScoreStr;
+  } else {
+    if (inn1ScoreStr) scoreB = inn1ScoreStr;
+    if (inn2ScoreStr) scoreA = inn2ScoreStr;
+  }
+
+  return { scoreA, scoreB, isWicket };
+}
+
+function extractGenericScores(state: GenericMatchState, match: FeedLiveMatch): { scoreA: string; scoreB: string } {
+  const isSetSport = /badminton|tennis|table|volleyball|squash/i.test(state.sportType || match.sportName || "");
+  if (isSetSport && (state.periodsWonA > 0 || state.periodsWonB > 0)) {
+    const scoreA = `${state.periodsWonA} (${state.scoreTeamA ?? 0})`;
+    const scoreB = `${state.periodsWonB} (${state.scoreTeamB ?? 0})`;
+    return { scoreA, scoreB };
+  }
+
+  const scoreA = state.scoreTeamA != null ? String(state.scoreTeamA) : (match.scoreTeamA || "0");
+  const scoreB = state.scoreTeamB != null ? String(state.scoreTeamB) : (match.scoreTeamB || "0");
+  return { scoreA, scoreB };
 }
 
 function getMatchContextNarrative(m: FeedLiveMatch, isLive: boolean): { text: string; highlight?: boolean } {
@@ -135,7 +233,7 @@ export function LiveMatchesStrip() {
   const [allMatchesModalOpen, setAllMatchesModalOpen] = useState(false);
   const [modalSearch, setModalSearch] = useState("");
   const [modalSportFilter, setModalSportFilter] = useState("ALL");
-  const [modalStatusFilter, setModalStatusFilter] = useState<"ALL" | "LIVE_ONLY">("ALL");
+  const [modalStatusFilter, setModalStatusFilter] = useState<"ALL" | "LIVE_ONLY" | "UPCOMING_ONLY">("ALL");
   const [recentResultsModalOpen, setRecentResultsModalOpen] = useState(false);
   const [recentMatches, setRecentMatches] = useState<FeedLiveMatch[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
@@ -166,7 +264,7 @@ export function LiveMatchesStrip() {
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
       const combinedMap = new Map<number, FeedLiveMatch>();
 
-      // 1. Fetch from /sports/live-feed
+      // 1. Fetch from /sports/live-feed and /sports/upcoming-feed
       try {
         let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
         // Fallback: If community-scoped query returns no matches, check across all communities
@@ -179,10 +277,24 @@ export function LiveMatchesStrip() {
           });
         }
       } catch {
-        // Backend live-feed endpoint may be unavailable or unconfigured; will continue to configs below
+        // Backend live-feed endpoint may be unavailable or unconfigured; will continue below
       }
 
-      // 2. ALWAYS query tournament schedule configs to discover any active live matches in tournaments
+      try {
+        let upcomingFeed = await tournamentService.getUpcomingFeedMatches(communityId);
+        if ((!upcomingFeed || upcomingFeed.length === 0) && communityId) {
+          upcomingFeed = await tournamentService.getUpcomingFeedMatches(undefined);
+        }
+        if (Array.isArray(upcomingFeed)) {
+          upcomingFeed.forEach((m) => {
+            if (m && m.matchId && !combinedMap.has(m.matchId)) combinedMap.set(m.matchId, m);
+          });
+        }
+      } catch {
+        // Continue below
+      }
+
+      // 2. ALWAYS query tournament schedule configs to discover any active live & upcoming matches in tournaments
       try {
         const configs = await tournamentService.getConfigs().catch(() => []);
         if (Array.isArray(configs) && configs.length > 0) {
@@ -192,15 +304,9 @@ export function LiveMatchesStrip() {
               if (!Array.isArray(cfgMatches)) return [];
               return cfgMatches
                 .filter((m: any) => {
-                  if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED") return false;
+                  if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED" || m.status === "CANCELLED") return false;
                   if (m.showInFeed === false) return false;
-                  const hasScores = Boolean(
-                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
-                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
-                    (m.score1 && m.score1 !== "0") ||
-                    (m.score2 && m.score2 !== "0")
-                  );
-                  return isLiveStatus(m.status, hasScores);
+                  return true;
                 })
                 .map((m: any): FeedLiveMatch => {
                   const hasScores = Boolean(
@@ -209,7 +315,8 @@ export function LiveMatchesStrip() {
                     (m.score1 && m.score1 !== "0") ||
                     (m.score2 && m.score2 !== "0")
                   );
-                  const isLive = isLiveStatus(m.status) || hasScores;
+                  const isLive = isLiveStatus(m.status, hasScores);
+                  const isCompleted = m.status === "COMPLETED";
                   return {
                     matchId: m.id || m.matchId,
                     configId: cfg.id,
@@ -219,11 +326,13 @@ export function LiveMatchesStrip() {
                     roundName: m.roundName || m.round,
                     teamAName: m.teamAName || m.homeName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 1" : "Team A"),
                     teamBName: m.teamBName || m.awayName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 2" : "Team B"),
+                    teamAId: m.teamAId || m.homeTeamId || m.teamA?.id || null,
+                    teamBId: m.teamBId || m.awayTeamId || m.teamB?.id || null,
                     teamAFlat: m.teamAFlat || m.homeFlat,
                     teamBFlat: m.teamBFlat || m.awayFlat,
                     scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
                     scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
-                    status: isLive ? (m.status === "COMPLETED" ? "COMPLETED" : "LIVE") : (m.status || "SCHEDULED"),
+                    status: isLive ? "LIVE" : (isCompleted ? "COMPLETED" : (m.status || "SCHEDULED")),
                     winnerName: m.winnerName,
                     scheduledAt: m.scheduledAt,
                     venueName: m.venueName || m.courtName,
@@ -297,39 +406,85 @@ export function LiveMatchesStrip() {
     const unsubs: (() => void)[] = [];
 
     matchIds.forEach((id) => {
-      // Cricket state updates
+      // Cricket state updates: instantly patch score in local React state
       unsubs.push(
-        stompClient.subscribe(`/topic/match/${id}/state`, (msg: any) => {
+        stompClient.subscribe(`/topic/match/${id}/state`, (body: any) => {
+          if (!body) return;
           const matchNum = Number(id);
-          const isWicket = msg?.body?.includes?.("WICKET") || msg?.body?.includes?.("isWicket");
-          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: isWicket ? "wicket" : "score" }));
+          const stateData = body as LiveMatchStateData;
+
+          // 1. Immediately patch the card in local state (0ms latency!)
+          setMatches((prev) =>
+            prev.map((m) => {
+              if (m.matchId !== matchNum) return m;
+              const { scoreA, scoreB } = extractCricketScores(stateData, m);
+              return {
+                ...m,
+                scoreTeamA: scoreA || m.scoreTeamA,
+                scoreTeamB: scoreB || m.scoreTeamB,
+                status: stateData.status || "LIVE",
+              };
+            })
+          );
+
+          // 2. Trigger instant visual flash indicator
+          const isWicket = Boolean(
+            stateData.recentBalls?.[0]?.isWicket ||
+            (typeof body === "string" && body.includes("WICKET"))
+          );
+          setFlashingMatchIds((prev) => ({ ...prev, [matchNum]: isWicket ? "wicket" : "score" }));
           setTimeout(() => {
-            setFlashingMatchIds(prev => {
+            setFlashingMatchIds((prev) => {
               const copy = { ...prev };
               delete copy[matchNum];
               return copy;
             });
-          }, 1500);
+          }, 1200);
 
-          if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 400);
+          // 3. Only if match completed or moved away from LIVE, reconcile structure in background
+          if (stateData.status === "COMPLETED") {
+            if (refreshTimer.current) clearTimeout(refreshTimer.current);
+            refreshTimer.current = setTimeout(load, 2000);
+          }
         })
       );
+
       // Generic sports state updates (badminton, football, tennis, etc.)
       unsubs.push(
-        stompClient.subscribe(`/topic/match/${id}/generic-state`, () => {
+        stompClient.subscribe(`/topic/match/${id}/generic-state`, (body: any) => {
+          if (!body) return;
           const matchNum = Number(id);
-          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: "score" }));
+          const stateData = body as GenericMatchState;
+
+          // 1. Immediately patch the card in local state (0ms latency!)
+          setMatches((prev) =>
+            prev.map((m) => {
+              if (m.matchId !== matchNum) return m;
+              const { scoreA, scoreB } = extractGenericScores(stateData, m);
+              return {
+                ...m,
+                scoreTeamA: scoreA || m.scoreTeamA,
+                scoreTeamB: scoreB || m.scoreTeamB,
+                status: stateData.status || "LIVE",
+              };
+            })
+          );
+
+          // 2. Trigger instant visual flash indicator
+          setFlashingMatchIds((prev) => ({ ...prev, [matchNum]: "score" }));
           setTimeout(() => {
-            setFlashingMatchIds(prev => {
+            setFlashingMatchIds((prev) => {
               const copy = { ...prev };
               delete copy[matchNum];
               return copy;
             });
-          }, 1500);
+          }, 1200);
 
-          if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 400);
+          // 3. Only if match completed, reconcile structure in background
+          if (stateData.status === "COMPLETED") {
+            if (refreshTimer.current) clearTimeout(refreshTimer.current);
+            refreshTimer.current = setTimeout(load, 2000);
+          }
         })
       );
     });
@@ -350,10 +505,35 @@ export function LiveMatchesStrip() {
     }
   };
 
-  const visible = matches
-    .filter((m) => !dismissed.includes(m.matchId))
-    // LIVE matches first, then recently finished
-    .sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
+  const visible = useMemo(() => {
+    return matches.filter((m) => !dismissed.includes(m.matchId));
+  }, [matches, dismissed]);
+
+  const liveMatches = useMemo(() => {
+    return visible.filter((m) => isLiveStatus(m.status));
+  }, [visible]);
+
+  const upcomingMatches = useMemo(() => {
+    return visible
+      .filter((m) => isUpcomingStatus(m.status))
+      .sort((a, b) => {
+        const tA = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+        const tB = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+        return tA - tB;
+      });
+  }, [visible]);
+
+  const completedMatches = useMemo(() => {
+    return visible.filter((m) => m.status === "COMPLETED");
+  }, [visible]);
+
+  // Combined ordered matches:
+  // 1. All LIVE matches come first.
+  // 2. Next UPCOMING matches follow immediately (filling empty slots or in carousel).
+  // 3. Recently COMPLETED matches come last.
+  const orderedMatches = useMemo(() => {
+    return [...liveMatches, ...upcomingMatches, ...completedMatches];
+  }, [liveMatches, upcomingMatches, completedMatches]);
 
   const availableSports = useMemo(() => {
     const set = new Set<string>();
@@ -366,6 +546,7 @@ export function LiveMatchesStrip() {
   const filteredModalMatches = useMemo(() => {
     return matches.filter((m) => {
       if (modalStatusFilter === "LIVE_ONLY" && !isLiveStatus(m.status)) return false;
+      if (modalStatusFilter === "UPCOMING_ONLY" && !isUpcomingStatus(m.status)) return false;
       if (modalSportFilter !== "ALL" && (m.sportName || "").toLowerCase() !== modalSportFilter.toLowerCase()) return false;
       if (modalSearch.trim()) {
         const q = modalSearch.toLowerCase().trim();
@@ -386,7 +567,15 @@ export function LiveMatchesStrip() {
         if (!text.includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => Number(isLiveStatus(b.status)) - Number(isLiveStatus(a.status)));
+    }).sort((a, b) => {
+      const aLive = isLiveStatus(a.status);
+      const bLive = isLiveStatus(b.status);
+      if (aLive && !bLive) return -1;
+      if (!aLive && bLive) return 1;
+      const tA = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+      const tB = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+      return tA - tB;
+    });
   }, [matches, modalStatusFilter, modalSportFilter, modalSearch]);
 
   const loadRecentMatches = useCallback(async () => {
@@ -502,7 +691,7 @@ export function LiveMatchesStrip() {
         <div className="flex items-center justify-between px-3.5 py-2.5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs text-xs animate-fade-in">
           <span className="text-slate-500 font-medium flex items-center gap-1.5">
             <Radio className="w-3.5 h-3.5 text-indigo-500" />
-            {matches.length} live match{matches.length > 1 ? "es" : ""} currently hidden.
+            {matches.length} match{matches.length > 1 ? "es" : ""} currently hidden.
           </span>
           <button
             type="button"
@@ -512,7 +701,7 @@ export function LiveMatchesStrip() {
             }}
             className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
           >
-            Show Live Matches
+            Show Matches
           </button>
         </div>
       );
@@ -520,34 +709,65 @@ export function LiveMatchesStrip() {
     return null;
   }
 
-  const shown = showAll ? visible : visible.slice(0, MAX_CARDS);
-  const liveCount = visible.filter((m) => isLiveStatus(m.status)).length;
+  const shown = showAll ? orderedMatches : orderedMatches.slice(0, MAX_CARDS);
+  const liveCount = liveMatches.length;
+  const upcomingCount = upcomingMatches.length;
+  const nextTimeStr = formatNextScheduled(upcomingMatches[0]?.scheduledAt);
   const isCricket = (m: FeedLiveMatch) => /cricket/i.test(m.sportName || "");
 
   return (
     <section aria-label="Live sports matches" className="space-y-2.5">
       {/* Strip Header */}
       <div className="flex items-center justify-between px-0.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h5 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5 m-0">
-            <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-            Live Now
+            {liveCount > 0 ? (
+              <>
+                <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                Live Now
+              </>
+            ) : (
+              <>
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                Upcoming Matches
+              </>
+            )}
           </h5>
-          {liveCount > 0 && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
-              {liveCount} {liveCount === 1 ? "match" : "matches"}
+
+          {/* If there are multiple live matches */}
+          {liveCount > 1 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
+              {liveCount} matches live
+            </span>
+          )}
+
+          {/* If single live match */}
+          {liveCount === 1 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
+              1 match live
+            </span>
+          )}
+
+          {/* Show the next scheduled matches here */}
+          {upcomingCount > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs">
+              <Clock className="w-3 h-3 text-blue-600" />
+              <span>
+                {liveCount > 0 ? "Next: " : ""}
+                {nextTimeStr ? `${nextTimeStr} (${upcomingCount} scheduled)` : `${upcomingCount} ${upcomingCount === 1 ? "match" : "matches"} scheduled`}
+              </span>
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {visible.length > MAX_CARDS && (
+          {orderedMatches.length > MAX_CARDS && (
             <button
               type="button"
               onClick={() => setShowAll((v) => !v)}
               className="text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
             >
-              {showAll ? "Show less" : `Carousel (${visible.length})`}
+              {showAll ? "Show less" : `Carousel (${orderedMatches.length})`}
             </button>
           )}
 
@@ -555,9 +775,9 @@ export function LiveMatchesStrip() {
             type="button"
             onClick={() => setAllMatchesModalOpen(true)}
             className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer group"
-            title="View all live matches in modal popup"
+            title="View all matches in modal popup"
           >
-            <span>All Live Matches</span>
+            <span>{liveCount > 0 ? "All Matches" : "All Upcoming Matches"}</span>
             <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
@@ -608,6 +828,8 @@ export function LiveMatchesStrip() {
         >
           {shown.map((m) => {
             const live = isLiveStatus(m.status);
+            const isCompleted = m.status === "COMPLETED";
+            const isUpcoming = !live && !isCompleted;
             const isCricketMatch = isCricket(m);
             const narrative = getMatchContextNarrative(m, live);
             const flashType = flashingMatchIds[m.matchId];
@@ -615,12 +837,24 @@ export function LiveMatchesStrip() {
             return (
               <div
                 key={m.matchId}
-                onClick={() => setWatching(m)}
+                onClick={() => {
+                  if (isUpcoming) {
+                    if (m.configId) {
+                      navigate(`/sports/schedule?configId=${m.configId}`);
+                    } else {
+                      navigate("/sports/schedule");
+                    }
+                  } else {
+                    setWatching(m);
+                  }
+                }}
                 className={`group snap-start shrink-0 w-[280px] sm:w-[310px] rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden ${
                   flashType === "wicket"
                     ? "border-rose-400 bg-rose-50/40 shadow-rose-100 ring-2 ring-rose-400"
                     : flashType === "score"
                     ? "border-emerald-400 bg-emerald-50/40 shadow-emerald-100 ring-2 ring-emerald-400"
+                    : isUpcoming
+                    ? "border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5"
                     : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
                 } p-3.5 shadow-2xs`}
               >
@@ -637,9 +871,13 @@ export function LiveMatchesStrip() {
                         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded-full shadow-2xs animate-pulse">
                           <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                         </span>
-                      ) : (
+                      ) : isCompleted ? (
                         <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
                           FINAL
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                          <Clock className="w-2.5 h-2.5 text-blue-600" /> UPCOMING
                         </span>
                       )}
 
@@ -660,7 +898,7 @@ export function LiveMatchesStrip() {
 
                   {/* Tournament / Event subtitle */}
                   <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
-                    {[m.tournamentName, m.eventName].filter(Boolean).join(" · ")}
+                    {[m.tournamentName, m.eventName, m.roundName].filter(Boolean).join(" · ")}
                   </p>
 
                   {/* Teams & Scores (Cricbuzz Bold Layout) */}
@@ -678,9 +916,9 @@ export function LiveMatchesStrip() {
                         )}
                       </div>
                       <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
-                        flashType ? "text-emerald-600 font-extrabold scale-105" : "text-slate-900"
+                        flashType ? "text-emerald-600 font-extrabold scale-105" : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900")
                       }`}>
-                        {isCricketMatch ? formatCricketScore(m.scoreTeamA) : (m.scoreTeamA || "0")}
+                        {isUpcoming ? "—" : (isCricketMatch ? formatCricketScore(m.scoreTeamA) : (m.scoreTeamA || "0"))}
                       </span>
                     </div>
 
@@ -697,9 +935,9 @@ export function LiveMatchesStrip() {
                         )}
                       </div>
                       <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
-                        flashType ? "text-emerald-600 font-extrabold scale-105" : "text-slate-900"
+                        flashType ? "text-emerald-600 font-extrabold scale-105" : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900")
                       }`}>
-                        {isCricketMatch ? formatCricketScore(m.scoreTeamB) : (m.scoreTeamB || "0")}
+                        {isUpcoming ? "—" : (isCricketMatch ? formatCricketScore(m.scoreTeamB) : (m.scoreTeamB || "0"))}
                       </span>
                     </div>
                   </div>
@@ -709,11 +947,11 @@ export function LiveMatchesStrip() {
                 <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className={`text-[11px] truncate font-medium ${
-                      narrative.highlight
-                        ? "text-indigo-600 font-bold"
-                        : "text-slate-500"
+                      isUpcoming
+                        ? "text-blue-700 font-semibold"
+                        : (narrative.highlight ? "text-indigo-600 font-bold" : "text-slate-500")
                     }`}>
-                      {narrative.text}
+                      {isUpcoming ? `🗓️ ${formatScheduledDateTime(m.scheduledAt)}` : narrative.text}
                     </p>
                     {m.venueName && (
                       <p className="text-[10px] text-slate-400 truncate mt-0.5">
@@ -722,9 +960,22 @@ export function LiveMatchesStrip() {
                     )}
                   </div>
 
-                  <span className="inline-flex items-center gap-1 text-[11px] font-black text-indigo-600 group-hover:text-indigo-700 bg-indigo-50/90 group-hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors shrink-0">
-                    <Play className="w-2.5 h-2.5 fill-indigo-600" />
-                    <span>{live ? "Watch" : "Card"}</span>
+                  <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-lg transition-colors shrink-0 ${
+                    isUpcoming
+                      ? "text-blue-700 group-hover:text-blue-800 bg-blue-50 group-hover:bg-blue-100"
+                      : "text-indigo-600 group-hover:text-indigo-700 bg-indigo-50/90 group-hover:bg-indigo-100"
+                  }`}>
+                    {isUpcoming ? (
+                      <>
+                        <Calendar className="w-2.5 h-2.5 text-blue-600" />
+                        <span>Fixture</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-2.5 h-2.5 fill-indigo-600" />
+                        <span>{live ? "Watch" : "Card"}</span>
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
@@ -840,6 +1091,16 @@ export function LiveMatchesStrip() {
                     <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
                     Live ({matches.filter((m) => isLiveStatus(m.status)).length})
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalStatusFilter("UPCOMING_ONLY")}
+                    className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                      modalStatusFilter === "UPCOMING_ONLY" ? "bg-white text-blue-700 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Clock className="w-3 h-3 text-blue-600" />
+                    Upcoming ({matches.filter((m) => isUpcomingStatus(m.status)).length})
+                  </button>
                 </div>
               </div>
 
@@ -892,7 +1153,7 @@ export function LiveMatchesStrip() {
                   <p className="text-xs text-slate-400 m-0">
                     {modalSearch || modalSportFilter !== "ALL" || modalStatusFilter !== "ALL"
                       ? "Try adjusting your search query or sport filter."
-                      : "There are currently no active live matches in your community."}
+                      : "There are currently no active live or scheduled matches in your community."}
                   </p>
                   {(modalSearch || modalSportFilter !== "ALL" || modalStatusFilter !== "ALL") && (
                     <button
@@ -912,6 +1173,8 @@ export function LiveMatchesStrip() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredModalMatches.map((m) => {
                     const live = isLiveStatus(m.status);
+                    const isCompleted = m.status === "COMPLETED";
+                    const isUpcoming = !live && !isCompleted;
                     return (
                       <div
                         key={m.matchId}
@@ -929,16 +1192,20 @@ export function LiveMatchesStrip() {
                               <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-red-600 px-2 py-0.5 rounded-full shadow-2xs animate-pulse">
                                 <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                               </span>
-                            ) : (
+                            ) : isCompleted ? (
                               <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
                                 FINAL
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
+                                <Clock className="w-2.5 h-2.5 text-blue-600" /> UPCOMING
                               </span>
                             )}
                           </div>
 
                           {/* Tournament / Event subtitle */}
                           <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
-                            {[m.tournamentName, m.eventName].filter(Boolean).join(" · ")}
+                            {[m.tournamentName, m.eventName, m.roundName].filter(Boolean).join(" · ")}
                           </p>
 
                           {/* Teams & Scores */}
@@ -953,7 +1220,7 @@ export function LiveMatchesStrip() {
                                 )}
                               </div>
                               <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
-                                {m.scoreTeamA || "0"}
+                                {isUpcoming ? "—" : (m.scoreTeamA || "0")}
                               </span>
                             </div>
 
@@ -967,7 +1234,7 @@ export function LiveMatchesStrip() {
                                 )}
                               </div>
                               <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
-                                {m.scoreTeamB || "0"}
+                                {isUpcoming ? "—" : (m.scoreTeamB || "0")}
                               </span>
                             </div>
                           </div>
@@ -980,6 +1247,10 @@ export function LiveMatchesStrip() {
                               <Trophy className="w-3.5 h-3.5 shrink-0" />
                               <span className="truncate">{m.winnerName}</span>
                             </span>
+                          ) : isUpcoming ? (
+                            <span className="text-[11px] font-semibold text-blue-700 truncate max-w-[170px]">
+                              🗓️ {formatScheduledDateTime(m.scheduledAt)}
+                            </span>
                           ) : (
                             <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[150px]">
                               {m.roundName || m.venueName || "Live Action"}
@@ -989,12 +1260,30 @@ export function LiveMatchesStrip() {
                           <button
                             type="button"
                             onClick={() => {
-                              setWatching(m);
+                              if (isUpcoming) {
+                                setAllMatchesModalOpen(false);
+                                if (m.configId) {
+                                  navigate(`/sports/schedule?configId=${m.configId}`);
+                                } else {
+                                  navigate("/sports/schedule");
+                                }
+                              } else {
+                                setWatching(m);
+                              }
                             }}
                             className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50/90 hover:bg-indigo-100 active:scale-95 px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0"
                           >
-                            <Play className="w-3 h-3 fill-indigo-600" />
-                            <span>{live ? "Watch Live →" : "Scorecard →"}</span>
+                            {isUpcoming ? (
+                              <>
+                                <Calendar className="w-3 h-3 text-indigo-600" />
+                                <span>Fixture →</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3 h-3 fill-indigo-600" />
+                                <span>{live ? "Watch Live →" : "Scorecard →"}</span>
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>

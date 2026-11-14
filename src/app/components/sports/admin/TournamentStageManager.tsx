@@ -96,6 +96,24 @@ function AddStageModal({
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const handleNameChange = (val: string) => {
+    setStageName(val);
+    const lower = val.toLowerCase();
+    if (lower.includes("quarter")) setStageType("QUARTER_FINAL");
+    else if (lower.includes("semi")) setStageType("SEMI_FINAL");
+    else if (lower.includes("super final")) setStageType("SUPER_FINAL");
+    else if (lower.includes("final") && !lower.includes("semi") && !lower.includes("quarter")) setStageType("FINAL");
+    else if (lower.includes("16") || lower.includes("sixteen")) setStageType("ROUND_OF_16");
+    else if (lower.includes("32") || lower.includes("thirty")) setStageType("ROUND_OF_32");
+    else if (lower.includes("64") || lower.includes("sixty")) setStageType("ROUND_OF_64");
+    else if (lower.includes("third") || lower.includes("3rd")) setStageType("THIRD_PLACE");
+    else if (lower.includes("league")) setStageType("LEAGUE_MATCH");
+    else if (lower.includes("swiss")) setStageType("SWISS_ROUND");
+    else if (lower.includes("eliminator")) setStageType("ELIMINATOR");
+    else if (lower.includes("qualifier")) setStageType("QUALIFIER");
+    else if (lower.includes("group")) setStageType("GROUP_STAGE");
+  };
+
   const handleSave = async () => {
     if (!stageName.trim()) {
       showWarning("Stage name is required");
@@ -133,7 +151,7 @@ function AddStageModal({
             <label className="text-[10px] font-semibold text-slate-600 block mb-1">Stage Name</label>
             <input
               value={stageName}
-              onChange={e => setStageName(e.target.value)}
+              onChange={e => handleNameChange(e.target.value)}
               placeholder="e.g. Group Stage, Quarter-finals"
               className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 outline-none"
             />
@@ -378,6 +396,25 @@ export function TournamentStageManager({ configId }: { configId: number }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [schedulingMode, setSchedulingMode] = useState<SchedulingMode>("HYBRID");
+  const [isAdvancing, setIsAdvancing] = useState(false);
+
+  const handleAdvanceQualification = async () => {
+    const confirmed = await confirmAction(
+      "Advance Qualification",
+      "Seed qualified teams from Group Standings into knockout playoff bracket matches?"
+    );
+    if (!confirmed) return;
+    setIsAdvancing(true);
+    try {
+      const res = await tournamentStageService.advanceQualification(configId);
+      showSuccess(res.message || `Successfully seeded ${res.seededMatchCount} knockout matches!`);
+      fetchStages();
+    } catch (e: any) {
+      showError(e?.message || "Failed to advance qualification");
+    } finally {
+      setIsAdvancing(false);
+    }
+  };
 
   const fetchStages = useCallback(async () => {
     setLoading(true);
@@ -400,9 +437,15 @@ export function TournamentStageManager({ configId }: { configId: number }) {
       switch (action) {
         case "generate": {
           const result = await tournamentStageService.generateStageSchedule(stageId, { schedulingMode });
-          showSuccess(`Generated ${result.matchCount} matches`);
-          if (result.conflicts.length > 0) {
-            showWarning(`${result.conflicts.length} scheduling conflict(s) detected`);
+          if (result.matchCount > 0) {
+            showSuccess(`Generated and linked ${result.matchCount} match${result.matchCount === 1 ? "" : "es"}`);
+          } else {
+            showWarning(result.conflicts && result.conflicts.length > 0
+              ? result.conflicts[0]
+              : "No matches found to link to this stage.");
+          }
+          if (result.conflicts && result.conflicts.length > 0 && result.matchCount > 0) {
+            showWarning(`${result.conflicts.length} scheduling notice(s)`);
           }
           break;
         }
@@ -499,6 +542,29 @@ export function TournamentStageManager({ configId }: { configId: number }) {
         </div>
         <SchedulingModeSelector value={schedulingMode} onChange={setSchedulingMode} />
       </div>
+
+      {/* Automatic Qualification from Group Standings */}
+      {stages.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-50/90 to-purple-50/90 rounded-xl border border-indigo-100/90 p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+              <Trophy className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-[11px] font-bold text-slate-800">Automatic Next-Stage Qualification</div>
+              <div className="text-[9px] text-slate-500">Seed top qualifying teams from group points table into knockout playoff bracket matches.</div>
+            </div>
+          </div>
+          <button
+            onClick={handleAdvanceQualification}
+            disabled={isAdvancing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shrink-0 disabled:opacity-50 cursor-pointer transition shadow-xs"
+          >
+            {isAdvancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+            Advance to Knockouts
+          </button>
+        </div>
+      )}
 
       {/* Stages List */}
       {stages.length === 0 ? (

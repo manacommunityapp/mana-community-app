@@ -15,7 +15,7 @@ import { CREATE_EDIT_SPORTS_MAIN } from "../../../constants/permissions";
 import { showSuccess, showWarning, showError, showInfo } from "../../../utils/ToastUtils";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
-import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
+import { formatFlatLabel, isByeMatch, isExplicitTime, isPlaceholderOrTbd, propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
 import { DatePicker } from "../ui/date-picker";
 import { TimePicker } from "../ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -193,8 +193,8 @@ export function getPlayerInitials(fullName: string): string {
 }
 
 function MatchCard({ match }: { match: BracketMatch }) {
+  const isByeMatch = Boolean(match.isBye || (match.p1 && !match.p2) || (!match.p1 && match.p2));
   const players = [match.p1, match.p2].filter(Boolean) as BracketPlayer[];
-  const isByeMatch = match.isBye || players.length === 1;
 
   return (
     <div className="rounded-xl overflow-hidden card-hover-lift"
@@ -206,7 +206,11 @@ function MatchCard({ match }: { match: BracketMatch }) {
     >
       <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 text-left">
         <div className="text-xs font-bold text-slate-800">{match.label}</div>
-        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>{match.date} | {match.time}</div>
+        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
+          {isByeMatch
+            ? (match.date && match.date !== "—" ? match.date : "Date TBD")
+            : `${match.date} | ${match.time}`}
+        </div>
         {isByeMatch && <div className="text-xs text-emerald-600 font-bold mt-1">BYE</div>}
       </div>
       <div className="px-3 py-3 space-y-2.5 text-left">
@@ -269,8 +273,9 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
       tournamentService.getMatchesByConfigId(selectedConfigId)
         .then(matches => {
           const nonDraftMatches = isAdmin ? matches : matches.filter(m => m.status !== "DRAFT");
-          setBracketMatches(nonDraftMatches);
-          const matchesBySport = nonDraftMatches.filter(m => m.status !== "BYE");
+          const propagatedMatches = propagateByeAdvancements(nonDraftMatches);
+          setBracketMatches(propagatedMatches);
+          const matchesBySport = propagatedMatches.filter(m => m.status !== "BYE");
           if (matchesBySport.length > 0) {
             const roundMap = new Map<string, any[]>();
             for (const m of matchesBySport) {
@@ -280,16 +285,39 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
             }
             const generatedRounds: BracketRound[] = Array.from(roundMap.entries()).map(([name, rMatches]) => ({
               name,
-              matches: rMatches.map((m, idx) => ({
-                id: `M-${m.matchId}`,
-                label: `${name} #${m.matchNumber || idx + 1}`,
-                date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
-                time: m.scheduledAt ? safeFormatDate(m.scheduledAt, "hh:mm a") : "—",
-                p1: m.teamAName ? { initials: getPlayerInitials(m.teamAName), fullName: m.teamAName } : null,
-                p2: m.teamBName ? { initials: getPlayerInitials(m.teamBName), fullName: m.teamBName } : null,
-                venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
-                isBye: !m.teamAName || !m.teamBName,
-              })),
+              matches: rMatches.map((m, idx) => {
+                const isBye = isByeMatch(m);
+                const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
+                const rawAName = m.teamAName || m.homeName || m.team1 || "";
+                const rawBName = m.teamBName || m.awayName || m.team2 || "";
+                const aIsBye = String(rawAName).trim().toUpperCase() === "BYE";
+                const bIsBye = String(rawBName).trim().toUpperCase() === "BYE";
+
+                const p1: BracketPlayer | null = aIsBye ? null : {
+                  initials: isPlaceholderOrTbd(rawAName) ? "TBD" : getPlayerInitials(rawAName),
+                  fullName: isPlaceholderOrTbd(rawAName) ? (rawAName || "TBD") : rawAName,
+                  flatNumber: m.teamAFlat || m.homeFlat,
+                  isTBD: isPlaceholderOrTbd(rawAName),
+                };
+
+                const p2: BracketPlayer | null = bIsBye ? null : {
+                  initials: isPlaceholderOrTbd(rawBName) ? "TBD" : getPlayerInitials(rawBName),
+                  fullName: isPlaceholderOrTbd(rawBName) ? (rawBName || "TBD") : rawBName,
+                  flatNumber: m.teamBFlat || m.awayFlat,
+                  isTBD: isPlaceholderOrTbd(rawBName),
+                };
+
+                return {
+                  id: `M-${m.matchId}`,
+                  label: `${name} #${m.matchNumber || idx + 1}`,
+                  date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
+                  time: isBye || !hasExplicit ? "—" : safeFormatDate(m.scheduledAt, "hh:mm a"),
+                  p1,
+                  p2,
+                  venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
+                  isBye,
+                };
+              }),
             }));
             setRounds(generatedRounds);
           } else {
@@ -703,7 +731,7 @@ export function SportsSchedule() {
   const [scoreSummaryFixture, setScoreSummaryFixture] = useState<(typeof fixturesList)[number] | null>(null);
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
-  const [activeMatchFixture, setActiveMatchFixture] = useState<{ teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+  const [activeMatchFixture, setActiveMatchFixture] = useState<{ configId?: number; teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
   const [rulesModalFixture, setRulesModalFixture] = useState<any | null>(null);
 
   const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
@@ -720,10 +748,10 @@ export function SportsSchedule() {
     setViewingMatchId(fixture.matchId);
   };
 
-  const openLiveScoring = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+  const openLiveScoring = (fixture: { matchId?: number; configId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
     if (!fixture.matchId) return;
     setActiveMatchSport(fixture.sport);
-    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setActiveMatchFixture({ configId: fixture.configId, teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
     setLiveScoringMatchId(fixture.matchId);
   };
 
@@ -947,6 +975,8 @@ export function SportsSchedule() {
   const [scoreWinnerName, setScoreWinnerName] = useState("");
   const [scoreResultType, setScoreResultType] = useState("WIN");
   const [scoreMatchNotes, setScoreMatchNotes] = useState("");
+  const [scoreTossWinnerSide, setScoreTossWinnerSide] = useState<"A" | "B" | "">("");
+  const [scoreTossDecision, setScoreTossDecision] = useState<"BAT" | "BOWL" | "">("");
 
   const handleScoreUpdateSubmit = async () => {
     if (scoringFixtureId === null) return;
@@ -954,6 +984,10 @@ export function SportsSchedule() {
     if (!fixture) return;
     if (!fixture.matchId) {
       toast.error("This fixture is not linked to a saved match record.");
+      return;
+    }
+    if (isCricketSport(fixture.sport) && Boolean(scoreTossWinnerSide) !== Boolean(scoreTossDecision)) {
+      toast.error("Choose both the toss winner and their decision, or leave both blank.");
       return;
     }
 
@@ -969,6 +1003,10 @@ export function SportsSchedule() {
         scoreTeamA: fixtureScore1,
         scoreTeamB: fixtureScore2,
         matchNotes: scoreMatchNotes || undefined,
+        tossWinnerTeamId: scoreTossWinnerSide === "A"
+          ? fixture.teamAId
+          : scoreTossWinnerSide === "B" ? fixture.teamBId : undefined,
+        tossDecision: scoreTossDecision || undefined,
       });
       toast.success("Match result saved!");
     } catch (e: any) {
@@ -991,6 +1029,8 @@ export function SportsSchedule() {
     setScoreWinnerName("");
     setScoreResultType("WIN");
     setScoreMatchNotes("");
+    setScoreTossWinnerSide("");
+    setScoreTossDecision("");
   };
 
   const resetFixtureForm = () => {
@@ -1165,15 +1205,17 @@ export function SportsSchedule() {
             const configIsPublished = ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(cfg.status || "").toUpperCase());
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
-              for (const m of matches) {
+              const propagatedMatches = propagateByeAdvancements(matches);
+              for (const m of propagatedMatches) {
                 const matchStatus = String(m.status || "").toUpperCase();
-                if (matchStatus === "BYE" || matchStatus === "DRAFT") continue;
+                if (matchStatus === "BYE" || matchStatus === "DRAFT" || isByeMatch(m)) continue;
                 const matchIsPublished = ["PUBLISHED", "COMPLETED", "IN_PROGRESS", "LIVE"].includes(matchStatus);
                 if (!configIsPublished && !matchIsPublished) continue;
                 const scheduledAt = m.scheduledAt ? parseISO(m.scheduledAt) : null;
                 const hasValidScheduledAt = scheduledAt != null && !Number.isNaN(scheduledAt.getTime());
                 const scheduledDate = hasValidScheduledAt ? format(scheduledAt, "yyyy-MM-dd") : "";
-                const scheduledTime = hasValidScheduledAt ? format(scheduledAt, "hh:mm a") : "";
+                const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
+                const scheduledTime = (hasValidScheduledAt && hasExplicit) ? format(scheduledAt, "hh:mm a") : "";
 
                 matchFixtures.push({
                   id: -(m.matchId ?? 0),
@@ -2316,6 +2358,8 @@ export function SportsSchedule() {
                                   setScoringFixtureId(fixture.id);
                                   setFixtureScore1(fixture.score1 || "");
                                   setFixtureScore2(fixture.score2 || "");
+                                  setScoreTossWinnerSide("");
+                                  setScoreTossDecision("");
                                   setShowScoreModal(true);
                                 }
                               }}
@@ -2330,6 +2374,8 @@ export function SportsSchedule() {
                                 setScoringFixtureId(fixture.id);
                                 setFixtureScore1(fixture.score1 || "");
                                 setFixtureScore2(fixture.score2 || "");
+                                setScoreTossWinnerSide("");
+                                setScoreTossDecision("");
                                 setShowScoreModal(true);
                               }}
                               className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
@@ -2487,6 +2533,39 @@ export function SportsSchedule() {
                         }`}>
                         {scoringFixture?.team2 || (isIndividualSport(scoringFixture?.sport) ? "Player 2" : "Team B")}
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {isCricketSport(scoringFixture?.sport || "") && scoringFixture?.teamAId && scoringFixture?.teamBId && (
+                  <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-800">Toss details (optional)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-600">Toss won by</label>
+                        <select
+                          value={scoreTossWinnerSide}
+                          onChange={e => setScoreTossWinnerSide(e.target.value as "A" | "B" | "")}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-amber-500"
+                        >
+                          <option value="">Select team</option>
+                          <option value="A">{scoringFixture.team1}</option>
+                          <option value="B">{scoringFixture.team2}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-600">Chose to</label>
+                        <select
+                          value={scoreTossDecision}
+                          onChange={e => setScoreTossDecision(e.target.value as "BAT" | "BOWL" | "")}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-amber-500"
+                        >
+                          <option value="">Select decision</option>
+                          <option value="BAT">Bat first</option>
+                          <option value="BOWL">Bowl first</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3163,7 +3242,13 @@ export function SportsSchedule() {
       {/* Live Scoring Panel (Admin) */}
       {liveScoringMatchId !== null && (
         activeIsCricket ? (
-          <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+          <LiveScoringPanel
+            matchId={liveScoringMatchId}
+            configId={activeMatchFixture?.configId}
+            teamAName={activeMatchFixture?.team1}
+            teamBName={activeMatchFixture?.team2}
+            onClose={() => setLiveScoringMatchId(null)}
+          />
         ) : activeIsTimeSport ? (
           <RaceScoringPanel
             matchId={liveScoringMatchId}

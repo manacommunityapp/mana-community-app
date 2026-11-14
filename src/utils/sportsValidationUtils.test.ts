@@ -10,6 +10,10 @@ import {
   evaluateRegistrationStatus,
   formatFlatLabel,
   formatUnitDisplay,
+  isByeMatch,
+  isExplicitTime,
+  isPlaceholderOrTbd,
+  propagateByeAdvancements,
 } from "./sportsValidationUtils";
 import { checkCategoryEligibility } from "../app/components/sports/SportsRegister";
 
@@ -373,6 +377,259 @@ describe("sportsValidationUtils Test Suite", () => {
       expect(formatUnitDisplay("Flat Flat 1008")).toBe("Flat 1008");
       expect(formatUnitDisplay("Flat Tower 2, Flat 401")).toBe("Tower 2, Flat 401");
       expect(formatUnitDisplay("Flat 1008")).toBe("Flat 1008");
+    });
+  });
+
+  describe("7. BYE Match Detection & Explicit Time Checks", () => {
+    it("identifies BYE matches by status", () => {
+      expect(isByeMatch({ status: "BYE" })).toBe(true);
+      expect(isByeMatch({ status: "AUTO_ADVANCED" })).toBe(true);
+      expect(isByeMatch({ status: "auto_advanced" })).toBe(true);
+      expect(isByeMatch({ status: "SCHEDULED" })).toBe(false);
+      expect(isByeMatch(null)).toBe(false);
+    });
+
+    it("identifies BYE matches by opponent name", () => {
+      expect(isByeMatch({ teamAName: "Player 1", teamBName: "BYE" })).toBe(true);
+      expect(isByeMatch({ homeName: "BYE", awayName: "Player 2" })).toBe(true);
+      expect(isByeMatch({ team1: "Player 1", team2: "bye" })).toBe(true);
+      expect(isByeMatch({ home: { name: "Player 1" }, away: { name: "BYE" } })).toBe(true);
+      expect(isByeMatch({ teamAName: "Player 1", teamBName: "Player 2" })).toBe(false);
+    });
+
+    it("identifies BYE matches by opponent ID or isBye flag", () => {
+      expect(isByeMatch({ teamBId: "bye" })).toBe(true);
+      expect(isByeMatch({ away: { id: "bye", name: "BYE" } })).toBe(true);
+      expect(isByeMatch({ isBye: true })).toBe(true);
+      expect(isByeMatch({ teamAId: 10, teamBId: 20 })).toBe(false);
+    });
+
+    it("validates whether a match has an explicitly scheduled time", () => {
+      expect(isExplicitTime("10:00 AM")).toBe(true);
+      expect(isExplicitTime("14:30")).toBe(true);
+      expect(isExplicitTime("")).toBe(false);
+      expect(isExplicitTime(null)).toBe(false);
+      expect(isExplicitTime("00:00")).toBe(false);
+      expect(isExplicitTime("00:00:00")).toBe(false);
+      expect(isExplicitTime("12:00 AM")).toBe(false);
+    });
+
+    it("validates datetime ISO strings for explicit time versus midnight default", () => {
+      expect(isExplicitTime(undefined, "2026-11-20T10:00:00")).toBe(true);
+      expect(isExplicitTime(undefined, "2026-11-20T14:30:00Z")).toBe(true);
+      expect(isExplicitTime(undefined, "2026-11-20T00:00:00")).toBe(false);
+      expect(isExplicitTime(undefined, "2026-11-20T00:00:00Z")).toBe(false);
+      expect(isExplicitTime(undefined, "2026-11-20")).toBe(false);
+      expect(isExplicitTime(undefined, "")).toBe(false);
+    });
+  });
+
+  describe("8. Placeholder Detection & BYE Advancement Propagation", () => {
+    it("identifies placeholder and TBD participant names", () => {
+      expect(isPlaceholderOrTbd("")).toBe(true);
+      expect(isPlaceholderOrTbd(null)).toBe(true);
+      expect(isPlaceholderOrTbd("—")).toBe(true);
+      expect(isPlaceholderOrTbd("TBD")).toBe(true);
+      expect(isPlaceholderOrTbd("TBA")).toBe(true);
+      expect(isPlaceholderOrTbd("BYE")).toBe(true);
+      expect(isPlaceholderOrTbd("Winner of Match 1")).toBe(true);
+      expect(isPlaceholderOrTbd("Winner of QF 2")).toBe(true);
+      expect(isPlaceholderOrTbd("Match 1 Winner")).toBe(true);
+      expect(isPlaceholderOrTbd("Loser of Match 3")).toBe(true);
+      expect(isPlaceholderOrTbd("John Doe")).toBe(false);
+      expect(isPlaceholderOrTbd("Warriors FC")).toBe(false);
+      expect(isPlaceholderOrTbd("Alice Smith")).toBe(false);
+    });
+
+    it("propagates a BYE player into downstream match using winnerAdvancesToMatchId", () => {
+      const matches = [
+        {
+          id: 101,
+          roundIndex: 0,
+          matchNumber: 1,
+          teamAName: "Roger Federer",
+          teamAId: 5,
+          teamAFlat: "Tower A-101",
+          teamBName: "BYE",
+          teamBId: "bye",
+          status: "BYE",
+          winnerAdvancesToMatchId: 201,
+        },
+        {
+          id: 102,
+          roundIndex: 0,
+          matchNumber: 2,
+          teamAName: "Novak Djokovic",
+          teamAId: 6,
+          teamBName: "Andy Murray",
+          teamBId: 7,
+          status: "SCHEDULED",
+          winnerAdvancesToMatchId: 201,
+        },
+        {
+          id: 201,
+          roundIndex: 1,
+          matchNumber: 3,
+          teamAName: "Winner of Match 1",
+          teamBName: "Winner of Match 2",
+          winnerFeedFromMatchA: 101,
+          winnerFeedFromMatchB: 102,
+          status: "SCHEDULED",
+          scheduledAt: "2026-11-22T10:00:00",
+        },
+      ];
+
+      const result = propagateByeAdvancements(matches);
+
+      // Downstream match 201 should have Team A populated with Roger Federer
+      const nextMatch = result.find(m => m.id === 201);
+      expect(nextMatch).toBeDefined();
+      expect(nextMatch?.teamAName).toBe("Roger Federer");
+      expect(nextMatch?.teamAId).toBe(5);
+      expect(nextMatch?.teamAFlat).toBe("Tower A-101");
+
+      // Team B in match 201 should still be un-advanced (Match 102 is not a BYE match)
+      expect(nextMatch?.teamBName).toBe("Winner of Match 2");
+    });
+
+    it("propagates a BYE player when player is on side B (teamBName) of BYE match", () => {
+      const matches = [
+        {
+          id: 101,
+          roundIndex: 0,
+          matchNumber: 1,
+          teamAName: "BYE",
+          teamAId: "bye",
+          teamBName: "Serena Williams",
+          teamBId: 99,
+          status: "BYE",
+          winnerAdvancesToMatchId: 201,
+        },
+        {
+          id: 201,
+          roundIndex: 1,
+          matchNumber: 2,
+          teamAName: "TBD",
+          teamBName: "Venus Williams",
+          teamBId: 100,
+          winnerFeedFromMatchA: 101,
+          status: "SCHEDULED",
+        },
+      ];
+
+      const result = propagateByeAdvancements(matches);
+      const nextMatch = result.find(m => m.id === 201);
+      expect(nextMatch).toBeDefined();
+      expect(nextMatch?.teamAName).toBe("Serena Williams");
+      expect(nextMatch?.teamAId).toBe(99);
+      expect(nextMatch?.teamBName).toBe("Venus Williams");
+    });
+
+    it("propagates a BYE player into downstream match using knockout round position", () => {
+      // 4 matches in R1, 2 matches in R2
+      const matches = [
+        {
+          id: 1,
+          roundIndex: 0,
+          matchNumber: 1,
+          teamAName: "Player 1",
+          teamBName: "BYE",
+          status: "BYE",
+        },
+        {
+          id: 2,
+          roundIndex: 0,
+          matchNumber: 2,
+          teamAName: "Player 2",
+          teamBName: "Player 3",
+          status: "SCHEDULED",
+        },
+        {
+          id: 3,
+          roundIndex: 0,
+          matchNumber: 3,
+          teamAName: "Player 4",
+          teamBName: "Player 5",
+          status: "SCHEDULED",
+        },
+        {
+          id: 4,
+          roundIndex: 0,
+          matchNumber: 4,
+          teamAName: "BYE",
+          teamBName: "Player 6",
+          status: "AUTO_ADVANCED",
+        },
+        // Round 2
+        {
+          id: 5,
+          roundIndex: 1,
+          matchNumber: 5,
+          teamAName: "Winner of Match 1",
+          teamBName: "Winner of Match 2",
+          status: "SCHEDULED",
+        },
+        {
+          id: 6,
+          roundIndex: 1,
+          matchNumber: 6,
+          teamAName: "Winner of Match 3",
+          teamBName: "Winner of Match 4",
+          status: "SCHEDULED",
+        },
+      ];
+
+      const result = propagateByeAdvancements(matches);
+
+      // Match 5: Team A should be Player 1, Team B should still be Winner of Match 2
+      const m5 = result.find(m => m.id === 5);
+      expect(m5).toBeDefined();
+      expect(m5?.teamAName).toBe("Player 1");
+      expect(m5?.teamBName).toBe("Winner of Match 2");
+
+      // Match 6: Team A should still be Winner of Match 3, Team B should be Player 6
+      const m6 = result.find(m => m.id === 6);
+      expect(m6).toBeDefined();
+      expect(m6?.teamAName).toBe("Winner of Match 3");
+      expect(m6?.teamBName).toBe("Player 6");
+    });
+
+    it("handles cascading multi-round BYEs", () => {
+      // Player 1 has a BYE in R1 and also a BYE in R2, advancing to R3 Final
+      const matches = [
+        {
+          id: 1,
+          roundIndex: 0,
+          matchNumber: 1,
+          teamAName: "Top Seed",
+          teamBName: "BYE",
+          status: "BYE",
+          winnerAdvancesToMatchId: 2,
+        },
+        {
+          id: 2,
+          roundIndex: 1,
+          matchNumber: 2,
+          teamAName: "TBD",
+          teamBName: "BYE",
+          status: "BYE",
+          winnerAdvancesToMatchId: 3,
+        },
+        {
+          id: 3,
+          roundIndex: 2,
+          matchNumber: 3,
+          teamAName: "TBD",
+          teamBName: "Challenger",
+          status: "SCHEDULED",
+        },
+      ];
+
+      const result = propagateByeAdvancements(matches);
+      const finalMatch = result.find(m => m.id === 3);
+      expect(finalMatch).toBeDefined();
+      expect(finalMatch?.teamAName).toBe("Top Seed");
+      expect(finalMatch?.teamBName).toBe("Challenger");
     });
   });
 });

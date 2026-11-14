@@ -50,6 +50,7 @@ import {
   advanceDateToAllowedDay,
   isMatchExceedingDayEnd,
 } from './breakScheduleUtils';
+import { isPlaceholderOrTbd } from '../../../utils/sportsValidationUtils';
 
 export type RoundTimingAnchor = {
   date: string;
@@ -795,7 +796,7 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
             moveSubsMatches: false,
             status: 'AUTO_ADVANCED',
           });
-          nextRound.push(winnerRef(id, name));
+          nextRound.push(seededPlayer);
         } else {
           nextRound.push(seededPlayer);
         }
@@ -1078,9 +1079,7 @@ export function reconstructKnockoutByes(
         status: 'AUTO_ADVANCED',
         matchDate: earliestDate,
         date: earliestDate,
-        scheduledAt: earliestDate
-          ? (String(earliestDate).includes('T') ? String(earliestDate) : `${earliestDate}T00:00:00`)
-          : undefined,
+        scheduledAt: undefined,
         matchTime: '',
         time: '',
         duration: 30,
@@ -1144,9 +1143,7 @@ export function reconstructKnockoutByes(
         status: 'AUTO_ADVANCED',
         matchDate: earliestDate,
         date: earliestDate,
-        scheduledAt: earliestDate
-          ? (String(earliestDate).includes('T') ? String(earliestDate) : `${earliestDate}T00:00:00`)
-          : undefined,
+        scheduledAt: undefined,
         matchTime: '',
         time: '',
         duration: 30,
@@ -1295,13 +1292,16 @@ export function buildPlayoffDraftFromSavedMatches(
         if (!realId || !prevIds.has(realId)) {
           refId = `${feederMatch.id}-winner`;
         }
-        if (isBlankName(refName)) {
+        if (isBlankName(refName) || isPlaceholderOrTbd(refName)) {
           const homeIsBye = isByeParticipant(feederMatch.home);
           const awayIsBye = isByeParticipant(feederMatch.away);
           if (feederMatch.status === 'AUTO_ADVANCED' || homeIsBye || awayIsBye) {
             const adv = homeIsBye ? feederMatch.away : feederMatch.home;
             if (adv && !isByeParticipant(adv)) {
               refName = adv.name;
+              if (adv.id && (!realId || refId.endsWith('-winner'))) {
+                refId = String(adv.id);
+              }
               if (adv.flatNumber) refFlat = adv.flatNumber;
             }
           }

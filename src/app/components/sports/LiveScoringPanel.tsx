@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
-import { ballColor } from "./utils/cricketUtils";
+import { ballColor, remainingBalls, requiredRunRate } from "./utils/cricketUtils";
 import { toast } from "sonner";
 import { SportsDisputeModal } from "./SportsDisputeModal";
 
 interface LiveScoringPanelProps {
   matchId: number;
   configId?: number;
+  teamAName?: string;
+  teamBName?: string;
   onClose: () => void;
 }
 
@@ -18,7 +20,7 @@ interface PlayerOption {
   teamId?: number;
 }
 
-export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPanelProps) {
+export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onClose }: LiveScoringPanelProps) {
   const [state, setState] = useState<LiveMatchStateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [feedActive, setFeedActive] = useState<boolean>(true);
+  const [tossWinnerSide, setTossWinnerSide] = useState<"A" | "B" | "">("");
+  const [tossDecision, setTossDecision] = useState<"BAT" | "BOWL" | "">("");
+  const [tossSaving, setTossSaving] = useState(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
@@ -60,10 +65,6 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     tournamentService.getLiveMatchState(matchId)
       .then((s) => {
         setState(s);
-        setInningsNumber(s.currentInnings);
-        if (s.batsmanOnStrikeId) setBatsmanId(s.batsmanOnStrikeId);
-        if (s.batsmanNonStrikeId) setNonStrikerId(s.batsmanNonStrikeId);
-        if (s.currentBowlerId) setBowlerId(s.currentBowlerId);
       })
       .catch(() => setError("Failed to load match state"))
       .finally(() => setLoading(false));
@@ -82,7 +83,43 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
       unsub();
       unsubConnect();
     };
-  }, [matchId]);
+  }, [matchId, configId]);
+
+  useEffect(() => {
+    if (!state) return;
+    setInningsNumber(state.currentInnings);
+    setBatsmanId(state.batsmanOnStrikeId ?? 0);
+    setNonStrikerId(state.batsmanNonStrikeId ?? 0);
+    setBowlerId(state.currentBowlerId ?? 0);
+    setTossWinnerSide(state.tossWinnerTeamId === state.teamAId ? "A" : state.tossWinnerTeamId === state.teamBId ? "B" : "");
+    setTossDecision(state.tossDecision?.toUpperCase() === "BAT" ? "BAT" : state.tossDecision?.toUpperCase() === "BOWL" ? "BOWL" : "");
+  }, [state]);
+
+  const canEditToss = Boolean(state
+    && state.innings1.totalRuns === 0
+    && state.innings1.totalWickets === 0
+    && state.innings1.totalOvers === "0.0"
+    && state.innings2.totalRuns === 0
+    && state.innings2.totalWickets === 0
+    && state.innings2.totalOvers === "0.0");
+
+  const saveToss = async () => {
+    const tossWinnerTeamId = tossWinnerSide === "A" ? state?.teamAId : tossWinnerSide === "B" ? state?.teamBId : undefined;
+    if (!tossWinnerTeamId || !tossDecision) {
+      toast.error("Select the toss-winning team and their decision.");
+      return;
+    }
+    setTossSaving(true);
+    try {
+      await tournamentService.recordMatchToss(matchId, { tossWinnerTeamId, tossDecision });
+      setState(await tournamentService.getLiveMatchState(matchId));
+      toast.success("Toss details saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save toss details");
+    } finally {
+      setTossSaving(false);
+    }
+  };
 
   const loadPlayers = async () => {
     try {
@@ -132,6 +169,13 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     dismissedPlayerId?: number;
     fielderId?: number;
   }) => {
+    if (inningsNumber === 1 && state && !state.tossWinnerTeamId
+      && state.innings1.totalOvers === "0.0"
+      && state.innings1.totalRuns === 0
+      && state.innings1.totalWickets === 0) {
+      toast.error("Record the toss before scoring the first ball.");
+      return;
+    }
     if (!batsmanId || !bowlerId) {
       toast.error("Select both batsman and bowler first");
       return;
@@ -155,6 +199,25 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
         fielderId: opts?.fielderId,
         commandId: crypto.randomUUID(),
       };
+
+      // Optimistic runs / wickets visual increment for scorer
+      if (state) {
+        const innKey = inningsNumber === 1 ? "innings1" : "innings2";
+        const addRuns = runsScored + (opts?.extrasRuns || 0);
+        const addWickets = opts?.isWicket ? 1 : 0;
+        setState((prev) => {
+          if (!prev) return prev;
+          const prevInn = prev[innKey];
+          return {
+            ...prev,
+            [innKey]: {
+              ...prevInn,
+              totalRuns: (prevInn?.totalRuns || 0) + addRuns,
+              totalWickets: (prevInn?.totalWickets || 0) + addWickets,
+            },
+          };
+        });
+      }
 
       if (wsConnected) {
         stompClient.publish(`/app/match/${matchId}/ball`, req);
@@ -184,7 +247,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     } finally {
       setSaving(false);
     }
-  }, [matchId, inningsNumber, batsmanId, nonStrikerId, bowlerId, wsConnected]);
+  }, [matchId, inningsNumber, batsmanId, nonStrikerId, bowlerId, wsConnected, state]);
 
   const handleUndo = async () => {
     setSaving(true);
@@ -232,14 +295,26 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   }
 
   const inn = state ? (inningsNumber === 1 ? state.innings1 : state.innings2) : null;
+  const battingTeamFallback = inn?.battingTeamId != null && state
+    ? inn.battingTeamId === state.teamAId
+      ? state.teamAName || teamAName || "Team A"
+      : state.teamBName || teamBName || "Team B"
+    : "Batting team";
+  const ballsRemaining = state && inn ? remainingBalls(inn.totalOvers, state.oversLimit || 20) : 0;
+  const runsNeeded = state?.target != null && inn && inningsNumber === 2
+    ? Math.max(0, state.target - inn.totalRuns)
+    : null;
+  const requiredRate = state?.target != null && inn && inningsNumber === 2
+    ? requiredRunRate(state.target, inn.totalRuns, inn.totalOvers, state.oversLimit || 20)
+    : null;
   const battingTeamPlayers = players.filter(p => {
     if (!state) return true;
-    const battingTeamId = inningsNumber === 1 ? state.teamAId : state.teamBId;
+    const battingTeamId = inn?.battingTeamId;
     return p.teamId === battingTeamId;
   });
   const bowlingTeamPlayers = players.filter(p => {
     if (!state) return true;
-    const bowlingTeamId = inningsNumber === 1 ? state.teamBId : state.teamAId;
+    const bowlingTeamId = inn?.battingTeamId === state.teamAId ? state.teamBId : state.teamAId;
     return p.teamId === bowlingTeamId;
   });
 
@@ -250,15 +325,20 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={handleClose}>
       <div
-        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-2xl max-h-[96dvh] sm:max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-3 py-2 sm:px-5 sm:py-3 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="text-[10px] font-bold text-white">Live Scorer</span>
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-bold text-white">Live Scorer</span>
+                    {(teamAName || teamBName) && (
+                      <span className="block max-w-[180px] truncate text-[9px] text-indigo-100/80">{teamAName || "Team A"} vs {teamBName || "Team B"}</span>
+                    )}
+                  </div>
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400 animate-pulse" />
               <span className="text-[10px] font-bold text-red-300 uppercase">LIVE</span>
@@ -283,27 +363,74 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
           </button>
         </div>
 
+        {state && canEditToss && (
+          <div className="mx-3 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:mx-5 sm:px-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="m-0 text-xs font-bold text-amber-900">Cricket toss</p>
+                <p className="m-0 mt-0.5 text-[10px] text-amber-800/80">Save before recording the first ball.</p>
+              </div>
+              {state.tossWinnerTeamId && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Saved</span>}
+            </div>
+            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+              <label className="min-w-0 text-[10px] font-semibold text-slate-600">
+                Toss won by
+                <select value={tossWinnerSide} onChange={e => setTossWinnerSide(e.target.value as "A" | "B" | "")} className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs text-slate-800">
+                  <option value="">Select team</option>
+                  <option value="A">{state.teamAName}</option>
+                  <option value="B">{state.teamBName}</option>
+                </select>
+              </label>
+              <label className="min-w-0 text-[10px] font-semibold text-slate-600">
+                Chose to
+                <select value={tossDecision} onChange={e => setTossDecision(e.target.value as "BAT" | "BOWL" | "")} className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs text-slate-800">
+                  <option value="">Select decision</option>
+                  <option value="BAT">Bat first</option>
+                  <option value="BOWL">Bowl first</option>
+                </select>
+              </label>
+              <button type="button" onClick={saveToss} disabled={tossSaving || !tossWinnerSide || !tossDecision} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {tossSaving ? "Saving" : state.tossWinnerTeamId ? "Update" : "Save toss"}
+              </button>
+            </div>
+          </div>
+        )}
+        {state && !canEditToss && state.tossWinnerTeamId && (
+          <div className="mx-3 mt-3 rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 sm:mx-5">
+            <span className="font-bold">Toss:</span> {state.tossWinnerTeamId === state.teamAId ? state.teamAName : state.teamBName} chose to {state.tossDecision?.toUpperCase() === "BOWL" ? "bowl" : "bat"} first
+          </div>
+        )}
+
         {/* Mini Scoreboard */}
         {state && inn && (
-          <div className="bg-slate-800 px-3 py-2 sm:px-5 sm:py-3 text-white flex items-center justify-between">
-            <div>
-              <div className="text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
-              <div className="text-lg sm:text-2xl font-extrabold">
-                {inn.totalRuns}/{inn.totalWickets}
-                <span className="text-[10px] text-slate-400 font-normal ml-1.5 sm:ml-2">
-                  ({inn.totalOvers}{state.oversLimit ? ` / ${state.oversLimit}` : ""} ov)
-                </span>
+          <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-4 sm:px-6 sm:py-5 text-white border-b border-slate-800">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30">Innings {inningsNumber}</span>
+                  <span className="text-xs text-slate-300 truncate">
+                    {inn.battingTeamName || battingTeamFallback}
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-4xl sm:text-5xl font-black tracking-tight">{inn.totalRuns}</span>
+                  <span className="font-mono text-3xl font-bold text-rose-400">/</span>
+                  <span className="font-mono text-4xl sm:text-5xl font-black text-rose-300">{inn.totalWickets}</span>
+                </div>
+                <div className="mt-1 text-[11px] font-semibold text-amber-300">Overs {inn.totalOvers}{state.oversLimit ? ` / ${state.oversLimit}` : ""}</div>
+              </div>
+              <div className="shrink-0 text-right space-y-1">
+                <div className="text-[10px] uppercase tracking-wider text-slate-400">Current Run Rate</div>
+                <div className="font-mono text-lg font-black text-emerald-300">{inn.runRate}</div>
+                {state.maxOversPerBowler && <div className="text-[10px] text-slate-400">Max {state.maxOversPerBowler} ov / bowler</div>}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-slate-400">CRR: {inn.runRate}</div>
-              {state.target && inningsNumber === 2 && (
-                <div className="text-xs text-amber-400">Need {state.target - inn.totalRuns}</div>
-              )}
-              {state.maxOversPerBowler && (
-                <div className="text-[10px] text-slate-400">Max {state.maxOversPerBowler} ov/bowler</div>
-              )}
-            </div>
+            {runsNeeded !== null && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2">
+                <div className="text-xs font-bold text-amber-200">Target {state.target} · Need {runsNeeded} runs in {ballsRemaining} balls</div>
+                <div className="text-[10px] font-semibold text-slate-300">Required rate <span className="font-mono font-black text-emerald-300">{requiredRate}</span></div>
+              </div>
+            )}
           </div>
         )}
 
@@ -384,10 +511,10 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
 
         {/* This Over */}
         {inn && inn.thisOver.length > 0 && (
-          <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1 sm:gap-2 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">This Over:</span>
+          <div className="px-3 py-2 sm:px-5 sm:py-2.5 bg-slate-950 border-b border-slate-800 flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">This Over:</span>
             {inn.thisOver.map((ball, i) => (
-              <span key={i} className={`w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}>
+              <span key={i} className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] font-black border border-white/10 ${ballColor(ball)}`}>
                 {ball}
               </span>
             ))}
@@ -448,9 +575,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
           </div>
 
           {/* Run Buttons */}
-          <div>
-            <div className="text-xs text-slate-400 font-semibold uppercase mb-1.5 sm:mb-2">Runs</div>
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          <div className="rounded-2xl bg-slate-950 p-3 sm:p-4 border border-slate-800 shadow-inner">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2.5">Record Ball Delivery</div>
+            <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
               {[0, 1, 2, 3, 4, 5, 6].map((r) => (
                 <button
                   key={r}
@@ -459,14 +586,15 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
                     isSix: r === 6,
                   })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className={`py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition hover:scale-105 active:scale-95 disabled:opacity-40 ${
-                    r === 4 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" :
-                    r === 6 ? "bg-purple-100 text-purple-700 hover:bg-purple-200" :
-                    r === 0 ? "bg-slate-100 text-slate-500 hover:bg-slate-200" :
-                    "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  aria-label={`Record ${r} run${r === 1 ? "" : "s"}`}
+                  className={`min-h-14 rounded-xl text-lg sm:text-xl font-black font-mono transition active:scale-[0.97] disabled:opacity-40 ${
+                    r === 4 ? "bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-950/30" :
+                    r === 6 ? "bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-lg shadow-amber-950/20" :
+                    r === 0 ? "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700" :
+                    "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700"
                   }`}
                 >
-                  {r}
+                  {r}<span className="block text-[9px] font-semibold tracking-normal">{r === 0 ? "Dot" : r === 4 ? "Four" : r === 6 ? "Six" : "Runs"}</span>
                 </button>
               ))}
             </div>

@@ -191,7 +191,9 @@ export const tournamentStageService = {
     );
   },
 
-  // ─── Qualification ──────────────────────────────────────────────────────────
+  async advanceQualification(configId: number): Promise<{ configId: number; seededMatchCount: number; message: string }> {
+    return apiClient.post(`/tournament/${configId}/advance-qualification`, {});
+  },
 
   async calculateQualification(stageId: number): Promise<{
     qualifiedTeams: { teamId: number; teamName: string; rank: number }[];
