@@ -1291,8 +1291,6 @@ export function LiveMatchesStrip() {
                   })}
                 </div>
               )}
-                </div>
-              )}
             </div>
 
             {/* Modal Footer */}
