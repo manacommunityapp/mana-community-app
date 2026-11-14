@@ -45,6 +45,27 @@ function formatDateSafely(dateStr: string): string {
   }
 }
 
+function isUnresolvedBracketSlot(name?: string | null): boolean {
+  const value = (name || '').trim();
+  return !value
+    || /^(?:TBD|TO BE DETERMINED)$/i.test(value)
+    || /\bmatch\s*#?\d+\s*\(winner\)/i.test(value)
+    || /^winner\s+(?:of\s+)?(?:match|m)\s*#?\d+/i.test(value);
+}
+
+function isPlaceholderAutoAdvance(fixture: FixtureTableRow): boolean {
+  const homeName = fixture.home?.name || '';
+  const awayName = fixture.away?.name || '';
+  const homeBye = fixture.home?.id?.toLowerCase() === 'bye' || homeName.trim().toUpperCase() === 'BYE';
+  const awayBye = fixture.away?.id?.toLowerCase() === 'bye' || awayName.trim().toUpperCase() === 'BYE';
+  const autoAdvanced = ['BYE', 'AUTO_ADVANCED'].includes(String(fixture.rawMatch?.status || '').toUpperCase());
+
+  if (homeBye && isUnresolvedBracketSlot(awayName)) return true;
+  if (awayBye && isUnresolvedBracketSlot(homeName)) return true;
+  return autoAdvanced && !homeBye && !awayBye
+    && (isUnresolvedBracketSlot(homeName) || isUnresolvedBracketSlot(awayName));
+}
+
 export interface RoundTheme {
   name: string;
   badgeBg: string;
@@ -346,7 +367,7 @@ export function FixturesListView({
       onExportPDF();
     } else {
       exportListViewToPDF(
-        filteredFixtures.length > 0 ? filteredFixtures : fixtures,
+        filteredFixtures.length > 0 ? filteredFixtures : displayFixtures,
         `${sportName} Fixtures Schedule (List View)`,
         'Mana Community Sports',
         sportName
@@ -357,18 +378,23 @@ export function FixturesListView({
   const [selectedStage, setSelectedStage] = useState<string>('ALL');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
 
+  const displayFixtures = useMemo(
+    () => fixtures.filter(fixture => !isPlaceholderAutoAdvance(fixture)),
+    [fixtures]
+  );
+
   // Distinct Stages in tournament order
   const distinctStages = useMemo(() => {
     const stageSet = new Set<string>();
-    fixtures.forEach(f => {
+    displayFixtures.forEach(f => {
       if (f.stage) stageSet.add(f.stage);
     });
     return Array.from(stageSet).sort((a, b) => rankStage(a) - rankStage(b));
-  }, [fixtures]);
+  }, [displayFixtures]);
 
   // Filtered Fixtures
   const filteredFixtures = useMemo(() => {
-    return fixtures.filter(f => {
+    return displayFixtures.filter(f => {
       // Stage filter
       if (selectedStage !== 'ALL' && f.stage !== selectedStage) {
         return false;
@@ -398,7 +424,7 @@ export function FixturesListView({
 
       return true;
     });
-  }, [fixtures, selectedStage, searchQuery]);
+  }, [displayFixtures, selectedStage, searchQuery]);
 
   // Group filtered fixtures by stage
   const groupedByStage = useMemo(() => {
@@ -502,12 +528,12 @@ export function FixturesListView({
                   : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
               }`}
             >
-              All Rounds ({fixtures.length})
+              All Rounds ({displayFixtures.length})
             </button>
 
             {distinctStages.map(stageName => {
               const theme = getRoundTheme(stageName);
-              const count = fixtures.filter(f => f.stage === stageName).length;
+              const count = displayFixtures.filter(f => f.stage === stageName).length;
               const isSelected = selectedStage === stageName;
 
               return (

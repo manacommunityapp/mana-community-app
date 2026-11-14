@@ -110,26 +110,6 @@ function formatScheduledDateTime(iso?: string | null): string {
   }
 }
 
-function formatNextScheduled(iso?: string | null): string {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "";
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const isTomorrow = d.toDateString() === tomorrow.toDateString();
-
-    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (isToday) return `Today ${timeStr}`;
-    if (isTomorrow) return `Tomorrow ${timeStr}`;
-    return d.toLocaleDateString([], { month: "short", day: "numeric" }) + ` ${timeStr}`;
-  } catch {
-    return "";
-  }
-}
-
 /**
  * "Live Now" strip for the community feed.
  * Placed at the top of FeedPage (above posts) as a live widget.
@@ -228,7 +208,6 @@ export function LiveMatchesStrip() {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<FeedLiveMatch[]>([]);
   const [dismissed, setDismissed] = useState<number[]>(loadDismissed);
-  const [showAll, setShowAll] = useState(false);
   const [watching, setWatching] = useState<FeedLiveMatch | null>(null);
   const [allMatchesModalOpen, setAllMatchesModalOpen] = useState(false);
   const [modalSearch, setModalSearch] = useState("");
@@ -709,10 +688,8 @@ export function LiveMatchesStrip() {
     return null;
   }
 
-  const shown = showAll ? orderedMatches : orderedMatches.slice(0, MAX_CARDS);
+  const shown = orderedMatches.slice(0, MAX_CARDS);
   const liveCount = liveMatches.length;
-  const upcomingCount = upcomingMatches.length;
-  const nextTimeStr = formatNextScheduled(upcomingMatches[0]?.scheduledAt);
   const isCricket = (m: FeedLiveMatch) => /cricket/i.test(m.sportName || "");
 
   return (
@@ -737,40 +714,20 @@ export function LiveMatchesStrip() {
           {/* If there are multiple live matches */}
           {liveCount > 1 && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
-              {liveCount} matches live
+              {liveCount}
             </span>
           )}
 
           {/* If single live match */}
           {liveCount === 1 && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 animate-pulse">
-              1 match live
+              1
             </span>
           )}
 
-          {/* Show the next scheduled matches here */}
-          {upcomingCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs">
-              <Clock className="w-3 h-3 text-blue-600" />
-              <span>
-                {liveCount > 0 ? "Next: " : ""}
-                {nextTimeStr ? `${nextTimeStr} (${upcomingCount} scheduled)` : `${upcomingCount} ${upcomingCount === 1 ? "match" : "matches"} scheduled`}
-              </span>
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
-          {orderedMatches.length > MAX_CARDS && (
-            <button
-              type="button"
-              onClick={() => setShowAll((v) => !v)}
-              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
-            >
-              {showAll ? "Show less" : `Carousel (${orderedMatches.length})`}
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setAllMatchesModalOpen(true)}
