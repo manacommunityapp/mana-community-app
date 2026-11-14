@@ -665,7 +665,7 @@ export function SportsSchedule() {
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -739,7 +739,7 @@ export function SportsSchedule() {
   const [tournamentPickerOpen, setTournamentPickerOpen] = useState(false);
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
-  const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
+  const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("LIVE");
   const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
 
   // Stage admin tab config IDs (driven by TournamentEventSelector)
@@ -828,6 +828,13 @@ export function SportsSchedule() {
         status: tournament.status || "",
         searchValue: [name, ...relatedEvents.map(event => event.name), ...sports, ...formats].filter(Boolean).join(" "),
       };
+    }).filter(option => {
+      const publishedConfigIds = new Set(option.configs
+        .filter(config => ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(config.status || "").toUpperCase()))
+        .map(config => config.id));
+      return publishedConfigIds.size > 0 || fixturesList.some(match =>
+        match.configId != null && option.configs.some(config => config.id === match.configId) && match.publishedSchedule
+      );
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [actualTournaments, sportsEvents, tournamentConfigs, fixturesList]);
 
@@ -995,16 +1002,6 @@ export function SportsSchedule() {
     setShowFixtureForm(false);
   };
 
-  const fixtureDates = useMemo(() => {
-    const dates = new Set<string>();
-    for (const f of fixturesList) {
-      if (f.date) {
-        try { dates.add(format(new Date(f.date), "yyyy-MM-dd")); } catch {}
-      }
-    }
-    return Array.from(dates).sort();
-  }, [fixturesList]);
-
   const overviewFixtures = useMemo(() => {
     const activeTournamentConfigIds = new Set(configsForActiveTournament.map(config => config.id));
     const selectedEventConfigIds = selectedSportsEventId === null
@@ -1019,13 +1016,30 @@ export function SportsSchedule() {
     });
   }, [fixturesList, selectedTournamentId, selectedActualTournamentId, selectedSportsEventId, configsForActiveTournament, tournamentConfigs]);
 
+  const fixtureDates = useMemo(() => {
+    const searchQuery = fixtureSearchQuery.trim().toLowerCase();
+    const dates = new Set<string>();
+    for (const fixture of overviewFixtures) {
+      const searchText = `${fixture.name} ${fixture.team1} ${fixture.team2} ${fixture.venue}`.toLowerCase();
+      const matchesSearch = !searchQuery || searchText.includes(searchQuery);
+      const matchesSport = fixtureSportFilter === "All" || fixture.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
+      if (!matchesSearch || !matchesSport || !fixture.date) continue;
+      try { dates.add(format(parseISO(fixture.date), "yyyy-MM-dd")); } catch {}
+    }
+    return Array.from(dates).sort();
+  }, [overviewFixtures, fixtureSearchQuery, fixtureSportFilter]);
+
+  useEffect(() => {
+    if (fixtureDateFilter && !fixtureDates.includes(fixtureDateFilter)) setFixtureDateFilter(null);
+  }, [fixtureDateFilter, fixtureDates]);
+
   const scopedFixtures = useMemo(() => overviewFixtures.filter(f => {
     const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
     const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
     const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
     let matchesDate = true;
     if (fixtureDateFilter) {
-      try { matchesDate = format(new Date(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
+      try { matchesDate = format(parseISO(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
     }
     return matchesSearch && matchesSport && matchesDate;
   }), [overviewFixtures, fixtureSearchQuery, fixtureSportFilter, fixtureDateFilter]);
@@ -1037,12 +1051,12 @@ export function SportsSchedule() {
   ), [scopedFixtures, fixtureStatusFilter]);
 
   const sortedFixtures = useMemo(() => {
-    const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
     return [...filteredFixtures].sort((a, b) => {
-      const weightA = statusWeight[a.status as keyof typeof statusWeight] ?? 99;
-      const weightB = statusWeight[b.status as keyof typeof statusWeight] ?? 99;
-      if (weightA !== weightB) return weightA - weightB;
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
+      const timestampA = a.scheduledAt ? parseISO(a.scheduledAt).getTime() : parseISO(a.date).getTime();
+      const timestampB = b.scheduledAt ? parseISO(b.scheduledAt).getTime() : parseISO(b.date).getTime();
+      const safeTimestampA = Number.isNaN(timestampA) ? Number.MAX_SAFE_INTEGER : timestampA;
+      const safeTimestampB = Number.isNaN(timestampB) ? Number.MAX_SAFE_INTEGER : timestampB;
+      return safeTimestampA - safeTimestampB;
     });
   }, [filteredFixtures]);
 
@@ -1120,20 +1134,18 @@ export function SportsSchedule() {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
           for (const cfg of configs || []) {
-            // Skip DRAFT configs in the public-facing All Events / Overview tabs —
-            // matches are only shown here once an admin publishes the schedule.
-            if (cfg.status === "DRAFT") continue;
+            const configIsPublished = ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(cfg.status || "").toUpperCase());
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
               for (const m of matches) {
-                if (m.status === "BYE") continue;
-                // Also skip any individual match that is still in DRAFT state.
-                if (m.status === "DRAFT") continue;
-                const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
-                let scheduledTime = "";
-                try {
-                  if (m.scheduledAt) scheduledTime = format(new Date(m.scheduledAt), "hh:mm a");
-                } catch (_e) {}
+                const matchStatus = String(m.status || "").toUpperCase();
+                if (matchStatus === "BYE" || matchStatus === "DRAFT") continue;
+                const matchIsPublished = ["PUBLISHED", "COMPLETED", "IN_PROGRESS", "LIVE"].includes(matchStatus);
+                if (!configIsPublished && !matchIsPublished) continue;
+                const scheduledAt = m.scheduledAt ? parseISO(m.scheduledAt) : null;
+                const hasValidScheduledAt = scheduledAt != null && !Number.isNaN(scheduledAt.getTime());
+                const scheduledDate = hasValidScheduledAt ? format(scheduledAt, "yyyy-MM-dd") : "";
+                const scheduledTime = hasValidScheduledAt ? format(scheduledAt, "hh:mm a") : "";
 
                 matchFixtures.push({
                   id: -(m.matchId ?? 0),
@@ -1147,6 +1159,8 @@ export function SportsSchedule() {
                   venue: m.venueName || "TBD",
                   date: scheduledDate,
                   time: scheduledTime,
+                  scheduledAt: hasValidScheduledAt ? m.scheduledAt : undefined,
+                  publishedSchedule: configIsPublished || matchIsPublished,
                   status: String(m.status || "SCHEDULED").toUpperCase() === "COMPLETED"
                     ? "COMPLETED"
                     : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
@@ -1306,7 +1320,7 @@ export function SportsSchedule() {
 
       {/* Overview */}
       {activeTab === "Overview" && (
-        <div className="space-y-3 sm:space-y-6 animate-fade-in-up text-left">
+        <div className="space-y-3 sm:space-y-4 animate-fade-in-up text-left">
           {/* Tournament Sponsors Banner */}
           <TournamentSponsorBanner
             sponsors={DEFAULT_TOURNAMENT_SPONSORS}
@@ -1844,71 +1858,16 @@ export function SportsSchedule() {
             </div>
           )}
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
-                <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
-                <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
-                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "LIVE").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
-                <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "SCHEDULED").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
-                <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
-                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "COMPLETED").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
-              </div>
-            </div>
-          </div>
-
           {/* Add / Edit Fixture Form (Inline Card) */}
           {isAdmin && showFixtureForm && (
-            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
+            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/80 shadow-md animate-fade-in-up space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100">
                 <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
                 <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Match Name / Round</label>
                   <input
@@ -2036,10 +1995,10 @@ export function SportsSchedule() {
           )}
 
           {/* Tournament & Sport Event Selectors */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm space-y-2.5">
+            <div className="grid grid-cols-2 items-center gap-2.5">
               <div className="flex-1 min-w-0">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
+                <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tournament</label>
                 <select
                   value={selectedActualTournamentId ?? ""}
                   onChange={e => {
@@ -2050,7 +2009,7 @@ export function SportsSchedule() {
                     setSelectedSportsEventId(null);
                     setSelectedTournamentId(null);
                   }}
-                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
                 >
                   <option value="">All Tournaments</option>
                   {tournamentOptions.map(tournament => (
@@ -2059,11 +2018,11 @@ export function SportsSchedule() {
                 </select>
               </div>
               <div className="flex-1 min-w-0">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sport</label>
+                <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sport</label>
                 <select
                   value={selectedSportFilter}
                   onChange={e => { setSelectedSportFilter(e.target.value); setFixtureSportFilter(e.target.value); }}
-                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
                 >
                   <option value="All">All Sports</option>
                   {sportsMeta.map(s => (
@@ -2075,7 +2034,7 @@ export function SportsSchedule() {
           </div>
 
           {/* Status Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
             {["All", "LIVE", "SCHEDULED", "COMPLETED"].map(status => {
               const isActive = fixtureStatusFilter === status;
               const count = status === "All" ? scopedFixtures.length : scopedFixtures.filter(f => f.status === status).length;
@@ -2089,7 +2048,7 @@ export function SportsSchedule() {
                 <button
                   key={status}
                   onClick={() => setFixtureStatusFilter(status)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${statusColors[status]}`}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${statusColors[status]}`}
                 >
                   {status === "LIVE" && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
                   {status === "All" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
@@ -2103,7 +2062,7 @@ export function SportsSchedule() {
 
           {/* Date Strip Navigation */}
           {fixtureDates.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-0.5" style={{ WebkitOverflowScrolling: "touch" }}>
               <button
                 onClick={() => setFixtureDateFilter(null)}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -2136,8 +2095,8 @@ export function SportsSchedule() {
           )}
 
           {/* Search and Actions Bar */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/50">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/50">
               <Search className="w-4 h-4 text-slate-400" />
               <input
                 type="text"
@@ -2151,7 +2110,7 @@ export function SportsSchedule() {
               {isAdmin && !showFixtureForm && (
                 <button
                   onClick={() => setActiveTab("Manual")}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
+                  className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Manage schedule
@@ -2161,7 +2120,7 @@ export function SportsSchedule() {
           </div>
 
           {/* Fixtures List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             {sortedFixtures.map((fixture) => {
               const IconComponent = getSportIcon(fixture.sport);
               const sportStyle = getSportColor(fixture.sport);
@@ -2171,7 +2130,7 @@ export function SportsSchedule() {
               return (
                 <div
                   key={fixture.id}
-                  className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-150 flex flex-col justify-between"
+                  className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/80 shadow-sm hover:shadow-md active:scale-[0.99] transition-all duration-150 flex flex-col justify-between"
                   style={{
                     borderColor: isLive ? "rgba(239, 68, 68, 0.4)" : "rgba(226, 232, 240, 0.8)",
                     boxShadow: isLive ? "0 4px 18px rgba(239, 68, 68, 0.08)" : "none"
@@ -2179,7 +2138,7 @@ export function SportsSchedule() {
                 >
                   <div>
                     {/* Card Header: Sport badge, Venue and Status */}
-                    <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
                       <span
                         className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
                         style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
@@ -2207,51 +2166,56 @@ export function SportsSchedule() {
                       </div>
                     </div>
 
-                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{fixture.name}</h4>
+                    <h4 className="text-sm sm:text-xs font-bold leading-snug text-slate-800 line-clamp-2 sm:line-clamp-1">{fixture.name}</h4>
 
                     {/* Venue, Date & Time info */}
-                    <div className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-slate-500 text-xs">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-slate-500">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{fixture.venue}</span>
+                        <span className="min-w-0 truncate text-[10px] sm:text-xs">{fixture.venue}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-                        <span>{fixture.date} at {fixture.time}</span>
+                        <span className="min-w-0 truncate text-[10px] sm:text-xs">
+                          <span className="sm:hidden">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"} · {fixture.time || "Time TBD"}</span>
+                          <span className="hidden sm:inline">{fixture.date ? safeFormatDate(fixture.date, "d MMM yyyy") : "Date TBD"} at {fixture.time || "Time TBD"}</span>
+                        </span>
                       </div>
                     </div>
 
                     {/* Teams and Scores Display */}
-                    <div className="mt-2 sm:mt-4 bg-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-slate-100 space-y-1.5 sm:space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="inline-block min-w-0 pr-2">
-                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                            {fixture.team1}
-                          </span>
-                          {fixture.team1Flat && (
-                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
+                    <div className="mt-2 bg-slate-50 rounded-lg sm:rounded-xl p-2 border border-slate-100">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex min-w-0 items-center justify-between gap-1">
+                          <div className="min-w-0">
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                              {fixture.team1}
+                            </span>
+                            {fixture.team1Flat && (
+                              <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
+                            )}
+                          </div>
+                          {(isLive || isCompleted) && (
+                            <span className="text-[10px] font-bold font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
+                              {fixture.score1 || (fixture.matchId ? "0" : "—")}
+                            </span>
                           )}
                         </div>
-                        {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
-                            {fixture.score1 || (fixture.matchId ? "0" : "—")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="inline-block min-w-0 pr-2">
-                          <span className={`text-[10px] font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                            {fixture.team2}
-                          </span>
-                          {fixture.team2Flat && (
-                            <span className="text-[9px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
+                        <div className="flex min-w-0 items-center justify-between gap-1">
+                          <div className="min-w-0">
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                              {fixture.team2}
+                            </span>
+                            {fixture.team2Flat && (
+                              <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
+                            )}
+                          </div>
+                          {(isLive || isCompleted) && (
+                            <span className="text-[10px] font-bold font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
+                              {fixture.score2 || (fixture.matchId ? "0" : "—")}
+                            </span>
                           )}
                         </div>
-                        {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
-                            {fixture.score2 || (fixture.matchId ? "0" : "—")}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -2296,12 +2260,12 @@ export function SportsSchedule() {
 
                   {/* Actions Row */}
                   {isAdmin && (
-                    <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                      <div className="flex min-w-0 flex-1 sm:flex-none">
                         {fixture.status === "SCHEDULED" && (
                           <button
                             onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
+                            className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
                             Go Live
@@ -2341,13 +2305,13 @@ export function SportsSchedule() {
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center justify-end gap-1 shrink-0">
                         {fixture.matchId && fixture.status !== "COMPLETED" && (
                           <button
                             type="button"
                             onClick={() => setRulesModalFixture(fixture)}
                             title={`Configure scoring rules for ${fixture.name}`}
-                            className="p-1.5 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
                           >
                             <Sliders className="w-3.5 h-3.5 text-indigo-500" />
                             <span className="hidden sm:inline">Rules</span>
@@ -2365,7 +2329,7 @@ export function SportsSchedule() {
                               setRescheduleCourtId("");
                             }}
                             title={`Reschedule ${fixture.name}`}
-                            className="p-1.5 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
                           >
                             <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                             <span className="hidden sm:inline">Reschedule</span>
@@ -2375,7 +2339,7 @@ export function SportsSchedule() {
                           <button
                             onClick={() => handleFixtureDelete(fixture.id)}
                             aria-label={`Delete ${fixture.name}`}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          className="min-h-10 min-w-10 p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2390,8 +2354,13 @@ export function SportsSchedule() {
             {sortedFixtures.length === 0 && (
               <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-12 border border-slate-100 shadow-sm text-center">
                 <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h4 className="text-xs font-bold text-slate-700">No matching fixtures found</h4>
-                <p className="text-xs text-slate-500 mt-1">Try adjusting your filters or search keywords.</p>
+                <h4 className="text-xs font-bold text-slate-700">{fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 ? "No live matches right now" : "No matching fixtures found"}</h4>
+                <p className="text-xs text-slate-500 mt-1">{fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 ? "You can switch to All or Scheduled to see upcoming matches." : "Try adjusting your filters or search keywords."}</p>
+                {fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 && (
+                  <button onClick={() => setFixtureStatusFilter("All")} className="mt-3 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700">
+                    Show all matches
+                  </button>
+                )}
               </div>
             )}
           </div>

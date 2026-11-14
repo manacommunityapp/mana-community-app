@@ -843,6 +843,27 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
           viewMatches,
           viewingConfig
         );
+        const normalizedPlayoffMatches = sanitizePlayoffMatches(playoffMatchesForBracket, true);
+        const normalizedPlayoffById = new Map(normalizedPlayoffMatches.map(match => [String(match.id), match]));
+        const displayFixturesTableRows = fixturesTableRows.flatMap(row => {
+          if (!row.isPlayoff) return [row];
+          const normalizedMatch = normalizedPlayoffById.get(String(row.id));
+          if (!normalizedMatch) return [];
+          return [{
+            ...row,
+            home: {
+              ...row.home,
+              name: normalizedMatch.home.name,
+              flatNumber: normalizedMatch.home.flatNumber || row.home.flatNumber,
+            },
+            away: {
+              ...row.away,
+              name: normalizedMatch.away.name,
+              flatNumber: normalizedMatch.away.flatNumber || row.away.flatNumber,
+            },
+            rawMatch: normalizedMatch,
+          }];
+        });
 
         const earliestPlayoffRound = playoffMatchesForBracket.length > 0
           ? Math.min(...playoffMatchesForBracket.filter(m => m.round !== 'THIRD_PLACE').map(m => m.roundIndex))
@@ -881,7 +902,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Calendar className="h-5 w-5" /></div>
                   <div className="min-w-0">
-                    <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-600">Sports event schedule</p>
+                    <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-600">{event?.name || viewingConfig.eventName || "Tournament match schedule"}</p>
                     <h2 id="schedule-details-title" className="mt-1 truncate text-base font-extrabold text-slate-900 sm:text-lg">{viewingConfig.tournamentName}</h2>
                     {!isScheduleExpanded && <p className="mt-0.5 text-xs text-slate-500">{event ? `${event.sportName} · ${event.communityName}` : "Tournament configuration details"}</p>}
                   </div>
@@ -1148,7 +1169,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                               )
                             ) : playoffMatchesForBracket.length > 0 ? (
                               <FixturesListView
-                                fixtures={fixturesTableRows.filter(f => f.isPlayoff)}
+                                fixtures={displayFixturesTableRows.filter(f => f.isPlayoff)}
                                 onEditMatch={() => {}}
                                 sportName={event?.sportName || "Tournament"}
                               />
@@ -1170,7 +1191,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     {viewDisplayMode === "list" && (
                       <div className="mt-1">
                         <FixturesListView
-                          fixtures={fixturesTableRows}
+                          fixtures={displayFixturesTableRows}
                           onEditMatch={() => {}}
                           sportName={event?.sportName || "Tournament"}
                         />
@@ -1181,7 +1202,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     {viewDisplayMode === "table" && (
                       <div className="mt-1">
                         <FixturesTableView
-                          fixtures={fixturesTableRows}
+                          fixtures={displayFixturesTableRows}
                           onEditMatch={() => {}}
                           onExportCSV={() => handleExport("csv", "ALL")}
                           onExportExcel={() => handleExport("excel", "ALL")}
