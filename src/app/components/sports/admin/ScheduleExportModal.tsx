@@ -150,22 +150,31 @@ export function getMatchStage(m: any): TournamentStageKey {
 /** Extracts date and 12-hour AM/PM time from match object. */
 export function extractDateTime(m: any): { date: string; time: string } {
   let date = m.date || m.matchDate || '';
-  let time = m.time || m.matchTime || '';
+  let time = m.time || m.matchTime || m.scheduledTime || m.startTime || '';
+
+  // Some saved match payloads store the date and time together in a time field.
+  if (typeof time === 'string' && time.includes('T')) {
+    const [timeDate, rawTime] = time.trim().split('T');
+    if (!date && timeDate) date = timeDate;
+    time = rawTime || '';
+  }
 
   if (m.scheduledAt) {
     const s = String(m.scheduledAt).trim();
     if (s.includes('T')) {
       const parts = s.split('T');
-      if (!date) date = parts[0];
+      // Match the bracket view: the canonical scheduled timestamp takes precedence
+      // over legacy date/time fields that may be stale after a reschedule.
+      if (parts[0]) date = parts[0];
       const rawTime = parts[1];
-      if (!time) {
+      if (rawTime) {
         if (rawTime.toUpperCase().includes('AM') || rawTime.toUpperCase().includes('PM')) {
           time = rawTime.trim();
         } else {
-          const timeParts = rawTime.split(':');
-          if (timeParts.length >= 2) {
-            let h = parseInt(timeParts[0], 10);
-            const min = timeParts[1];
+          const timeParts = rawTime.match(/^(\d{1,2}):(\d{2})/);
+          if (timeParts) {
+            const h = parseInt(timeParts[1], 10);
+            const min = timeParts[2];
             const ampm = h >= 12 ? 'PM' : 'AM';
             let h12 = h % 12;
             if (h12 === 0) h12 = 12;
@@ -175,8 +184,8 @@ export function extractDateTime(m: any): { date: string; time: string } {
           }
         }
       }
-    } else if (!date) {
-      date = s;
+    } else {
+      date = s || date;
     }
   }
 
@@ -283,7 +292,23 @@ export function prepareExportableMatches(
         return stage === stageFilter;
       });
 
-  return filtered.map((m, idx) => {
+  const maxSavedMatchNumber = filtered.reduce((max, match) => {
+    const number = Number(match.matchNumber);
+    return Number.isFinite(number) && number > max ? number : max;
+  }, 0);
+  const ordered = filtered
+    .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
+    .sort((a, b) => {
+      const hasNumberA = Number.isFinite(a.number) && a.number > 0;
+      const hasNumberB = Number.isFinite(b.number) && b.number > 0;
+      if (hasNumberA !== hasNumberB) return hasNumberA ? -1 : 1;
+      const numberA = hasNumberA ? a.number : a.index;
+      const numberB = hasNumberB ? b.number : b.index;
+      return numberA - numberB || a.index - b.index;
+    });
+
+  let nextFallbackMatchNumber = maxSavedMatchNumber;
+  return ordered.map(({ match: m }) => {
     const { team1, team2 } = extractTeamNames(m);
     const { team1Flat, team2Flat } = extractFlatDetails(m);
     const { date, time } = extractDateTime(m);
@@ -316,7 +341,7 @@ export function prepareExportableMatches(
       'Tournament';
 
     return {
-      matchNumber: m.matchNumber || idx + 1,
+      matchNumber: Number(m.matchNumber) > 0 ? Number(m.matchNumber) : ++nextFallbackMatchNumber,
       round: stageLabel,
       roundName: stageLabel,
       stage: stageLabel,

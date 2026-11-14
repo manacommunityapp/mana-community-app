@@ -909,6 +909,31 @@ interface SportEventSelection {
   gender?: string | null;
   allowedGenders?: string[] | null;
   categories?: any[] | null;
+  categoryIds?: number[] | null;
+}
+
+/** Prefer categories linked to this event; only infer from the global catalog for legacy events without links. */
+function getCategoriesForSelection(categories: PlayerCategory[], event: SportEventSelection): PlayerCategory[] {
+  if (Array.isArray(event.categoryIds) && event.categoryIds.length > 0) {
+    return event.categoryIds
+      .map(id => categories.find(category => Number(category.id) === Number(id)))
+      .filter((category): category is PlayerCategory => Boolean(category));
+  }
+
+  if (Array.isArray(event.categories) && event.categories.length > 0) {
+    return event.categories
+      .map(linked => {
+        const id = typeof linked === "number" || typeof linked === "string" ? linked : linked?.id;
+        const name = typeof linked === "object" ? linked?.name : undefined;
+        return categories.find(category =>
+          (id != null && Number(category.id) === Number(id)) ||
+          (name && category.name.trim().toLowerCase() === String(name).trim().toLowerCase())
+        ) || (typeof linked === "object" && id != null && name ? linked as PlayerCategory : undefined);
+      })
+      .filter((category): category is PlayerCategory => Boolean(category));
+  }
+
+  return getEventCategories(categories, event.sportName || event.name, event.name, event.categoryName);
 }
 
 
@@ -1589,6 +1614,7 @@ export function SportsMultiRegister() {
                     gender: ce.gender || (ce as any).genderCategory || null,
                     allowedGenders: ce.allowedGenders || null,
                     categories: ce.categories || null,
+                    categoryIds: ce.categoryIds || null,
                   }))
               : targetTourney?.events && targetTourney.events.length > 0
                 ? targetTourney.events
@@ -1692,8 +1718,19 @@ export function SportsMultiRegister() {
             const resolvedRegId = matchedReg?.id ? Number(matchedReg.id) : (ev.myRegistrationId ? Number(ev.myRegistrationId) : undefined);
 
             // Find single related category from service categories for this specific event
-            const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
             const evAny = ev as any;
+            const eventCategoryPool = getCategoriesForSelection(cats, {
+              eventId: ev.id,
+              name: ev.name,
+              sportName: resolvedSportName,
+              categoryName: ev.categoryName || undefined,
+              categories: evAny.categories || null,
+              categoryIds: evAny.categoryIds || null,
+              selected: false,
+              matchType: "SINGLES",
+              role: "",
+            });
+            const matchedCategory = findBestEligibleCategory(eventCategoryPool, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
             const toNum = (v: any) => (v != null && v !== "" && !isNaN(Number(v)) ? Number(v) : null);
             const evMinAge = toNum(evAny.minAge ?? evAny.category?.minAge ?? evAny.playerCategory?.minAge ?? evAny.categories?.[0]?.minAge);
             const evMaxAge = toNum(evAny.maxAge ?? evAny.category?.maxAge ?? evAny.playerCategory?.maxAge ?? evAny.categories?.[0]?.maxAge);
@@ -1701,7 +1738,7 @@ export function SportsMultiRegister() {
             const evAllowedGenders = evAny.allowedGenders || null;
             const isEligible = evaluateEventEligibility(
               { name: ev.name, sportName: resolvedSportName, categoryName: ev.categoryName, minAge: evMinAge, maxAge: evMaxAge, gender: evGender, allowedGenders: evAllowedGenders, categories: evAny.categories },
-              cats, initialAge, gender
+              eventCategoryPool, initialAge, gender
             ).eligible;
 
             // Detect available participation formats (e.g. Singles, Doubles, Mixed Doubles)
@@ -1727,6 +1764,7 @@ export function SportsMultiRegister() {
               availableFormats: availableFormats,
               role: defaultRole,
               categoryId: matchedCategory?.id,
+              categoryIds: evAny.categoryIds || null,
               minAge: evMinAge,
               maxAge: evMaxAge,
               gender: evGender,
@@ -1787,7 +1825,7 @@ export function SportsMultiRegister() {
     setEventSelections(prev => prev.map(ev => {
       let catId = ev.categoryId;
       const currentCat = categories.find(c => c.id === ev.categoryId);
-      const pool = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+      const pool = getCategoriesForSelection(categories, ev);
       const currentInPool = Boolean(currentCat && pool.some(c => c.id === currentCat.id));
       const currentOk = currentInPool && checkCategoryEligibility(currentCat, age, gender).eligible;
 
@@ -2045,7 +2083,7 @@ export function SportsMultiRegister() {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
         if (ev.isRegistered) return ev;
-        const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+        const eventCats = getCategoriesForSelection(categories, ev);
         const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
         const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
         if (!isEligible) {
@@ -2246,7 +2284,7 @@ export function SportsMultiRegister() {
       return;
     }
 
-    const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+    const eventCats = getCategoriesForSelection(categories, ev);
     const selectedCategory = categories.find(c => c.id === ev.categoryId) || eventCats[0];
     if (!selectedCategory) {
       setEventErrors(prev => ({ ...prev, [eventId]: "Please select a category bracket" }));
@@ -3567,7 +3605,7 @@ export function SportsMultiRegister() {
                       <div className="divide-y divide-slate-100 bg-white">
                         {/* Eligible categories */}
                         {group.eligible.map((ev) => {
-                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                          const eventCats = getCategoriesForSelection(categories, ev);
                           const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
                           const hasError = Boolean(eventErrors[ev.eventId]);
                           const checkClosed = (st?: string | null) => {
@@ -3973,7 +4011,7 @@ export function SportsMultiRegister() {
 
                         {/* Registered categories */}
                         {group.registered.map((ev) => {
-                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                          const eventCats = getCategoriesForSelection(categories, ev);
                           const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
                           const participantRegs = findAllRegistrationsForParticipant(ev.eventId);
                           const regFormats = participantRegs
@@ -4068,7 +4106,7 @@ export function SportsMultiRegister() {
                             </div>
                             <div className="space-y-1.5">
                               {group.ineligible.map((ev) => {
-                                const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                                const eventCats = getCategoriesForSelection(categories, ev);
                                 const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
                                 const el = evaluateEventEligibility(ev, categories, currentAge, gender);
                                 return (
