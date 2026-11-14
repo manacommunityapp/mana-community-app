@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Sparkles } from "lucide-react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Sparkles, Maximize2, Minimize2 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService, type FeedVisibilityLevel } from "../../../services/sports/tournamentService";
@@ -58,6 +58,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingConfig, setViewingConfig] = useState<ConfigInfo | null>(null);
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
   const [viewMatches, setViewMatches] = useState<any[]>([]);
   const [viewPlayers, setViewPlayers] = useState<EventRegistration[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
@@ -476,6 +477,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
 
   const openScheduleDetails = async (config: ConfigInfo) => {
     setViewingConfig(config);
+    setIsScheduleExpanded(false);
     setViewMatches([]);
     setViewPlayers([]);
     setViewError("");
@@ -873,19 +875,19 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
 
         return (
           <>
-            <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-0 backdrop-blur-sm sm:p-2" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="flex h-dvh w-screen flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl sm:h-[96vh] sm:w-[98vw] sm:rounded-2xl">
+            <div className={`fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 backdrop-blur-sm ${isScheduleExpanded ? "p-0" : "p-0 sm:p-2"}`} onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className={`flex flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl ${isScheduleExpanded ? "h-dvh w-screen rounded-none" : "h-dvh w-screen rounded-none sm:h-[96vh] sm:w-[98vw] sm:rounded-2xl"}`}>
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 sm:px-6">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Calendar className="h-5 w-5" /></div>
                   <div className="min-w-0">
                     <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-600">Sports event schedule</p>
                     <h2 id="schedule-details-title" className="mt-1 truncate text-base font-extrabold text-slate-900 sm:text-lg">{viewingConfig.tournamentName}</h2>
-                    <p className="mt-0.5 text-xs text-slate-500">{event ? `${event.sportName} · ${event.communityName}` : "Tournament configuration details"}</p>
+                    {!isScheduleExpanded && <p className="mt-0.5 text-xs text-slate-500">{event ? `${event.sportName} · ${event.communityName}` : "Tournament configuration details"}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
+                  {!isScheduleExpanded && <button
                     type="button"
                     onClick={() => {
                       const c = viewingConfig;
@@ -897,28 +899,37 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 transition hover:bg-purple-100 hover:border-purple-300 cursor-pointer"
                   >
                     <Calendar className="h-3.5 w-3.5" /> Edit Schedule
+                  </button>}
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleExpanded(value => !value)}
+                    aria-label={isScheduleExpanded ? "Exit full screen schedule" : "View schedule full screen"}
+                    title={isScheduleExpanded ? "Exit full screen" : "View schedule full screen"}
+                    className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  >
+                    {isScheduleExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </button>
                   <button onClick={() => setViewingConfig(null)} aria-label="Close schedule details" className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"><X className="h-4 w-4" /></button>
                 </div>
               </header>
 
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+              <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto ${isScheduleExpanded ? "p-2 sm:p-3" : "p-4 sm:p-6"}`}>
                 {viewLoading ? (
                   <div className="flex min-h-40 items-center justify-center gap-2 text-sm font-medium text-slate-500"><Loader2 className="h-5 w-5 animate-spin text-indigo-600" />Loading event players and schedule…</div>
                 ) : (
                   <>
                     {viewError && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-medium text-amber-800">{viewError}</div>}
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+                    {!isScheduleExpanded && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
                       {detail("Format", formatType(viewingConfig.tournamentType))}
                       {detail("Registered players", <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 text-indigo-500" />{viewPlayers.length}</span>)}
                       {detail("Scheduled matches", viewMatches.length)}
                       {detail("Status", <span className="capitalize">{(viewingConfig.status || "Not set").toLowerCase()}</span>)}
                       {detail("Dates", `${dateLabel(viewingConfig.startDate)} – ${dateLabel(viewingConfig.endDate)}`)}
                       {detail("Venue", <span className="inline-flex items-center gap-1.5 truncate"><MapPin className="h-3.5 w-3.5 shrink-0 text-indigo-500" />{venue?.name || "Not set"}</span>)}
-                    </div>
+                    </div>}
 
                     {/* View Switcher & Export Toolbar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
+                    {!isScheduleExpanded && <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
                       {/* Left: View Mode Pills */}
                       <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
                         <span className="text-xs font-bold text-slate-700 whitespace-nowrap hidden xs:inline">View:</span>
@@ -1081,7 +1092,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                           </>
                         )}
                       </div>
-                    </div>
+                    </div>}
 
                     {/* View 1: Visual Draw & Bracket */}
                     {viewDisplayMode === "visual" && (
@@ -1180,7 +1191,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     )}
 
                     {/* Registered Players Collapsible / Section */}
-                    {viewDisplayMode !== "visual" && viewPlayers.length > 0 && (
+                    {!isScheduleExpanded && viewDisplayMode !== "visual" && viewPlayers.length > 0 && (
                       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
                           <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Users className="h-4 w-4 text-indigo-600" />Registered players</h3>
@@ -1220,7 +1231,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                   </>
                 )}
 
-                {viewDisplayMode !== "visual" && <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
+                {!isScheduleExpanded && viewDisplayMode !== "visual" && <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
                   <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-slate-500">Match settings</h3>
                   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
                     <div><span className="text-slate-400">Duration</span><p className="mb-0 mt-1 inline-flex items-center gap-1 font-semibold text-slate-800"><Clock className="h-3.5 w-3.5 text-indigo-500" />{viewingConfig.matchDurationMinutes ? `${viewingConfig.matchDurationMinutes} min` : "Not set"}</p></div>
@@ -1233,7 +1244,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                 </div>}
               </div>
 
-              <footer className="flex justify-between items-center border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">
+              {!isScheduleExpanded && <footer className="flex justify-between items-center border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">
                 <span className="text-xs text-slate-400 font-medium">Tournament ID: #{viewingConfig.id}</span>
                 <div className="flex items-center gap-2">
                   <button
@@ -1251,7 +1262,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                   </button>
                   <button onClick={() => setViewingConfig(null)} className="min-h-9 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700 cursor-pointer">Close</button>
                 </div>
-              </footer>
+              </footer>}
             </section>
           </div>
 
