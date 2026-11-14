@@ -23,6 +23,8 @@ export interface FeedLiveMatch {
   roundName?: string | null;
   teamAName: string;
   teamBName: string;
+  teamAId?: number | null;
+  teamBId?: number | null;
   teamAFlat?: string | null;
   teamBFlat?: string | null;
   scoreTeamA?: string | null;

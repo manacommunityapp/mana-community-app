@@ -200,6 +200,25 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
         commandId: crypto.randomUUID(),
       };
 
+      // Optimistic runs / wickets visual increment for scorer
+      if (state) {
+        const innKey = inningsNumber === 1 ? "innings1" : "innings2";
+        const addRuns = runsScored + (opts?.extrasRuns || 0);
+        const addWickets = opts?.isWicket ? 1 : 0;
+        setState((prev) => {
+          if (!prev) return prev;
+          const prevInn = prev[innKey];
+          return {
+            ...prev,
+            [innKey]: {
+              ...prevInn,
+              totalRuns: (prevInn?.totalRuns || 0) + addRuns,
+              totalWickets: (prevInn?.totalWickets || 0) + addWickets,
+            },
+          };
+        });
+      }
+
       if (wsConnected) {
         stompClient.publish(`/app/match/${matchId}/ball`, req);
       } else {

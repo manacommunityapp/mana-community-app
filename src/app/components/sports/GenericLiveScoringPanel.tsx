@@ -209,21 +209,57 @@ export function GenericLiveScoringPanel({
         return;
       }
       const targetTeamId = teamId || (teamA.name === state?.teamAName ? teamA.id : teamB.id) || 1;
-      setSaving(true);
-      try {
-        const req: GenericScoreRequest = {
-          matchId,
-          teamId: targetTeamId,
-          eventType,
-          periodNumber: state.currentPeriod,
-          pointsAwarded: points,
-          playerId,
-          matchMinute: isTimedSport(sportType) ? matchMinute : undefined,
-          commandId: crypto.randomUUID(),
+
+      // 1. Optimistic snapshot for rollback
+      const prevState = state;
+      const isTeamA = targetTeamId === state.teamAId || (teamA.name === state.teamAName);
+
+      // 2. Immediate optimistic state update on umpire screen (0ms)
+      setState((prev) => {
+        if (!prev) return prev;
+        const newScoreA = isTeamA ? prev.scoreTeamA + points : prev.scoreTeamA;
+        const newScoreB = !isTeamA ? prev.scoreTeamB + points : prev.scoreTeamB;
+        const updatedPeriods = prev.periods?.map((p) => {
+          if (p.periodNumber === prev.currentPeriod) {
+            return {
+              ...p,
+              scoreTeamA: isTeamA ? p.scoreTeamA + points : p.scoreTeamA,
+              scoreTeamB: !isTeamA ? p.scoreTeamB + points : p.scoreTeamB,
+            };
+          }
+          return p;
+        }) || [];
+        return {
+          ...prev,
+          scoreTeamA: newScoreA,
+          scoreTeamB: newScoreB,
+          periods: updatedPeriods,
         };
-        await tournamentService.recordGenericScore(req);
-        await fetchState();
+      });
+
+      const req: GenericScoreRequest = {
+        matchId,
+        teamId: targetTeamId,
+        eventType,
+        periodNumber: state.currentPeriod,
+        pointsAwarded: points,
+        playerId,
+        matchMinute: isTimedSport(sportType) ? matchMinute : undefined,
+        commandId: crypto.randomUUID(),
+      };
+
+      try {
+        if (stompClient.connected) {
+          // Fast WebSocket publish (1-way frame, ~5-15ms)
+          stompClient.publish(`/app/generic-match/${matchId}/score`, req);
+        } else {
+          setSaving(true);
+          await tournamentService.recordGenericScore(req);
+          await fetchState();
+        }
       } catch (err: any) {
+        // Rollback optimistic state if send failed
+        setState(prevState);
         toast.error(err?.message || "Failed to record score");
       } finally {
         setSaving(false);
@@ -236,8 +272,12 @@ export function GenericLiveScoringPanel({
     if (!state || saving) return;
     setSaving(true);
     try {
-      await tournamentService.undoGenericEvent(matchId);
-      await fetchState();
+      if (stompClient.connected) {
+        stompClient.publish(`/app/generic-match/${matchId}/undo`, {});
+      } else {
+        await tournamentService.undoGenericEvent(matchId);
+        await fetchState();
+      }
       toast.success("Last event undone");
     } catch (err: any) {
       toast.error(err?.message || "Failed to undo");

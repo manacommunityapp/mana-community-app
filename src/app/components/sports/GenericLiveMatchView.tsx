@@ -86,9 +86,9 @@ export function GenericLiveMatchView({
       if (isMounted) fetchState(false);
     });
 
-    // Background polling fallback without tearing down the UI
+    // Background polling fallback only when WebSocket is disconnected
     reconnectTimer.current = setInterval(() => {
-      if (isMounted) fetchState(false);
+      if (isMounted && !stompClient.connected) fetchState(false);
     }, 5000);
 
     return () => {

@@ -84,23 +84,18 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
       setLoading(false);
     });
 
-    const unsubBall = stompClient.subscribe(`/topic/match/${matchId}`, () => {
-      if (isMounted) fetchState(false);
-    });
-
     const unsubConnect = stompClient.onConnect(() => {
       if (isMounted) fetchState(false);
     });
 
-    // Fallback polling every 5 seconds without unmounting the modal
+    // Fallback polling only when WebSocket is disconnected
     reconnectTimer.current = setInterval(() => {
-      if (isMounted) fetchState(false);
+      if (isMounted && !stompClient.connected) fetchState(false);
     }, 5000);
 
     return () => {
       isMounted = false;
       unsubState();
-      unsubBall();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     };

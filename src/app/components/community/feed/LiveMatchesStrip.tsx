@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Radio, X, Trophy, Play, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock } from "lucide-react";
-import { tournamentService, type FeedLiveMatch } from "../../../../services/sports/tournamentService";
+import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState } from "../../../../services/sports/tournamentService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { getStoredUser } from "../../../../services/common/apiClient";
 import { LiveMatchView } from "../../sports/LiveMatchView";
@@ -147,6 +147,55 @@ function formatCricketScore(score?: string | null): string {
   return s;
 }
 
+function extractCricketScores(state: LiveMatchStateData, match: FeedLiveMatch): { scoreA: string; scoreB: string; isWicket: boolean } {
+  let isWicket = false;
+  if (state.recentBalls && state.recentBalls.length > 0) {
+    isWicket = Boolean(state.recentBalls[0]?.isWicket);
+  }
+
+  const inn1 = state.innings1;
+  const inn2 = state.innings2;
+
+  let scoreA = match.scoreTeamA || "";
+  let scoreB = match.scoreTeamB || "";
+
+  const inn1ScoreStr = inn1 && inn1.totalRuns != null
+    ? `${inn1.totalRuns}/${inn1.totalWickets ?? 0} (${inn1.totalOvers || "0.0"} ov)`
+    : "";
+  const inn2ScoreStr = inn2 && inn2.totalRuns != null && (inn2.totalRuns > 0 || inn2.totalWickets > 0 || (inn2.totalOvers && inn2.totalOvers !== "0.0"))
+    ? `${inn2.totalRuns}/${inn2.totalWickets ?? 0} (${inn2.totalOvers || "0.0"} ov)`
+    : "";
+
+  const isTeamABattingFirst = Boolean(
+    (inn1?.battingTeamId && (inn1.battingTeamId === state.teamAId || (match.teamAId && inn1.battingTeamId === match.teamAId))) ||
+    (inn1?.battingTeamName && match.teamAName && inn1.battingTeamName.toLowerCase().includes(match.teamAName.toLowerCase())) ||
+    (inn1?.battingTeamName && state.teamAName && inn1.battingTeamName.toLowerCase().includes(state.teamAName.toLowerCase()))
+  );
+
+  if (isTeamABattingFirst) {
+    if (inn1ScoreStr) scoreA = inn1ScoreStr;
+    if (inn2ScoreStr) scoreB = inn2ScoreStr;
+  } else {
+    if (inn1ScoreStr) scoreB = inn1ScoreStr;
+    if (inn2ScoreStr) scoreA = inn2ScoreStr;
+  }
+
+  return { scoreA, scoreB, isWicket };
+}
+
+function extractGenericScores(state: GenericMatchState, match: FeedLiveMatch): { scoreA: string; scoreB: string } {
+  const isSetSport = /badminton|tennis|table|volleyball|squash/i.test(state.sportType || match.sportName || "");
+  if (isSetSport && (state.periodsWonA > 0 || state.periodsWonB > 0)) {
+    const scoreA = `${state.periodsWonA} (${state.scoreTeamA ?? 0})`;
+    const scoreB = `${state.periodsWonB} (${state.scoreTeamB ?? 0})`;
+    return { scoreA, scoreB };
+  }
+
+  const scoreA = state.scoreTeamA != null ? String(state.scoreTeamA) : (match.scoreTeamA || "0");
+  const scoreB = state.scoreTeamB != null ? String(state.scoreTeamB) : (match.scoreTeamB || "0");
+  return { scoreA, scoreB };
+}
+
 function getMatchContextNarrative(m: FeedLiveMatch, isLive: boolean): { text: string; highlight?: boolean } {
   if (!isLive) {
     if (m.winnerName) {
@@ -277,6 +326,8 @@ export function LiveMatchesStrip() {
                     roundName: m.roundName || m.round,
                     teamAName: m.teamAName || m.homeName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 1" : "Team A"),
                     teamBName: m.teamBName || m.awayName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 2" : "Team B"),
+                    teamAId: m.teamAId || m.homeTeamId || m.teamA?.id || null,
+                    teamBId: m.teamBId || m.awayTeamId || m.teamB?.id || null,
                     teamAFlat: m.teamAFlat || m.homeFlat,
                     teamBFlat: m.teamBFlat || m.awayFlat,
                     scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
@@ -355,39 +406,85 @@ export function LiveMatchesStrip() {
     const unsubs: (() => void)[] = [];
 
     matchIds.forEach((id) => {
-      // Cricket state updates
+      // Cricket state updates: instantly patch score in local React state
       unsubs.push(
-        stompClient.subscribe(`/topic/match/${id}/state`, (msg: any) => {
+        stompClient.subscribe(`/topic/match/${id}/state`, (body: any) => {
+          if (!body) return;
           const matchNum = Number(id);
-          const isWicket = msg?.body?.includes?.("WICKET") || msg?.body?.includes?.("isWicket");
-          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: isWicket ? "wicket" : "score" }));
+          const stateData = body as LiveMatchStateData;
+
+          // 1. Immediately patch the card in local state (0ms latency!)
+          setMatches((prev) =>
+            prev.map((m) => {
+              if (m.matchId !== matchNum) return m;
+              const { scoreA, scoreB } = extractCricketScores(stateData, m);
+              return {
+                ...m,
+                scoreTeamA: scoreA || m.scoreTeamA,
+                scoreTeamB: scoreB || m.scoreTeamB,
+                status: stateData.status || "LIVE",
+              };
+            })
+          );
+
+          // 2. Trigger instant visual flash indicator
+          const isWicket = Boolean(
+            stateData.recentBalls?.[0]?.isWicket ||
+            (typeof body === "string" && body.includes("WICKET"))
+          );
+          setFlashingMatchIds((prev) => ({ ...prev, [matchNum]: isWicket ? "wicket" : "score" }));
           setTimeout(() => {
-            setFlashingMatchIds(prev => {
+            setFlashingMatchIds((prev) => {
               const copy = { ...prev };
               delete copy[matchNum];
               return copy;
             });
-          }, 1500);
+          }, 1200);
 
-          if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 400);
+          // 3. Only if match completed or moved away from LIVE, reconcile structure in background
+          if (stateData.status === "COMPLETED") {
+            if (refreshTimer.current) clearTimeout(refreshTimer.current);
+            refreshTimer.current = setTimeout(load, 2000);
+          }
         })
       );
+
       // Generic sports state updates (badminton, football, tennis, etc.)
       unsubs.push(
-        stompClient.subscribe(`/topic/match/${id}/generic-state`, () => {
+        stompClient.subscribe(`/topic/match/${id}/generic-state`, (body: any) => {
+          if (!body) return;
           const matchNum = Number(id);
-          setFlashingMatchIds(prev => ({ ...prev, [matchNum]: "score" }));
+          const stateData = body as GenericMatchState;
+
+          // 1. Immediately patch the card in local state (0ms latency!)
+          setMatches((prev) =>
+            prev.map((m) => {
+              if (m.matchId !== matchNum) return m;
+              const { scoreA, scoreB } = extractGenericScores(stateData, m);
+              return {
+                ...m,
+                scoreTeamA: scoreA || m.scoreTeamA,
+                scoreTeamB: scoreB || m.scoreTeamB,
+                status: stateData.status || "LIVE",
+              };
+            })
+          );
+
+          // 2. Trigger instant visual flash indicator
+          setFlashingMatchIds((prev) => ({ ...prev, [matchNum]: "score" }));
           setTimeout(() => {
-            setFlashingMatchIds(prev => {
+            setFlashingMatchIds((prev) => {
               const copy = { ...prev };
               delete copy[matchNum];
               return copy;
             });
-          }, 1500);
+          }, 1200);
 
-          if (refreshTimer.current) clearTimeout(refreshTimer.current);
-          refreshTimer.current = setTimeout(load, 400);
+          // 3. Only if match completed, reconcile structure in background
+          if (stateData.status === "COMPLETED") {
+            if (refreshTimer.current) clearTimeout(refreshTimer.current);
+            refreshTimer.current = setTimeout(load, 2000);
+          }
         })
       );
     });
