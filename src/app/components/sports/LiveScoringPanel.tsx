@@ -9,6 +9,8 @@ import { SportsDisputeModal } from "./SportsDisputeModal";
 interface LiveScoringPanelProps {
   matchId: number;
   configId?: number;
+  teamAName?: string;
+  teamBName?: string;
   onClose: () => void;
 }
 
@@ -18,7 +20,7 @@ interface PlayerOption {
   teamId?: number;
 }
 
-export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPanelProps) {
+export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onClose }: LiveScoringPanelProps) {
   const [state, setState] = useState<LiveMatchStateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [feedActive, setFeedActive] = useState<boolean>(true);
+  const [tossWinnerSide, setTossWinnerSide] = useState<"A" | "B" | "">("");
+  const [tossDecision, setTossDecision] = useState<"BAT" | "BOWL" | "">("");
+  const [tossSaving, setTossSaving] = useState(false);
 
   const toggleFeedVisibility = async () => {
     const next = !feedActive;
@@ -60,10 +65,6 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     tournamentService.getLiveMatchState(matchId)
       .then((s) => {
         setState(s);
-        setInningsNumber(s.currentInnings);
-        if (s.batsmanOnStrikeId) setBatsmanId(s.batsmanOnStrikeId);
-        if (s.batsmanNonStrikeId) setNonStrikerId(s.batsmanNonStrikeId);
-        if (s.currentBowlerId) setBowlerId(s.currentBowlerId);
       })
       .catch(() => setError("Failed to load match state"))
       .finally(() => setLoading(false));
@@ -82,7 +83,43 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
       unsub();
       unsubConnect();
     };
-  }, [matchId]);
+  }, [matchId, configId]);
+
+  useEffect(() => {
+    if (!state) return;
+    setInningsNumber(state.currentInnings);
+    setBatsmanId(state.batsmanOnStrikeId ?? 0);
+    setNonStrikerId(state.batsmanNonStrikeId ?? 0);
+    setBowlerId(state.currentBowlerId ?? 0);
+    setTossWinnerSide(state.tossWinnerTeamId === state.teamAId ? "A" : state.tossWinnerTeamId === state.teamBId ? "B" : "");
+    setTossDecision(state.tossDecision?.toUpperCase() === "BAT" ? "BAT" : state.tossDecision?.toUpperCase() === "BOWL" ? "BOWL" : "");
+  }, [state]);
+
+  const canEditToss = Boolean(state
+    && state.innings1.totalRuns === 0
+    && state.innings1.totalWickets === 0
+    && state.innings1.totalOvers === "0.0"
+    && state.innings2.totalRuns === 0
+    && state.innings2.totalWickets === 0
+    && state.innings2.totalOvers === "0.0");
+
+  const saveToss = async () => {
+    const tossWinnerTeamId = tossWinnerSide === "A" ? state?.teamAId : tossWinnerSide === "B" ? state?.teamBId : undefined;
+    if (!tossWinnerTeamId || !tossDecision) {
+      toast.error("Select the toss-winning team and their decision.");
+      return;
+    }
+    setTossSaving(true);
+    try {
+      await tournamentService.recordMatchToss(matchId, { tossWinnerTeamId, tossDecision });
+      setState(await tournamentService.getLiveMatchState(matchId));
+      toast.success("Toss details saved");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save toss details");
+    } finally {
+      setTossSaving(false);
+    }
+  };
 
   const loadPlayers = async () => {
     try {
@@ -132,6 +169,13 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     dismissedPlayerId?: number;
     fielderId?: number;
   }) => {
+    if (inningsNumber === 1 && state && !state.tossWinnerTeamId
+      && state.innings1.totalOvers === "0.0"
+      && state.innings1.totalRuns === 0
+      && state.innings1.totalWickets === 0) {
+      toast.error("Record the toss before scoring the first ball.");
+      return;
+    }
     if (!batsmanId || !bowlerId) {
       toast.error("Select both batsman and bowler first");
       return;
@@ -184,7 +228,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     } finally {
       setSaving(false);
     }
-  }, [matchId, inningsNumber, batsmanId, nonStrikerId, bowlerId, wsConnected]);
+  }, [matchId, inningsNumber, batsmanId, nonStrikerId, bowlerId, wsConnected, state]);
 
   const handleUndo = async () => {
     setSaving(true);
@@ -232,6 +276,11 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   }
 
   const inn = state ? (inningsNumber === 1 ? state.innings1 : state.innings2) : null;
+  const battingTeamFallback = inn?.battingTeamId != null && state
+    ? inn.battingTeamId === state.teamAId
+      ? state.teamAName || teamAName || "Team A"
+      : state.teamBName || teamBName || "Team B"
+    : "Batting team";
   const ballsRemaining = state && inn ? remainingBalls(inn.totalOvers, state.oversLimit || 20) : 0;
   const runsNeeded = state?.target != null && inn && inningsNumber === 2
     ? Math.max(0, state.target - inn.totalRuns)
@@ -241,12 +290,12 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
     : null;
   const battingTeamPlayers = players.filter(p => {
     if (!state) return true;
-    const battingTeamId = inningsNumber === 1 ? state.teamAId : state.teamBId;
+    const battingTeamId = inn?.battingTeamId;
     return p.teamId === battingTeamId;
   });
   const bowlingTeamPlayers = players.filter(p => {
     if (!state) return true;
-    const bowlingTeamId = inningsNumber === 1 ? state.teamBId : state.teamAId;
+    const bowlingTeamId = inn?.battingTeamId === state.teamAId ? state.teamBId : state.teamAId;
     return p.teamId === bowlingTeamId;
   });
 
@@ -265,7 +314,12 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-3 py-2 sm:px-5 sm:py-3 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="text-[10px] font-bold text-white">Live Scorer</span>
+                  <div className="min-w-0">
+                    <span className="block text-[10px] font-bold text-white">Live Scorer</span>
+                    {(teamAName || teamBName) && (
+                      <span className="block max-w-[180px] truncate text-[9px] text-indigo-100/80">{teamAName || "Team A"} vs {teamBName || "Team B"}</span>
+                    )}
+                  </div>
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400 animate-pulse" />
               <span className="text-[10px] font-bold text-red-300 uppercase">LIVE</span>
@@ -290,6 +344,44 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
           </button>
         </div>
 
+        {state && canEditToss && (
+          <div className="mx-3 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:mx-5 sm:px-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="m-0 text-xs font-bold text-amber-900">Cricket toss</p>
+                <p className="m-0 mt-0.5 text-[10px] text-amber-800/80">Save before recording the first ball.</p>
+              </div>
+              {state.tossWinnerTeamId && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Saved</span>}
+            </div>
+            <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+              <label className="min-w-0 text-[10px] font-semibold text-slate-600">
+                Toss won by
+                <select value={tossWinnerSide} onChange={e => setTossWinnerSide(e.target.value as "A" | "B" | "")} className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs text-slate-800">
+                  <option value="">Select team</option>
+                  <option value="A">{state.teamAName}</option>
+                  <option value="B">{state.teamBName}</option>
+                </select>
+              </label>
+              <label className="min-w-0 text-[10px] font-semibold text-slate-600">
+                Chose to
+                <select value={tossDecision} onChange={e => setTossDecision(e.target.value as "BAT" | "BOWL" | "")} className="mt-1 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs text-slate-800">
+                  <option value="">Select decision</option>
+                  <option value="BAT">Bat first</option>
+                  <option value="BOWL">Bowl first</option>
+                </select>
+              </label>
+              <button type="button" onClick={saveToss} disabled={tossSaving || !tossWinnerSide || !tossDecision} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {tossSaving ? "Saving" : state.tossWinnerTeamId ? "Update" : "Save toss"}
+              </button>
+            </div>
+          </div>
+        )}
+        {state && !canEditToss && state.tossWinnerTeamId && (
+          <div className="mx-3 mt-3 rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 sm:mx-5">
+            <span className="font-bold">Toss:</span> {state.tossWinnerTeamId === state.teamAId ? state.teamAName : state.teamBName} chose to {state.tossDecision?.toUpperCase() === "BOWL" ? "bowl" : "bat"} first
+          </div>
+        )}
+
         {/* Mini Scoreboard */}
         {state && inn && (
           <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4 py-4 sm:px-6 sm:py-5 text-white border-b border-slate-800">
@@ -297,7 +389,9 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-400/30">Innings {inningsNumber}</span>
-                  <span className="text-xs text-slate-300 truncate">{inn.battingTeamName}</span>
+                  <span className="text-xs text-slate-300 truncate">
+                    {inn.battingTeamName || battingTeamFallback}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="font-mono text-4xl sm:text-5xl font-black tracking-tight">{inn.totalRuns}</span>

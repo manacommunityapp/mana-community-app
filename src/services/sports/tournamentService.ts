@@ -134,6 +134,13 @@ export interface MatchResultRequestData {
   runsTeamB?: number;
   oversTeamA?: number;
   oversTeamB?: number;
+  tossWinnerTeamId?: number | null;
+  tossDecision?: string;
+}
+
+export interface MatchTossRequestData {
+  tossWinnerTeamId: number;
+  tossDecision: "BAT" | "BOWL";
 }
 
 export interface MatchResultDetailRequestData {
@@ -374,6 +381,8 @@ export interface LiveMatchStateData {
   oversLimit?: number;
   maxOversPerBowler?: number;
   ballsPerOver?: number;
+  tossWinnerTeamId?: number;
+  tossDecision?: string;
 }
 
 export interface InningsStateData {
@@ -801,6 +810,11 @@ export const tournamentService = {
     return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
   },
 
+  /** PUT /api/tournament/match/{matchId}/toss — save cricket toss before scoring */
+  async recordMatchToss(matchId: number, data: MatchTossRequestData): Promise<MatchDetailData> {
+    return apiClient.put<MatchDetailData>(`/tournament/match/${matchId}/toss`, data);
+  },
+
   /** Strict analytics read for winner/result data. */
   async getMatchDetailForAnalytics(matchId: number): Promise<MatchDetailData> {
     return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
@@ -977,6 +991,15 @@ export const tournamentService = {
   async getLiveFeedMatches(communityId?: number | null): Promise<FeedLiveMatch[]> {
     const qs = communityId ? `?communityId=${communityId}` : "";
     return apiClient.get<FeedLiveMatch[]>(`/sports/live-feed${qs}`);
+  },
+
+  /** Upcoming scheduled matches flagged for the community feed. */
+  async getUpcomingFeedMatches(communityId?: number | null, limit = 15): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/upcoming-feed${qs}`).catch(() => []);
   },
 
   /** Recently completed matches with winner details and scores for the results modal. */

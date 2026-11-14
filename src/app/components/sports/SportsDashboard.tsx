@@ -31,7 +31,7 @@ import { format, differenceInDays } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
-import { formatFlatLabel, formatUnitDisplay } from "../../../utils/sportsValidationUtils";
+import { formatFlatLabel, formatUnitDisplay, isByeMatch, isExplicitTime, propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
 import {
   TournamentSponsorBanner,
   TournamentSponsorShowcase,
@@ -1678,8 +1678,9 @@ export function SportsDashboard() {
         );
         matchResults.forEach(res => {
           if (res.status === "fulfilled" && Array.isArray(res.value?.matches)) {
-            res.value.matches.forEach((m: any) => {
-              if (m && m.status !== "BYE") {
+            const propagatedMatches = propagateByeAdvancements(res.value.matches);
+            propagatedMatches.forEach((m: any) => {
+              if (m && !isByeMatch(m)) {
                 if (!canAccessAdminSports && m.status === "DRAFT") return;
                 scheduledMatchesRaw.push({ config: res.value.cfg, match: m });
               }
@@ -1820,14 +1821,21 @@ export function SportsDashboard() {
           const matchTitle = `${roundPrefix}${userSideName} vs ${opponentSideName}`;
 
           let exactMatchDate: Date | undefined;
+          let hasExplicitMatchTime = false;
           if (m.scheduledAt) {
             try {
               const parsed = new Date(m.scheduledAt);
-              if (!isNaN(parsed.getTime())) exactMatchDate = parsed;
+              if (!isNaN(parsed.getTime())) {
+                exactMatchDate = parsed;
+                hasExplicitMatchTime = isExplicitTime(m.matchTime, m.scheduledAt);
+              }
             } catch {}
           } else if (m.matchDate) {
             try {
-              const timeStr = m.matchTime ? (m.matchTime.length === 5 ? `${m.matchTime}:00` : m.matchTime) : "00:00:00";
+              hasExplicitMatchTime = isExplicitTime(m.matchTime);
+              const timeStr = hasExplicitMatchTime && m.matchTime
+                ? (m.matchTime.length === 5 ? `${m.matchTime}:00` : m.matchTime)
+                : "00:00:00";
               const parsed = new Date(`${m.matchDate}T${timeStr}`);
               if (!isNaN(parsed.getTime())) exactMatchDate = parsed;
             } catch {}
@@ -1838,8 +1846,9 @@ export function SportsDashboard() {
           const statusVal = isMatchLive ? "LIVE" : isMatchCompleted ? "COMPLETED" : "UPCOMING";
           const statusTextVal = isMatchLive ? "LIVE NOW"
             : isMatchCompleted ? (m.scoreTeamA && m.scoreTeamB ? `${m.scoreTeamA} - ${m.scoreTeamB}` : "Completed")
-            : exactMatchDate ? format(exactMatchDate, "MMM d, h:mm a")
-            : "Scheduled";
+            : exactMatchDate
+              ? (hasExplicitMatchTime ? format(exactMatchDate, "MMM d, h:mm a") : format(exactMatchDate, "MMM d"))
+              : "Scheduled";
           const statusSubVal = isMatchLive ? "In Progress"
             : isMatchCompleted ? "Finished"
             : m.courtName || (roundStr ? roundStr.replace(/_/g, " ") : "Fixture Scheduled ✓");
