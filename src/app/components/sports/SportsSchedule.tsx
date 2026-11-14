@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -51,9 +51,10 @@ import { TournamentStageManager } from "./admin/TournamentStageManager";
 import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
 import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
 import { TournamentEventSelector } from "./admin/TournamentEventSelector";
+import { TournamentOperationsHub } from "./admin/TournamentOperationsHub";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 
-const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Tournament Operations", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -660,6 +661,11 @@ export function SportsSchedule() {
       setActiveTab("Overview");
     }
   }, [isSportsAdminOnly, activeTab]);
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === "Brackets") {
+      setActiveTab("Overview");
+    }
+  }, [isSuperAdmin, activeTab]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
@@ -1016,6 +1022,28 @@ export function SportsSchedule() {
     });
   }, [fixturesList, selectedTournamentId, selectedActualTournamentId, selectedSportsEventId, configsForActiveTournament, tournamentConfigs]);
 
+  const upcomingFixtures = useMemo(() => {
+    const now = Date.now();
+    return overviewFixtures
+      .filter(fixture => {
+        if (fixture.status !== "SCHEDULED") return false;
+        const start = fixture.scheduledAt
+          ? parseISO(fixture.scheduledAt)
+          : fixture.date
+            ? parseISO(fixture.date)
+            : null;
+        return !start || Number.isNaN(start.getTime()) || start.getTime() >= now;
+      })
+      .sort((a, b) => {
+        const timestampA = a.scheduledAt ? parseISO(a.scheduledAt).getTime() : parseISO(a.date).getTime();
+        const timestampB = b.scheduledAt ? parseISO(b.scheduledAt).getTime() : parseISO(b.date).getTime();
+        const safeTimestampA = Number.isNaN(timestampA) ? Number.MAX_SAFE_INTEGER : timestampA;
+        const safeTimestampB = Number.isNaN(timestampB) ? Number.MAX_SAFE_INTEGER : timestampB;
+        return safeTimestampA - safeTimestampB;
+      })
+      .slice(0, 6);
+  }, [overviewFixtures]);
+
   const fixtureDates = useMemo(() => {
     const searchQuery = fixtureSearchQuery.trim().toLowerCase();
     const dates = new Set<string>();
@@ -1229,16 +1257,24 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Leaderboard
           </button>
-          <button
-            className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
-            onClick={() => setActiveTab("Brackets")}
-          >
-            <div className="nav-dot"></div>Brackets
-          </button>
+          {isSuperAdmin && (
+            <button
+              className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
+              onClick={() => setActiveTab("Brackets")}
+            >
+              <div className="nav-dot"></div>Brackets
+            </button>
+          )}
         </div>
         {isAdmin && (
         <div className="nav-section">
           <div className="nav-label">Operations</div>
+          <button
+            className={`nav-item ${activeTab === "Tournament Operations" ? "active" : ""}`}
+            onClick={() => setActiveTab("Tournament Operations")}
+          >
+            <div className="nav-dot"></div>Tournament Operations
+          </button>
           {isSportsAdminOnly && (
             <button
               className={`nav-item ${activeTab === "Published Schedules" ? "active" : ""}`}
@@ -1265,24 +1301,6 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Manual
           </button>
-          <button
-            className={`nav-item ${activeTab === "Stage Manager" ? "active" : ""}`}
-            onClick={() => setActiveTab("Stage Manager")}
-          >
-            <div className="nav-dot"></div>Stage Manager
-          </button>
-          <button
-            className={`nav-item ${activeTab === "Publication" ? "active" : ""}`}
-            onClick={() => setActiveTab("Publication")}
-          >
-            <div className="nav-dot"></div>Publication
-          </button>
-          <button
-            className={`nav-item ${activeTab === "Schedule History" ? "active" : ""}`}
-            onClick={() => setActiveTab("Schedule History")}
-          >
-            <div className="nav-dot"></div>Schedule History
-          </button>
         </div>
         )}
       </aside>
@@ -1293,8 +1311,30 @@ export function SportsSchedule() {
             <div className={["Overview", "My Matches", "Published Schedules"].includes(activeTab) ? "hidden sm:block" : ""}>
               {(!["Published Schedules"].includes(activeTab) || isSportsAdminOnly) && (
                 <>
-                  <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
-                    {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
+                  <div className={activeTab === "Tournament Operations" ? "flex items-center gap-1.5" : undefined}>
+                    <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
+                      {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
+                    </div>
+                    {activeTab === "Tournament Operations" && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                            title="Tournament Operations Info"
+                            aria-label="Tournament Operations Info"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-80 p-3 bg-white border border-slate-200 shadow-xl rounded-xl z-50">
+                          <div className="text-xs font-bold text-slate-800 mb-1">Tournament Operations Hub</div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            End-to-end tournament lifecycle: Stage planning, automatic qualification, fixture rescheduling with impact check, and staged version publishing.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
                   <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
                     {activeTab === "Overview"
@@ -1329,19 +1369,8 @@ export function SportsSchedule() {
 
           {/* Tournament & Sport Event Quick Selector (Separate Dropdowns) */}
           {actualTournaments.length > 0 && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
-              {(selectedActualTournamentId !== null || selectedSportsEventId !== null) && (
-                <div className="flex justify-end border-b border-slate-100 pb-3">
-                  <button
-                    onClick={() => { setSelectedActualTournamentId(null); setSelectedSportsEventId(null); setSelectedTournamentId(null); setSelectedTournamentName(null); }}
-                    className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto cursor-pointer"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2 sm:gap-3.5 pt-0.5">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 shadow-sm space-y-2.5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {/* 1. Tournament Dropdown */}
                 <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
                   <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
@@ -1410,10 +1439,21 @@ export function SportsSchedule() {
 
                 {/* 2. Sports Event Dropdown */}
                 <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
-                  <label htmlFor="overviewEventSelect" className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
-                    <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 shrink-0" />
-                    <span className="truncate">Event / Category</span>
-                  </label>
+                  <div className="flex min-w-0 items-center justify-between gap-1">
+                    <label htmlFor="overviewEventSelect" className="flex min-w-0 items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 shrink-0" />
+                      <span className="truncate">Event / Category</span>
+                    </label>
+                    {(selectedActualTournamentId !== null || selectedSportsEventId !== null) && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedActualTournamentId(null); setSelectedSportsEventId(null); setSelectedTournamentId(null); setSelectedTournamentName(null); }}
+                        className="shrink-0 text-[10px] sm:text-xs font-semibold text-slate-500 transition hover:text-indigo-600 cursor-pointer"
+                      >
+                        Clear Filter
+                      </button>
+                    )}
+                  </div>
                   <Popover open={eventPickerOpen} onOpenChange={setEventPickerOpen}>
                     <PopoverTrigger asChild>
                       <button
@@ -1492,50 +1532,6 @@ export function SportsSchedule() {
                 </div>
               </div>
 
-              {isAdmin && (selectedActualTournamentId || selectedSportsEventId) && (
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                  <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
-                    <Radio className="w-3.5 h-3.5 text-indigo-600" />
-                    Feed Broadcast:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {selectedActualTournamentId && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await tournamentService.setFeedVisibility("tournament", selectedActualTournamentId, true, true);
-                            toast.success("Tournament and all events/matches enabled for Community Feed!");
-                          } catch (err: any) {
-                            toast.error(err?.message || "Failed to update tournament feed visibility");
-                          }
-                        }}
-                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition-colors text-[10.5px] cursor-pointer"
-                        title="Cascade show-in-feed to all events and matches in this tournament"
-                      >
-                        Enable All in Tournament
-                      </button>
-                    )}
-                    {selectedSportsEventId && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            await tournamentService.setFeedVisibility("event", selectedSportsEventId, true, true);
-                            toast.success("Event and all its matches enabled for Community Feed!");
-                          } catch (err: any) {
-                            toast.error(err?.message || "Failed to update event feed visibility");
-                          }
-                        }}
-                        className="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-lg border border-slate-200 transition-colors text-[10.5px] cursor-pointer"
-                        title="Cascade show-in-feed to all matches in this event"
-                      >
-                        Enable Selected Event
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1659,6 +1655,51 @@ export function SportsSchedule() {
                 </div>
               </div>
 
+              {/* Upcoming Scheduled Matches */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 m-0">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    Upcoming Matches
+                  </h3>
+                  <button onClick={() => setActiveTab("All Events")} className="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                    View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 sm:space-y-3">
+                  {upcomingFixtures.length === 0 ? (
+                    <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
+                      No upcoming scheduled matches.
+                    </div>
+                  ) : (
+                    upcomingFixtures.map(fixture => {
+                      const IconComponent = getSportIcon(fixture.sport);
+                      const colors = getSportColor(fixture.sport);
+                      return (
+                        <div key={fixture.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:p-3.5 transition hover:border-amber-200 hover:bg-amber-50/40">
+                          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                            <div className="shrink-0 rounded-lg p-2" style={{ backgroundColor: colors.bg, color: colors.color }}>
+                              <IconComponent className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{fixture.sport}</p>
+                              <h4 className="m-0 truncate text-xs font-bold text-slate-800">{fixture.team1} vs {fixture.team2}</h4>
+                              <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.name}</p>
+                              <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.venue}</p>
+                            </div>
+                          </div>
+                          <div className="shrink-0 rounded-lg border border-amber-100 bg-white px-2 py-1.5 text-right">
+                            <p className="m-0 text-[10px] font-bold text-slate-700">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"}</p>
+                            <p className="m-0 mt-0.5 text-[10px] font-semibold text-amber-700">{fixture.time || "Time TBD"}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* Quick Navigation Cards */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
                 <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 m-0">
@@ -1687,16 +1728,18 @@ export function SportsSchedule() {
                     <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Browse, search and configure overall match listings.</p>
                   </div>
 
-                  <div
-                    onClick={() => setActiveTab("Brackets")}
-                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
-                  >
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
-                      <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                  {isSuperAdmin && (
+                    <div
+                      onClick={() => setActiveTab("Brackets")}
+                      className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
+                    >
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                        <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2138,7 +2181,7 @@ export function SportsSchedule() {
                 >
                   <div>
                     {/* Card Header: Sport badge, Venue and Status */}
-                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
                       <span
                         className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
                         style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
@@ -2158,28 +2201,20 @@ export function SportsSchedule() {
                             COMPLETED
                           </span>
                         )}
-                        {!isLive && !isCompleted && (
-                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
-                            SCHEDULED
-                          </span>
-                        )}
+                        <div className="flex shrink-0 items-center gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5">
+                          <span className="text-[10px] font-extrabold text-slate-800">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"}</span>
+                          <span className="text-[10px] font-extrabold text-amber-800">{fixture.time || "Time TBD"}</span>
+                        </div>
                       </div>
                     </div>
 
                     <h4 className="text-sm sm:text-xs font-bold leading-snug text-slate-800 line-clamp-2 sm:line-clamp-1">{fixture.name}</h4>
 
                     {/* Venue, Date & Time info */}
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-slate-500">
+                    <div className="mt-2 grid grid-cols-1 gap-2 text-slate-500">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
                         <span className="min-w-0 truncate text-[10px] sm:text-xs">{fixture.venue}</span>
-                      </div>
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-                        <span className="min-w-0 truncate text-[10px] sm:text-xs">
-                          <span className="sm:hidden">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"} · {fixture.time || "Time TBD"}</span>
-                          <span className="hidden sm:inline">{fixture.date ? safeFormatDate(fixture.date, "d MMM yyyy") : "Date TBD"} at {fixture.time || "Time TBD"}</span>
-                        </span>
                       </div>
                     </div>
 
@@ -2975,7 +3010,7 @@ export function SportsSchedule() {
       })()}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} isAdmin={isAdmin} />}
+      {activeTab === "Brackets" && isSuperAdmin && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} isAdmin={isSuperAdmin} />}
 
       {/* Config */}
       {activeTab === "Config" && (
@@ -3034,80 +3069,27 @@ export function SportsSchedule() {
         )
       )}
 
-      {/* Stage Manager (Admin only) */}
-      {activeTab === "Stage Manager" && (
+      {/* Tournament Operations Hub (Unified Console for Stages, Fixtures, Publication, Reserve Days) */}
+      {(activeTab === "Tournament Operations" || activeTab === "Stage Manager" || activeTab === "Publication" || activeTab === "Schedule History") && (
         isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
-            <TournamentEventSelector
-              onConfigIdChange={setStageManagerConfigId}
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <TournamentOperationsHub
               initialConfigId={
                 selectedTournamentId ??
                 (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
                 (tournamentConfigs[0]?.id) ??
                 0
               }
-            />
-            {stageManagerConfigId > 0 && (
-              <TournamentStageManager configId={stageManagerConfigId} />
-            )}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
-            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
-            <div className="font-bold text-slate-800">Access Restricted</div>
-            <p className="text-xs text-slate-500 mt-1">Stage Manager is restricted to administrators.</p>
-          </div>
-        )
-      )}
-
-      {/* Publication Manager (Admin only) */}
-      {activeTab === "Publication" && (
-        isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
-            <TournamentEventSelector
-              onConfigIdChange={setPublicationConfigId}
-              initialConfigId={
-                selectedTournamentId ??
-                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
-                (tournamentConfigs[0]?.id) ??
-                0
+              initialSubTab={
+                activeTab === "Publication" || activeTab === "Schedule History" ? "publication" : "stages"
               }
             />
-            {publicationConfigId > 0 && (
-              <SchedulePublicationManager configId={publicationConfigId} />
-            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
-            <p className="text-xs text-slate-500 mt-1">Publication Manager is restricted to administrators.</p>
-          </div>
-        )
-      )}
-
-      {/* Schedule History */}
-      {activeTab === "Schedule History" && (
-        isAdmin ? (
-          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px] space-y-4">
-            <TournamentEventSelector
-              onConfigIdChange={setHistoryConfigId}
-              initialConfigId={
-                selectedTournamentId ??
-                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
-                (tournamentConfigs[0]?.id) ??
-                0
-              }
-            />
-            {historyConfigId > 0 && (
-              <ScheduleVersionHistory configId={historyConfigId} />
-            )}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
-            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
-            <div className="font-bold text-slate-800">Access Restricted</div>
-            <p className="text-xs text-slate-500 mt-1">Schedule History is restricted to administrators.</p>
+            <p className="text-xs text-slate-500 mt-1">Tournament Operations Hub is restricted to administrators.</p>
           </div>
         )
       )}
