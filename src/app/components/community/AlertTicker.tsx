@@ -214,9 +214,32 @@ export type TournamentLifecycle =
   | "CANCELLED"
   | "DRAFT"
   | "MATCHES_RUNNING"
+  | "TOURNAMENT_IN_PROGRESS"
   | "REGISTRATION_CLOSED"
   | "REGISTRATION_OPEN"
   | "UPCOMING";
+
+const REGISTRATION_CLOSED_NOTICE_MS = 24 * 60 * 60 * 1000;
+
+function getRegistrationClosedAt(t: SportsTournament): Date | null {
+  const rawStatus = String(t.registrationStatus || (t as any).status || (t as any).tournamentStatus || "").toUpperCase().trim();
+  const explicitlyClosed = rawStatus === "REGISTRATION_CLOSED" || rawStatus === "CLOSED";
+  if (explicitlyClosed) {
+    const updatedAt = (t as any).updatedAt;
+    if (updatedAt) {
+      const parsedUpdatedAt = new Date(updatedAt);
+      if (!Number.isNaN(parsedUpdatedAt.getTime())) return parsedUpdatedAt;
+    }
+  }
+
+  if (!t.registrationDateEnd) return null;
+  const dateEnd = String(t.registrationDateEnd);
+  const dateOnly = dateEnd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const closedAt = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 23, 59, 59, 999)
+    : new Date(dateEnd);
+  return Number.isNaN(closedAt.getTime()) ? null : closedAt;
+}
 
 /**
  * Determines the lifecycle status of a tournament based on explicit admin registrationStatus
@@ -251,12 +274,13 @@ export function getTournamentLifecycleStatus(
     return "COMPLETED";
   }
 
-  // 3. Matches Running (LIVE / IN_PROGRESS or calendar dates are currently running)
+  // Only explicit live statuses mean a match is running. The event date window
+  // can span many days or weeks without a match being live right now.
   if (raw === "LIVE" || raw === "MATCHES_RUNNING" || raw === "IN_PROGRESS") {
     return "MATCHES_RUNNING";
   }
   if (matchDateStatus.status === "RUNNING") {
-    return "MATCHES_RUNNING";
+    return "TOURNAMENT_IN_PROGRESS";
   }
 
   // 4. Registration dates evaluation (before matches start)
@@ -303,9 +327,15 @@ export function mapTournamentToAlert(
 ): AlertTickerItem | null {
   const lifecycle = getTournamentLifecycleStatus(t, now);
 
-  // Once completed, cancelled, or draft: DO NOT show or suggest in ticker
-  if (lifecycle === "COMPLETED" || lifecycle === "CANCELLED" || lifecycle === "DRAFT") {
+  // Keep tournament ticker entries focused on registration actions and short-lived
+  // closure notices. Other lifecycle information belongs in the schedule view.
+  if (lifecycle !== "REGISTRATION_OPEN" && lifecycle !== "REGISTRATION_CLOSED") {
     return null;
+  }
+  if (lifecycle === "REGISTRATION_CLOSED") {
+    const closedAt = getRegistrationClosedAt(t);
+    const elapsedSinceClose = closedAt ? now.getTime() - closedAt.getTime() : Number.POSITIVE_INFINITY;
+    if (elapsedSinceClose < 0 || elapsedSinceClose > REGISTRATION_CLOSED_NOTICE_MS) return null;
   }
 
   const location = t.venueName || (t.venue as any)?.name || "";
@@ -321,17 +351,6 @@ export function mapTournamentToAlert(
   let status: AlertTickerItem["status"] = "UPCOMING";
 
   switch (lifecycle) {
-    case "MATCHES_RUNNING":
-      prefix = "🏆 [Matches Running] ";
-      status = "RUNNING";
-      actionUrl = "/sports/schedule";
-      if (t.eventDateStart && t.eventDateEnd && t.eventDateStart !== t.eventDateEnd) {
-        dateText = ` • ${eventStartFormatted} – ${eventEndFormatted}`;
-      } else if (eventStartFormatted) {
-        dateText = ` • ${eventStartFormatted}`;
-      }
-      break;
-
     case "REGISTRATION_CLOSED":
       prefix = "🏆 [Registration Closed] ";
       actionUrl = "/sports/tournaments";
@@ -341,23 +360,13 @@ export function mapTournamentToAlert(
       break;
 
     case "REGISTRATION_OPEN":
+    default:
       prefix = "🏆 [Registration Open] ";
       actionUrl = "/sports/tournaments";
       if (regEndFormatted && eventStartFormatted) {
         dateText = ` • Reg closes ${regEndFormatted} • Starts ${eventStartFormatted}`;
       } else if (regEndFormatted) {
         dateText = ` • Reg closes ${regEndFormatted}`;
-      } else if (eventStartFormatted) {
-        dateText = ` • Starts ${eventStartFormatted}`;
-      }
-      break;
-
-    case "UPCOMING":
-    default:
-      prefix = "🏆 [Upcoming Tournament] ";
-      actionUrl = "/sports/tournaments";
-      if (regStartFormatted) {
-        dateText = ` • Reg opens ${regStartFormatted}${eventStartFormatted ? ` • Starts ${eventStartFormatted}` : ""}`;
       } else if (eventStartFormatted) {
         dateText = ` • Starts ${eventStartFormatted}`;
       }
@@ -406,6 +415,25 @@ function mapNotificationToAlert(n: NotificationItem, idx: number): AlertTickerIt
   };
 }
 
+function isRegistrationStatusNotification(n: NotificationItem): boolean {
+  const type = String(n.type || "").toUpperCase();
+  const text = `${n.title || ""} ${n.body || ""}`.toLowerCase();
+  return type.includes("REGISTRATION_OPEN") || type.includes("REGISTRATION_CLOSED") ||
+    /registrations? (?:are |is )?(?:now )?(?:open|closed)|sign up before spots fill|register now/.test(text);
+}
+
+function getNotificationTournamentId(n: NotificationItem): number | null {
+  if (n.referenceId != null && Number.isFinite(Number(n.referenceId))) return Number(n.referenceId);
+  if (!n.metadata) return null;
+  try {
+    const metadata = JSON.parse(n.metadata);
+    const id = metadata.tournamentId ?? metadata.tournament_id ?? metadata.referenceId;
+    return id != null && Number.isFinite(Number(id)) ? Number(id) : null;
+  } catch {
+    return null;
+  }
+}
+
 interface Props {
   speedPxPerSec?: number;
 }
@@ -429,6 +457,7 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
     async function loadAlerts() {
       try {
         const liveItems: AlertTickerItem[] = [];
+        let currentTournaments: SportsTournament[] = [];
 
         // 1. Fetch live events from eventService
         try {
@@ -446,9 +475,10 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
 
         // 2. Fetch live sports tournaments (excludes completed, cancelled, and past tournaments)
         try {
-          const tournaments = await sportsService.getAllTournaments().catch(() => []);
-          if (Array.isArray(tournaments)) {
-            tournaments.forEach((t, idx) => {
+          const fetchedTournaments = await sportsService.getAllTournaments().catch(() => []);
+          if (Array.isArray(fetchedTournaments)) {
+            currentTournaments = fetchedTournaments;
+            fetchedTournaments.forEach((t, idx) => {
               const mapped = mapTournamentToAlert(t, idx);
               if (mapped) liveItems.push(mapped);
             });
@@ -464,6 +494,20 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
             noticesRes.content.forEach((n, idx) => {
               const text = (n.body ?? n.title ?? "");
               if (isNotificationDatePast(text)) return; // Exclude notifications for past events!
+
+              // Tournament status alerts are generated from the current tournament
+              // record above. Old registration-open notifications can outlive a
+              // registration close, so never let a stale push notice override it.
+              if (isRegistrationStatusNotification(n)) {
+                const tournamentId = getNotificationTournamentId(n);
+                const linkedTournament = tournamentId == null
+                  ? currentTournaments.find(t => text.toLowerCase().includes(String(t.name || "").toLowerCase()))
+                  : currentTournaments.find(t => Number(t.id) === tournamentId);
+                if (!linkedTournament) return;
+                // The live tournament record controls both the current status and
+                // the 24-hour closed notice window, so stale notices are ignored.
+                return;
+              }
 
               const isCompletedNotice =
                 (n.type || "").toUpperCase().includes("COMPLETED") ||

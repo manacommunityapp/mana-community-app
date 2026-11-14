@@ -74,6 +74,27 @@ function formatDateTime(iso: string | null | undefined): string {
   } catch { return iso; }
 }
 
+function ScheduledDateTime({ value }: { value: string | null | undefined }) {
+  if (!value) return <span className="font-bold">TBD</span>;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <span className="font-bold">{value}</span>;
+
+  const mobileDate = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  const desktopDate = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const time = date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 text-slate-600" title={formatDateTime(value)}>
+      <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
+      <span className="min-w-0 truncate text-[10px] sm:text-xs font-bold">
+        <span className="sm:hidden">{mobileDate} · {time}</span>
+        <span className="hidden sm:inline">{desktopDate} at {time}</span>
+      </span>
+    </div>
+  );
+}
+
 export function ScheduleAdminTab() {
   const { user } = useAuth();
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
@@ -407,13 +428,20 @@ export function ScheduleAdminTab() {
                       : []),
                   ];
 
-                  const displayedMatches = activeStage === 'ALL'
+                  const displayedMatches = (activeStage === 'ALL'
                     ? validCfgMatches
                     : validCfgMatches.filter(m => {
                         const s = getMatchStage(m);
                         if (activeStage === 'FINAL') return s === 'FINAL' || s === 'THIRD_PLACE';
                         return s === activeStage;
-                      });
+                      }))
+                    .sort((a, b) => {
+                      const timestampA = Date.parse(a.scheduledAt || '');
+                      const timestampB = Date.parse(b.scheduledAt || '');
+                      const safeTimestampA = Number.isNaN(timestampA) ? Number.MAX_SAFE_INTEGER : timestampA;
+                      const safeTimestampB = Number.isNaN(timestampB) ? Number.MAX_SAFE_INTEGER : timestampB;
+                      return safeTimestampA - safeTimestampB || (Number(a.matchNumber) || 0) - (Number(b.matchNumber) || 0);
+                    });
 
                   const selectedList = selectedMatches[cfg.id] || [];
                   const uncompletedDisplayed = displayedMatches.filter(m => m.status !== 'COMPLETED');
@@ -640,7 +668,11 @@ export function ScheduleAdminTab() {
                                         {(m.round || m.roundName || "").replace(/_/g, " ")}
                                       </span>
                                     </div>
-                                    <StatusBadge status={m.status} />
+                                    {m.status === "SCHEDULED" ? (
+                                      <ScheduledDateTime value={m.scheduledAt} />
+                                    ) : (
+                                      <StatusBadge status={m.status} />
+                                    )}
                                   </div>
 
                                   {/* Teams & Score */}
@@ -673,10 +705,12 @@ export function ScheduleAdminTab() {
                                   {/* Date, Time, Venue & Feed Toggle */}
                                   <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
                                     <div className="space-y-0.5 min-w-0">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                                        <span className="font-medium truncate">{formatDateTime(m.scheduledAt)}</span>
-                                      </div>
+                                      {m.status !== "SCHEDULED" && (
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                                          <span className="font-medium truncate">{formatDateTime(m.scheduledAt)}</span>
+                                        </div>
+                                      )}
                                       {m.venueName && (
                                         <div className="flex items-center gap-1">
                                           <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
