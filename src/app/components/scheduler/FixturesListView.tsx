@@ -411,7 +411,12 @@ export function FixturesListView({
       map.get(stage)!.push(f);
     });
 
-    return Array.from(map.entries()).sort((a, b) => rankStage(a[0]) - rankStage(b[0]));
+    return Array.from(map.entries())
+      .map(([stage, stageFixtures]) => [
+        stage,
+        [...stageFixtures].sort((a, b) => a.matchNumber - b.matchNumber),
+      ] as [string, FixtureTableRow[]])
+      .sort((a, b) => rankStage(a[0]) - rankStage(b[0]));
   }, [filteredFixtures]);
 
   return (

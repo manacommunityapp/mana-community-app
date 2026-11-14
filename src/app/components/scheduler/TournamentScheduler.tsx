@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Layers, Sparkles } from "lucide-react";
+import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock, Trash2, Globe, Radio, Download, FileSpreadsheet, FileText, ChevronDown, Printer, LayoutGrid, List, Sparkles } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService, type FeedVisibilityLevel } from "../../../services/sports/tournamentService";
@@ -62,7 +62,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
   const [viewPlayers, setViewPlayers] = useState<EventRegistration[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
   const [viewError, setViewError] = useState("");
-  const [viewDisplayMode, setViewDisplayMode] = useState<"visual" | "list" | "table">("visual");
+  const [viewDisplayMode, setViewDisplayMode] = useState<"visual" | "list" | "table">("list");
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showStageExportModal, setShowStageExportModal] = useState(false);
   const [stageModalDefaultStage, setStageModalDefaultStage] = useState<TournamentStageKey>("ALL");
@@ -479,7 +479,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
     setViewMatches([]);
     setViewPlayers([]);
     setViewError("");
-    setViewDisplayMode("visual");
+    setViewDisplayMode("list");
     setPlayoffSubView("cards");
     setShowExportMenu(false);
     setShowByesInBracket(typeof (config as any).showByesInBracket === 'boolean' ? (config as any).showByesInBracket : true);
@@ -791,10 +791,19 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
         ];
 
         // Prepare Fixtures Table Rows for List & Table views (identical to SetupSchedule)
+        const maxSavedMatchNumber = viewMatches.reduce((max, match) => {
+          const number = Number(match.matchNumber);
+          return Number.isFinite(number) && number > max ? number : max;
+        }, 0);
+        let nextFallbackMatchNumber = maxSavedMatchNumber;
         const fixturesTableRows: FixtureTableRow[] = viewMatches.map((m, idx) => {
           const { team1, team2 } = extractTeamNames(m);
           const { team1Flat, team2Flat } = extractFlatDetails(m);
           const { date, time } = extractDateTime(m);
+          const savedMatchNumber = Number(m.matchNumber);
+          const matchNumber = Number.isFinite(savedMatchNumber) && savedMatchNumber > 0
+            ? savedMatchNumber
+            : ++nextFallbackMatchNumber;
           const stageKey = getMatchStage(m);
           const isPlayoff = stageKey !== "GROUP";
           const stageLabel =
@@ -810,7 +819,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
           return {
             id: String(m.matchId || m.id || idx),
             key: `fixture-${m.matchId || m.id || idx}`,
-            matchNumber: m.matchNumber || idx + 1,
+            matchNumber,
             stage: stageLabel,
             isPlayoff,
             date: date || (m.scheduledAt ? String(m.scheduledAt).split("T")[0] : m.matchDate || ""),
@@ -825,44 +834,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
             conflicts: [],
             rawMatch: m,
           };
-        });
-
-        // Prepare rounds for Bracket View
-        const bracketRounds = (() => {
-          if (!viewMatches || viewMatches.length === 0) return [];
-          const roundMap = new Map<string, any[]>();
-          for (const m of viewMatches) {
-            const rName = m.roundName || m.groupName || `Round ${m.roundNumber || 1}`;
-            if (!roundMap.has(rName)) roundMap.set(rName, []);
-            roundMap.get(rName)!.push(m);
-          }
-            return Array.from(roundMap.entries()).map(([name, rMatches]) => ({
-            name,
-            matches: rMatches.map((m, idx) => {
-              const { team1, team2 } = extractTeamNames(m);
-              const { team1Flat, team2Flat } = extractFlatDetails(m);
-              const { date, time } = extractDateTime(m);
-              const isBye = !team1 || !team2 || team1 === "BYE" || team2 === "BYE" || m.status === "AUTO_ADVANCED";
-              const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
-              const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
-              const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : undefined;
-
-              return {
-                id: `M-${m.matchId || m.id || idx}`,
-                label: `${name} · Match ${m.matchNumber || idx + 1}`,
-                date: date || (m.scheduledAt ? String(m.scheduledAt).split("T")[0] : m.matchDate || "—"),
-                time: time || (m.scheduledAt ? (String(m.scheduledAt).includes("T") ? String(m.scheduledAt).split("T")[1].slice(0, 5) : String(m.scheduledAt)) : m.matchTime || "—"),
-                p1: { fullName: team1, flatNumber: team1Flat !== "—" ? team1Flat : undefined },
-                p2: { fullName: team2, flatNumber: team2Flat !== "—" ? team2Flat : undefined },
-                venue: { name: m.venueName || venue?.name || "Main Arena" },
-                courtName: m.courtName || "",
-                status: isBye ? "AUTO_ADVANCED" : (m.status || "SCHEDULED"),
-                score,
-                isBye,
-              };
-            }),
-          }));
-        })();
+        }).sort((a, b) => a.matchNumber - b.matchNumber);
 
         // Build PlayoffMatchDraft[] for the connected bracket tree view
         const playoffMatchesForBracket: PlayoffMatchDraft[] = buildPlayoffDraftFromSavedMatches(
@@ -901,8 +873,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
 
         return (
           <>
-            <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-slate-950/55 p-0 backdrop-blur-sm sm:p-2" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingConfig(null); }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="schedule-details-title" className="flex h-dvh w-screen flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl sm:h-[96vh] sm:w-[98vw] sm:rounded-2xl">
               <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-white px-4 py-4 sm:px-6">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Calendar className="h-5 w-5" /></div>
@@ -930,7 +902,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                 </div>
               </header>
 
-              <div className="max-h-[min(80vh,780px)] space-y-4 overflow-y-auto p-4 sm:p-6">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
                 {viewLoading ? (
                   <div className="flex min-h-40 items-center justify-center gap-2 text-sm font-medium text-slate-500"><Loader2 className="h-5 w-5 animate-spin text-indigo-600" />Loading event players and schedule…</div>
                 ) : (
@@ -950,45 +922,52 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                       {/* Left: View Mode Pills */}
                       <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
                         <span className="text-xs font-bold text-slate-700 whitespace-nowrap hidden xs:inline">View:</span>
-                        <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setViewDisplayMode("visual")}
-                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
-                              viewDisplayMode === "visual"
-                                ? "bg-white text-indigo-700 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900 bg-transparent"
-                            }`}
-                          >
-                            <span>🌲 Visual</span>
-                          </button>
+                        <div className="flex flex-wrap rounded-lg p-0.5 bg-slate-100 border border-slate-200 shrink-0">
                           <button
                             type="button"
                             onClick={() => setViewDisplayMode("list")}
                             className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
-                              viewDisplayMode === "list"
-                                ? "bg-white text-indigo-700 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900 bg-transparent"
+                              viewDisplayMode === "list" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900 bg-transparent"
                             }`}
                           >
-                            <span>📄 List</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
-                              {viewMatches.length}
-                            </span>
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>Match Schedule</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewDisplayMode("visual");
+                              setPlayoffSubView("bracket");
+                            }}
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
+                              viewDisplayMode === "visual" && playoffSubView === "bracket" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900 bg-transparent"
+                            }`}
+                          >
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                            <span>Bracket</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewDisplayMode("visual");
+                              setPlayoffSubView("cards");
+                            }}
+                            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
+                              viewDisplayMode === "visual" && playoffSubView === "cards" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900 bg-transparent"
+                            }`}
+                          >
+                            <List className="h-3.5 w-3.5" />
+                            <span>Bracket List</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setViewDisplayMode("table")}
                             className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none shrink-0 ${
-                              viewDisplayMode === "table"
-                                ? "bg-white text-indigo-700 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900 bg-transparent"
+                              viewDisplayMode === "table" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900 bg-transparent"
                             }`}
                           >
-                            <span>📋 Table</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
-                              {viewMatches.length}
-                            </span>
+                            <span>Table</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">{viewMatches.length}</span>
                           </button>
                         </div>
                       </div>
@@ -1107,7 +1086,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     {/* View 1: Visual Draw & Bracket */}
                     {viewDisplayMode === "visual" && (
                       <div className="space-y-6">
-                        {bracketRounds.length === 0 ? (
+                        {viewMatches.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
                             <Trophy className="mx-auto h-8 w-8 text-slate-400 mb-2" />
                             <p className="text-xs font-semibold text-slate-600">No bracket matches available yet</p>
@@ -1115,202 +1094,61 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                           </div>
                         ) : (
                           <>
-                            {/* Knockout Bracket sub-toggle — only show if there are playoff matches */}
-                            {playoffMatchesForBracket.length > 0 && (
-                              <div className="flex gap-2 justify-between items-center border-b border-[rgba(99,102,241,0.12)] pb-3">
-                                <div className="flex text-left items-center">
-                                  <p className="text-sm font-bold text-[#0d0d2b]">Match Schedule</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Bracket</span>
-                                  <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
-                                    <button
-                                      type="button"
-                                      onClick={() => setPlayoffSubView("bracket")}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
-                                      style={playoffSubView === "bracket"
-                                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
-                                        : { background: "transparent", color: "#6b7094" }}
-                                    >
-                                      Bracket
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setPlayoffSubView("cards")}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
-                                      style={playoffSubView === "cards"
-                                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
-                                        : { background: "transparent", color: "#6b7094" }}
-                                    >
-                                      List
-                                    </button>
+                            <div className="flex items-center justify-between border-b border-[rgba(99,102,241,0.12)] pb-3">
+                              <p className="m-0 text-sm font-bold text-[#0d0d2b]">
+                                {playoffSubView === "bracket" ? "Bracket" : "Bracket List"}
+                              </p>
+                              <span className="text-xs font-semibold text-[#6b7094]">
+                                {playoffSubView === "bracket" ? playoffMatchesForBracket.length : viewMatches.length} matches
+                              </span>
+                            </div>
+
+                            {playoffSubView === "bracket" ? (
+                              playoffMatchesForBracket.length > 0 ? (
+                                <PlayoffBracketView
+                                  matches={showByesInBracket ? playoffMatchesForBracket : sanitizePlayoffMatches(playoffMatchesForBracket, false)}
+                                  onEditMatch={() => {}}
+                                  onDownloadBracket={handleExportBracketPDF}
+                                  resolveVenueName={(id) => {
+                                    const v = venueList.find(x => x.id === id);
+                                    return v?.name || venue?.name || "";
+                                  }}
+                                  resolveCourtName={(courtId) => {
+                                    if (!courtId) return "";
+                                    const found = viewMatches.find(x => String(x.courtId) === String(courtId));
+                                    return found?.courtName || "";
+                                  }}
+                                  showByes={showByesInBracket}
+                                  onToggleShowByes={() => {
+                                    const nextVal = !showByesInBracket;
+                                    setShowByesInBracket(nextVal);
+                                    showToast(nextVal ? `Showing full ${totalDrawCount || ''} draw with BYEs` : 'Hiding BYEs (compact bracket)', "info");
+                                  }}
+                                  totalDrawCount={totalDrawCount}
+                                />
+                              ) : (
+                                <div className="flex min-h-[50vh] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                                  <div>
+                                    <Trophy className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+                                    <p className="m-0 text-sm font-semibold text-slate-600">No knockout bracket available</p>
+                                    <p className="mb-0 mt-1 text-xs text-slate-400">This schedule does not contain bracket matches.</p>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-
-                            {/* Bracket Tree View */}
-                            {playoffSubView === "bracket" && playoffMatchesForBracket.length > 0 ? (
-                              <PlayoffBracketView
-                                matches={showByesInBracket ? playoffMatchesForBracket : sanitizePlayoffMatches(playoffMatchesForBracket, false)}
+                              )
+                            ) : playoffMatchesForBracket.length > 0 ? (
+                              <FixturesListView
+                                fixtures={fixturesTableRows.filter(f => f.isPlayoff)}
                                 onEditMatch={() => {}}
-                                onDownloadBracket={handleExportBracketPDF}
-                                resolveVenueName={(id) => {
-                                  const v = venueList.find(x => x.id === id);
-                                  return v?.name || venue?.name || "";
-                                }}
-                                resolveCourtName={(courtId) => {
-                                  if (!courtId) return "";
-                                  const found = viewMatches.find(x => String(x.courtId) === String(courtId));
-                                  return found?.courtName || "";
-                                }}
-                                showByes={showByesInBracket}
-                                onToggleShowByes={() => {
-                                  const nextVal = !showByesInBracket;
-                                  setShowByesInBracket(nextVal);
-                                  showToast(nextVal ? `Showing full ${totalDrawCount || ''} draw with BYEs` : 'Hiding BYEs (compact bracket)', "info");
-                                }}
-                                totalDrawCount={totalDrawCount}
+                                sportName={event?.sportName || "Tournament"}
                               />
                             ) : (
-                              bracketRounds.map((round) => (
-                                <div key={round.name} className="space-y-3">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">{round.name}</span>
-                                    <div className="flex-1 h-px bg-slate-200" />
-                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                                      {round.matches.length} match{round.matches.length !== 1 ? "es" : ""}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {round.matches.map((m) => (
-                                      <div
-                                        key={m.id}
-                                        className="bg-white border border-[rgba(99,102,241,0.12)] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#4f46e5]/40 transition-colors animate-fade-in-up"
-                                      >
-                                        {/* Top Status Bar (gradient line) */}
-                                        <div className="w-full h-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]" />
-
-                                        {/* Top Tag Overlapping */}
-                                        <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
-                                          <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-full text-xs font-bold shadow-md">
-                                            <span className="px-1">{m.label}</span>
-                                          </div>
-                                        </div>
-
-                                        {/* Date & Time Header */}
-                                        <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-[#6b7094] border-b border-[rgba(99,102,241,0.12)]/40 bg-white/30">
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-1">
-                                              <Calendar className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                              <span className="font-bold text-[#0d0d2b]">{m.date}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                              <Clock className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                              <span className="font-bold text-[#0d0d2b]">{m.time}</span>
-                                            </div>
-                                          </div>
-                                          <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
-                                            <MapPin className="w-3.5 h-3.5 text-[#4f46e5]" />
-                                            <span>{m.venue.name}</span>
-                                            {m.courtName && <span className="text-[#4f46e5] font-semibold"> - {m.courtName}</span>}
-                                          </div>
-                                        </div>
-
-                                        {/* Players VS Content */}
-                                        <div className="p-3.5 flex flex-col justify-between">
-                                          {/* Desktop Horizontal VS Layout */}
-                                          <div className="hidden sm:flex items-center justify-between bg-white/40 rounded-lg p-2.5 border border-[rgba(99,102,241,0.12)]/40">
-                                            {/* Home Team */}
-                                            <div className="flex items-center gap-2.5 w-[42%]">
-                                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                                <img
-                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                                  alt="Avatar"
-                                                  className="w-full h-full object-cover"
-                                                />
-                                              </div>
-                                              <div className="flex flex-col truncate">
-                                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p1.fullName}>
-                                                  {m.p1.fullName}
-                                                </span>
-                                                {m.p1.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p1.flatNumber}</span>}
-                                              </div>
-                                            </div>
-
-                                            {/* VS Badge Pill */}
-                                            <div className="flex flex-col items-center justify-center shrink-0">
-                                              <span className="text-[9px] font-bold px-2 py-0.5 bg-[#4f46e5] text-white rounded-full">VS</span>
-                                            </div>
-
-                                            {/* Away Team */}
-                                            <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
-                                              <div className="flex flex-col truncate">
-                                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={m.p2.fullName}>
-                                                  {m.p2.fullName}
-                                                </span>
-                                                {m.p2.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{m.p2.flatNumber}</span>}
-                                              </div>
-                                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                                <img
-                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                                  alt="Avatar"
-                                                  className="w-full h-full object-cover"
-                                                />
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                          {/* Mobile Vertical VS Layout */}
-                                          <div className="flex sm:hidden flex-col gap-2 bg-white/40 rounded-lg p-2 border border-[rgba(99,102,241,0.12)]/40">
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                                <img
-                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                                  alt="Avatar"
-                                                  className="w-full h-full object-cover"
-                                                />
-                                              </div>
-                                              <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p1.fullName}</span>
-                                                {m.p1.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p1.flatNumber}</span>}
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center justify-center py-0.5 border-y border-[rgba(99,102,241,0.12)]/20 my-0.5">
-                                              <span className="text-[8px] font-bold text-[#6b7094]/70">VS</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
-                                                <img
-                                                  src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media"
-                                                  alt="Avatar"
-                                                  className="w-full h-full object-cover"
-                                                />
-                                              </div>
-                                              <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-bold text-[#0d0d2b] truncate">{m.p2.fullName}</span>
-                                                {m.p2.flatNumber && <span className="text-[9px] text-[#6b7094]">{m.p2.flatNumber}</span>}
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                          {/* Footer Status & Score */}
-                                          <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-[rgba(99,102,241,0.12)]/30 text-[11px]">
-                                            <span className="text-[#6b7094]">
-                                              Status: <span className="text-indigo-600 font-semibold capitalize">{String(m.status || "SCHEDULED").toLowerCase().replace(/_/g, " ")}</span>
-                                            </span>
-                                            {m.score && (
-                                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                                {m.score}
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
+                              <div className="flex min-h-[50vh] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                                <div>
+                                  <Trophy className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+                                  <p className="m-0 text-sm font-semibold text-slate-600">No bracket matches to list</p>
+                                  <p className="mb-0 mt-1 text-xs text-slate-400">This schedule does not contain knockout matches.</p>
                                 </div>
-                              ))
+                              </div>
                             )}
                           </>
                         )}
@@ -1342,7 +1180,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     )}
 
                     {/* Registered Players Collapsible / Section */}
-                    {viewPlayers.length > 0 && (
+                    {viewDisplayMode !== "visual" && viewPlayers.length > 0 && (
                       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                         <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-3">
                           <h3 className="m-0 inline-flex items-center gap-2 text-xs font-extrabold text-slate-800"><Users className="h-4 w-4 text-indigo-600" />Registered players</h3>
@@ -1382,7 +1220,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                   </>
                 )}
 
-                <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
+                {viewDisplayMode !== "visual" && <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
                   <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-slate-500">Match settings</h3>
                   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
                     <div><span className="text-slate-400">Duration</span><p className="mb-0 mt-1 inline-flex items-center gap-1 font-semibold text-slate-800"><Clock className="h-3.5 w-3.5 text-indigo-500" />{viewingConfig.matchDurationMinutes ? `${viewingConfig.matchDurationMinutes} min` : "Not set"}</p></div>
@@ -1392,7 +1230,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                     <div><span className="text-slate-400">Swiss rounds</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.swissRounds ?? "—"}</p></div>
                     <div><span className="text-slate-400">Points (W / D / L)</span><p className="mb-0 mt-1 font-semibold text-slate-800">{viewingConfig.pointsForWin ?? 2} / {viewingConfig.pointsForDraw ?? 1} / {viewingConfig.pointsForLoss ?? 0}</p></div>
                   </div>
-                </div>
+                </div>}
               </div>
 
               <footer className="flex justify-between items-center border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:px-6">

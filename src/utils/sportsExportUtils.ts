@@ -393,8 +393,32 @@ export interface ExportableMatch {
   sportName?: string;
 }
 
+function getExportVenueCourt(match: ExportableMatch): string {
+  const rawVenue = match.venue as any;
+  const rawCourt = (match as any).court;
+  const venueName = typeof rawVenue === "string" ? rawVenue : rawVenue?.name || match.venueName || "";
+  const courtName = typeof rawCourt === "string" ? rawCourt : rawCourt?.name || match.courtName || (match as any).courtId || "";
+  if (venueName && courtName) {
+    if (venueName.toLowerCase().includes(String(courtName).toLowerCase())) return venueName;
+    return `${venueName} · ${String(courtName).toLowerCase().startsWith("court") ? courtName : `Court ${courtName}`}`;
+  }
+  return venueName || (courtName ? (String(courtName).toLowerCase().startsWith("court") ? courtName : `Court ${courtName}`) : "Main Arena");
+}
+
+function sortExportMatches(matches: ExportableMatch[]): ExportableMatch[] {
+  return matches
+    .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
+    .sort((a, b) => {
+      const numberA = Number.isFinite(a.number) && a.number > 0 ? a.number : a.index + 1;
+      const numberB = Number.isFinite(b.number) && b.number > 0 ? b.number : b.index + 1;
+      return numberA - numberB || a.index - b.index;
+    })
+    .map(({ match }) => match);
+}
+
 
 export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule") {
+  const orderedMatches = sortExportMatches(matches);
   const headers = [
     "Match #",
     "Round / Stage",
@@ -411,13 +435,13 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     "Winner",
   ];
 
-  const rows = matches.map((m, idx) => {
+  const rows = orderedMatches.map((m, idx) => {
     const matchNum = m.matchNumber ?? (idx + 1);
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
-    const venue = m.venue || m.venueName || m.courtName || "Main Arena";
+    const venue = getExportVenueCourt(m);
     const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
@@ -738,6 +762,7 @@ export function getRoundExportTheme(stageName: string): RoundExportTheme {
 }
 
 export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule") {
+  const orderedMatches = sortExportMatches(matches);
   const headers = [
     "Match #",
     "Stage / Round",
@@ -768,17 +793,17 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
 <body>
 <table>
   <tr><td colspan="13" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
-  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${matches.length}</td></tr>
+  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${orderedMatches.length}</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
-  matches.forEach((m, idx) => {
+  orderedMatches.forEach((m, idx) => {
     const matchNum = m.matchNumber ?? (idx + 1);
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
-    const venue = m.venue || m.venueName || m.courtName || "Main Arena";
+    const venue = getExportVenueCourt(m);
     const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
@@ -813,19 +838,20 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
 }
 
 export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports") {
+  const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
     alert("Please allow popups to print/export PDF");
     return;
   }
 
-  const rowsHtml = matches
+  const rowsHtml = orderedMatches
     .map((m, idx) => {
       const matchNum = m.matchNumber ?? (idx + 1);
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
-      const venue = m.venue || m.venueName || m.courtName || "Arena";
+      const venue = getExportVenueCourt(m);
       const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
       const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
       const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
@@ -926,19 +952,20 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
 }
 
 export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "Match Scorecards") {
+  const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
     alert("Please allow popups to print/export PDF");
     return;
   }
 
-  const cardsHtml = matches
+  const cardsHtml = orderedMatches
     .map((m, idx) => {
       const matchNum = m.matchNumber ?? (idx + 1);
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
-      const venue = m.venue || m.venueName || m.courtName || "Court 1";
+      const venue = getExportVenueCourt(m);
       const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "Team A";
       const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "Team B";
       const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
@@ -1097,7 +1124,13 @@ export function exportListViewToPDF(
     );
     const datesSummary = dates.join(" · ");
 
-    const matchesHtml = stageMatches
+    const matchesHtml = [...stageMatches]
+      .sort((a, b) => {
+        const numberA = Number(a.matchNumber);
+        const numberB = Number(b.matchNumber);
+        if (Number.isFinite(numberA) && Number.isFinite(numberB) && numberA !== numberB) return numberA - numberB;
+        return 0;
+      })
       .map(m => {
         const mNum = m.matchNumber ?? "";
         const mTime = m.time || "—";

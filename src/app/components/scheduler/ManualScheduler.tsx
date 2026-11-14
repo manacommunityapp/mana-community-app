@@ -1842,8 +1842,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         team1Flat: m.homeFlat,
                         team2Flat: m.awayFlat,
                         date: m.date ? m.date.slice(0, 10) : '',
-                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
-                        court: m.courtName || m.venueName || 'Court 1',
+                        time: (m as any).time || (m.date && m.date.includes('T') ? m.date.slice(11, 16) : ''),
+                        venue: [m.venueName, m.courtName].filter(Boolean).join(' · ') || 'TBD',
+                        venueName: m.venueName,
+                        courtName: m.courtName,
                         status: m.status || 'SCHEDULED',
                       }));
                       const tournamentName = selectedCfg?.tournamentName || 'Tournament';
@@ -1874,8 +1876,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         team1Flat: m.homeFlat,
                         team2Flat: m.awayFlat,
                         date: m.date ? m.date.slice(0, 10) : '',
-                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
-                        court: m.courtName || m.venueName || 'Court 1',
+                        time: (m as any).time || (m.date && m.date.includes('T') ? m.date.slice(11, 16) : ''),
+                        venue: [m.venueName, m.courtName].filter(Boolean).join(' · ') || 'TBD',
+                        venueName: m.venueName,
+                        courtName: m.courtName,
                         status: m.status || 'SCHEDULED',
                       }));
                       const tournamentName = selectedCfg?.tournamentName || 'Tournament';
@@ -1906,8 +1910,10 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                         team1Flat: m.homeFlat,
                         team2Flat: m.awayFlat,
                         date: m.date ? m.date.slice(0, 10) : '',
-                        time: m.date && m.date.includes('T') ? m.date.slice(11, 16) : '',
-                        court: m.courtName || m.venueName || 'Court 1',
+                        time: (m as any).time || (m.date && m.date.includes('T') ? m.date.slice(11, 16) : ''),
+                        venue: [m.venueName, m.courtName].filter(Boolean).join(' · ') || 'TBD',
+                        venueName: m.venueName,
+                        courtName: m.courtName,
                         status: m.status || 'SCHEDULED',
                       }));
                       const tournamentName = selectedCfg?.tournamentName || 'Tournament';
