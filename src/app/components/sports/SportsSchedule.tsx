@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info, Zap } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -53,6 +53,7 @@ import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
 import { TournamentEventSelector } from "./admin/TournamentEventSelector";
 import { TournamentOperationsHub } from "./admin/TournamentOperationsHub";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
+import { EmergencyScoreModal } from "./EmergencyScoreModal";
 
 const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Tournament Operations", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
@@ -733,6 +734,7 @@ export function SportsSchedule() {
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
   const [activeMatchFixture, setActiveMatchFixture] = useState<{ configId?: number; teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
   const [rulesModalFixture, setRulesModalFixture] = useState<any | null>(null);
+  const [emergencyModalFixture, setEmergencyModalFixture] = useState<any | null>(null);
 
   const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
     if (!fixture.matchId) return;
@@ -2401,6 +2403,17 @@ export function SportsSchedule() {
                         {fixture.matchId && fixture.status !== "COMPLETED" && (
                           <button
                             type="button"
+                            onClick={() => setEmergencyModalFixture(fixture)}
+                            title={`Manual Override / Walkover / Forfeit for ${fixture.name}`}
+                            className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-amber-700 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-amber-200"
+                          >
+                            <Zap className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="hidden sm:inline">Override</span>
+                          </button>
+                        )}
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
                             onClick={() => {
                               setReschedulingFixture(fixture);
                               setRescheduleDate(fixture.date ? format(new Date(fixture.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
@@ -3275,6 +3288,34 @@ export function SportsSchedule() {
           matchName={rulesModalFixture.name}
           onSaved={() => {
             // Scoring rules updated for match
+          }}
+        />
+      )}
+
+      {/* Emergency Score / Override Modal */}
+      {emergencyModalFixture && (
+        <EmergencyScoreModal
+          isOpen={!!emergencyModalFixture}
+          onClose={() => setEmergencyModalFixture(null)}
+          matchId={emergencyModalFixture.matchId}
+          configId={emergencyModalFixture.configId}
+          sportType={emergencyModalFixture.sport}
+          teamAId={emergencyModalFixture.teamAId}
+          teamBId={emergencyModalFixture.teamBId}
+          teamAName={emergencyModalFixture.team1}
+          teamBName={emergencyModalFixture.team2}
+          currentScoreA={emergencyModalFixture.score1}
+          currentScoreB={emergencyModalFixture.score2}
+          onSuccess={(resultData) => {
+            if (emergencyModalFixture) {
+              setFixturesList(prev => prev.map(f => f.id === emergencyModalFixture.id ? {
+                ...f,
+                score1: resultData?.scoreTeamA != null ? String(resultData.scoreTeamA) : f.score1,
+                score2: resultData?.scoreTeamB != null ? String(resultData.scoreTeamB) : f.score2,
+                status: "COMPLETED",
+              } : f));
+            }
+            setEmergencyModalFixture(null);
           }}
         />
       )}

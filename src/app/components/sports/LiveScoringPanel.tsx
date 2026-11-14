@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio } from "lucide-react";
+import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio, Zap, RefreshCw } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
 import { ballColor, remainingBalls, requiredRunRate } from "./utils/cricketUtils";
 import { toast } from "sonner";
 import { SportsDisputeModal } from "./SportsDisputeModal";
+import { EmergencyScoreModal } from "./EmergencyScoreModal";
 
 interface LiveScoringPanelProps {
   matchId: number;
@@ -42,6 +43,7 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
   const [showNewBatsman, setShowNewBatsman] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [feedActive, setFeedActive] = useState<boolean>(true);
   const [tossWinnerSide, setTossWinnerSide] = useState<"A" | "B" | "">("");
   const [tossDecision, setTossDecision] = useState<"BAT" | "BOWL" | "">("");
@@ -61,13 +63,22 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
   const [customOvers, setCustomOvers] = useState<string>("");
   const [customMaxBowler, setCustomMaxBowler] = useState<string>("");
 
+  const fetchState = useCallback(async () => {
+    try {
+      const s = await tournamentService.getLiveMatchState(matchId);
+      setState(s);
+      setError(null);
+      return s;
+    } catch {
+      setError("Failed to load match state");
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [matchId]);
+
   useEffect(() => {
-    tournamentService.getLiveMatchState(matchId)
-      .then((s) => {
-        setState(s);
-      })
-      .catch(() => setError("Failed to load match state"))
-      .finally(() => setLoading(false));
+    fetchState();
 
     const unsub = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
       const s = body as LiveMatchStateData;
@@ -83,7 +94,7 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
       unsub();
       unsubConnect();
     };
-  }, [matchId, configId]);
+  }, [matchId, configId, fetchState]);
 
   useEffect(() => {
     if (!state) return;
@@ -282,14 +293,64 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm text-center" onClick={e => e.stopPropagation()}>
-          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-          <p className="text-sm text-slate-700 font-semibold">{error}</p>
-          <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition">
-            Close
-          </button>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm text-center border border-slate-100" onClick={e => e.stopPropagation()}>
+          <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm text-slate-800 font-bold mb-1">Cricket Scoring Issue Detected</h3>
+          <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            {error}
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchState().finally(() => setLoading(false));
+              }}
+              className="w-full px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Connection</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEmergencyModal(true)}
+              className="w-full px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>⚡ Score Manually (Alternative Mode)</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
+
+        <EmergencyScoreModal
+          isOpen={showEmergencyModal}
+          onClose={() => setShowEmergencyModal(false)}
+          matchId={matchId}
+          configId={configId}
+          sportType="CRICKET"
+          teamAId={undefined}
+          teamBId={undefined}
+          teamAName={teamAName || "Team A"}
+          teamBName={teamBName || "Team B"}
+          currentScoreA={undefined}
+          currentScoreB={undefined}
+          currentPeriod={inningsNumber}
+          onSuccess={() => {
+            fetchState();
+            onClose();
+          }}
+        />
       </div>
     );
   }
@@ -356,6 +417,15 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
             >
               <Radio className="w-2.5 h-2.5" />
               <span>{feedActive ? "Live Strip ON" : "Live Strip OFF"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEmergencyModal(true)}
+              title="Manual Score Override / Rain Rule / Walkover / Forfeit"
+              className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border border-amber-300/60 bg-amber-500/25 text-white hover:bg-amber-500/40 transition cursor-pointer"
+            >
+              <Zap className="w-2.5 h-2.5" />
+              <span>Override</span>
             </button>
           </div>
           <button onClick={handleClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
@@ -826,6 +896,26 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
           }}
         />
       )}
+
+      {/* Emergency / Alternative Scoring Modal */}
+      <EmergencyScoreModal
+        isOpen={showEmergencyModal}
+        onClose={() => setShowEmergencyModal(false)}
+        matchId={matchId}
+        configId={configId}
+        sportType="CRICKET"
+        teamAId={state?.teamAId}
+        teamBId={state?.teamBId}
+        teamAName={state?.teamAName || teamAName}
+        teamBName={state?.teamBName || teamBName}
+        currentScoreA={state?.innings1 ? `${state.innings1.totalRuns}/${state.innings1.totalWickets}` : null}
+        currentScoreB={state?.innings2 ? `${state.innings2.totalRuns}/${state.innings2.totalWickets}` : null}
+        currentPeriod={inningsNumber}
+        onSuccess={() => {
+          fetchState();
+          setShowEmergencyModal(false);
+        }}
+      />
     </div>
   );
 }

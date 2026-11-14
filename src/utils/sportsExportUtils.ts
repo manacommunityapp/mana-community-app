@@ -1578,13 +1578,16 @@ export function exportBracketToPDF(
       const showMergerLeft = colIdx > 0;
       const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
       const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
+      const isPendingSlot = m.status === 'PENDING_SLOT';
       const isByeMatch = isHomeBye || isAwayBye || m.status === 'AUTO_ADVANCED';
       const venueCourt = isByeMatch ? "" : ([m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD");
 
       cardsHtml += `
         <div class="matchup" style="top:${top}px;">
           <div class="match-meta">
-            ${isByeMatch 
+            ${isPendingSlot
+              ? `<span style="color:#64748b; font-weight:800;">AWAITING BRACKET SLOT</span>`
+              : isByeMatch
               ? `<span style="color:#059669; font-weight:800; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:1px 6px;">BYE • ADVANCES</span>`
               : `<span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>`
             }
@@ -1604,7 +1607,7 @@ export function exportBracketToPDF(
             ${showMergerRight ? `<div class="merger-right"></div>` : ""}
             ${showMergerLeft ? `<div class="merger-left"></div>` : ""}
           </div>
-          ${!isByeMatch ? `<div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>` : ""}
+          ${!isByeMatch && !isPendingSlot ? `<div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>` : ""}
         </div>
       `;
     });

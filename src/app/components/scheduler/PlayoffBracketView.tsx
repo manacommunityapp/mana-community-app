@@ -114,6 +114,7 @@ function MatchCard({
 }: MatchCardProps) {
   // A bye match has no real opponent, so date/time/venue/court are meaningless.
   const isByeMatch = isByeParticipant(match.home) || isByeParticipant(match.away);
+  const isPendingSlot = match.status === 'PENDING_SLOT';
 
   return (
     <div
@@ -122,7 +123,11 @@ function MatchCard({
       style={{ top }}
     >
       <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
-        {isByeMatch ? (
+        {isPendingSlot ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-slate-400">
+            Awaiting bracket slot
+          </div>
+        ) : isByeMatch ? (
           <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
             <span>BYE • Advances to R2</span>
           </div>
@@ -133,7 +138,7 @@ function MatchCard({
             <span>{match.time}</span>
           </div>
         )}
-        {onEdit && (
+        {onEdit && !isPendingSlot && (
           <button
             type="button"
             onClick={onEdit}

@@ -46,6 +46,7 @@ import {
   isByeParticipant,
   sanitizePlayoffMatches,
   buildPlayoffDraftFromSavedMatches,
+  isPlaceholderBracketSlot,
   createScheduleCursor,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
@@ -2509,7 +2510,8 @@ export function SetupSchedule({
    */
   const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[], preserveByes?: boolean) => {
     const shouldPreserveByes = preserveByes !== undefined ? preserveByes : showByesInBracket;
-    let matches = sanitizePlayoffMatches(draftOverride ?? playoffDraft, shouldPreserveByes);
+    const bracketMatches = sanitizePlayoffMatches(draftOverride ?? playoffDraft, shouldPreserveByes);
+    let matches = bracketMatches.filter(match => !isPlaceholderBracketSlot(match));
 
     const enrichFlats = (list: PlayoffMatchDraft[]) => {
       return list.map(m => {
@@ -2525,6 +2527,15 @@ export function SetupSchedule({
         }
         return { ...m, home, away };
       });
+    };
+
+    const combineWithPendingSlots = (scheduledMatches: PlayoffMatchDraft[]) => {
+      const scheduledById = new Map(scheduledMatches.map(match => [String(match.id), match] as const));
+      return enrichFlats(bracketMatches.map(match =>
+        isPlaceholderBracketSlot(match)
+          ? { ...match, date: '', time: '', venueId: null, courtId: null, status: 'PENDING_SLOT' }
+          : scheduledById.get(String(match.id)) || match
+      ));
     };
 
     if (isKnockoutOnly) {
@@ -2551,7 +2562,7 @@ export function SetupSchedule({
         startTime: startTime || '08:00 AM',
       });
       koMatches = applyPlayoffOverrides(koMatches, matchOverrides);
-      return enrichFlats(koMatches);
+      return combineWithPendingSlots(koMatches);
     }
 
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
@@ -2579,7 +2590,7 @@ export function SetupSchedule({
       startTime: startTime || '08:00 AM',
     });
 
-    return enrichFlats(applyPlayoffOverrides(distributedMatches, matchOverrides));
+    return combineWithPendingSlots(applyPlayoffOverrides(distributedMatches, matchOverrides));
   };
 
   const getEditParticipantOptions = () => {
@@ -2680,6 +2691,7 @@ export function SetupSchedule({
       // Always preserve round 0 BYE matches for persistence so the full tournament draw is stored
       const playoffMatches = getPlayoffMatches(playoffOverride, true);
       playoffMatches.forEach((match: any, idx: number) => {
+        if (isPlaceholderBracketSlot(match)) return;
         const homeIsBye = isByeParticipant(match.home);
         const awayIsBye = isByeParticipant(match.away);
         const isByeMatch = homeIsBye || awayIsBye || match.status === 'AUTO_ADVANCED';
@@ -2831,7 +2843,7 @@ export function SetupSchedule({
         count += getActiveGroupMatches(group, gIdx).length;
       });
     }
-    count += getPlayoffMatches().length;
+    count += getPlayoffMatches().filter(match => !isPlaceholderBracketSlot(match)).length;
     return count;
   };
 
@@ -3140,6 +3152,11 @@ export function SetupSchedule({
     return rows;
   }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft]);
 
+  const visibleFixturesTableRows = useMemo(
+    () => allFixturesTableRows.filter(row => !isPlaceholderBracketSlot(row.rawMatch)),
+    [allFixturesTableRows]
+  );
+
   const totalConflictsCount = useMemo(() => {
     return Object.values(scheduleConflicts).reduce((acc, msgs) => acc + (msgs.length > 0 ? 1 : 0), 0);
   }, [scheduleConflicts]);
@@ -3191,6 +3208,7 @@ export function SetupSchedule({
     if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
       const playoffMatches = getPlayoffMatches();
       playoffMatches.forEach(m => {
+        if (isPlaceholderBracketSlot(m)) return;
         const v = venues.find(ven => ven.id === m.venueId);
         const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
         const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
@@ -3261,13 +3279,13 @@ export function SetupSchedule({
 
 
   const handleExportListViewPDF = () => {
-    if (allFixturesTableRows.length === 0) {
+    if (visibleFixturesTableRows.length === 0) {
       showWarning('No matches to export');
       return;
     }
     const ev = events.find(e => e.id.toString() === selectedEvent);
     exportListViewToPDF(
-      allFixturesTableRows,
+      visibleFixturesTableRows,
       `${ev?.name || 'Tournament'} Fixtures Schedule (List View)`,
       'Mana Community Sports',
       ev?.sportName || 'Tournament'
@@ -5102,7 +5120,7 @@ export function SetupSchedule({
                 >
                   <span>📄 List View</span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
-                    {allFixturesTableRows.length}
+                    {visibleFixturesTableRows.length}
                   </span>
                 </button>
                 <button
@@ -5116,7 +5134,7 @@ export function SetupSchedule({
                 >
                   <span>📋 Fixtures Table</span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
-                    {allFixturesTableRows.length}
+                    {visibleFixturesTableRows.length}
                   </span>
                 </button>
               </div>
@@ -5269,7 +5287,7 @@ export function SetupSchedule({
           {scheduleViewMode === 'table' && (
             <div className="mt-4">
               <FixturesTableView
-                fixtures={allFixturesTableRows}
+                fixtures={visibleFixturesTableRows}
                 breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 onExportCSV={handleExportCSV}
@@ -5284,7 +5302,7 @@ export function SetupSchedule({
           {scheduleViewMode === 'list' && (
             <div className="mt-4">
               <FixturesListView
-                fixtures={allFixturesTableRows}
+                fixtures={visibleFixturesTableRows}
                 breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
@@ -5615,7 +5633,7 @@ export function SetupSchedule({
                 })()
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getPlayoffMatches().map((match, mIdx) => {
+                  {getPlayoffMatches().filter(match => !isPlaceholderBracketSlot(match)).map((match, mIdx) => {
                     const matchDate = parseLocalDate(match.date);
                     const ev = events.find(e => e.id.toString() === selectedEvent);
                     const sportName = ev?.sportName || 'Table Tennis';

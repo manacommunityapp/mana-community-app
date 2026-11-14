@@ -60,6 +60,7 @@ function isPlaceholderAutoAdvance(fixture: FixtureTableRow): boolean {
   const awayBye = fixture.away?.id?.toLowerCase() === 'bye' || awayName.trim().toUpperCase() === 'BYE';
   const autoAdvanced = ['BYE', 'AUTO_ADVANCED'].includes(String(fixture.rawMatch?.status || '').toUpperCase());
 
+  if (String(fixture.rawMatch?.status || '').toUpperCase() === 'PENDING_SLOT') return true;
   if (homeBye && isUnresolvedBracketSlot(awayName)) return true;
   if (awayBye && isUnresolvedBracketSlot(homeName)) return true;
   return autoAdvanced && !homeBye && !awayBye

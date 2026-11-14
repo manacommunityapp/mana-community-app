@@ -29,6 +29,7 @@ import {
   reconstructKnockoutByes,
   sanitizePlayoffMatches,
   buildPlayoffDraftFromSavedMatches,
+  isPlaceholderBracketSlot,
   type PlayoffMatchDraft,
 } from "./playoffSchedule";
 
@@ -889,7 +890,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
         const displayFixturesTableRows = fixturesTableRows.flatMap(row => {
           if (!row.isPlayoff) return [row];
           const normalizedMatch = normalizedPlayoffById.get(String(row.id));
-          if (!normalizedMatch) return [];
+          if (!normalizedMatch || isPlaceholderBracketSlot(normalizedMatch)) return [];
           return [{
             ...row,
             home: {

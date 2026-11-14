@@ -19,6 +19,7 @@ import {
   exportScheduleToPDF,
 } from '../../../../utils/sportsExportUtils';
 import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
+import { isPlaceholderOrTbd } from '../../../../utils/sportsValidationUtils';
 
 export type TournamentStageKey =
   | 'ALL'
@@ -284,9 +285,18 @@ export function prepareExportableMatches(
   stageFilter: TournamentStageKey = 'ALL',
   defaultSportName?: string
 ): any[] {
+  const scheduleMatches = matches.filter(m => {
+    if (String(m?.status || '').toUpperCase() === 'PENDING_SLOT') return false;
+    const { team1, team2 } = extractTeamNames(m);
+    const homeBye = (team1 || '').trim().toUpperCase() === 'BYE'
+      || String(m?.home?.id || '').toLowerCase() === 'bye';
+    const awayBye = (team2 || '').trim().toUpperCase() === 'BYE'
+      || String(m?.away?.id || '').toLowerCase() === 'bye';
+    return !((homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1)));
+  });
   const filtered = stageFilter === 'ALL'
-    ? matches
-    : matches.filter(m => {
+    ? scheduleMatches
+    : scheduleMatches.filter(m => {
         const stage = getMatchStage(m);
         if (stageFilter === 'FINAL') return stage === 'FINAL' || stage === 'THIRD_PLACE';
         return stage === stageFilter;
