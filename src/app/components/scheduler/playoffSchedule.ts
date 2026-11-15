@@ -200,10 +200,11 @@ export function sanitizePlayoffMatches(
   preserveFirstRoundByes = false
 ): PlayoffMatchDraft[] {
   if (!matches || matches.length === 0) return [];
+  const normalizedMatches = matches.map(normalizePlaceholderByeMatch);
 
   const autoAdvancedWinners = new Map<string, PlayoffParticipantRef>();
 
-  for (const m of matches) {
+  for (const m of normalizedMatches) {
     const homeIsBye = isByeParticipant(m.home);
     const awayIsBye = isByeParticipant(m.away);
     const isAutoAdv = m.status === 'AUTO_ADVANCED' || homeIsBye || awayIsBye;
@@ -217,12 +218,12 @@ export function sanitizePlayoffMatches(
     }
   }
 
-  const koMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
+  const koMatches = normalizedMatches.filter(m => m.round !== 'THIRD_PLACE');
   const earliestRoundIndex = koMatches.length > 0
     ? Math.min(...koMatches.map(m => m.roundIndex))
     : 0;
 
-  const realMatches = matches.filter(m => {
+  const realMatches = normalizedMatches.filter(m => {
     const homeIsBye = isByeParticipant(m.home);
     const awayIsBye = isByeParticipant(m.away);
     const isByeMatch = homeIsBye || awayIsBye || m.status === 'AUTO_ADVANCED';
@@ -957,7 +958,7 @@ export function reconstructKnockoutByes(
   if (!matches || matches.length === 0) return matches;
 
   // Filter out any invalid items
-  const validMatches = matches.filter(Boolean);
+  const validMatches = matches.filter(Boolean).map(normalizePlaceholderByeMatch);
 
   // Group knockout matches by stage
   const matchesByStage = new Map<TournamentStageKey, any[]>();
@@ -986,7 +987,7 @@ export function reconstructKnockoutByes(
 
   // If no knockout matches or only Final exists, nothing to reconstruct
   if (earliestIdx === -1 || earliestIdx >= KO_ROUNDS_ORDER.length - 1) {
-    return matches;
+    return validMatches;
   }
 
   const earliestStage = KO_ROUNDS_ORDER[earliestIdx];
@@ -995,14 +996,14 @@ export function reconstructKnockoutByes(
   const nextMatches = matchesByStage.get(nextStage) || [];
 
   if (nextMatches.length === 0) {
-    return matches;
+    return validMatches;
   }
 
   // Next round has N matches. A complete binary tree requires 2 * N matches in the preceding round.
   const expectedCount = nextMatches.length * 2;
   if (earliestMatches.length >= expectedCount) {
     // Earliest round already has the complete draw (BYEs are already stored)
-    return matches;
+    return validMatches;
   }
 
   const earliestDate =
@@ -1180,8 +1181,59 @@ export function reconstructKnockoutByes(
     m.matchNumber = idx + 1;
   });
 
-  return result;
+  return result.map(normalizePlaceholderByeMatch);
 }
+function normalizePlaceholderByeMatch(match: any): any {
+  const { team1, team2 } = extractTeamNames(match);
+  const homeBye = (team1 || '').trim().toUpperCase() === 'BYE'
+    || (typeof match.home === 'object' && String(match.home?.id || '').toLowerCase() === 'bye');
+  const awayBye = (team2 || '').trim().toUpperCase() === 'BYE'
+    || (typeof match.away === 'object' && String(match.away?.id || '').toLowerCase() === 'bye');
+  const isPlaceholderBye = (homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1));
+  if (!isPlaceholderBye) return match;
+
+  const id = String(match.matchId ?? match.id ?? 'placeholder');
+  const home = typeof match.home === 'object' && match.home ? match.home : {};
+  const away = typeof match.away === 'object' && match.away ? match.away : {};
+  return {
+    ...match,
+    team1: 'TBD',
+    team2: 'TBD',
+    teamAName: 'TBD',
+    teamBName: 'TBD',
+    homeTeamName: 'TBD',
+    awayTeamName: 'TBD',
+    team1Flat: undefined,
+    team2Flat: undefined,
+    homeFlat: undefined,
+    awayFlat: undefined,
+    teamAId: undefined,
+    teamBId: undefined,
+    team1Id: undefined,
+    team2Id: undefined,
+    homeId: undefined,
+    awayId: undefined,
+    home: { ...home, id: `${id}-pending-home`, name: 'TBD', flatNumber: undefined },
+    away: { ...away, id: `${id}-pending-away`, name: 'TBD', flatNumber: undefined },
+    status: 'PENDING_SLOT',
+    scheduledAt: undefined,
+    matchDate: '',
+    date: '',
+    matchTime: '',
+    time: '',
+    venueId: null,
+    courtId: null,
+    venueName: '',
+    courtName: '',
+  };
+}
+
+export function isPlaceholderBracketSlot(match: any): boolean {
+  if (!match) return false;
+  if (String(match.status || '').toUpperCase() === 'PENDING_SLOT') return true;
+  return Boolean(normalizePlaceholderByeMatch(match).status === 'PENDING_SLOT');
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Saved matches -> PlayoffMatchDraft[]
 // Rebuilds the COMPLETE knockout bracket exactly as it was saved (including

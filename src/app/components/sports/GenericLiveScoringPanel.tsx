@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders, Crown } from "lucide-react";
+import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders, Crown, Zap, RefreshCw } from "lucide-react";
 import {
   tournamentService,
   type GenericMatchState,
@@ -12,6 +12,7 @@ import {
 } from "./utils/sportScoringConstants";
 import { toast } from "sonner";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
+import { EmergencyScoreModal } from "./EmergencyScoreModal";
 
 interface GenericLiveScoringPanelProps {
   matchId: number;
@@ -95,6 +96,7 @@ export function GenericLiveScoringPanel({
   const [publishingFeed, setPublishingFeed] = useState<boolean>(false);
   const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState<boolean>(false);
 
   const isCarrom = (sportType || "").toUpperCase().replace(/[\s-]/g, "_") === "CARROM";
   const [carromMode, setCarromMode] = useState<"BOARD" | "STROKE">("BOARD");
@@ -315,24 +317,71 @@ export function GenericLiveScoringPanel({
   if (error || !state) {
     return (
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
         <div
-          className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm text-center"
+          className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm text-center border border-slate-100 dark:border-slate-700"
           onClick={(e) => e.stopPropagation()}
         >
-          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-          <p className="text-sm text-slate-700 dark:text-slate-200 font-semibold">
-            {error || "Match data unavailable"}
+          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-3">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm text-slate-800 dark:text-slate-100 font-bold mb-1">
+            Scoring Issue Detected
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+            {error || "Unable to sync real-time match state. You can still score this match manually, record a walkover, or queue offline scores."}
           </p>
-          <button
-            onClick={onClose}
-            className="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition"
-          >
-            Close
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                fetchState().finally(() => setLoading(false));
+              }}
+              className="w-full px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-semibold hover:bg-indigo-100 transition inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Retry Connection</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEmergencyModal(true)}
+              className="w-full px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>⚡ Score Manually (Alternative Mode)</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-600 transition cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
+
+        <EmergencyScoreModal
+          isOpen={showEmergencyModal}
+          onClose={() => setShowEmergencyModal(false)}
+          matchId={matchId}
+          configId={undefined}
+          sportType={sportType}
+          teamAId={teamA.id}
+          teamBId={teamB.id}
+          teamAName={teamA.name}
+          teamBName={teamB.name}
+          currentScoreA={undefined}
+          currentScoreB={undefined}
+          currentPeriod={1}
+          onSuccess={() => {
+            fetchState();
+            onClose();
+          }}
+        />
       </div>
     );
   }
@@ -481,6 +530,15 @@ export function GenericLiveScoringPanel({
             </button>
             <button
               type="button"
+              onClick={() => setShowEmergencyModal(true)}
+              title="Manual Score Override / Walkover / Forfeit / Abandon"
+              className="px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition cursor-pointer"
+            >
+              <Zap className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+              <span>Override</span>
+            </button>
+            <button
+              type="button"
               onClick={toggleFeedVisibility}
               title="Toggle whether live score appears on the top Live Now strip"
               className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border transition-all cursor-pointer ${
@@ -494,7 +552,7 @@ export function GenericLiveScoringPanel({
             </button>
             <button
               onClick={() => setShowCloseConfirm(true)}
-              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
             >
               <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
             </button>
@@ -536,11 +594,21 @@ export function GenericLiveScoringPanel({
           )}
 
           {isUnassigned && (
-            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-              <span>
-                Both {isIndividual ? "players" : "teams"} must be determined and assigned before live scoring can begin.
-              </span>
+            <div className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>
+                  Both {isIndividual ? "players" : "teams"} must be assigned before normal point-by-point scoring can begin.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEmergencyModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition shrink-0 cursor-pointer shadow-xs"
+              >
+                <Zap className="w-3 h-3" />
+                Override / Walkover
+              </button>
             </div>
           )}
 
@@ -1178,6 +1246,26 @@ export function GenericLiveScoringPanel({
             </div>
           </div>
         )}
+
+        {/* Emergency / Alternative Scoring Modal */}
+        <EmergencyScoreModal
+          isOpen={showEmergencyModal}
+          onClose={() => setShowEmergencyModal(false)}
+          matchId={matchId}
+          configId={state?.scoringConfig?.id}
+          sportType={sportType}
+          teamAId={teamA.id}
+          teamBId={teamB.id}
+          teamAName={teamA.name}
+          teamBName={teamB.name}
+          currentScoreA={state?.scoreTeamA}
+          currentScoreB={state?.scoreTeamB}
+          currentPeriod={state?.currentPeriod}
+          onSuccess={() => {
+            fetchState();
+            setShowEmergencyModal(false);
+          }}
+        />
 
         {/* Single Match Scoring Rules Configuration Modal */}
         {showRulesModal && (
