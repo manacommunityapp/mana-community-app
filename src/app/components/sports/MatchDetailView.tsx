@@ -471,7 +471,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                 <div className="bg-slate-50 rounded-lg sm:rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 border border-slate-100">
                   <div className="text-xs text-slate-400 font-semibold uppercase">Toss</div>
                   <div className="text-xs text-slate-700 font-semibold mt-0.5">
-                    {detail.tossWinnerName} — {detail.tossDecision}
+                    {detail.tossWinnerName} — {detail.tossDecision === "BAT" ? "chose to bat first" : detail.tossDecision === "BOWL" ? "chose to bowl first" : detail.tossDecision}
                   </div>
                 </div>
               )}

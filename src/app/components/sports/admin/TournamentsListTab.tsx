@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Play, Lock, Trash2, X } from "lucide-react";
 import { TournamentSection } from "./TournamentSection";
 import type { SportsEvent, TournamentRegistration, AuctionTeam } from "../../../../types/api";
 
@@ -11,8 +11,9 @@ interface TournamentsListTabProps {
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
   handleAnnounce: (id: number, name: string) => void;
-  handleViewPlayers: (id: number) => void;
-  handleViewCaptains: (id: number) => void;
+  handleViewPlayers: (id: number, forceReload?: boolean) => void;
+  handleViewCaptains: (id: number, forceReload?: boolean) => void;
+  handleToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -33,10 +34,18 @@ interface TournamentsListTabProps {
   handleSportEdit?: (ev: any) => void;
   handleSportDelete?: (id: number) => void;
   handleCloseTournament?: (id: number) => void;
+  handleCompleteTournament?: (id: number) => void;
   handleCloseEvent?: (id: number) => void;
   handleStartEventRegistration?: (id: number, name?: string) => void;
   handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
   onOpenSportPicker?: () => void;
+  selectedEventIds?: number[];
+  onToggleSelectEvent?: (id: number) => void;
+  onSelectAllEvents?: (ids: number[], select: boolean) => void;
+  onClearSelectedEvents?: () => void;
+  onBatchStartEvents?: (ids?: number[]) => void;
+  onBatchCloseEvents?: (ids?: number[]) => void;
+  onBatchDeleteEvents?: (ids?: number[]) => void;
 }
 
 /** "Tournaments List" sub-tab of the Sports Event screen. */
@@ -49,12 +58,14 @@ export function TournamentsListTab({
   handleDelete,
   handleActivate,
   handleCloseTournament,
+  handleCompleteTournament,
   handleCloseEvent,
   handleStartEventRegistration,
   handleStartAllPendingEvents,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
+  handleToggleCaptainNomination,
   viewingEventId,
   viewMode,
   registrations,
@@ -75,6 +86,13 @@ export function TournamentsListTab({
   handleSportEdit,
   handleSportDelete,
   onOpenSportPicker,
+  selectedEventIds,
+  onToggleSelectEvent,
+  onSelectAllEvents,
+  onClearSelectedEvents,
+  onBatchStartEvents,
+  onBatchCloseEvents,
+  onBatchDeleteEvents,
 }: TournamentsListTabProps) {
   const allTournaments = [...draftEvents, ...liveEvents, ...completedEvents];
   
@@ -166,6 +184,29 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
+            selectedEventIds={selectedEventIds}
+            onToggleSelectEvent={onToggleSelectEvent}
+            onSelectAllEvents={onSelectAllEvents}
           />
 
           {/* Active Tournaments */}
@@ -178,12 +219,14 @@ export function TournamentsListTab({
             onEdit={handleEdit}
             onDelete={handleDelete}
             onCloseTournament={handleCloseTournament}
+            onCompleteTournament={handleCompleteTournament}
             onCloseEvent={handleCloseEvent}
             onStartEvent={handleStartEventRegistration}
             onStartAllPendingEvents={handleStartAllPendingEvents}
             onAnnounce={handleAnnounce}
             onViewPlayers={handleViewPlayers}
             onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
             viewingEventId={viewingEventId}
             viewMode={viewMode || undefined}
             registrations={registrations}
@@ -204,6 +247,9 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            selectedEventIds={selectedEventIds}
+            onToggleSelectEvent={onToggleSelectEvent}
+            onSelectAllEvents={onSelectAllEvents}
           />
 
           {/* Completed Tournaments */}
@@ -222,8 +268,92 @@ export function TournamentsListTab({
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
+            onViewPlayers={handleViewPlayers}
+            onViewCaptains={handleViewCaptains}
+            onToggleCaptainNomination={handleToggleCaptainNomination}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode || undefined}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            onConfirmRegistration={handleConfirmRegistration}
+            onRejectRegistration={handleRejectRegistration}
+            onConfirmCaptain={handleConfirmCaptain}
+            onAddParticipant={(eventId) => {
+              setSelectedEventIdForAdd(eventId);
+              setShowAddPlayerModal(true);
+            }}
+            onImportParticipants={(eventId) => {
+              setSelectedEventIdForImport(eventId);
+              setShowImportModal(true);
+              setImportStep(1);
+            }}
+            selectedEventIds={selectedEventIds}
+            onToggleSelectEvent={onToggleSelectEvent}
+            onSelectAllEvents={onSelectAllEvents}
           />
         </>
+      )}
+
+      {/* Floating Bulk Action Bar */}
+      {selectedEventIds && selectedEventIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 bg-slate-900/95 text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-slate-700/80 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 pr-2.5 sm:pr-3 border-r border-slate-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+            <span className="text-xs font-bold whitespace-nowrap">
+              {selectedEventIds.length} {selectedEventIds.length === 1 ? "Event" : "Events"} Selected
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {onBatchStartEvents && (
+              <button
+                type="button"
+                onClick={() => onBatchStartEvents(selectedEventIds)}
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 shadow-sm"
+                title="Start/Open registration for selected events"
+              >
+                <Play className="w-3.5 h-3.5 fill-white shrink-0" />
+                <span>Start Reg</span>
+              </button>
+            )}
+
+            {onBatchCloseEvents && (
+              <button
+                type="button"
+                onClick={() => onBatchCloseEvents(selectedEventIds)}
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 shadow-sm"
+                title="Close registration for selected events"
+              >
+                <Lock className="w-3.5 h-3.5 shrink-0" />
+                <span>Close Reg</span>
+              </button>
+            )}
+
+            {onBatchDeleteEvents && (
+              <button
+                type="button"
+                onClick={() => onBatchDeleteEvents(selectedEventIds)}
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 shadow-sm"
+                title="Delete selected events"
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>Delete</span>
+              </button>
+            )}
+
+            {onClearSelectedEvents && (
+              <button
+                type="button"
+                onClick={onClearSelectedEvents}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer ml-1"
+                title="Deselect all"
+              >
+                <X className="w-4 h-4 shrink-0" />
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

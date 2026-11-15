@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mana Community — Sports UI Suite Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .brand-font { font-family: 'Outfit', sans-serif; }
+    .mono-num { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-indigo-600 selection:text-white">
+
+  <!-- ================= TOP HERO ================= -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-4 sm:px-8 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-indigo-500/20">
+          🏆
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="brand-font text-lg sm:text-xl font-black tracking-tight text-white">Mana Community · Sports UI Suite</h1>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Production Local Suite
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">All-in-One Multi-Sport Scoring, Bracket Automation, Umpire Console &amp; Spectator Center</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <a href="https://www.figma.com/design/eP59JCDniN7tqsP7kqVZTE" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition cursor-pointer">
+          <span>🎨</span> Figma UI Suite
+        </a>
+        <a href="https://www.figma.com/board/VafqcUvgXDUUZNnl3Gtrz3" target="_blank" rel="noopener noreferrer" class="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 border border-white/15 font-bold text-xs transition cursor-pointer">
+          <span>🌿</span> FigJam ERD
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= MAIN LAUNCHPAD CONTENT ================= -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-10">
+
+    <!-- HERO INTRO -->
+    <div class="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 p-6 sm:p-10 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
+      <div class="absolute -right-20 -bottom-20 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative z-10 max-w-3xl space-y-4">
+        <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-400/10 text-amber-300 border border-amber-400/20">
+          Complete Sports Ecosystem Delivered Locally
+        </span>
+        <h2 class="brand-font text-3xl sm:text-4xl font-black tracking-tight text-white">
+          Explore the 5 Generated HTML Sports Applications
+        </h2>
+        <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+          Synthesized from both architectural blue-prints and interactive bracket engines. Designed with Figma design tokens, supporting Cricket, Badminton/Racquet sports, and Track &amp; Field Athletics.
+        </p>
+      </div>
+    </div>
+
+    <!-- APPLICATION CARDS GRID -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+      <!-- CARD 1: THE MASTER SUITE -->
+      <a href="sports_tournament_suite.html" class="group bg-slate-900/90 hover:bg-slate-850 p-6 rounded-3xl border-2 border-indigo-500/40 hover:border-indigo-400 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-28 h-28 bg-indigo-500/10 rounded-bl-full pointer-events-none"></div>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">🏆</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2.5 py-1 rounded-full shadow">
+              Master Application
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-indigo-300 transition">
+              1. All-in-One Tournament Suite
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              Complete tabbed suite with Fixtures, Live Umpire Console, Spectator Center, Knockout Bracket tree, Points Table with NRR, and CricHeroes Scorecard.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">6 Tab Modules</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Full State Machine</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Modal Entry</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-indigo-400 group-hover:text-indigo-300">
+          <span>Launch Master Suite</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+
+      <!-- CARD 2: DEDICATED UMPIRE CONSOLE -->
+      <a href="sports_umpire_console.html" class="group bg-slate-900/90 hover:bg-slate-850 p-6 rounded-3xl border border-slate-800 hover:border-red-500/50 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">⚡</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-red-600/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full">
+              Mobile / Field Mode
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-red-400 transition">
+              2. Live Field Umpire Console
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              High-contrast OLED dark mode optimized for outdoor glare on phones/tablets. 60px tap targets, cricket ball keypad, wicket modal, racquet scoring, and undo.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">No Double-Tap Zoom</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Ball Undo Stack</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Stopwatch</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-red-400 group-hover:text-red-300">
+          <span>Launch Umpire Keypad</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+
+      <!-- CARD 3: DEDICATED SPECTATOR LIVE CENTER -->
+      <a href="sports_spectator_center.html" class="group bg-slate-900/90 hover:bg-slate-850 p-6 rounded-3xl border border-slate-800 hover:border-amber-500/50 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">👁️</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-full">
+              Stadium Scoreboard
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-amber-300 transition">
+              3. Spectator Live Center
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              Broadcast layout for stadium TVs and fans. Target Equation progress bar, live commentary feed, over-by-over ticker, and CricHeroes API verification.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Target Progress</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Commentary Stream</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Partnerships</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+          <span>Launch Spectator Display</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+
+      <!-- CARD 4: KNOCKOUT BRACKET & FLOW DEMO -->
+      <a href="sports_flow_demo.html" class="group bg-slate-900/90 hover:bg-slate-850 p-6 rounded-3xl border border-slate-800 hover:border-emerald-500/50 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">🌿</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+              State Flow Demo
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-emerald-300 transition">
+              4. Knockout Bracket &amp; Progression Demo
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              Interactive testbed demonstrating Quarter $\to$ Semi $\to$ Final winner advancement, Non-Auction winner name preservation, and Tournament Completion.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Non-Auction winnerSide</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Auto Final Crowning</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-emerald-400 group-hover:text-emerald-300">
+          <span>Launch Bracket Demo</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+
+      <!-- CARD 5: SCORING ARCHITECTURE BLUEPRINT -->
+      <a href="sports_scoring_architecture.html" class="group bg-slate-900/90 hover:bg-slate-850 p-6 rounded-3xl border border-slate-800 hover:border-purple-500/50 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">📐</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-full">
+              Technical Blueprint
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-purple-300 transition">
+              5. Architecture &amp; System Schemas
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              Technical documentation covering WebSocket payload contracts, CricHeroes syncing pipeline, database schema models, and multi-sport rule engines.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Data Contracts</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">DB Schemas</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Rule Engines</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-purple-400 group-hover:text-purple-300">
+          <span>View System Blueprint</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+
+      <!-- CARD 6: CLOUD FIGMA DESIGN BOARD -->
+      <a href="https://www.figma.com/design/eP59JCDniN7tqsP7kqVZTE" target="_blank" rel="noopener noreferrer" class="group bg-gradient-to-br from-indigo-950/70 to-slate-900 p-6 rounded-3xl border border-indigo-500/40 hover:border-indigo-400 transition-all duration-300 shadow-xl flex flex-col justify-between relative overflow-hidden">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-3xl">🎨</span>
+            <span class="text-[10px] font-black uppercase tracking-wider bg-white/10 text-white border border-white/20 px-2.5 py-1 rounded-full">
+              Cloud Figma Design
+            </span>
+          </div>
+          <div>
+            <h3 class="brand-font text-xl font-black text-white group-hover:text-indigo-300 transition">
+              6. Figma UI Suite &amp; FigJam Board
+            </h3>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+              Inspect design tokens, color scales (Slate-950, Emerald, Indigo, Amber), responsive grid layouts, and component specs directly in Figma Dev Mode.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-2">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Figma Dev Mode</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">FigJam Flowchart</span>
+          </div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-slate-800 flex items-center justify-between text-xs font-bold text-indigo-400 group-hover:text-indigo-300">
+          <span>Open in Figma Cloud ↗</span>
+          <span class="text-base group-hover:translate-x-1 transition-transform">→</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- QUICK LOCAL ACCESS PATH TABLE -->
+    <div class="bg-slate-900 rounded-3xl p-6 border border-slate-800 shadow-xl space-y-4">
+      <h3 class="brand-font text-lg font-black text-white flex items-center gap-2">
+        <span>📁</span> Local Filesystem Paths in <code class="text-indigo-400 text-xs font-mono">mana-community-app/public/</code>
+      </h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="text-slate-500 uppercase text-[10px] font-bold border-b border-slate-800 pb-2">
+              <th class="pb-2">File Name</th>
+              <th class="pb-2">Role &amp; View</th>
+              <th class="pb-2">Direct Local Link</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800 font-mono text-[11px]">
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_portal.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Central Hub &amp; Navigation Portal</td>
+              <td class="py-2.5"><a href="sports_portal.html" class="text-indigo-400 hover:underline">Open sports_portal.html</a></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_tournament_suite.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Master All-in-One 6-Tab Suite</td>
+              <td class="py-2.5"><a href="sports_tournament_suite.html" class="text-indigo-400 hover:underline">Open sports_tournament_suite.html</a></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_umpire_console.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Outdoor Mobile Keypad Umpire Console</td>
+              <td class="py-2.5"><a href="sports_umpire_console.html" class="text-indigo-400 hover:underline">Open sports_umpire_console.html</a></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_spectator_center.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Stadium Scoreboard &amp; Live Commentary</td>
+              <td class="py-2.5"><a href="sports_spectator_center.html" class="text-indigo-400 hover:underline">Open sports_spectator_center.html</a></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_flow_demo.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Interactive Knockout Progression Testbed</td>
+              <td class="py-2.5"><a href="sports_flow_demo.html" class="text-indigo-400 hover:underline">Open sports_flow_demo.html</a></td>
+            </tr>
+            <tr>
+              <td class="py-2.5 text-white font-bold">sports_scoring_architecture.html</td>
+              <td class="py-2.5 text-slate-400 font-sans">Engineering Architecture Blueprint</td>
+              <td class="py-2.5"><a href="sports_scoring_architecture.html" class="text-indigo-400 hover:underline">Open sports_scoring_architecture.html</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

@@ -157,6 +157,9 @@ export interface AppUser {
   phone: string;
   role: string;
   kycStatus: string;
+  flatNumber?: string;
+  flatNo?: string;
+  gender?: string;
   community?: Community;
 }
 
@@ -230,6 +233,8 @@ export interface SportsEvent {
   community?: Community;
   eventDateStart: string; // LocalDate → string
   eventDateEnd: string;
+  registrationDateEnd?: string;
+  isRegistrationOpen?: boolean;
   venue?: Venue;
   maxParticipants?: number;
   registeredCount?: number;
@@ -244,6 +249,7 @@ export interface SportsEvent {
   updatedAt?: string;
   auctionStatus?: string;
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
@@ -261,7 +267,7 @@ export interface SportsEvent {
   maxPlayers?: number;
   gender?: string;
   playersBorn?: string;
-  disputeCommitteeIds?: string;
+  disputeCommitteeIds?: string | number[] | (string | number)[];
   status?: string;
   /** When true, self-registrations require organiser confirmation (land PENDING). */
   adminApprovalRequired?: boolean;
@@ -288,6 +294,7 @@ export interface SportsEventRequest {
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
   description?: string;
@@ -362,6 +369,7 @@ export interface EventRegistration {
   relation?: string;
   flatNumber?: string;
   age?: number;
+  gender?: string;
   role?: string;
   cricHeroesUrl?: string;
   verifiedAt?: string;
@@ -380,7 +388,7 @@ export interface EventRegistration {
   matchFormat?: string;
   matchType?: string;
   partner?: { id?: number; fullName?: string; name?: string; email?: string; phone?: string; flatNo?: string };
-  partnerFamilyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number };
+  partnerFamilyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number; user?: { flatNo?: string; phone?: string; id?: number; fullName?: string } };
   partnerUserId?: number | null;
   partnerFamilyMemberId?: number | string | null;
   partnerName?: string;
@@ -389,6 +397,9 @@ export interface EventRegistration {
   partnerStatus?: string;
   partnerConfirmationStatus?: string;
   partnerDeclineReason?: string;
+  familyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number };
+  familyMemberId?: number | string | null;
+  notes?: string;
 }
 
 export interface SportsPlayerRanking {
@@ -737,6 +748,7 @@ export interface SportFormEvent {
   contacts?: EventContact[];
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  captainNominationOpen?: boolean;
   adminApprovalRequired?: boolean;
   mandatoryMixedDoubles?: boolean;
   tournamentId?: number;

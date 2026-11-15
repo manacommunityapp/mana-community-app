@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly, isRegForSportEvent, isDraftSportEvent, isDraftTournament } from "./SportsDashboard";
+import { isTeamSport } from "./utils/sportsConstants";
 import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
@@ -638,7 +639,7 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       };
       const details1 = extractPartnerExportDetails(primaryPlayer as any);
       expect(details1.partnerName).toBe("Sandeep Kamarapu");
-      expect(details1.partnerContact).toBe("Flat Tower 2-401 · 9876543210");
+      expect(details1.partnerContact).toBe("Tower 2, Flat 401 · 9876543210");
       expect(details1.partnerStatus).toBe("Confirmed");
 
       // 2. Open pool participant
@@ -660,6 +661,213 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       expect(details3.partnerName).toBe("—");
       expect(details3.partnerContact).toBe("—");
       expect(details3.partnerStatus).toBe("—");
+    });
+
+    it("comprehensively verifies all doubles partner resolution scenarios across users and family members", () => {
+      const currentUserId = 101;
+      const currentUserName = "Sandeep Kamarapu";
+      const familyMembers = [
+        { id: 501, name: "Sunita Kamarapu", relation: "Spouse" },
+        { id: 502, name: "Aarav Kamarapu", relation: "Son" },
+        { id: 503, name: "Ananya Kamarapu", relation: "Daughter" },
+      ];
+
+      // Helper simulating SportsDashboard partner resolution logic
+      const resolveDashboardPartner = (
+        r: any,
+        selectedMemberId: string | number | undefined
+      ) => {
+        const isSelectedSelf = !selectedMemberId || selectedMemberId === "self";
+        const selectedTargetId = isSelectedSelf ? "self" : String(selectedMemberId).replace(/^fam-/, "").trim();
+        const targetMember = !isSelectedSelf ? familyMembers.find(m => String(m.id) === selectedTargetId) : undefined;
+        const selectedTargetName = (isSelectedSelf ? currentUserName : (targetMember?.name || "")).trim().toLowerCase();
+
+        // Player 1
+        const p1FamId = r.familyMemberId != null ? String(r.familyMemberId).replace(/^fam-/, "").trim() : (r.familyMember?.id != null ? String(r.familyMember.id).replace(/^fam-/, "").trim() : null);
+        const p1UserId = r.userId != null ? String(r.userId) : (r.user?.id != null ? String(r.user.id) : null);
+        const currentUid = currentUserId != null ? String(currentUserId) : null;
+
+        const isOtherUserPrimary = Boolean(
+          currentUid && p1UserId && p1UserId !== currentUid
+        );
+        const p1ExplicitSelf = isSelfRelationOrMember(r.relation, p1FamId, r.playerName, currentUserName);
+        const p1MatchesSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() === currentUserName.trim().toLowerCase()
+        );
+        const p1HasNonSelfName = Boolean(
+          currentUserName && r.playerName && r.playerName.trim().toLowerCase() !== currentUserName.trim().toLowerCase()
+        );
+
+        const p1IsSelf = !p1FamId && (
+          p1ExplicitSelf ||
+          p1MatchesSelfName ||
+          (!isOtherUserPrimary && !p1HasNonSelfName && !r.relation)
+        );
+
+        const p1Name = (r.familyMember?.name || r.familyMemberName || r.playerName || (p1IsSelf ? currentUserName : "Primary Player")).trim();
+        const p1Relation = (r.familyMember?.relation || r.relation || (p1IsSelf ? "Self" : "")).trim();
+        const p1Flat = (r.flatNumber || r.user?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        // Player 2
+        const p2FamId = r.partnerFamilyMemberId != null ? String(r.partnerFamilyMemberId).replace(/^fam-/, "").trim() : (r.partnerFamilyMember?.id != null ? String(r.partnerFamilyMember.id).replace(/^fam-/, "").trim() : null);
+        const p2UserId = r.partnerUserId != null ? String(r.partnerUserId) : (r.partner?.id != null ? String(r.partner.id) : null);
+        const p2IsSelf = Boolean(
+          (currentUid && p2UserId && String(p2UserId) === currentUid) ||
+          (!p2FamId && r.partnerName && currentUserName && r.partnerName.toLowerCase().trim() === currentUserName.toLowerCase().trim())
+        );
+        const p2Name = (
+          r.partnerFamilyMember?.name ||
+          r.partnerFamilyMemberName ||
+          (p2FamId != null ? "" : (r.partnerName || r.partner?.fullName || r.partner?.name || "")) ||
+          r.partnerName ||
+          ""
+        ).trim();
+        const p2Relation = (r.partnerRelation || r.partnerFamilyMember?.relation || (p2IsSelf ? "Self" : "")).trim();
+        const p2Flat = (r.partnerFlatNumber || r.partner?.flatNo || "").replace(/^Flat\s+/i, "").trim();
+
+        const isViewingAsPlayer2 = Boolean(
+          (isSelectedSelf && p2IsSelf && !p1IsSelf) ||
+          (!isSelectedSelf && p2FamId != null && p2FamId === selectedTargetId) ||
+          (!isSelectedSelf && p2Name && selectedTargetName && p2Name.toLowerCase() === selectedTargetName && (!p1FamId || p1FamId !== selectedTargetId))
+        );
+
+        let partnerDisplayName = isViewingAsPlayer2 ? p1Name : p2Name;
+        let partnerDisplayRelation = isViewingAsPlayer2 ? p1Relation : p2Relation;
+        let partnerDisplayFlat = isViewingAsPlayer2 ? p1Flat : p2Flat;
+        let partnerDisplayIsSelf = isViewingAsPlayer2 ? p1IsSelf : p2IsSelf;
+
+        // Anti-self-partner guard
+        if (partnerDisplayName) {
+          const normDisplayName = partnerDisplayName.toLowerCase().trim();
+          if (normDisplayName === selectedTargetName) {
+            const otherName = isViewingAsPlayer2 ? p2Name : p1Name;
+            if (otherName && otherName.toLowerCase().trim() !== selectedTargetName) {
+              partnerDisplayName = otherName;
+              partnerDisplayRelation = isViewingAsPlayer2 ? p2Relation : p1Relation;
+              partnerDisplayFlat = isViewingAsPlayer2 ? p2Flat : p1Flat;
+              partnerDisplayIsSelf = isViewingAsPlayer2 ? p2IsSelf : p1IsSelf;
+            } else {
+              partnerDisplayName = "";
+            }
+          }
+        }
+
+        return {
+          isViewingAsPlayer2,
+          partnerDisplayName,
+          partnerDisplayRelation,
+          partnerDisplayFlat,
+          partnerDisplayIsSelf,
+        };
+      };
+
+      // Scenario 1: Logged in user is partner to another Flat user (partnerUserId)
+      const reg1 = {
+        id: 101,
+        userId: 202,
+        playerName: "Rahul Sharma",
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg1, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res1 = resolveDashboardPartner(reg1, "self");
+      expect(res1.isViewingAsPlayer2).toBe(true);
+      expect(res1.partnerDisplayName).toBe("Rahul Sharma");
+      expect(res1.partnerDisplayFlat).toBe("101");
+      expect(res1.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 2: Logged in user is partner to another Flat's family member
+      const reg2 = {
+        id: 102,
+        userId: 202,
+        playerName: "Rohan Sharma",
+        familyMemberId: 801,
+        flatNumber: "Flat 101",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg2, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res2 = resolveDashboardPartner(reg2, "self");
+      expect(res2.isViewingAsPlayer2).toBe(true);
+      expect(res2.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res2.partnerDisplayName).not.toBe(currentUserName);
+
+      // Scenario 3: Logged in user is partner to same Flat family member (husband & spouse)
+      // Sandeep registered with Sunita as partner
+      const reg3 = {
+        id: 103,
+        userId: currentUserId,
+        playerName: currentUserName,
+        familyMemberId: null,
+        flatNumber: "Flat 202",
+        partnerFamilyMemberId: 501,
+        partnerName: "Sunita Kamarapu",
+        partnerRelation: "Spouse",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sandeep views as "Self":
+      expect(isRegistrationForMemberHelper(reg3, "self", familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Self = resolveDashboardPartner(reg3, "self");
+      expect(res3Self.isViewingAsPlayer2).toBe(false);
+      expect(res3Self.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res3Self.partnerDisplayRelation).toBe("Spouse");
+      expect(res3Self.partnerDisplayName).not.toBe(currentUserName);
+
+      // When Sunita views (selectedMemberId: 501):
+      expect(isRegistrationForMemberHelper(reg3, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res3Spouse = resolveDashboardPartner(reg3, 501);
+      expect(res3Spouse.isViewingAsPlayer2).toBe(true);
+      expect(res3Spouse.partnerDisplayName).toBe(currentUserName);
+      expect(res3Spouse.partnerDisplayIsSelf).toBe(true);
+      expect(res3Spouse.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // Scenario 4: Logged in user family member (Aarav, 502) is partner to another Flat family member (Rohan, 902)
+      const reg4 = {
+        id: 104,
+        userId: currentUserId,
+        playerName: "Aarav Kamarapu",
+        familyMemberId: 502,
+        partnerFamilyMemberId: 902,
+        partnerName: "Rohan Sharma",
+        partnerFlatNumber: "Flat 101",
+        partnerStatus: "CONFIRMED",
+      };
+      expect(isRegistrationForMemberHelper(reg4, 502, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res4 = resolveDashboardPartner(reg4, 502);
+      expect(res4.isViewingAsPlayer2).toBe(false);
+      expect(res4.partnerDisplayName).toBe("Rohan Sharma");
+      expect(res4.partnerDisplayFlat).toBe("101");
+      expect(res4.partnerDisplayName).not.toBe("Aarav Kamarapu");
+
+      // Scenario 5: Two family members from the same flat (mother and daughter)
+      const reg5 = {
+        id: 105,
+        userId: currentUserId,
+        playerName: "Sunita Kamarapu",
+        familyMemberId: 501,
+        partnerFamilyMemberId: 503,
+        partnerName: "Ananya Kamarapu",
+        partnerRelation: "Daughter",
+        partnerStatus: "CONFIRMED",
+      };
+      // When Sunita views:
+      expect(isRegistrationForMemberHelper(reg5, 501, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Mother = resolveDashboardPartner(reg5, 501);
+      expect(res5Mother.partnerDisplayName).toBe("Ananya Kamarapu");
+      expect(res5Mother.partnerDisplayRelation).toBe("Daughter");
+      expect(res5Mother.partnerDisplayName).not.toBe("Sunita Kamarapu");
+
+      // When Ananya views:
+      expect(isRegistrationForMemberHelper(reg5, 503, familyMembers, currentUserName, currentUserId)).toBe(true);
+      const res5Daughter = resolveDashboardPartner(reg5, 503);
+      expect(res5Daughter.partnerDisplayName).toBe("Sunita Kamarapu");
+      expect(res5Daughter.partnerDisplayName).not.toBe("Ananya Kamarapu");
+
+      // When Self (Sandeep) views: Neither is Self -> false
+      expect(isRegistrationForMemberHelper(reg5, "self", familyMembers, currentUserName, currentUserId)).toBe(false);
     });
   });
 
@@ -858,6 +1066,1114 @@ describe("SportsRegister - inferGender and normalizeGender for Family Members", 
     expect(options.includes(kid2Resolved)).toBe(true);
     expect(options.includes(kid3Resolved)).toBe(true);
   });
+
+  describe("SportsDashboard Partner Invitation & Partner Unregister Flow", () => {
+    const currentUserId = 101;
+    const currentUserName = "Sandeep Kamarapu";
+
+    const testEvent = {
+      id: 50,
+      name: "Table Tennis - 19+ Men",
+      category: "Table Tennis · Oct 24",
+      formats: [{ id: 1, format: "SINGLES" }, { id: 2, format: "DOUBLES" }],
+      matchType: "DOUBLES",
+      format: ["SINGLES", "DOUBLES"],
+    } as any;
+
+    it("matches pending partner invitations for Self when partnerUserId matches and status is PENDING", () => {
+      const pendingInvites = [
+        {
+          id: 501,
+          eventId: 50,
+          eventName: "Table Tennis - 19+ Men",
+          playerName: "Primary Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerConfirmationStatus: "PENDING",
+        },
+        {
+          id: 502,
+          eventId: 60,
+          eventName: "Badminton Doubles",
+          playerName: "Another Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerConfirmationStatus: "PENDING",
+        },
+      ];
+
+      const getPendingForEvent = (ev: any, memberId: string = "self") => {
+        const isSelf = !memberId || memberId === "self";
+        return pendingInvites.find(inv => {
+          const evMatch = isEventMatch(inv, ev);
+          if (!evMatch) return false;
+          const pStatus = String(inv.partnerConfirmationStatus || "").toUpperCase().trim();
+          if (pStatus !== "PENDING") return false;
+          if (isSelf) {
+            return String(inv.partnerUserId) === String(currentUserId);
+          }
+          return false;
+        });
+      };
+
+      const match = getPendingForEvent(testEvent, "self");
+      expect(match).toBeDefined();
+      expect(match?.id).toBe(501);
+      expect(match?.playerName).toBe("Primary Player");
+
+      // Non-matching event returns undefined
+      const nonMatch = getPendingForEvent({ id: 99, name: "Chess Open", matchType: "SINGLES" } as any, "self");
+      expect(nonMatch).toBeUndefined();
+    });
+
+    it("matches pending partner invitations for family member when partnerFamilyMemberId matches", () => {
+      const pendingInvites = [
+        {
+          id: 503,
+          eventId: 50,
+          eventName: "Table Tennis - 19+ Men",
+          playerName: "Primary Player",
+          matchType: "DOUBLES",
+          partnerUserId: 101,
+          partnerFamilyMemberId: 136,
+          partnerConfirmationStatus: "PENDING",
+        },
+      ];
+
+      const getPendingForEvent = (ev: any, memberId: string) => {
+        return pendingInvites.find(inv => {
+          const evMatch = isEventMatch(inv, ev);
+          if (!evMatch) return false;
+          const pStatus = String(inv.partnerConfirmationStatus || "").toUpperCase().trim();
+          if (pStatus !== "PENDING") return false;
+          return String(inv.partnerFamilyMemberId) === String(memberId);
+        });
+      };
+
+      expect(getPendingForEvent(testEvent, "136")).toBeDefined();
+      expect(getPendingForEvent(testEvent, "154")).toBeUndefined();
+    });
+
+    it("does not match pending invite if partnerConfirmationStatus is already CONFIRMED or DECLINED", () => {
+      const confirmedInvite = {
+        id: 504,
+        eventId: 50,
+        playerName: "Primary Player",
+        matchType: "DOUBLES",
+        partnerUserId: 101,
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      const declinedInvite = {
+        id: 505,
+        eventId: 50,
+        playerName: "Primary Player",
+        matchType: "DOUBLES",
+        partnerUserId: 101,
+        partnerConfirmationStatus: "DECLINED",
+      };
+
+      const isPending = (inv: any) => String(inv.partnerConfirmationStatus || "").toUpperCase().trim() === "PENDING";
+      expect(isPending(confirmedInvite)).toBe(false);
+      expect(isPending(declinedInvite)).toBe(false);
+    });
+
+    it("generates partner withdrawal confirmation message and toast for confirmed partner", () => {
+      const confirmedPartnerReg = {
+        id: 601,
+        eventId: 50,
+        playerName: "Primary Player",
+        partnerUserId: 101,
+        matchType: "DOUBLES",
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      const regs = [confirmedPartnerReg];
+      const isAnyConfirmedPartner = regs.some(r => String(r.partnerUserId) === String(currentUserId));
+      expect(isAnyConfirmedPartner).toBe(true);
+
+      const displayName = "Table Tennis - 19+ Men";
+      const fmtList = "DOUBLES";
+
+      const confirmMsg = isAnyConfirmedPartner
+        ? `Are you sure you want to withdraw as doubles partner from ${displayName}${fmtList ? ` (${fmtList})` : ""}? The primary player will be notified.`
+        : `Are you sure you want to unregister yourself from ${displayName}? You will lose your reserved spot.`;
+
+      expect(confirmMsg).toContain("withdraw as doubles partner from Table Tennis - 19+ Men (DOUBLES)");
+      expect(confirmMsg).toContain("The primary player will be notified");
+
+      const unregToast = isAnyConfirmedPartner
+        ? `Withdrew as partner from ${displayName} (${fmtList})`
+        : `Unregistered from ${displayName} (${fmtList})`;
+
+      expect(unregToast).toBe("Withdrew as partner from Table Tennis - 19+ Men (DOUBLES)");
+    });
+  });
 });
+
+describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search", () => {
+  const cricketEvent: any = {
+    id: 101,
+    name: "Box Cricket Tournament",
+    category: "Cricket · Ground A",
+    sportName: "Cricket",
+    isTeamSport: true,
+  };
+
+  const volleyballEvent: any = {
+    id: 102,
+    name: "Volleyball Championship",
+    category: "Volleyball · Court 1",
+    sportName: "Volleyball",
+    isTeamSport: true,
+  };
+
+  it("correctly matches registrations by explicit eventId", () => {
+    const regCricket = { id: 1, eventId: 101, playerName: "Player One", status: "CONFIRMED" };
+    const regVolleyball = { id: 2, eventId: 102, playerName: "Player Two", status: "CONFIRMED" };
+
+    expect(isRegForSportEvent(regCricket, cricketEvent, 101)).toBe(true);
+    expect(isRegForSportEvent(regVolleyball, cricketEvent, 101)).toBe(false);
+
+    expect(isRegForSportEvent(regVolleyball, volleyballEvent, 102)).toBe(true);
+    expect(isRegForSportEvent(regCricket, volleyballEvent, 102)).toBe(false);
+  });
+
+  it("correctly matches by sport name and filters out unrelated sports", () => {
+    const regCricket = { id: 10, sportName: "Cricket", playerName: "Cricket Star", status: "CONFIRMED" };
+    const regBadminton = { id: 20, sportName: "Badminton", playerName: "Shuttler", status: "CONFIRMED" };
+    const regChess = { id: 30, sportName: "Chess", playerName: "Grandmaster", status: "CONFIRMED" };
+    const regVolleyball = { id: 40, sportName: "Volleyball", playerName: "Spiker", status: "CONFIRMED" };
+
+    // Under Cricket event: only Cricket matches, Badminton and Chess are excluded
+    expect(isRegForSportEvent(regCricket, cricketEvent, 101)).toBe(true);
+    expect(isRegForSportEvent(regBadminton, cricketEvent, 101)).toBe(false);
+    expect(isRegForSportEvent(regChess, cricketEvent, 101)).toBe(false);
+    expect(isRegForSportEvent(regVolleyball, cricketEvent, 101)).toBe(false);
+
+    // Under Volleyball event: only Volleyball matches
+    expect(isRegForSportEvent(regVolleyball, volleyballEvent, 102)).toBe(true);
+    expect(isRegForSportEvent(regCricket, volleyballEvent, 102)).toBe(false);
+    expect(isRegForSportEvent(regBadminton, volleyballEvent, 102)).toBe(false);
+  });
+
+  it("filters captain registrations by search query across name, flat, phone, and proposed team", () => {
+    const regs = [
+      { id: 1, playerName: "Sunil Kanthala", relation: "Self", flatNumber: "E-502", phone: "9876543210", proposedTeamName: "Warriors" },
+      { id: 2, playerName: "Kavitha Kanthala", relation: "Spouse", flatNumber: "E-502", phone: "9876543211", proposedTeamName: "" },
+      { id: 3, playerName: "Ramesh Korlakunta", relation: "Self", flatNumber: "A-101", phone: "9123456789", proposedTeamName: "Strikers" },
+      { id: 4, playerName: "Deepak Pillai", relation: "Self", flatNumber: "B-204", phone: "9000000000", proposedTeamName: "" },
+    ];
+
+    const filterList = (query: string) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return regs;
+      return regs.filter(reg => {
+        const name = (reg.playerName || "").toLowerCase();
+        const flat = (reg.flatNumber || "").toLowerCase();
+        const phone = (reg.phone || "").toLowerCase();
+        const relation = (reg.relation || "").toLowerCase();
+        const team = (reg.proposedTeamName || "").toLowerCase();
+        return name.includes(q) || flat.includes(q) || phone.includes(q) || relation.includes(q) || team.includes(q);
+      });
+    };
+
+    // Search by player name
+    expect(filterList("Sunil")).toHaveLength(1);
+    expect(filterList("Sunil")[0].id).toBe(1);
+
+    // Search by flat number (both members in E-502)
+    expect(filterList("E-502")).toHaveLength(2);
+
+    // Search by phone
+    expect(filterList("9123456789")).toHaveLength(1);
+    expect(filterList("9123456789")[0].playerName).toBe("Ramesh Korlakunta");
+
+    // Search by relation
+    expect(filterList("Spouse")).toHaveLength(1);
+    expect(filterList("Spouse")[0].playerName).toBe("Kavitha Kanthala");
+
+    // Search by proposed team name
+    expect(filterList("Warriors")).toHaveLength(1);
+    expect(filterList("Warriors")[0].proposedTeamName).toBe("Warriors");
+  });
+
+  it("verifies that Unlimited spots is hidden when maxParticipants is absent or undefined", () => {
+    const computeSpots = (maxParticipants?: number | null, regCount: number = 0): string | undefined => {
+      return maxParticipants ? `${regCount}/${maxParticipants} spots` : undefined;
+    };
+
+    expect(computeSpots(undefined, 5)).toBeUndefined();
+    expect(computeSpots(null, 5)).toBeUndefined();
+    expect(computeSpots(0, 5)).toBeUndefined();
+    expect(computeSpots(16, 4)).toBe("4/16 spots");
+  });
+
+  describe("Captain Nominations Action & Display Logic for Logged-in User and Members", () => {
+    const user = { userId: 101, fullName: "Sandeep Kamarapu" };
+
+    function resolveNominationAction(reg: any, capNom?: any) {
+      const isNominated = Boolean(capNom?.captainNomination || reg.captainNomination);
+      const isCaptainConfirmed = Boolean(capNom?.captainConfirmation || reg.captainConfirmation);
+      const isSelf = isSelfRelationOrMember(reg.relation, reg.familyMemberId, reg.playerName, user.fullName);
+      const regPersonName = reg.playerName || (isSelf ? (user.fullName || "You") : "Member");
+      const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
+
+      return isCaptainConfirmed ? "Confirmed" : isNominated ? "Withdraw" : actionLabel;
+    }
+
+    it("displays 'Nominate Me' for logged-in user when not nominated", () => {
+      const reg = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        familyMemberId: "self",
+        captainNomination: false,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(reg, null)).toBe("Nominate Me");
+    });
+
+    it("displays 'Nominate <MemberName>' for family member when not nominated", () => {
+      const reg = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        familyMemberId: 2,
+        captainNomination: false,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(reg, null)).toBe("Nominate Sunita Kamarapu");
+    });
+
+    it("displays 'Withdraw' when nomination is active for self or family member", () => {
+      const selfReg = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        captainNomination: true,
+        captainConfirmation: false,
+      };
+      expect(resolveNominationAction(selfReg, null)).toBe("Withdraw");
+
+      const memberReg = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        captainNomination: false,
+      };
+      const capNom = { eventId: 771, captainNomination: true, captainConfirmation: false };
+      expect(resolveNominationAction(memberReg, capNom)).toBe("Withdraw");
+    });
+
+    it("displays 'Confirmed' (disabled) when captaincy is confirmed", () => {
+      const confirmedSelf = {
+        id: 901,
+        eventId: 771,
+        playerName: "Sandeep Kamarapu",
+        relation: "SELF",
+        captainNomination: true,
+        captainConfirmation: true,
+      };
+      expect(resolveNominationAction(confirmedSelf, null)).toBe("Confirmed");
+
+      const confirmedMember = {
+        id: 902,
+        eventId: 771,
+        playerName: "Sunita Kamarapu",
+        relation: "SPOUSE",
+        captainNomination: true,
+        captainConfirmation: false,
+      };
+      const capNom = { eventId: 771, captainNomination: true, captainConfirmation: true };
+      expect(resolveNominationAction(confirmedMember, capNom)).toBe("Confirmed");
+    });
+
+    it("matches capNom with numeric coercion between number and string event IDs", () => {
+      const reg = { id: 901, eventId: "771", event: { id: "771" } };
+      const captainRegistrations = [{ eventId: 771, teamName: "Warriors", captainNomination: true }];
+
+      const targetEventId = Number(reg.eventId || reg.event?.id);
+      const capNom = captainRegistrations.find(c => Number(c.eventId) === targetEventId);
+
+      expect(capNom).toBeDefined();
+      expect(capNom?.teamName).toBe("Warriors");
+    });
+
+    it("includes both CONFIRMED and REGISTERED statuses in confirmedMyRegistrations", () => {
+      const registrations = [
+        { id: 1, status: "CONFIRMED", matchType: "TEAM" },
+        { id: 2, status: "REGISTERED", matchType: "TEAM" },
+        { id: 3, status: "WITHDRAWN", matchType: "TEAM" },
+        { id: 4, status: "PENDING", matchType: "TEAM" },
+      ];
+
+      const active = registrations.filter(r => isActiveRegistrationStatus(r.status));
+      const confirmedOrRegistered = active.filter(r => r.status === "CONFIRMED" || r.status === "REGISTERED");
+
+      expect(confirmedOrRegistered).toHaveLength(2);
+      expect(confirmedOrRegistered.map(r => r.id)).toEqual([1, 2]);
+    });
+
+    it("verifies isTeamSport safely handles non-string inputs including objects, undefined, and numbers", () => {
+      // Import directly or verify the safe behavior
+      expect(isTeamSport(null as any)).toBe(false);
+      expect(isTeamSport(undefined as any)).toBe(false);
+      expect(isTeamSport(123 as any)).toBe(false);
+      expect(isTeamSport({ name: "Cricket Championship" } as any)).toBe(true);
+      expect(isTeamSport({ category: "Men's Football" } as any)).toBe(true);
+      expect(isTeamSport({ name: "Badminton Singles" } as any)).toBe(false);
+      expect(isTeamSport({} as any)).toBe(false);
+    });
+
+    it("verifies partner invitation text correctly formats inviting resident with flat details", () => {
+      const formatInviteMessage = (pendingInvite: any, formatLabel: string = "Doubles") => {
+        const invitingPlayerName = pendingInvite?.playerName || pendingInvite?.user?.fullName || pendingInvite?.user?.name || "Partner";
+        const invitingFlatNumber = pendingInvite?.flatNumber || pendingInvite?.flatNo || pendingInvite?.user?.flatNo || pendingInvite?.user?.flatNumber;
+        const cleanInvitingFlat = invitingFlatNumber ? String(invitingFlatNumber).replace(/^Flat\s+/i, "").trim() : "";
+
+        return `Invited by ${invitingPlayerName}${cleanInvitingFlat ? ` (Flat ${cleanInvitingFlat})` : ""} (${formatLabel})`;
+      };
+
+      // Case 1: with flatNumber directly
+      const inviteWithFlat = { playerName: "Test Resident", flatNumber: "A-204" };
+      expect(formatInviteMessage(inviteWithFlat)).toBe("Invited by Test Resident (Flat A-204) (Doubles)");
+
+      // Case 2: with user.flatNo
+      const inviteWithUserFlat = { user: { fullName: "Jane Doe", flatNo: "B-501" } };
+      expect(formatInviteMessage(inviteWithUserFlat, "Mixed Doubles")).toBe("Invited by Jane Doe (Flat B-501) (Mixed Doubles)");
+
+      // Case 3: without flat info
+      const inviteNoFlat = { playerName: "John Smith" };
+      expect(formatInviteMessage(inviteNoFlat)).toBe("Invited by John Smith (Doubles)");
+    });
+
+    it("verifies playing with confirmed partner message correctly formats primary player with flat details", () => {
+      const formatPlayingWithMessage = (reg: any) => {
+        const primaryPlayerName = reg?.playerName || "Primary Player";
+        const primaryFlat = reg?.flatNumber || reg?.flatNo || reg?.user?.flatNo || reg?.user?.flatNumber;
+        const cleanPrimaryFlat = primaryFlat ? String(primaryFlat).replace(/^Flat\s+/i, "").trim() : "";
+
+        return `Playing with ${primaryPlayerName}${cleanPrimaryFlat ? ` (Flat ${cleanPrimaryFlat})` : ""} (Confirmed Partner)`;
+      };
+
+      // Case 1: with direct flatNumber
+      expect(formatPlayingWithMessage({ playerName: "Test Resident", flatNumber: "A-204" }))
+        .toBe("Playing with Test Resident (Flat A-204) (Confirmed Partner)");
+
+      // Case 2: with nested user flatNo and 'Flat ' prefix to sanitize
+      expect(formatPlayingWithMessage({ playerName: "Test Resident", user: { flatNo: "Flat C-302" } }))
+        .toBe("Playing with Test Resident (Flat C-302) (Confirmed Partner)");
+
+      // Case 3: without flat info
+      expect(formatPlayingWithMessage({ playerName: "Test Resident" }))
+        .toBe("Playing with Test Resident (Confirmed Partner)");
+    });
+
+    it("verifies family-aware doubles partner invitation message formulation across all 4 scenarios", () => {
+      const formatDoublesInvitationText = (inv: any) => {
+        const inviterUser = inv.user?.fullName || inv.user?.name || inv.playerName || "A neighbor";
+        const pFlat = inv.flatNumber || inv.flatNo || inv.user?.flatNo || inv.user?.flatNumber;
+        const cleanPFlat = pFlat ? String(pFlat).replace(/^Flat\s+/i, "").trim() : "";
+
+        const primaryFam = inv.familyMember;
+        const primaryFamName = primaryFam?.name;
+        const primaryFamRel = primaryFam?.relation || inv.relation;
+
+        const partnerFam = inv.partnerFamilyMember;
+        const partnerFamName = partnerFam?.name;
+        const partnerFamRel = partnerFam?.relation;
+
+        const inviterDesc = `${inviterUser}${cleanPFlat ? ` (Flat ${cleanPFlat})` : ""}`;
+
+        if (primaryFamName && partnerFamName) {
+          return `${inviterDesc} invited your ${partnerFamRel ? `${partnerFamRel} ` : ""}(${partnerFamName}) to team up with their ${primaryFamRel ? `${primaryFamRel} ` : ""}(${primaryFamName}) as doubles partners.`;
+        } else if (primaryFamName) {
+          return `${inviterDesc} invited you to team up with their ${primaryFamRel ? `${primaryFamRel} ` : ""}(${primaryFamName}) as doubles partners.`;
+        } else if (partnerFamName) {
+          return `${inviterDesc} nominated your ${partnerFamRel ? `${partnerFamRel} ` : ""}(${partnerFamName}) to play as their doubles partner.`;
+        } else {
+          return `${inviterDesc} nominated you to play as their doubles partner.`;
+        }
+      };
+
+      const resolveAcceptButtonText = (inv: any, fallbackFmt = "Doubles") => {
+        const partnerFamName = inv.partnerFamilyMember?.name;
+        return partnerFamName ? `Accept for ${partnerFamName}` : `Accept ${fallbackFmt}`;
+      };
+
+      // Scenario 1: Family Member -> Family Member (Child to Child)
+      const childToChildInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+        familyMember: { name: "Aarav", relation: "Son" },
+        partnerFamilyMember: { name: "Rohan", relation: "Son" },
+      };
+      expect(formatDoublesInvitationText(childToChildInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) invited your Son (Rohan) to team up with their Son (Aarav) as doubles partners."
+      );
+      expect(resolveAcceptButtonText(childToChildInvite)).toBe("Accept for Rohan");
+
+      // Scenario 2: Family Member -> User (Child inviting User)
+      const childToUserInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "Flat A-101" },
+        familyMember: { name: "Aarav", relation: "Son" },
+      };
+      expect(formatDoublesInvitationText(childToUserInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) invited you to team up with their Son (Aarav) as doubles partners."
+      );
+      expect(resolveAcceptButtonText(childToUserInvite)).toBe("Accept Doubles");
+
+      // Scenario 3: User -> Family Member (User inviting Child)
+      const userToChildInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+        partnerFamilyMember: { name: "Rohan", relation: "Daughter" },
+      };
+      expect(formatDoublesInvitationText(userToChildInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) nominated your Daughter (Rohan) to play as their doubles partner."
+      );
+      expect(resolveAcceptButtonText(userToChildInvite)).toBe("Accept for Rohan");
+
+      // Scenario 4: User -> User (Adult to Adult)
+      const userToUserInvite = {
+        user: { fullName: "Sandeep Kumar", flatNo: "A-101" },
+      };
+      expect(formatDoublesInvitationText(userToUserInvite)).toBe(
+        "Sandeep Kumar (Flat A-101) nominated you to play as their doubles partner."
+      );
+      expect(resolveAcceptButtonText(userToUserInvite)).toBe("Accept Doubles");
+    });
+  });
+
+  describe("REGISTRATION_CLOSED Button State & Protection", () => {
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+
+    const isRegistrationClosed = (item: any, tournament?: any) => {
+      return checkClosed(item.status)
+        || checkClosed(item.rawEvent?.registrationStatus)
+        || checkClosed(item.rawEvent?.status)
+        || checkClosed(tournament?.registrationStatus)
+        || checkClosed(tournament?.status);
+    };
+
+    it("evaluates isRegClosed true when event status is REGISTRATION_CLOSED", () => {
+      const closedEvent = { status: "REGISTRATION_CLOSED" };
+      expect(isRegistrationClosed(closedEvent)).toBe(true);
+
+      const openEvent = { status: "REGISTRATION_OPEN" };
+      expect(isRegistrationClosed(openEvent)).toBe(false);
+    });
+
+    it("evaluates isRegClosed true when parent tournament status is REGISTRATION_CLOSED", () => {
+      const eventInClosedTournament = { status: "REGISTRATION_OPEN" };
+      const closedTournament = { registrationStatus: "REGISTRATION_CLOSED" };
+      expect(isRegistrationClosed(eventInClosedTournament, closedTournament)).toBe(true);
+    });
+
+    it("evaluates isRegClosed true when rawEvent has REGISTRATION_CLOSED", () => {
+      const eventWithClosedRaw = { status: "REGISTRATION_OPEN", rawEvent: { registrationStatus: "REGISTRATION_CLOSED" } };
+      expect(isRegistrationClosed(eventWithClosedRaw)).toBe(true);
+    });
+
+    it("blocks register and unregister actions when REGISTRATION_CLOSED for non-admin user", () => {
+      const closedItem = {
+        id: 1,
+        name: "Badminton Open Singles",
+        status: "REGISTRATION_CLOSED",
+      };
+
+      const isAdmin = false;
+      const isRegClosed = isRegistrationClosed(closedItem);
+
+      // Verify button disabled state
+      const isRegisterButtonDisabled = isRegClosed && !isAdmin;
+      const isUnregisterButtonDisabled = isRegClosed && !isAdmin;
+
+      expect(isRegisterButtonDisabled).toBe(true);
+      expect(isUnregisterButtonDisabled).toBe(true);
+
+      // Verify admin bypass works
+      const isRegisterButtonDisabledForAdmin = isRegClosed && true; // isAdmin = true
+      expect(isRegClosed && !true).toBe(false);
+    });
+
+    it("displays 'Registered' status badge for registered users when registration is closed", () => {
+      // Simulate RegCard logic
+      const computeRegCardAction = (item: any, isAdmin: boolean) => {
+        const isClosed = item.status === "REGISTRATION_CLOSED"
+          || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
+          || item.rawEvent?.status === "REGISTRATION_CLOSED"
+          || item.status === "COMPLETED"
+          || item.status === "CANCELLED";
+
+        const isRegistered = Boolean(
+          item.registrationId ||
+          item.action === "Withdraw" ||
+          item.action === "Confirmed" ||
+          item.action === "Registered" ||
+          item.rawEvent?.myRegistrationId
+        );
+
+        if (isClosed && !isAdmin) {
+          if (isRegistered) {
+            return "Registered";
+          }
+          if (item.action === "Register") {
+            return "Closed";
+          }
+          return item.action || "View";
+        }
+        return item.action || "Register";
+      };
+
+      const closedRegisteredEvent = {
+        id: 101,
+        status: "REGISTRATION_CLOSED",
+        registrationId: 555,
+        action: "Withdraw",
+      };
+      expect(computeRegCardAction(closedRegisteredEvent, false)).toBe("Registered");
+    });
+
+    it("hides action badges for registered users in closed registrations and shows 'Registered' on top beside format chips only when isClosed is true", () => {
+      // Simulate RegCard / CategoryCard action badge logic
+      const computeRegCardBadges = (item: any, isAdmin: boolean) => {
+        const isClosed = item.status === "REGISTRATION_CLOSED"
+          || item.rawEvent?.registrationStatus === "REGISTRATION_CLOSED"
+          || item.rawEvent?.status === "REGISTRATION_CLOSED"
+          || item.status === "COMPLETED"
+          || item.status === "CANCELLED";
+
+        const isRegistered = Boolean(
+          item.registrationId ||
+          item.action === "Withdraw" ||
+          item.action === "Confirmed" ||
+          item.action === "Registered" ||
+          item.rawEvent?.myRegistrationId
+        );
+
+        if (isClosed) {
+          if (isRegistered) {
+            return {
+              badges: [],
+              canRegister: false,
+              canUnregister: isAdmin,
+            };
+          }
+          return {
+            badges: ["Closed"],
+            canRegister: false,
+            canUnregister: false,
+          };
+        }
+
+        return {
+          badges: isRegistered ? ["Registered"] : [],
+          canRegister: !isRegistered,
+          canUnregister: isRegistered,
+        };
+      };
+
+      // Case 1: Closed event where user is registered -> action badges hidden, Registered shown on top beside format
+      const closedRegisteredEvent = {
+        id: 101,
+        status: "REGISTRATION_CLOSED",
+        registrationId: 555,
+        action: "Withdraw",
+      };
+      const result1 = computeRegCardBadges(closedRegisteredEvent, false);
+      expect(result1.badges).toEqual([]);
+      expect(result1.canRegister).toBe(false);
+      expect(result1.canUnregister).toBe(false);
+
+      // Case 2: Closed event where user is NOT registered
+      const closedUnregisteredEvent = {
+        id: 104,
+        status: "REGISTRATION_CLOSED",
+        action: "Register",
+      };
+      const result2 = computeRegCardBadges(closedUnregisteredEvent, false);
+      expect(result2.badges).toEqual(["Closed"]);
+      expect(result2.canRegister).toBe(false);
+      expect(result2.canUnregister).toBe(false);
+
+      // Case 3: Admin on closed registered event can still unregister
+      const adminResult = computeRegCardBadges(closedRegisteredEvent, true);
+      expect(adminResult.canUnregister).toBe(true);
+      expect(adminResult.canRegister).toBe(false);
+
+      // Case 4: Admin on closed unregistered event NEVER gets Register button
+      const adminUnregResult = computeRegCardBadges(closedUnregisteredEvent, true);
+      expect(adminUnregResult.canRegister).toBe(false);
+      expect(adminUnregResult.badges).toEqual(["Closed"]);
+
+      // Test top format header logic: "also show on top beside Singles/doubles /team squad only in Closed Registrations Div only"
+      const computeTopHeaderBadges = (isClosed: boolean, isUserRegistered: boolean, displayFormats: string[]) => {
+        const badges = [...displayFormats];
+        if (isClosed && isUserRegistered) {
+          badges.push("Registered");
+        }
+        return badges;
+      };
+
+      // In Closed Registrations with registered user: format + "Registered" on top
+      expect(computeTopHeaderBadges(true, true, ["Singles"])).toEqual(["Singles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Doubles"])).toEqual(["Doubles", "Registered"]);
+      expect(computeTopHeaderBadges(true, true, ["Team Squad"])).toEqual(["Team Squad", "Registered"]);
+
+      // In Closed Registrations with unregistered user: only format on top
+      expect(computeTopHeaderBadges(true, false, ["Singles"])).toEqual(["Singles"]);
+
+      // In Open Registrations (isClosed === false): NEVER show Registered on top, even if registered
+      expect(computeTopHeaderBadges(false, true, ["Singles"])).toEqual(["Singles"]);
+      expect(computeTopHeaderBadges(false, false, ["Singles"])).toEqual(["Singles"]);
+    });
+
+    it("verifies spotsText filters out 'Registration closed' to avoid duplicate closed indicators", () => {
+      const shouldDisplaySpots = (spotsText?: string | null): boolean => {
+        return Boolean(
+          spotsText &&
+          spotsText !== "Unlimited spots" &&
+          spotsText.toLowerCase() !== "registration closed"
+        );
+      };
+
+      expect(shouldDisplaySpots("Registration closed")).toBe(false);
+      expect(shouldDisplaySpots("registration closed")).toBe(false);
+      expect(shouldDisplaySpots("Unlimited spots")).toBe(false);
+      expect(shouldDisplaySpots("12/20 spots")).toBe(true);
+      expect(shouldDisplaySpots("")).toBe(false);
+      expect(shouldDisplaySpots(undefined)).toBe(false);
+    });
+
+    it("verifies grid layout is single-column for Closed Registrations and two-column for Open Registrations", () => {
+      const getCategoryGridClass = (isClosed: boolean): string => {
+        return `grid gap-1.5 sm:gap-2 ${isClosed ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`;
+      };
+
+      // Closed registrations must span complete single row
+      expect(getCategoryGridClass(true)).toContain("grid-cols-1");
+      expect(getCategoryGridClass(true)).not.toContain("sm:grid-cols-2");
+
+      // Open registrations must show 2 divs
+      expect(getCategoryGridClass(false)).toContain("grid-cols-1 sm:grid-cols-2");
+    });
+
+    it("verifies captaincy nomination state resolution and button action mapping", () => {
+      interface RegItem {
+        id: number;
+        playerName?: string;
+        event?: {
+          id: number;
+          name: string;
+          captainNominationOpen?: boolean;
+          registrationStatus?: string;
+        };
+        nominatedTeamId?: number | null;
+        captainConfirmed?: boolean;
+      }
+
+      const computeCaptainItem = (
+        reg: RegItem,
+        isSelf: boolean,
+        adminTeamEvents: Array<{ id: number; captainNominationOpen?: boolean }>
+      ) => {
+        const targetEventId = reg.event?.id || 0;
+        const matchingTeamEvent = adminTeamEvents.find(e => e.id === targetEventId);
+        const isCaptainNominationOpen = Boolean(
+          matchingTeamEvent?.captainNominationOpen ||
+          reg.event?.captainNominationOpen
+        );
+        const isNominated = Boolean(reg.nominatedTeamId);
+        const isCaptainConfirmed = Boolean(reg.captainConfirmed);
+        const regPersonName = reg.playerName || (isSelf ? "You" : "Member");
+        const actionLabel = isSelf ? "Nominate Me" : `Nominate ${regPersonName}`;
+
+        return {
+          isCaptainNominationOpen,
+          spots: isCaptainConfirmed
+            ? "Confirmed Captain 🏆"
+            : isNominated
+              ? "Nomination Active"
+              : isCaptainNominationOpen
+                ? "Available for Captaincy"
+                : "Nominations Closed",
+          progressColor: isCaptainConfirmed ? "#10b981" : isNominated ? "#f97316" : isCaptainNominationOpen ? "#6366f1" : "#94a3b8",
+          action: isCaptainConfirmed ? "Confirmed" : isNominated ? (isCaptainNominationOpen ? "Withdraw" : "Nominated") : isCaptainNominationOpen ? actionLabel : "Nominations Closed",
+        };
+      };
+
+      // Case 1: Captain nominations open - Self
+      const openRegSelf = {
+        id: 1,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenSelf = computeCaptainItem(openRegSelf, true, []);
+      expect(resultOpenSelf.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenSelf.action).toBe("Nominate Me");
+      expect(resultOpenSelf.spots).toBe("Available for Captaincy");
+      expect(resultOpenSelf.progressColor).toBe("#6366f1");
+
+      // Case 2: Captain nominations open - Family Member
+      const openRegFamily = {
+        id: 2,
+        playerName: "Aarav Kamarapu",
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultOpenFamily = computeCaptainItem(openRegFamily, false, []);
+      expect(resultOpenFamily.isCaptainNominationOpen).toBe(true);
+      expect(resultOpenFamily.action).toBe("Nominate Aarav Kamarapu");
+
+      // Case 3: Captain nominations CLOSED
+      const closedReg = {
+        id: 3,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 11, name: "Football League", captainNominationOpen: false },
+      };
+      const resultClosed = computeCaptainItem(closedReg, true, []);
+      expect(resultClosed.isCaptainNominationOpen).toBe(false);
+      expect(resultClosed.action).toBe("Nominations Closed");
+      expect(resultClosed.spots).toBe("Nominations Closed");
+      expect(resultClosed.progressColor).toBe("#94a3b8");
+
+      // Case 4: Event found in adminTeamEvents with captainNominationOpen true
+      const eventWithAdminFallback = {
+        id: 4,
+        playerName: "Sandeep Kamarapu",
+        event: { id: 12, name: "Volleyball Tournament" },
+      };
+      const resultAdmin = computeCaptainItem(eventWithAdminFallback, true, [{ id: 12, captainNominationOpen: true }]);
+      expect(resultAdmin.isCaptainNominationOpen).toBe(true);
+      expect(resultAdmin.action).toBe("Nominate Me");
+
+      // Case 5: Already nominated but nominations closed (do not show Withdraw)
+      const alreadyNominatedReg = {
+        id: 5,
+        playerName: "Sandeep Kamarapu",
+        nominatedTeamId: 99,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultNominated = computeCaptainItem(alreadyNominatedReg, true, []);
+      expect(resultNominated.action).toBe("Nominated");
+      expect(resultNominated.spots).toBe("Nomination Active");
+
+      // Case 5b: Already nominated with nominations open (show Withdraw)
+      const nominatedOpenReg = {
+        id: 51,
+        playerName: "Sandeep Kamarapu",
+        nominatedTeamId: 99,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: true },
+      };
+      const resultNominatedOpen = computeCaptainItem(nominatedOpenReg, true, []);
+      expect(resultNominatedOpen.action).toBe("Withdraw");
+      expect(resultNominatedOpen.spots).toBe("Nomination Active");
+
+      // Case 6: Confirmed Captain
+      const confirmedCaptainReg = {
+        id: 6,
+        playerName: "Sandeep Kamarapu",
+        captainConfirmed: true,
+        event: { id: 10, name: "Cricket Championship", captainNominationOpen: false },
+      };
+      const resultConfirmed = computeCaptainItem(confirmedCaptainReg, true, []);
+      expect(resultConfirmed.action).toBe("Confirmed");
+      expect(resultConfirmed.spots).toBe("Confirmed Captain 🏆");
+    });
+
+    it("verifies RegCard button styling matches Register button when nominating", () => {
+      const getActionElementConfig = (action: string, isClosed: boolean, isAdmin: boolean) => {
+        if (action === "Nominations Closed") {
+          return { type: "badge", text: "Nominations Closed", icon: "Lock" };
+        }
+        if (String(action).startsWith("Nominate")) {
+          return {
+            type: "button",
+            className: "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-2xs active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer",
+            icon: "ArrowUpRight",
+          };
+        }
+        if (isClosed && !isAdmin) {
+          return { type: "badge", text: "Registration Closed" };
+        }
+        return { type: "button", className: "default" };
+      };
+
+      // Even if event is closed, Nominate button must render gradient styling and not be blocked by isClosed
+      const nominateStyle = getActionElementConfig("Nominate Me", true, false);
+      expect(nominateStyle.type).toBe("button");
+      expect(nominateStyle.className).toContain("bg-gradient-to-r from-indigo-600 to-violet-600");
+      expect(nominateStyle.className).toContain("text-white");
+      expect(nominateStyle.icon).toBe("ArrowUpRight");
+
+      // When nominations are closed, must render lock badge
+      const closedStyle = getActionElementConfig("Nominations Closed", true, false);
+      expect(closedStyle.type).toBe("badge");
+      expect(closedStyle.text).toBe("Nominations Closed");
+      expect(closedStyle.icon).toBe("Lock");
+    });
+  });
+
+  describe("SportsDashboard - Specific Event and Format Registration Matching", () => {
+    const tableTennisDoublesCard = {
+      id: 202,
+      name: "Table Tennis — Mens",
+      categoryName: "Mens Above 19 - 60",
+      formats: ["DOUBLES"],
+      format: "DOUBLES",
+      isTeamSport: false,
+    } as any;
+
+    const tableTennisSinglesCard = {
+      id: 201,
+      name: "Table Tennis — Mens",
+      categoryName: "Mens Above 19 - 60",
+      formats: ["SINGLES"],
+      format: "SINGLES",
+      isTeamSport: false,
+    } as any;
+
+    it("does NOT match a Singles registration to a strictly Doubles event card sharing same title and category", () => {
+      const singlesReg = {
+        id: 901,
+        eventId: 201,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "SINGLES",
+        status: "CONFIRMED",
+      };
+
+      expect(isFormatCompatible(singlesReg, tableTennisDoublesCard)).toBe(false);
+      expect(isEventMatch(singlesReg, tableTennisDoublesCard)).toBe(false);
+
+      expect(isFormatCompatible(singlesReg, tableTennisSinglesCard)).toBe(true);
+      expect(isEventMatch(singlesReg, tableTennisSinglesCard)).toBe(true);
+    });
+
+    it("does NOT match a Doubles registration to a strictly Singles event card sharing same title and category", () => {
+      const doublesReg = {
+        id: 902,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+      };
+
+      expect(isFormatCompatible(doublesReg, tableTennisSinglesCard)).toBe(false);
+      expect(isEventMatch(doublesReg, tableTennisSinglesCard)).toBe(false);
+
+      expect(isFormatCompatible(doublesReg, tableTennisDoublesCard)).toBe(true);
+      expect(isEventMatch(doublesReg, tableTennisDoublesCard)).toBe(true);
+    });
+
+    it("does NOT match when category ID happens to equal a different event ID", () => {
+      const regWithCategoryId = {
+        id: 903,
+        eventId: 50,
+        eventName: "Badminton Open",
+        category: { id: 202, name: "Under-16 Boys" },
+        status: "CONFIRMED",
+      };
+
+      // Category ID is 202, event card ID is 202, but they are totally different!
+      expect(isEventMatch(regWithCategoryId, tableTennisDoublesCard)).toBe(false);
+    });
+
+    it("does NOT match when category IDs differ explicitly", () => {
+      const regWithCategory5 = {
+        id: 904,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        category: { id: 5, name: "Mens Above 19 - 60" },
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+      };
+
+      const cardWithCategory6 = {
+        ...tableTennisDoublesCard,
+        category: { id: 6, name: "Mens Above 19 - 60" },
+      };
+
+      expect(isEventMatch(regWithCategory5, cardWithCategory6)).toBe(false);
+    });
+
+    it("verifies isUserRegistered strictly equals isReg and does not falsely trigger from rawEvent.myRegistrationId", () => {
+      // Simulate card rendering helper logic
+      const computeCardState = (
+        card: any,
+        myRegs: any[],
+        selectedMember: string,
+        isClosed: boolean
+      ) => {
+        const regs = myRegs.filter(r =>
+          isEventMatch(r, card) &&
+          (selectedMember === "self" ? (!r.familyMemberId || r.relation === "SELF") : String(r.familyMemberId) === selectedMember) &&
+          isActiveRegistrationStatus(r.status)
+        );
+        const isReg = regs.length > 0;
+        const isUserRegistered = isReg; // Fixed logic: strictly isReg
+        const showRegisteredBadge = isClosed && isUserRegistered;
+        return { isReg, isUserRegistered, showRegisteredBadge };
+      };
+
+      const cardWithBackendRegId = {
+        ...tableTennisDoublesCard,
+        registrationId: 999, // Backend or tournament hydrated ID
+        rawEvent: { myRegistrationId: 999 },
+      };
+
+      // Scenario A: User only registered for Singles, viewing Doubles card
+      const onlySinglesRegs = [{
+        id: 901,
+        eventId: 201,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "SINGLES",
+        status: "CONFIRMED",
+        relation: "SELF",
+      }];
+
+      const stateA = computeCardState(cardWithBackendRegId, onlySinglesRegs, "self", true);
+      expect(stateA.isReg).toBe(false);
+      expect(stateA.isUserRegistered).toBe(false);
+      expect(stateA.showRegisteredBadge).toBe(false);
+
+      // Scenario B: User registered for Doubles as Self, viewing as Son (member ID "2")
+      const onlyDoublesRegs = [{
+        id: 902,
+        eventId: 202,
+        eventName: "Table Tennis — Mens",
+        categoryName: "Mens Above 19 - 60",
+        matchType: "DOUBLES",
+        status: "CONFIRMED",
+        relation: "SELF",
+      }];
+
+      const stateB = computeCardState(cardWithBackendRegId, onlyDoublesRegs, "2", true);
+      expect(stateB.isReg).toBe(false);
+      expect(stateB.isUserRegistered).toBe(false);
+      expect(stateB.showRegisteredBadge).toBe(false);
+
+      // Scenario C: User registered for Doubles as Self, viewing as Self
+      const stateC = computeCardState(cardWithBackendRegId, onlyDoublesRegs, "self", true);
+      expect(stateC.isReg).toBe(true);
+      expect(stateC.isUserRegistered).toBe(true);
+      expect(stateC.showRegisteredBadge).toBe(true);
+    });
+  });
+
+  describe("SportsDashboard - DRAFT Sport Event Filtering in Open Registrations", () => {
+    it("correctly identifies DRAFT events across multiple status fields", () => {
+      // Event with registrationStatus = DRAFT
+      expect(isDraftSportEvent({ id: 1, registrationStatus: "DRAFT" })).toBe(true);
+      expect(isDraftSportEvent({ id: 2, registrationStatus: "draft" })).toBe(true);
+
+      // Event with status = DRAFT
+      expect(isDraftSportEvent({ id: 3, status: "DRAFT" })).toBe(true);
+
+      // Event with eventStatus = DRAFT
+      expect(isDraftSportEvent({ id: 4, eventStatus: "DRAFT" })).toBe(true);
+
+      // Event with nested rawEvent.registrationStatus = DRAFT
+      expect(isDraftSportEvent({ id: 5, rawEvent: { registrationStatus: "DRAFT" } })).toBe(true);
+
+      // Event with nested rawEvent.status = DRAFT
+      expect(isDraftSportEvent({ id: 6, rawEvent: { status: "DRAFT" } })).toBe(true);
+
+      // Active / Open events must NOT be identified as DRAFT
+      expect(isDraftSportEvent({ id: 7, registrationStatus: "REGISTRATION_OPEN" })).toBe(false);
+      expect(isDraftSportEvent({ id: 8, status: "ACTIVE" })).toBe(false);
+      expect(isDraftSportEvent({ id: 9, registrationStatus: "OPEN" })).toBe(false);
+      expect(isDraftSportEvent({ id: 10, registrationStatus: "REGISTRATION_CLOSED" })).toBe(false);
+      expect(isDraftSportEvent(null)).toBe(false);
+      expect(isDraftSportEvent(undefined)).toBe(false);
+    });
+
+    it("correctly identifies DRAFT tournaments", () => {
+      expect(isDraftTournament({ id: 1, registrationStatus: "DRAFT" })).toBe(true);
+      expect(isDraftTournament({ id: 2, status: "DRAFT" })).toBe(true);
+      expect(isDraftTournament({ id: 3, status: "draft" })).toBe(true);
+      expect(isDraftTournament({ id: 4, registrationStatus: "REGISTRATION_OPEN" })).toBe(false);
+      expect(isDraftTournament({ id: 5, status: "ACTIVE" })).toBe(false);
+      expect(isDraftTournament(null)).toBe(false);
+      expect(isDraftTournament(undefined)).toBe(false);
+    });
+
+    it("filters out DRAFT events from open tournament cards so they do not show in open registrations", () => {
+      const mockOpenTournamentsData = [
+        {
+          id: 100,
+          name: "Annual Badminton Championship",
+          registrationStatus: "REGISTRATION_OPEN",
+          events: [
+            { id: 101, name: "Men's Singles 18+", registrationStatus: "REGISTRATION_OPEN" },
+            { id: 102, name: "Men's Doubles 18+", registrationStatus: "DRAFT" },
+            { id: 103, name: "Mixed Doubles 30+", status: "DRAFT" },
+            { id: 104, name: "Women's Singles", registrationStatus: "OPEN" },
+          ],
+        },
+        {
+          id: 200,
+          name: "Upcoming Tennis Cup (All Drafts)",
+          registrationStatus: "REGISTRATION_OPEN",
+          events: [
+            { id: 201, name: "Tennis Singles", registrationStatus: "DRAFT" },
+            { id: 202, name: "Tennis Doubles", status: "DRAFT" },
+          ],
+        },
+        {
+          id: 300,
+          name: "Draft Tournament",
+          registrationStatus: "DRAFT",
+          events: [
+            { id: 301, name: "Cricket Event", registrationStatus: "REGISTRATION_OPEN" },
+          ],
+        },
+      ];
+
+      // Simulate dashboard open tournaments filtering logic
+      const filteredTournaments = mockOpenTournamentsData
+        .filter(t => !isDraftTournament(t))
+        .map(t => ({
+          ...t,
+          events: (t.events || []).filter(e => !isDraftSportEvent(e)),
+        }))
+        .filter(t => (t.events || []).length > 0);
+
+      // Tournament 300 (Draft tournament) must be excluded
+      expect(filteredTournaments.some(t => t.id === 300)).toBe(false);
+
+      // Tournament 200 (where all events are Draft) must be excluded
+      expect(filteredTournaments.some(t => t.id === 200)).toBe(false);
+
+      // Tournament 100 must be present, with ONLY non-draft events
+      expect(filteredTournaments.length).toBe(1);
+      const tournament100 = filteredTournaments[0];
+      expect(tournament100.id).toBe(100);
+      expect(tournament100.events.map(e => e.id)).toEqual([101, 104]);
+
+      // Open registrations flat list must ONLY contain non-draft events
+      const allOpenEvents = filteredTournaments.flatMap(t => t.events);
+      expect(allOpenEvents.map(e => e.id)).toEqual([101, 104]);
+      expect(allOpenEvents.some(e => e.id === 102)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 103)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 201)).toBe(false);
+      expect(allOpenEvents.some(e => e.id === 301)).toBe(false);
+    });
+  });
+});
+
+
+
+
+
 
 

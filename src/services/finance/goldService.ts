@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export interface GoldPrice { per_gram_22k: number; per_gram_24k: number; change_pct_24h: number; updated_at: string; }
 export interface GoldHolding { id: string; grams: number; purity: "22K" | "24K"; avg_buy_price: number; current_value: number; unrealised_pnl: number; unrealised_pnl_pct: number; }

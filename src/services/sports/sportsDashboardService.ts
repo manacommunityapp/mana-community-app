@@ -74,6 +74,8 @@ export interface DashboardMyRegistration {
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
   playerName?: string | null;
+  flatNumber?: string | null;
+  flatNo?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
   partnerUserId?: number | string | null;
@@ -139,6 +141,9 @@ export const sportsDashboardService = {
   },
   async getClosedTournaments(): Promise<DashboardTournamentCard[]> {
     return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/closed-tournaments");
+  },
+  async getCompletedTournaments(): Promise<DashboardTournamentCard[]> {
+    return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/completed-tournaments");
   },
   async getMyRegistrations(): Promise<DashboardMyRegistration[]> {
     return apiClient.get<DashboardMyRegistration[]>("/sports/dashboard/my-registrations");

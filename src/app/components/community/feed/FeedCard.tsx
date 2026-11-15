@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MessageSquare, Heart, Share2, Sparkles } from "lucide-react";
+import { MessageSquare, Heart, Share2, Sparkles, Trophy } from "lucide-react";
 import type { CursorFeedItem } from "../../../../services/community/feedService";
 
 interface FeedCardProps {
@@ -80,7 +80,13 @@ export function FeedCard({ item, onLike, onCommentClick }: FeedCardProps) {
       </div>
 
       {/* Title & Summary */}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
+        {item.postType === "SPORTS" && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-200/80 rounded-md text-[10.5px] font-extrabold text-amber-800">
+            <Trophy className="w-3 h-3 text-amber-600" />
+            <span>Sports Result</span>
+          </div>
+        )}
         {item.title && (
           <h3 className="text-sm font-extrabold text-slate-900 leading-snug">
             {item.title}

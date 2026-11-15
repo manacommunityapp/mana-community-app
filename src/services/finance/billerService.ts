@@ -1,7 +1,7 @@
 // billerService.ts — BBPS (Bharat Bill Payment System) service for web app
 // Hybrid fallback: tries backend first, falls back to in-memory mock data.
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export type BillerCategory =
   | "ELECTRICITY" | "GAS" | "WATER" | "BROADBAND" | "DTH"

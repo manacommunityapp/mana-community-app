@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers, Trophy, AlertCircle } from "lucide-react";
+import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers, Trophy, AlertCircle, Crown } from "lucide-react";
 import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
@@ -1258,24 +1258,43 @@ export function SportsEventSection({
                         </div>
                       )}
 
-                      {/* ─── Auction-based event (team sports only) ─── */}
+                      {/* ─── Team Sport Options (Captaincy & Auction) ─── */}
                       {isTeamSport(form.name) && (
-                        <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 bg-amber-50/50 cursor-pointer hover:bg-amber-50 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={!!ev.auctionEnabled}
-                            onChange={e => updateSportFormEvent(form.id, ev.id, "auctionEnabled", e.target.checked)}
-                            className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-1.5 text-xs sm:text-[13px] font-bold text-amber-900">
-                              <Gavel className="w-3.5 h-3.5 text-amber-700" /> Auction-based event
+                        <div className="space-y-2.5">
+                          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-indigo-200 bg-indigo-50/40 cursor-pointer hover:bg-indigo-50/70 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={!!ev.captainNominationOpen}
+                              onChange={e => updateSportFormEvent(form.id, ev.id, "captainNominationOpen", e.target.checked)}
+                              className="mt-0.5 w-4 h-4 accent-indigo-600 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-1.5 text-xs sm:text-[13px] font-bold text-indigo-950">
+                                <Crown className="w-3.5 h-3.5 text-indigo-600" /> Allow Captaincy Nominations
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5 leading-tight">
+                                Open captaincy nominations for registered players in this team event.
+                              </p>
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5 leading-tight">
-                              Mark this team event for player auction. Teams, budget and bidding are configured on the Auction screen.
-                            </p>
-                          </div>
-                        </label>
+                          </label>
+
+                          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-200 bg-amber-50/50 cursor-pointer hover:bg-amber-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={!!ev.auctionEnabled}
+                              onChange={e => updateSportFormEvent(form.id, ev.id, "auctionEnabled", e.target.checked)}
+                              className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-1.5 text-xs sm:text-[13px] font-bold text-amber-900">
+                                <Gavel className="w-3.5 h-3.5 text-amber-700" /> Auction-based event
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5 leading-tight">
+                                Mark this team event for player auction. Teams, budget and bidding are configured on the Auction screen.
+                              </p>
+                            </div>
+                          </label>
+                        </div>
                       )}
 
                       {/* ─── Event Contact Information ─── */}

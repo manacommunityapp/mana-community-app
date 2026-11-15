@@ -43,6 +43,7 @@ export interface OpenRegistration {
   registrationId?: number;
   auctionStatus?: string;
   isTeamSport?: boolean;
+  captainNominationOpen?: boolean;
   sportEmoji?: string;
   categoryName?: string;
   gender?: string | null;

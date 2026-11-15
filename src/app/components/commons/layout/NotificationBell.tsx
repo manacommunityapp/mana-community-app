@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import {
   Bell, Check, CheckCheck, X, Trash2, Trophy, CalendarDays,
   Megaphone, Sparkles, AlertCircle, ChevronRight, Filter,
-  Volume2, VolumeX, SlidersHorizontal, Inbox, Clock
+  Volume2, VolumeX, SlidersHorizontal, Inbox, Clock, Lock
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -449,7 +449,7 @@ function getDestinationMeta(targetUrl: string) {
   return { name: "Module Details", icon: "⚡", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
 }
 
-function getPartnerRegistrationId(n: NotificationItem): number | null {
+export function getPartnerRegistrationId(n: NotificationItem): number | null {
   if (n.metadata) {
     try {
       const parsed = JSON.parse(n.metadata);
@@ -466,6 +466,20 @@ function getPartnerRegistrationId(n: NotificationItem): number | null {
   return null;
 }
 
+export function isPartnerInviteActionable(
+  inviteMeta?: { isRegistrationOpen?: boolean; status?: string; registrationStatus?: string }
+): boolean {
+  if (!inviteMeta) return true;
+  if (inviteMeta.isRegistrationOpen !== undefined) {
+    return Boolean(inviteMeta.isRegistrationOpen);
+  }
+  const s = (inviteMeta.status || inviteMeta.registrationStatus || "").toUpperCase();
+  if (s === "REGISTRATION_CLOSED" || s === "COMPLETED" || s === "CANCELLED") {
+    return false;
+  }
+  return true;
+}
+
 export function NotificationBell() {
   const navigate = useNavigate();
   const { user, isSuperAdmin, hasPermission, hasAnyPermission } = useAuth();
@@ -477,6 +491,7 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [respondingId, setRespondingId] = useState<number | null>(null);
   const [pendingPartnerInviteIds, setPendingPartnerInviteIds] = useState<Set<number>>(new Set());
+  const [partnerInvitesMeta, setPartnerInvitesMeta] = useState<Map<number, { id: number; eventId?: number; isRegistrationOpen: boolean; status?: string; registrationStatus?: string }>>(new Map());
   const [respondedPartnerInvites, setRespondedPartnerInvites] = useState<Record<number, "ACCEPTED" | "DECLINED">>(() => {
     return safeStorage.getJSON(STORAGE_KEYS.RESPONDED_PARTNER_INVITES, {});
   });
@@ -538,7 +553,34 @@ export function NotificationBell() {
       try {
         const pendingInvites = await sportsService.getPartnerInvitations("PENDING");
         if (Array.isArray(pendingInvites)) {
-          setPendingPartnerInviteIds(new Set(pendingInvites.map((inv: any) => Number(inv.id))));
+          const ids = new Set<number>();
+          const metaMap = new Map<number, { id: number; eventId?: number; isRegistrationOpen: boolean; status?: string; registrationStatus?: string }>();
+          for (const inv of pendingInvites) {
+            const regId = Number(inv.id);
+            ids.add(regId);
+            const ev = (inv as any).event;
+            const isOpen = ev
+              ? (ev.isRegistrationOpen !== undefined
+                  ? ev.isRegistrationOpen
+                  : (
+                    ev.status !== "REGISTRATION_CLOSED" &&
+                    ev.status !== "COMPLETED" &&
+                    ev.status !== "CANCELLED" &&
+                    ev.registrationStatus !== "REGISTRATION_CLOSED" &&
+                    ev.registrationStatus !== "COMPLETED" &&
+                    ev.registrationStatus !== "CANCELLED"
+                  ))
+              : true;
+            metaMap.set(regId, {
+              id: regId,
+              eventId: ev?.id,
+              isRegistrationOpen: Boolean(isOpen),
+              status: ev?.status,
+              registrationStatus: ev?.registrationStatus,
+            });
+          }
+          setPendingPartnerInviteIds(ids);
+          setPartnerInvitesMeta(metaMap);
         }
       } catch { /* silent */ }
 
@@ -1052,6 +1094,29 @@ export function NotificationBell() {
                                     <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                                       Invitation Responded
                                     </span>
+                                  </div>
+                                );
+                              }
+
+                              const inviteMeta = partnerInvitesMeta.get(partnerRegId);
+                              const isClosed = !isPartnerInviteActionable(inviteMeta);
+
+                              if (isClosed) {
+                                return (
+                                  <div className="mt-1.5 pt-1.5 border-t border-border/60 flex items-center justify-between gap-1.5">
+                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                      <Lock className="w-3 h-3 text-slate-400" />
+                                      <span>Registration Closed</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled={respondingId === partnerRegId}
+                                      onClick={(e) => handlePartnerResponse(e, n, partnerRegId, false)}
+                                      className="text-[9.5px] text-slate-400 hover:text-rose-500 font-medium px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                      title="Dismiss partner invitation"
+                                    >
+                                      Dismiss
+                                    </button>
                                   </div>
                                 );
                               }
