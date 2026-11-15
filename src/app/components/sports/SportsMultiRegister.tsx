@@ -1801,7 +1801,9 @@ export function SportsMultiRegister() {
             if (hasCategoryLinks || !(event.uuid || event.id)) return event;
             try {
               const details = await sportsService.getRegistrationDetails(event.uuid || event.id);
-              const detailedEvent = details?.event || {};
+              // The registration-details endpoint can include category associations that are
+              // not part of the base SportsEvent interface.
+              const detailedEvent = (details?.event || {}) as any;
               return {
                 ...event,
                 ...detailedEvent,
