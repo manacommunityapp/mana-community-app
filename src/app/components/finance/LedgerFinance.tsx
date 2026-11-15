@@ -33,10 +33,11 @@ import { NewVendorView } from "./expense/NewVendorView";
 import { VendorPaymentsView } from "./expense/VendorPaymentsView";
 import { NewVendorPaymentView } from "./expense/NewVendorPaymentView";
 import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
+import { UnifiedVendorsView } from "./vendor/UnifiedVendorsView";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useMenuPermission } from "../../../hooks/useMenuPermission";
 
-type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder" | "chart-of-accounts" | "journal-ledger" | "trial-balance";
+type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder" | "chart-of-accounts" | "journal-ledger" | "trial-balance" | "unified-vendors";
 
 export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" | "accounting" }) {
   const { user } = useAuth();
@@ -158,6 +159,7 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
                 {navPill("Vendor Payments", "vendor-payments", () => go("vendor-payments", "vendor-payments"))}
                 {navPill("Debit Notes", "debit-notes", () => go("debit-notes", "debit-notes"))}
                 {navPill("Vendors", "vendors", () => go("vendors", "vendors"))}
+                {navPill("Vendor Master", "unified-vendors", () => go("unified-vendors", "unified-vendors"))}
               </>
             )}
           </nav>
@@ -342,6 +344,7 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
             {view === "chart-of-accounts" && <ChartOfAccountsView />}
             {view === "journal-ledger" && <JournalLedgerView />}
             {view === "trial-balance" && <TrialBalanceView />}
+            {view === "unified-vendors" && <UnifiedVendorsView communityId={user?.communityId ?? 0} />}
             {view === "placeholder" && <PlaceholderView title={placeholderTitle} />}
           </div>
         </main>
