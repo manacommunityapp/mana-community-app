@@ -127,78 +127,39 @@ export const tournamentPaymentService = {
   },
 
   /**
-   * Record a player as paid for the tournament
+   * Record a player as paid for the tournament.
+   * Backend must succeed before local cache is updated — no local-first writes.
    */
   async recordPayment(
     tournamentId: number,
     payload: RecordPaymentPayload
   ): Promise<TournamentPlayerPayment> {
-    const nowIso = new Date().toISOString();
-    const paymentRecord: TournamentPlayerPayment = {
-      id: `pay-${Date.now()}`,
-      tournamentId,
-      playerKey: payload.playerKey,
-      userId: payload.userId,
-      familyMemberId: payload.familyMemberId,
-      playerName: payload.playerName,
-      flatNumber: payload.flatNumber,
-      phone: payload.phone,
-      email: payload.email,
-      paymentStatus: payload.paymentMode === "WAIVED" ? "WAIVED" : "PAID",
-      amount: payload.amount,
-      paymentMode: payload.paymentMode,
-      transactionRef: payload.transactionRef,
-      notes: payload.notes,
-      collectedByName: payload.collectedByName,
-      collectedByContact: payload.collectedByContact,
-      markedByUserId: payload.adminUserId,
-      markedByUserName: payload.adminUserName || "Admin",
-      paidAt: nowIso,
-      createdAt: nowIso,
-    };
+    const saved = await apiClient.post<TournamentPlayerPayment>(
+      `/sports/tournaments/${tournamentId}/payments/mark-paid`,
+      payload
+    );
 
-    // Save locally first to guarantee zero latency and offline support
+    // Only update local cache after the backend confirms the payment.
     const localMap = getLocalPayments(tournamentId);
-    localMap[payload.playerKey] = paymentRecord;
+    localMap[saved.playerKey] = saved;
     saveLocalPayments(tournamentId, localMap);
 
-    // Sync with backend API
-    try {
-      const saved = await apiClient.post<TournamentPlayerPayment>(
-        `/sports/tournaments/${tournamentId}/payments/mark-paid`,
-        paymentRecord
-      );
-      if (saved && saved.playerKey) {
-        localMap[payload.playerKey] = saved;
-        saveLocalPayments(tournamentId, localMap);
-        return saved;
-      }
-    } catch {
-      // If backend endpoint is unavailable, local paymentRecord is preserved
-    }
-
-    return paymentRecord;
+    return saved;
   },
 
   /**
-   * Mark a player as unpaid for the tournament (revert payment record)
+   * Mark a player as unpaid for the tournament (revert payment record).
+   * Backend must succeed before local cache is cleared.
    */
   async markUnpaid(tournamentId: number, playerKey: string): Promise<void> {
-    // Remove from local storage first for instant zero-latency UI update
-    const localMap = getLocalPayments(tournamentId);
-    if (localMap[playerKey]) {
-      delete localMap[playerKey];
-      saveLocalPayments(tournamentId, localMap);
-    }
+    await apiClient.post(
+      `/sports/tournaments/${tournamentId}/payments/mark-unpaid?playerKey=${encodeURIComponent(playerKey)}`
+    );
 
-    // Sync with backend API
-    try {
-      await apiClient.post(
-        `/sports/tournaments/${tournamentId}/payments/mark-unpaid?playerKey=${encodeURIComponent(playerKey)}`
-      );
-    } catch {
-      // If backend endpoint is unavailable, local removal is preserved
-    }
+    // Only remove from local cache after the backend confirms the reversal.
+    const localMap = getLocalPayments(tournamentId);
+    delete localMap[playerKey];
+    saveLocalPayments(tournamentId, localMap);
   },
 
   /**
