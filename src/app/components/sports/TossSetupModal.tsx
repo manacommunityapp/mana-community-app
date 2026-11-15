@@ -98,12 +98,13 @@ export function TossSetupModal({
     reset();
   };
 
-  const save = async (winnerId: number, dec: "BAT" | "BOWL") => {
+  const save = async (winnerId: number, dec: TossDecision) => {
     setSaving(true);
     try {
       await tournamentService.recordMatchToss(matchId, { tossWinnerTeamId: winnerId, tossDecision: dec });
       const winnerName = winnerId === teamAId ? teamAName : teamBName;
-      toast.success(`Toss saved — ${winnerName} elected to ${dec === "BAT" ? "bat" : "bowl"} first`);
+      const decisionLabel = dec === cfg.goFirstValue ? cfg.goFirstLabel : cfg.goSecondLabel;
+      toast.success(`Toss saved — ${winnerName}: ${decisionLabel}`);
       onSaved();
       onClose();
     } catch (e: any) {
