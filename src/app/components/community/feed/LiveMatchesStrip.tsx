@@ -201,7 +201,7 @@ function getMatchContextNarrative(m: FeedLiveMatch, isLive: boolean): { text: st
   }
 
   // Football / Basketball / Volleyball
-  return { text: m.roundName ? `${m.roundName} · Live` : "Live Action", highlight: false };
+  return { text: m.roundName || "Live Action", highlight: false };
 }
 
 export function LiveMatchesStrip() {
@@ -693,11 +693,11 @@ export function LiveMatchesStrip() {
   const isCricket = (m: FeedLiveMatch) => /cricket/i.test(m.sportName || "");
 
   return (
-    <section aria-label="Live sports matches" className="space-y-2.5">
+    <section aria-label="Live sports matches" className="space-y-2">
       {/* Strip Header */}
-      <div className="flex items-center justify-between px-0.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h5 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5 m-0">
+      <div className="flex flex-col gap-1.5 px-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <h5 className="m-0 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-800 sm:text-xs">
             {liveCount > 0 ? (
               <>
                 <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
@@ -731,10 +731,11 @@ export function LiveMatchesStrip() {
           <button
             type="button"
             onClick={() => setAllMatchesModalOpen(true)}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer group"
+            className="inline-flex min-h-8 items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer group sm:min-h-0 sm:text-[11px]"
             title="View all matches in modal popup"
           >
-            <span>{liveCount > 0 ? "All Matches" : "All Upcoming Matches"}</span>
+            <span className="sm:hidden">All Matches</span>
+            <span className="hidden sm:inline">{liveCount > 0 ? "All Matches" : "All Upcoming Matches"}</span>
             <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
@@ -743,11 +744,12 @@ export function LiveMatchesStrip() {
           <button
             type="button"
             onClick={openRecentResultsModal}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer group"
+            className="inline-flex min-h-8 items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-800 hover:underline cursor-pointer group sm:min-h-0 sm:text-[11px]"
             title="View recently completed matches and results"
           >
             <Trophy className="w-3 h-3 text-amber-500 group-hover:scale-110 transition-transform" />
-            <span>Recent Results</span>
+            <span className="sm:hidden">Results</span>
+            <span className="hidden sm:inline">Recent Results</span>
             <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
@@ -781,7 +783,7 @@ export function LiveMatchesStrip() {
 
         <div
           ref={scrollContainerRef}
-          className="flex gap-3 overflow-x-auto pb-2 pt-0.5 snap-x scrollbar-thin scroll-smooth"
+          className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-2 pt-0.5 scrollbar-none scroll-smooth sm:gap-3 sm:snap-x sm:scrollbar-thin"
         >
           {shown.map((m) => {
             const live = isLiveStatus(m.status);
@@ -805,7 +807,7 @@ export function LiveMatchesStrip() {
                     setWatching(m);
                   }
                 }}
-                className={`group snap-start shrink-0 w-[280px] sm:w-[310px] rounded-2xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden ${
+                className={`group w-[min(86vw,310px)] shrink-0 snap-start rounded-xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden sm:w-[310px] sm:rounded-2xl ${
                   flashType === "wicket"
                     ? "border-rose-400 bg-rose-50/40 shadow-rose-100 ring-2 ring-rose-400"
                     : flashType === "score"
@@ -813,7 +815,7 @@ export function LiveMatchesStrip() {
                     : isUpcoming
                     ? "border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5"
                     : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
-                } p-3.5 shadow-2xs`}
+                } p-3 sm:p-3.5 shadow-2xs`}
               >
                 <div>
                   {/* Top Line: Sport, Status Badge, Dismiss */}
@@ -846,7 +848,7 @@ export function LiveMatchesStrip() {
                           e.stopPropagation();
                           dismiss(m.matchId);
                         }}
-                        className="text-slate-300 hover:text-slate-600 hover:bg-slate-100 p-0.5 rounded transition-colors cursor-pointer"
+                        className="-mr-1 inline-flex min-h-8 min-w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 cursor-pointer sm:mr-0 sm:min-h-6 sm:min-w-6"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -909,12 +911,8 @@ export function LiveMatchesStrip() {
                         : (narrative.highlight ? "text-indigo-600 font-bold" : "text-slate-500")
                     }`}>
                       {isUpcoming ? `🗓️ ${formatScheduledDateTime(m.scheduledAt)}` : narrative.text}
+                      {m.venueName && <span className="font-normal text-slate-400"> · 📍 {m.venueName}</span>}
                     </p>
-                    {m.venueName && (
-                      <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                        📍 {m.venueName}
-                      </p>
-                    )}
                   </div>
 
                   <span className={`inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-lg transition-colors shrink-0 ${
