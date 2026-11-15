@@ -1,7 +1,45 @@
 ﻿import { useState, useCallback } from "react";
 import { X } from "lucide-react";
-import { tournamentService } from "../../../services/sports/tournamentService";
+import { tournamentService, type TossDecision } from "../../../services/sports/tournamentService";
 import { toast } from "sonner";
+
+// Sport-specific toss terminology
+interface SportTossConfig {
+  modalTitle: string;       // "Cricket Toss" / "Football Toss" etc.
+  whoStartsQuestion: string; // "Who bats first?" / "Who kicks off?" etc.
+  goFirstLabel: string;
+  goFirstValue: TossDecision;
+  goSecondLabel: string;
+  goSecondValue: TossDecision;
+}
+
+const SPORT_TOSS_CONFIG: Record<string, SportTossConfig> = {
+  CRICKET:          { modalTitle: "Cricket Toss",    whoStartsQuestion: "Who bats first?",   goFirstLabel: "🏏 Bat first",      goFirstValue: "BAT",      goSecondLabel: "🎳 Bowl first",     goSecondValue: "BOWL"    },
+  FOOTBALL:         { modalTitle: "Football Toss",   whoStartsQuestion: "Who kicks off?",    goFirstLabel: "⚽ Kick off",        goFirstValue: "KICKOFF",  goSecondLabel: "🛡️ Defend first",   goSecondValue: "DEFEND"  },
+  FUTSAL:           { modalTitle: "Futsal Toss",     whoStartsQuestion: "Who kicks off?",    goFirstLabel: "⚽ Kick off",        goFirstValue: "KICKOFF",  goSecondLabel: "🛡️ Defend first",   goSecondValue: "DEFEND"  },
+  SOCCER:           { modalTitle: "Football Toss",   whoStartsQuestion: "Who kicks off?",    goFirstLabel: "⚽ Kick off",        goFirstValue: "KICKOFF",  goSecondLabel: "🛡️ Defend first",   goSecondValue: "DEFEND"  },
+  HOCKEY:           { modalTitle: "Hockey Toss",     whoStartsQuestion: "Who starts?",       goFirstLabel: "🏑 Stick off",       goFirstValue: "KICKOFF",  goSecondLabel: "🛡️ Defend first",   goSecondValue: "DEFEND"  },
+  RUGBY:            { modalTitle: "Rugby Toss",      whoStartsQuestion: "Who kicks off?",    goFirstLabel: "🏉 Kick off",        goFirstValue: "KICKOFF",  goSecondLabel: "🛡️ Receive kick",   goSecondValue: "DEFEND"  },
+  KABADDI:          { modalTitle: "Kabaddi Toss",    whoStartsQuestion: "Who raids first?",  goFirstLabel: "⚡ Raid first",      goFirstValue: "RAID",     goSecondLabel: "🛡️ Defend first",   goSecondValue: "DEFEND"  },
+  BADMINTON:        { modalTitle: "Badminton Toss",  whoStartsQuestion: "Who serves first?", goFirstLabel: "🏸 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏸 Receive first",  goSecondValue: "RECEIVE" },
+  TENNIS:           { modalTitle: "Tennis Toss",     whoStartsQuestion: "Who serves first?", goFirstLabel: "🎾 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🎾 Return first",   goSecondValue: "RECEIVE" },
+  TABLE_TENNIS:     { modalTitle: "Table Tennis",    whoStartsQuestion: "Who serves first?", goFirstLabel: "🏓 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏓 Receive first",  goSecondValue: "RECEIVE" },
+  SQUASH:           { modalTitle: "Squash Toss",     whoStartsQuestion: "Who serves first?", goFirstLabel: "🎾 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🎾 Receive first",  goSecondValue: "RECEIVE" },
+  PICKLEBALL:       { modalTitle: "Pickleball",      whoStartsQuestion: "Who serves first?", goFirstLabel: "🏓 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏓 Receive first",  goSecondValue: "RECEIVE" },
+  VOLLEYBALL:       { modalTitle: "Volleyball Toss", whoStartsQuestion: "Who serves first?", goFirstLabel: "🏐 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏐 Receive first",  goSecondValue: "RECEIVE" },
+  BEACH_VOLLEYBALL: { modalTitle: "Beach Volleyball",whoStartsQuestion: "Who serves first?", goFirstLabel: "🏐 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏐 Receive first",  goSecondValue: "RECEIVE" },
+  GRASS_VOLLEYBALL: { modalTitle: "Volleyball Toss", whoStartsQuestion: "Who serves first?", goFirstLabel: "🏐 Serve first",     goFirstValue: "SERVE",    goSecondLabel: "🏐 Receive first",  goSecondValue: "RECEIVE" },
+  THROWBALL:        { modalTitle: "Throwball Toss",  whoStartsQuestion: "Who throws first?", goFirstLabel: "🏐 Throw first",     goFirstValue: "SERVE",    goSecondLabel: "🏐 Receive first",  goSecondValue: "RECEIVE" },
+  BASKETBALL:       { modalTitle: "Basketball Toss", whoStartsQuestion: "Who takes jump ball?", goFirstLabel: "🏀 Jump ball",    goFirstValue: "GO_FIRST", goSecondLabel: "🏀 Concede jump",   goSecondValue: "GO_SECOND"},
+  CARROM:           { modalTitle: "Carrom Toss",     whoStartsQuestion: "Who strikes first?",goFirstLabel: "⬜ Strike first",    goFirstValue: "SERVE",    goSecondLabel: "⬜ Strike second",  goSecondValue: "RECEIVE" },
+  DEFAULT:          { modalTitle: "Match Toss",      whoStartsQuestion: "Who goes first?",   goFirstLabel: "▶️ Go first",        goFirstValue: "GO_FIRST", goSecondLabel: "⏭️ Go second",      goSecondValue: "GO_SECOND"},
+};
+
+function getSportConfig(sportType?: string): SportTossConfig {
+  if (!sportType) return SPORT_TOSS_CONFIG.DEFAULT;
+  const key = sportType.toUpperCase().replace(/[\s-]/g, "_");
+  return SPORT_TOSS_CONFIG[key] ?? SPORT_TOSS_CONFIG.DEFAULT;
+}
 
 interface TossSetupModalProps {
   isOpen: boolean;
@@ -12,6 +50,7 @@ interface TossSetupModalProps {
   teamAName: string;
   teamBName: string;
   onSaved: () => void;
+  sportType?: string;
 }
 
 type TossMode = "coin" | "record" | "pick" | null;
@@ -41,11 +80,12 @@ function useCoinFlip() {
 
 export function TossSetupModal({
   isOpen, onClose, matchId,
-  teamAId, teamBId, teamAName, teamBName, onSaved,
+  teamAId, teamBId, teamAName, teamBName, onSaved, sportType,
 }: TossSetupModalProps) {
+  const cfg = getSportConfig(sportType);
   const [mode, setMode] = useState<TossMode>(null);
   const [winnerSide, setWinnerSide] = useState<"A" | "B" | "">("");
-  const [decision, setDecision] = useState<"BAT" | "BOWL" | "">("");
+  const [decision, setDecision] = useState<TossDecision | "">("");
   const [saving, setSaving] = useState(false);
   const { coinState, result, flip, reset } = useCoinFlip();
 
@@ -78,7 +118,7 @@ export function TossSetupModal({
       toast.error("Select the toss winner and their decision.");
       return;
     }
-    save(winnerSide === "A" ? teamAId : teamBId, decision);
+    save(winnerSide === "A" ? teamAId : teamBId, decision as TossDecision);
   };
 
   const flipsEndsDeg = result === "tails" ? 1980 : 1800;
@@ -95,7 +135,7 @@ export function TossSetupModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-black text-slate-800">Cricket Toss</h2>
+            <h2 className="text-sm font-black text-slate-800">{cfg.modalTitle}</h2>
             <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[200px]">{teamAName} vs {teamBName}</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
@@ -234,19 +274,22 @@ export function TossSetupModal({
                   <>
                     <p className="text-xs font-semibold text-slate-600">They chose to…</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {(["BAT", "BOWL"] as const).map(d => (
-                        <button
-                          key={d}
-                          onClick={() => setDecision(d)}
-                          className={`py-2.5 rounded-xl text-xs font-bold border-2 transition active:scale-[0.97] ${
-                            decision === d
-                              ? "border-indigo-400 bg-indigo-50 text-indigo-800"
-                              : "border-slate-200 hover:border-indigo-200 text-slate-600"
-                          }`}
-                        >
-                          {d === "BAT" ? "🏏 Bat first" : "🎳 Bowl first"}
-                        </button>
-                      ))}
+                      {([cfg.goFirstValue, cfg.goSecondValue] as const).map((val, i) => {
+                        const label = i === 0 ? cfg.goFirstLabel : cfg.goSecondLabel;
+                        return (
+                          <button
+                            key={val}
+                            onClick={() => setDecision(val)}
+                            className={`py-2.5 rounded-xl text-xs font-bold border-2 transition active:scale-[0.97] ${
+                              decision === val
+                                ? "border-indigo-400 bg-indigo-50 text-indigo-800"
+                                : "border-slate-200 hover:border-indigo-200 text-slate-600"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -302,19 +345,22 @@ export function TossSetupModal({
               <div>
                 <p className="text-xs font-semibold text-slate-600 mb-2">They chose to</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {(["BAT", "BOWL"] as const).map(d => (
-                    <button
-                      key={d}
-                      onClick={() => setDecision(d)}
-                      className={`py-3 rounded-xl text-xs font-bold border-2 transition active:scale-[0.97] ${
-                        decision === d
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-800"
-                          : "border-slate-200 hover:border-indigo-200 text-slate-600"
-                      }`}
-                    >
-                      {d === "BAT" ? "🏏 Bat first" : "🎳 Bowl first"}
-                    </button>
-                  ))}
+                  {([cfg.goFirstValue, cfg.goSecondValue] as const).map((val, i) => {
+                    const label = i === 0 ? cfg.goFirstLabel : cfg.goSecondLabel;
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => setDecision(val)}
+                        className={`py-3 rounded-xl text-xs font-bold border-2 transition active:scale-[0.97] ${
+                          decision === val
+                            ? "border-indigo-400 bg-indigo-50 text-indigo-800"
+                            : "border-slate-200 hover:border-indigo-200 text-slate-600"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -338,12 +384,12 @@ export function TossSetupModal({
         {/* Quick pick */}
         {mode === "pick" && (
           <div className="p-5 space-y-4">
-            <p className="text-xs text-slate-500 text-center">Who bats first?</p>
+            <p className="text-xs text-slate-500 text-center">{cfg.whoStartsQuestion}</p>
             <div className="grid grid-cols-2 gap-3">
               {(["A", "B"] as const).map(side => (
                 <button
                   key={side}
-                  onClick={() => save(side === "A" ? teamAId : teamBId, "BAT")}
+                  onClick={() => save(side === "A" ? teamAId : teamBId, cfg.goFirstValue)}
                   disabled={saving}
                   className="py-6 rounded-2xl text-sm font-black border-2 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 transition active:scale-[0.97] disabled:opacity-50"
                 >
@@ -351,7 +397,7 @@ export function TossSetupModal({
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 text-center -mt-1">The other team bowls first</p>
+            <p className="text-[10px] text-slate-400 text-center -mt-1">The other team goes second</p>
             <button onClick={handleBack} className="text-xs text-slate-400 hover:text-slate-600 transition block mx-auto">
               ← Back
             </button>
@@ -361,3 +407,6 @@ export function TossSetupModal({
     </div>
   );
 }
+
+
+

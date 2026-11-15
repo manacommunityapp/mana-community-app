@@ -58,6 +58,47 @@ import { EmergencyScoreModal } from "./EmergencyScoreModal";
 const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Tournament Operations", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
 
+interface ManualCricketBattingRow {
+  playerId: string;
+  runsScored: string;
+  ballsFaced: string;
+  fours: string;
+  sixes: string;
+  dismissalType: string;
+  dismissedByPlayerId: string;
+  fielderPlayerId: string;
+}
+
+interface ManualCricketBowlingRow {
+  playerId: string;
+  oversBowled: string;
+  maidens: string;
+  runsConceded: string;
+  wicketsTaken: string;
+  dotBalls: string;
+  wides: string;
+  noBalls: string;
+}
+
+interface ManualCricketInnings {
+  runs: string;
+  wickets: string;
+  overs: string;
+  byes: string;
+  legByes: string;
+  wides: string;
+  noBalls: string;
+  penalty: string;
+  fallOfWickets: string;
+  batting: ManualCricketBattingRow[];
+  bowling: ManualCricketBowlingRow[];
+}
+
+const emptyCricketInnings = (): ManualCricketInnings => ({
+  runs: "", wickets: "", overs: "", byes: "", legByes: "", wides: "", noBalls: "", penalty: "",
+  fallOfWickets: "", batting: [], bowling: [],
+});
+
 
 
 
@@ -979,6 +1020,57 @@ export function SportsSchedule() {
   const [scoreMatchNotes, setScoreMatchNotes] = useState("");
   const [scoreTossWinnerSide, setScoreTossWinnerSide] = useState<"A" | "B" | "">("");
   const [scoreTossDecision, setScoreTossDecision] = useState<"BAT" | "BOWL" | "">("");
+  const [badmintonGames, setBadmintonGames] = useState([
+    { teamA: "", teamB: "" },
+    { teamA: "", teamB: "" },
+    { teamA: "", teamB: "" },
+  ]);
+  const [cricketTeamAScore, setCricketTeamAScore] = useState<ManualCricketInnings>(emptyCricketInnings);
+  const [cricketTeamBScore, setCricketTeamBScore] = useState<ManualCricketInnings>(emptyCricketInnings);
+  const [cricketPlayersA, setCricketPlayersA] = useState<{ id: number; name: string }[]>([]);
+  const [cricketPlayersB, setCricketPlayersB] = useState<{ id: number; name: string }[]>([]);
+  const [cricketRosterLoading, setCricketRosterLoading] = useState(false);
+
+  const openScoreEntry = async (fixture: (typeof fixturesList)[number]) => {
+    setScoringFixtureId(fixture.id);
+    setFixtureScore1(fixture.score1 || "");
+    setFixtureScore2(fixture.score2 || "");
+    setScoreWinnerId(null);
+    setScoreWinnerSide(null);
+    setScoreWinnerName("");
+    setScoreResultType("WIN");
+    setScoreMatchNotes("");
+    setScoreTossWinnerSide("");
+    setScoreTossDecision("");
+    setBadmintonGames([{ teamA: "", teamB: "" }, { teamA: "", teamB: "" }, { teamA: "", teamB: "" }]);
+    setCricketTeamAScore(emptyCricketInnings());
+    setCricketTeamBScore(emptyCricketInnings());
+    setCricketPlayersA([]);
+    setCricketPlayersB([]);
+    setCricketRosterLoading(false);
+    setShowScoreModal(true);
+    if (isCricketSport(fixture.sport) && fixture.configId) {
+      setCricketRosterLoading(true);
+      try {
+        const teams = await tournamentService.getConfigTeams(fixture.configId);
+        const normalizeRoster = (teamId?: number) => {
+          const team = teams.find((item: any) => Number(item.id) === Number(teamId));
+          return Array.isArray(team?.players)
+            ? team.players.map((player: any) => ({
+                id: Number(player.id ?? player.playerId),
+                name: String(player.playerName ?? player.name ?? "").trim(),
+              })).filter((player: any) => Number.isFinite(player.id) && player.id > 0 && player.name)
+            : [];
+        };
+        setCricketPlayersA(normalizeRoster(fixture.teamAId));
+        setCricketPlayersB(normalizeRoster(fixture.teamBId));
+      } catch {
+        toast.error("Could not load team rosters for the cricket scorecard.");
+      } finally {
+        setCricketRosterLoading(false);
+      }
+    }
+  };
 
   const handleScoreUpdateSubmit = async () => {
     if (scoringFixtureId === null) return;
@@ -993,23 +1085,177 @@ export function SportsSchedule() {
       return;
     }
 
+    const isCricketFixture = isCricketSport(fixture.sport);
+    const isBadmintonFixture = /badminton/i.test(fixture.sport || "");
+    const completeBadmintonGames = badmintonGames
+      .map((game, index) => ({ ...game, periodNumber: index + 1 }))
+      .filter(game => game.teamA.trim() !== "" && game.teamB.trim() !== "");
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score =>
+      !score.runs.trim() || !score.wickets.trim() || !score.overs.trim() || score.batting.length === 0 || score.bowling.length === 0
+    )) {
+      toast.error("Enter both innings totals and add batting and bowling figures for each innings.");
+      return;
+    }
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score =>
+      !/^\d+$/.test(score.runs) || !/^\d{1,2}$/.test(score.wickets) || Number(score.wickets) > 10 ||
+      !/^\d+(?:\.[0-5])?$/.test(score.overs) ||
+      [score.byes, score.legByes, score.wides, score.noBalls, score.penalty].some(value => value.trim() && !/^\d+$/.test(value)) ||
+      score.batting.some(row => !row.playerId || !/^\d+$/.test(row.runsScored) || !/^\d+$/.test(row.ballsFaced) || !/^\d+$/.test(row.fours) || !/^\d+$/.test(row.sixes)) ||
+      score.bowling.some(row => !row.playerId || !/^\d+(?:\.[0-5])?$/.test(row.oversBowled) || !/^\d+$/.test(row.maidens) || !/^\d+$/.test(row.runsConceded) || !/^\d+$/.test(row.wicketsTaken) || !/^\d+$/.test(row.dotBalls) || !/^\d+$/.test(row.wides) || !/^\d+$/.test(row.noBalls))
+    )) {
+      toast.error("Complete every cricket scorecard row with valid runs, balls, overs, and bowling figures.");
+      return;
+    }
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score => {
+      const batterRuns = score.batting.reduce((total, row) => total + (Number(row.runsScored) || 0), 0);
+      const extras = [score.byes, score.legByes, score.wides, score.noBalls, score.penalty].reduce((total, value) => total + (Number(value) || 0), 0);
+      return batterRuns + extras !== Number(score.runs);
+    })) {
+      toast.error("Each innings total must equal batter runs plus extras.");
+      return;
+    }
+    if (isBadmintonFixture && completeBadmintonGames.length < 2) {
+      toast.error("Enter the score for at least two badminton games.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some(game =>
+      Boolean(game.teamA.trim()) !== Boolean(game.teamB.trim())
+    )) {
+      toast.error("Enter both players’ scores for each badminton game.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some(game =>
+      game.teamA.trim() && game.teamB.trim() && Number(game.teamA) === Number(game.teamB)
+    )) {
+      toast.error("A badminton game score must have a winner.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some((game, index) =>
+      index > 0 && (game.teamA.trim() || game.teamB.trim()) &&
+      badmintonGames.slice(0, index).some(previous => !previous.teamA.trim() || !previous.teamB.trim())
+    )) {
+      toast.error("Enter badminton game scores in order without skipping a game.");
+      return;
+    }
+
     setScoreSaving(true);
     try {
+      let finalScoreA = fixtureScore1;
+      let finalScoreB = fixtureScore2;
       const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
         ? null : scoreWinnerId;
-      await tournamentService.recordResult({
+      const cricketRunsA = Number(cricketTeamAScore.runs) || 0;
+      const cricketRunsB = Number(cricketTeamBScore.runs) || 0;
+      const badmintonWinsA = completeBadmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length;
+      const badmintonWinsB = completeBadmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length;
+      const badmintonWinnerSide = badmintonWinsA === badmintonWinsB ? null : badmintonWinsA > badmintonWinsB ? "A" : "B";
+      if (isBadmintonFixture && scoreResultType === "WIN" && (!badmintonWinnerSide || (scoreWinnerSide && scoreWinnerSide !== badmintonWinnerSide))) {
+        toast.error("The badminton game scores must show a clear winner and match the selected winner.");
+        setScoreSaving(false);
+        return;
+      }
+      if (isCricketFixture) {
+        finalScoreA = `${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})`;
+        finalScoreB = `${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})`;
+      } else if (isBadmintonFixture) {
+        finalScoreA = String(badmintonWinsA);
+        finalScoreB = String(badmintonWinsB);
+      }
+      const firstBattingSide =
+        (scoreTossWinnerSide === "B" && scoreTossDecision === "BAT") ||
+        (scoreTossWinnerSide === "A" && scoreTossDecision === "BOWL") ? "B" : "A";
+      const firstInningsScore = firstBattingSide === "A" ? cricketTeamAScore : cricketTeamBScore;
+      const secondInningsScore = firstBattingSide === "A" ? cricketTeamBScore : cricketTeamAScore;
+      const firstInningsTeamId = firstBattingSide === "A" ? fixture.teamAId : fixture.teamBId;
+      const secondInningsTeamId = firstBattingSide === "A" ? fixture.teamBId : fixture.teamAId;
+
+      const resultDetail = {
         matchId: fixture.matchId,
-        winnerTeamId: winnerId ?? undefined,
-        winnerName: scoreResultType === "WIN" ? (scoreWinnerName || undefined) : undefined,
-        winnerSide: scoreResultType === "WIN" ? (scoreWinnerSide || undefined) : undefined,
-        scoreTeamA: fixtureScore1,
-        scoreTeamB: fixtureScore2,
+        winnerTeamId: (scoreResultType !== "WIN" ? null : isBadmintonFixture ? badmintonWinnerSide === "A" ? fixture.teamAId : fixture.teamBId : winnerId) ?? undefined,
+        resultType: scoreResultType,
+        scoreTeamA: finalScoreA,
+        scoreTeamB: finalScoreB,
         matchNotes: scoreMatchNotes || undefined,
+        matchSummary: isBadmintonFixture
+          ? `Game scores: ${completeBadmintonGames.map((game, index) => `Game ${index + 1}: ${game.teamA}-${game.teamB}`).join("; ")}`
+          : isCricketFixture
+            ? `Innings totals: ${fixture.team1} ${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs} ov, ${[cricketTeamAScore.byes, cricketTeamAScore.legByes, cricketTeamAScore.wides, cricketTeamAScore.noBalls, cricketTeamAScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0)} extras); ${fixture.team2} ${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs} ov, ${[cricketTeamBScore.byes, cricketTeamBScore.legByes, cricketTeamBScore.wides, cricketTeamBScore.noBalls, cricketTeamBScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0)} extras)`
+            : undefined,
         tossWinnerTeamId: scoreTossWinnerSide === "A"
           ? fixture.teamAId
           : scoreTossWinnerSide === "B" ? fixture.teamBId : undefined,
         tossDecision: scoreTossDecision || undefined,
-      });
+        ...(isCricketFixture ? {
+        innings: [
+            {
+              inningsNumber: 1,
+              battingTeamId: firstInningsTeamId!,
+              bowlingTeamId: secondInningsTeamId!,
+              totalRuns: Number(firstInningsScore.runs) || 0,
+              totalWickets: Number(firstInningsScore.wickets) || 0,
+              totalOvers: firstInningsScore.overs,
+              extras: [firstInningsScore.byes, firstInningsScore.legByes, firstInningsScore.wides, firstInningsScore.noBalls, firstInningsScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0),
+              extrasDetail: `b ${firstInningsScore.byes || 0}, lb ${firstInningsScore.legByes || 0}, w ${firstInningsScore.wides || 0}, nb ${firstInningsScore.noBalls || 0}, p ${firstInningsScore.penalty || 0}`,
+              fallOfWickets: firstInningsScore.fallOfWickets || undefined,
+              batting: firstInningsScore.batting.map((row, index) => ({
+                playerId: Number(row.playerId), battingPosition: index + 1,
+                runsScored: Number(row.runsScored), ballsFaced: Number(row.ballsFaced),
+                fours: Number(row.fours), sixes: Number(row.sixes),
+                dismissalType: row.dismissalType || undefined,
+                dismissedByPlayerId: row.dismissedByPlayerId ? Number(row.dismissedByPlayerId) : undefined,
+                fielderPlayerId: row.fielderPlayerId ? Number(row.fielderPlayerId) : undefined,
+              })),
+              bowling: firstInningsScore.bowling.map((row, index) => ({
+                playerId: Number(row.playerId), bowlingOrder: index + 1,
+                oversBowled: row.oversBowled, maidens: Number(row.maidens),
+                runsConceded: Number(row.runsConceded), wicketsTaken: Number(row.wicketsTaken),
+                dotBalls: Number(row.dotBalls), wides: Number(row.wides), noBalls: Number(row.noBalls),
+              })),
+            },
+            {
+              inningsNumber: 2,
+              battingTeamId: secondInningsTeamId!,
+              bowlingTeamId: firstInningsTeamId!,
+              totalRuns: Number(secondInningsScore.runs) || 0,
+              totalWickets: Number(secondInningsScore.wickets) || 0,
+              totalOvers: secondInningsScore.overs,
+              extras: [secondInningsScore.byes, secondInningsScore.legByes, secondInningsScore.wides, secondInningsScore.noBalls, secondInningsScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0),
+              extrasDetail: `b ${secondInningsScore.byes || 0}, lb ${secondInningsScore.legByes || 0}, w ${secondInningsScore.wides || 0}, nb ${secondInningsScore.noBalls || 0}, p ${secondInningsScore.penalty || 0}`,
+              fallOfWickets: secondInningsScore.fallOfWickets || undefined,
+              batting: secondInningsScore.batting.map((row, index) => ({
+                playerId: Number(row.playerId), battingPosition: index + 1,
+                runsScored: Number(row.runsScored), ballsFaced: Number(row.ballsFaced),
+                fours: Number(row.fours), sixes: Number(row.sixes),
+                dismissalType: row.dismissalType || undefined,
+                dismissedByPlayerId: row.dismissedByPlayerId ? Number(row.dismissedByPlayerId) : undefined,
+                fielderPlayerId: row.fielderPlayerId ? Number(row.fielderPlayerId) : undefined,
+              })),
+              bowling: secondInningsScore.bowling.map((row, index) => ({
+                playerId: Number(row.playerId), bowlingOrder: index + 1,
+                oversBowled: row.oversBowled, maidens: Number(row.maidens),
+                runsConceded: Number(row.runsConceded), wicketsTaken: Number(row.wicketsTaken),
+                dotBalls: Number(row.dotBalls), wides: Number(row.wides), noBalls: Number(row.noBalls),
+              })),
+            },
+          ],
+        } : {}),
+      };
+      if (isBadmintonFixture) {
+        for (const game of completeBadmintonGames) {
+          await tournamentService.recordPeriodScore(fixture.matchId, game.periodNumber, Number(game.teamA), Number(game.teamB));
+          await tournamentService.completePeriod(fixture.matchId, game.periodNumber);
+        }
+      }
+      try {
+        await tournamentService.recordDetailedResult(resultDetail);
+      } catch (detailError) {
+        if (isCricketFixture) throw detailError;
+        await tournamentService.recordResult({
+          ...resultDetail,
+          winnerName: scoreResultType === "WIN" ? (scoreWinnerName || undefined) : undefined,
+          winnerSide: scoreResultType === "WIN" ? (scoreWinnerSide || undefined) : undefined,
+        });
+      }
       toast.success("Match result saved!");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save result");
@@ -1019,8 +1265,10 @@ export function SportsSchedule() {
     setScoreSaving(false);
 
     setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED",
-      winnerName: scoreWinnerName || undefined,
+      ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
+      score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
+      status: "COMPLETED",
+      winnerName: scoreWinnerName || (/badminton/i.test(f.sport || "") ? (badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length > badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length ? f.team1 : f.team2) : undefined),
     } : f));
     setShowScoreModal(false);
     setScoringFixtureId(null);
@@ -1033,6 +1281,9 @@ export function SportsSchedule() {
     setScoreMatchNotes("");
     setScoreTossWinnerSide("");
     setScoreTossDecision("");
+    setBadmintonGames([{ teamA: "", teamB: "" }, { teamA: "", teamB: "" }, { teamA: "", teamB: "" }]);
+    setCricketTeamAScore(emptyCricketInnings());
+    setCricketTeamBScore(emptyCricketInnings());
   };
 
   const resetFixtureForm = () => {
@@ -2342,13 +2593,25 @@ export function SportsSchedule() {
                     <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
                       <div className="flex min-w-0 flex-1 sm:flex-none">
                         {fixture.status === "SCHEDULED" && (
-                          <button
-                            onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
-                          >
-                            <Play className="w-3 h-3 fill-red-600" />
-                            Go Live
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setConfirmGoLiveFixture(fixture)}
+                              className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
+                            >
+                              <Play className="w-3 h-3 fill-red-600" />
+                              Go Live
+                            </button>
+                            {fixture.matchId && (
+                              <button
+                                onClick={() => openScoreEntry(fixture)}
+                                className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
+                                title="Enter the final scoreboard for a match played without live scoring"
+                              >
+                                <Trophy className="w-3 h-3" />
+                                Enter Result
+                              </button>
+                            )}
+                          </>
                         )}
                         {fixture.status === "LIVE" && (
                           <>
@@ -2357,12 +2620,7 @@ export function SportsSchedule() {
                                 if (fixture.matchId) {
                                   openLiveScoring(fixture);
                                 } else {
-                                  setScoringFixtureId(fixture.id);
-                                  setFixtureScore1(fixture.score1 || "");
-                                  setFixtureScore2(fixture.score2 || "");
-                                  setScoreTossWinnerSide("");
-                                  setScoreTossDecision("");
-                                  setShowScoreModal(true);
+                                  openScoreEntry(fixture);
                                 }
                               }}
                               className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
@@ -2372,14 +2630,7 @@ export function SportsSchedule() {
                               Live Score
                             </button>
                             <button
-                              onClick={() => {
-                                setScoringFixtureId(fixture.id);
-                                setFixtureScore1(fixture.score1 || "");
-                                setFixtureScore2(fixture.score2 || "");
-                                setScoreTossWinnerSide("");
-                                setScoreTossDecision("");
-                                setShowScoreModal(true);
-                              }}
+                              onClick={() => openScoreEntry(fixture)}
                               className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                             >
                               <Trophy className="w-3 h-3" />
@@ -2464,9 +2715,9 @@ export function SportsSchedule() {
             const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
             return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-fade-in">
-              <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-2xl shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 mb-4 pb-2">
-                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Update Match Score</h3>
+                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Record Final Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="text-slate-400 hover:text-slate-600 p-1"
@@ -2476,6 +2727,9 @@ export function SportsSchedule() {
                 </div>
                 <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wider">
                   {scoringFixture?.name}
+                </p>
+                <p className="-mt-2 mb-4 text-[11px] text-slate-500">
+                  Enter the scoreboard and result after the match. Live scoring is not required.
                 </p>
 
                 {/* Result Type */}
@@ -2491,27 +2745,84 @@ export function SportsSchedule() {
                   </select>
                 </div>
 
-                {/* Scores */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">
-                      {scoringFixture?.team1}
-                    </label>
-                    <input type="text" placeholder="0" value={fixtureScore1}
-                      onChange={e => setFixtureScore1(e.target.value)}
-                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
+                {isCricketSport(scoringFixture?.sport || "") ? (
+                  <div className="mb-4 space-y-3">
+                    {[
+                      { side: "A" as const, label: scoringFixture?.team1 || "Team A", score: cricketTeamAScore, setScore: setCricketTeamAScore, batters: cricketPlayersA, bowlers: cricketPlayersB },
+                      { side: "B" as const, label: scoringFixture?.team2 || "Team B", score: cricketTeamBScore, setScore: setCricketTeamBScore, batters: cricketPlayersB, bowlers: cricketPlayersA },
+                    ].map((innings) => (
+                      <section key={innings.side} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
+                          <div><h4 className="m-0 text-xs font-extrabold text-slate-800">{innings.label}</h4><p className="m-0 mt-0.5 text-[10px] text-slate-500">Batting innings</p></div>
+                          <div className="text-right"><span className="text-lg font-black tabular-nums text-slate-900">{innings.score.runs || "0"}/{innings.score.wickets || "0"}</span><span className="ml-1.5 text-[10px] font-semibold text-slate-500">({innings.score.overs || "0.0"} ov)</span></div>
+                        </div>
+                        <div className="space-y-3 p-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            {([["Runs", "runs"], ["Wickets", "wickets"], ["Overs", "overs"]] as const).map(([label, key]) => (
+                              <label key={key} className="text-[10px] font-bold uppercase text-slate-500">{label}<input type="text" inputMode={key === "overs" ? "decimal" : "numeric"} value={innings.score[key]} onChange={event => innings.setScore(previous => ({ ...previous, [key]: event.target.value }))} placeholder={key === "overs" ? "20.0" : "0"} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" /></label>
+                            ))}
+                          </div>
+
+                          <div>
+                            <div className="mb-1.5 flex items-center justify-between"><h5 className="m-0 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">Batting</h5><button type="button" onClick={() => innings.setScore(previous => ({ ...previous, batting: [...previous.batting, { playerId: "", runsScored: "0", ballsFaced: "0", fours: "0", sixes: "0", dismissalType: "", dismissedByPlayerId: "", fielderPlayerId: "" }] }))} className="text-[10px] font-bold text-indigo-600">+ Add batter</button></div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-100">
+                              <table className="min-w-[720px] w-full text-[10px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-2 py-1.5 text-left">Batter</th><th className="px-1 py-1.5 text-right">R</th><th className="px-1 py-1.5 text-right">B</th><th className="px-1 py-1.5 text-right">4s</th><th className="px-1 py-1.5 text-right">6s</th><th className="px-2 py-1.5 text-left">Dismissal</th><th className="px-2 py-1.5"></th></tr></thead>
+                                <tbody>{innings.score.batting.map((row, index) => <tr key={index} className="border-t border-slate-100">
+                                  <td className="px-2 py-1"><select value={row.playerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, playerId: event.target.value } : item) }))} className="w-36 rounded border border-slate-200 bg-white px-1.5 py-1"><option value="">Select batter</option>{innings.batters.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select></td>
+                                  {([["runsScored", "Runs"], ["ballsFaced", "Balls"], ["fours", "4s"], ["sixes", "6s"]] as const).map(([key, label]) => <td key={key} className="px-1 py-1"><input aria-label={`${label} for batter ${index + 1}`} type="number" min="0" value={row[key]} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, [key]: event.target.value } : item) }))} className="w-12 rounded border border-slate-200 px-1 py-1 text-right" /></td>)}
+                                  <td className="px-2 py-1"><select aria-label={`Dismissal for batter ${index + 1}`} value={row.dismissalType} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, dismissalType: event.target.value } : item) }))} className="w-28 rounded border border-slate-200 bg-white px-1 py-1"><option value="">Not out</option><option value="BOWLED">Bowled</option><option value="CAUGHT">Caught</option><option value="LBW">LBW</option><option value="RUN_OUT">Run out</option><option value="STUMPED">Stumped</option><option value="HIT_WICKET">Hit wicket</option><option value="RETIRED_HURT">Retired hurt</option></select></td>
+                                  <td className="px-2 py-1 text-right"><button type="button" aria-label={`Remove batter ${index + 1}`} onClick={() => innings.setScore(previous => ({ ...previous, batting: previous.batting.filter((_, i) => i !== index) }))} className="text-slate-400 hover:text-red-600"><X className="h-3 w-3" /></button></td>
+                                </tr>)}</tbody>
+                              </table>
+                            </div>
+                            {innings.score.batting.some(row => ["BOWLED", "CAUGHT", "LBW", "STUMPED", "HIT_WICKET"].includes(row.dismissalType)) && <div className="mt-2 grid grid-cols-2 gap-2">{innings.score.batting.map((row, index) => row.dismissalType ? <div key={index} className="grid grid-cols-2 gap-1"><select aria-label={`Bowler for batter ${index + 1}`} value={row.dismissedByPlayerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, dismissedByPlayerId: event.target.value } : item) }))} className="min-w-0 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px]"><option value="">Bowler</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select>{row.dismissalType === "CAUGHT" && <select aria-label={`Fielder for batter ${index + 1}`} value={row.fielderPlayerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, fielderPlayerId: event.target.value } : item) }))} className="min-w-0 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px]"><option value="">Fielder</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select>}</div> : null)}</div>}
+                          </div>
+
+                          <div>
+                            <div className="mb-1.5 flex items-center justify-between"><h5 className="m-0 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">Bowling</h5><button type="button" onClick={() => innings.setScore(previous => ({ ...previous, bowling: [...previous.bowling, { playerId: "", oversBowled: "0.0", maidens: "0", runsConceded: "0", wicketsTaken: "0", dotBalls: "0", wides: "0", noBalls: "0" }] }))} className="text-[10px] font-bold text-indigo-600">+ Add bowler</button></div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-100"><table className="min-w-[660px] w-full text-[10px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-2 py-1.5 text-left">Bowler</th>{["O", "M", "R", "W", "Dots", "Wd", "Nb"].map(label => <th key={label} className="px-1 py-1.5 text-right">{label}</th>)}<th></th></tr></thead><tbody>{innings.score.bowling.map((row, index) => <tr key={index} className="border-t border-slate-100"><td className="px-2 py-1"><select value={row.playerId} onChange={event => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.map((item, i) => i === index ? { ...item, playerId: event.target.value } : item) }))} className="w-36 rounded border border-slate-200 bg-white px-1.5 py-1"><option value="">Select bowler</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select></td>{([["oversBowled", "Overs"], ["maidens", "Maidens"], ["runsConceded", "Runs"], ["wicketsTaken", "Wickets"], ["dotBalls", "Dots"], ["wides", "Wides"], ["noBalls", "No balls"]] as const).map(([key, label]) => <td key={key} className="px-1 py-1"><input aria-label={`${label} for bowler ${index + 1}`} type="text" inputMode={key === "oversBowled" ? "decimal" : "numeric"} value={row[key]} onChange={event => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.map((item, i) => i === index ? { ...item, [key]: event.target.value } : item) }))} className="w-12 rounded border border-slate-200 px-1 py-1 text-right" /></td>)}<td className="px-2 py-1 text-right"><button type="button" aria-label={`Remove bowler ${index + 1}`} onClick={() => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.filter((_, i) => i !== index) }))} className="text-slate-400 hover:text-red-600"><X className="h-3 w-3" /></button></td></tr>)}</tbody></table></div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{([["Byes", "byes"], ["Leg byes", "legByes"], ["Wides", "wides"], ["No balls", "noBalls"], ["Penalty", "penalty"]] as const).map(([label, key]) => <label key={key} className="text-[9px] font-bold text-slate-500">{label}<input type="number" min="0" value={innings.score[key]} onChange={event => innings.setScore(previous => ({ ...previous, [key]: event.target.value }))} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5" /></label>)}</div>
+                          <label className="block text-[10px] font-semibold text-slate-500">Fall of wickets<input type="text" value={innings.score.fallOfWickets} onChange={event => innings.setScore(previous => ({ ...previous, fallOfWickets: event.target.value }))} placeholder="e.g. 32-1 (Player, 5.4 ov)" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs" /></label>
+                        </div>
+                      </section>
+                    ))}
+                    {cricketRosterLoading && <p className="m-0 flex items-center gap-1.5 text-[10px] text-slate-500"><Loader2 className="h-3 w-3 animate-spin" />Loading player rosters…</p>}
+                    {!cricketRosterLoading && (!cricketPlayersA.length || !cricketPlayersB.length) && <p className="m-0 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[10px] text-amber-800">Team rosters are missing. Add players to both teams before entering the detailed scorecard.</p>}
+                    <p className="m-0 text-[10px] text-slate-500">Enter the batting and bowling tables, extras, and fall of wickets for both innings. The saved result will render as a full scorecard.</p>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">
-                      {scoringFixture?.team2}
-                    </label>
-                    <input type="text" placeholder="0" value={fixtureScore2}
-                      onChange={e => setFixtureScore2(e.target.value)}
-                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
+                ) : /badminton/i.test(scoringFixture?.sport || "") ? (
+                  <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="mb-2 text-xs font-bold text-slate-700">Game scores · best of 3</p>
+                    <div className="space-y-2">
+                      {badmintonGames.map((game, index) => (
+                        <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                          <label className="min-w-0 text-[10px] font-semibold text-slate-500">
+                            <span className="block truncate">{scoringFixture?.team1 || "Player 1"}</span>
+                            <input type="number" min="0" value={game.teamA} onChange={event => setBadmintonGames(previous => previous.map((item, i) => i === index ? { ...item, teamA: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                          </label>
+                          <span className="pt-4 text-[10px] font-bold text-slate-400">Game {index + 1}</span>
+                          <label className="min-w-0 text-[10px] font-semibold text-slate-500">
+                            <span className="block truncate">{scoringFixture?.team2 || "Player 2"}</span>
+                            <input type="number" min="0" value={game.teamB} onChange={event => setBadmintonGames(previous => previous.map((item, i) => i === index ? { ...item, teamB: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">{scoringFixture?.team1}</label>
+                      <input type="text" placeholder="0" value={fixtureScore1} onChange={e => setFixtureScore1(e.target.value)} className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">{scoringFixture?.team2}</label>
+                      <input type="text" placeholder="0" value={fixtureScore2} onChange={e => setFixtureScore2(e.target.value)} className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                    </div>
+                  </div>
+                )}
 
                 {/* Winner Selection (only for WIN result) */}
                 {scoreResultType === "WIN" && (
@@ -2601,7 +2912,7 @@ export function SportsSchedule() {
                   </button>
                   <button
                     onClick={handleScoreUpdateSubmit}
-                    disabled={scoreSaving || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide)}
+                    disabled={scoreSaving || (isCricketSport(scoringFixture?.sport || "") && (cricketRosterLoading || !cricketPlayersA.length || !cricketPlayersB.length)) || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide && !/badminton/i.test(scoringFixture?.sport || ""))}
                     className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50 cursor-pointer"
                   >
                     {scoreSaving ? "Saving..." : "Complete & Save"}

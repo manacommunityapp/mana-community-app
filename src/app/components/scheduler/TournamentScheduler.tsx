@@ -885,6 +885,9 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
           viewMatches,
           viewingConfig
         );
+        const displayPlayoffMatchesForBracket = playoffMatchesForBracket.filter(
+          match => !isPlaceholderBracketSlot(match)
+        );
         const normalizedPlayoffMatches = sanitizePlayoffMatches(playoffMatchesForBracket, true);
         const normalizedPlayoffById = new Map(normalizedPlayoffMatches.map(match => [String(match.id), match]));
         const displayFixturesTableRows = fixturesTableRows.flatMap(row => {
@@ -907,12 +910,11 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
           }];
         });
 
-        const earliestPlayoffRound = playoffMatchesForBracket.length > 0
-          ? Math.min(...playoffMatchesForBracket.filter(m => m.round !== 'THIRD_PLACE').map(m => m.roundIndex))
+        const bracketRoundsForDisplay = displayPlayoffMatchesForBracket.filter(m => m.round !== 'THIRD_PLACE');
+        const earliestPlayoffRound = bracketRoundsForDisplay.length > 0
+          ? Math.min(...bracketRoundsForDisplay.map(m => m.roundIndex))
           : 0;
-        const firstRoundMatchesCount = playoffMatchesForBracket.filter(
-          m => m.round !== 'THIRD_PLACE' && m.roundIndex === earliestPlayoffRound
-        ).length;
+        const firstRoundMatchesCount = bracketRoundsForDisplay.filter(m => m.roundIndex === earliestPlayoffRound).length;
         let totalDrawCountCalc = firstRoundMatchesCount * 2;
         let drawPower = 1;
         while (drawPower < totalDrawCountCalc) drawPower <<= 1;
@@ -920,8 +922,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
 
         const handleExportBracketPDF = () => {
           const matchesToExport = showByesInBracket
-            ? playoffMatchesForBracket
-            : sanitizePlayoffMatches(playoffMatchesForBracket, false);
+            ? displayPlayoffMatchesForBracket
+            : sanitizePlayoffMatches(displayPlayoffMatchesForBracket, false);
           if (matchesToExport.length === 0) {
             showToast("No bracket matches available to download", "error");
             return;
@@ -1173,14 +1175,14 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                                 {playoffSubView === "bracket" ? "Bracket" : "Bracket List"}
                               </p>
                               <span className="text-xs font-semibold text-[#6b7094]">
-                                {playoffSubView === "bracket" ? playoffMatchesForBracket.length : viewMatches.length} matches
+                                {playoffSubView === "bracket" ? displayPlayoffMatchesForBracket.length : viewMatches.length} matches
                               </span>
                             </div>
 
                             {playoffSubView === "bracket" ? (
-                              playoffMatchesForBracket.length > 0 ? (
+                              displayPlayoffMatchesForBracket.length > 0 ? (
                                 <PlayoffBracketView
-                                  matches={showByesInBracket ? playoffMatchesForBracket : sanitizePlayoffMatches(playoffMatchesForBracket, false)}
+                                  matches={showByesInBracket ? displayPlayoffMatchesForBracket : sanitizePlayoffMatches(displayPlayoffMatchesForBracket, false)}
                                   onEditMatch={() => {}}
                                   onDownloadBracket={handleExportBracketPDF}
                                   resolveVenueName={(id) => {
@@ -1209,7 +1211,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                                   </div>
                                 </div>
                               )
-                            ) : playoffMatchesForBracket.length > 0 ? (
+                            ) : displayPlayoffMatchesForBracket.length > 0 ? (
                               <FixturesListView
                                 fixtures={displayFixturesTableRows.filter(f => f.isPlayoff)}
                                 onEditMatch={() => {}}
