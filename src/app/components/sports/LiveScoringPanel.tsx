@@ -6,6 +6,7 @@ import { ballColor, remainingBalls, requiredRunRate } from "./utils/cricketUtils
 import { toast } from "sonner";
 import { SportsDisputeModal } from "./SportsDisputeModal";
 import { EmergencyScoreModal } from "./EmergencyScoreModal";
+import { useCricketSounds } from "./utils/useCricketSounds";
 
 interface LiveScoringPanelProps {
   matchId: number;
@@ -927,6 +928,7 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
     </div>
   );
 }
+
 
 
 
