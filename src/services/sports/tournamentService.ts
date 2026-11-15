@@ -140,9 +140,11 @@ export interface MatchResultRequestData {
   tossDecision?: string;
 }
 
+export type TossDecision = "BAT" | "BOWL" | "KICKOFF" | "DEFEND" | "RAID" | "SERVE" | "RECEIVE" | "GO_FIRST" | "GO_SECOND";
+
 export interface MatchTossRequestData {
   tossWinnerTeamId: number;
-  tossDecision: "BAT" | "BOWL";
+  tossDecision: TossDecision;
 }
 
 export interface MatchResultDetailRequestData {
@@ -498,6 +500,8 @@ export interface GenericMatchState {
   periodsWonB: number;
   periods: PeriodScore[];
   recentEvents: GenericScoreEvent[];
+  tossWinnerTeamId?: number;
+  tossDecision?: TossDecision;
   scoringConfig?: ScoringConfig;
 }
 
