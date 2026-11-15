@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders, Crown, Zap, RefreshCw } from "lucide-react";
 import {
   tournamentService,
@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 import { EmergencyScoreModal } from "./EmergencyScoreModal";
+import { TossSetupModal } from "./TossSetupModal";
 
 interface GenericLiveScoringPanelProps {
   matchId: number;
@@ -97,6 +98,7 @@ export function GenericLiveScoringPanel({
   const [hasPublishedResult, setHasPublishedResult] = useState<boolean>(false);
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState<boolean>(false);
+  const [showTossModal, setShowTossModal] = useState<boolean>(false);
 
   const isCarrom = (sportType || "").toUpperCase().replace(/[\s-]/g, "_") === "CARROM";
   const [carromMode, setCarromMode] = useState<"BOARD" | "STROKE">("BOARD");
@@ -608,6 +610,41 @@ export function GenericLiveScoringPanel({
               >
                 <Zap className="w-3 h-3" />
                 Override / Walkover
+              </button>
+            </div>
+          )}
+
+          {/* Toss Banner */}
+          {!state.tossWinnerTeamId && state.status !== "COMPLETED" && !isUnassigned && (
+            <div className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
+              <span className="flex items-center gap-2">
+                <span>🪙</span>
+                <span>Toss not recorded yet — record who starts the game</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTossModal(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition shrink-0 cursor-pointer shadow-xs"
+              >
+                Set Toss
+              </button>
+            </div>
+          )}
+          {state.tossWinnerTeamId && state.status !== "COMPLETED" && (
+            <div className="flex items-center justify-between gap-2 text-xs px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 mb-3 border border-emerald-200 dark:border-emerald-800">
+              <span className="flex items-center gap-1.5">
+                <span>🪙</span>
+                <span className="font-semibold">
+                  {state.tossWinnerTeamId === teamA.id ? teamA.name : teamB.name} won toss
+                  {state.tossDecision ? ` · ${state.tossDecision.replace(/_/g, " ")}` : ""}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTossModal(true)}
+                className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+              >
+                Wrong side? Fix
               </button>
             </div>
           )}
@@ -1285,3 +1322,4 @@ export function GenericLiveScoringPanel({
     </div>
   );
 }
+
