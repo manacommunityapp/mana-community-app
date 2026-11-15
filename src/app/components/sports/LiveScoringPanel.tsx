@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale, Radio, Zap, RefreshCw } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
@@ -44,6 +44,8 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [showTossModal, setShowTossModal] = useState(false);
+  const { play: playSound } = useCricketSounds();
   const [feedActive, setFeedActive] = useState<boolean>(true);
   const [tossWinnerSide, setTossWinnerSide] = useState<"A" | "B" | "">("");
   const [tossDecision, setTossDecision] = useState<"BAT" | "BOWL" | "">("");
@@ -237,6 +239,12 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
         const s = await tournamentService.getLiveMatchState(matchId);
         setState(s);
       }
+
+      // Play ball sound feedback
+      if (opts?.isWicket) playSound("wicket");
+      else if (runsScored === 6) playSound("six");
+      else if (runsScored === 4) playSound("four");
+      else if (runsScored === 0 && !opts?.extrasType) playSound("dot");
 
       if (runsScored % 2 === 1 && !opts?.extrasType) {
         const temp = batsmanId;
@@ -919,3 +927,8 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
     </div>
   );
 }
+
+
+
+
+
