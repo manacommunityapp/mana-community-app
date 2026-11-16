@@ -3,8 +3,10 @@
 export interface LoginRequest {
   /** Email address or 10-digit mobile number. */
   identifier: string;
-  password: string;
+  password?: string;
+  encryptedPassword?: string;
 }
+
 
 export interface RegisterRequest {
   fullName: string;
