@@ -189,159 +189,36 @@ export const manaPayService = {
   },
 
   /**
-   * Step 1: Create payment intent on backend (or fallback smoothly if backend service is offline).
+   * Step 1: Create payment intent on backend.
+   * Never fabricates an intent — a backend failure is a hard error that must surface to the caller.
    */
   async createPaymentIntent(req: CreateManaPaymentIntentRequest): Promise<ManaPaymentIntentResponse> {
-    try {
-      const res = await apiClient.post<ManaPaymentIntentResponse>('/payments/intents', {
-        idempotencyKey: req.idempotencyKey,
-        domain: req.domain,
-        orderReferenceId: req.orderReferenceId,
-        amount: req.totalAmount,
-        currency: req.currency || 'INR',
-        payerName: req.payer.name,
-        payerEmail: req.payer.email,
-        payerPhone: req.payer.phone,
-        preferredRail: req.preferredRail || 'UPI',
-        remarks: req.description || req.title,
-      });
-      return res;
-    } catch {
-      // Robust simulated fallback to keep checkout fully operative
-      const intentId = 'PI_' + Math.random().toString(36).substring(2, 10).toUpperCase() + Date.now().toString(36).toUpperCase();
-      const upiVpa = 'mana.society@icici';
-      const upiIntentUri = `upi://pay?pa=${upiVpa}&pn=Mana%20Community%20Platform&am=${req.totalAmount.toFixed(2)}&cu=INR&tr=${intentId}&tn=${encodeURIComponent(req.title)}`;
-
-      const response: ManaPaymentIntentResponse = {
-        intentId,
-        idempotencyKey: req.idempotencyKey,
-        domain: req.domain,
-        orderReferenceId: req.orderReferenceId,
-        amount: req.totalAmount,
-        currency: req.currency || 'INR',
-        status: 'PENDING',
-        preferredRail: req.preferredRail || 'UPI_INTENT',
-        upiVpa,
-        upiIntentUri,
-        gatewayOrderId: 'order_rzp_' + Math.random().toString(36).substring(2, 12),
-        gatewayKeyId: 'rzp_test_placeholder',
-        receiptNumber: 'RCP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-      };
-
-      // Record in local cache
-      const current = loadLocalTransactions();
-      const existing = current.find(t => t.orderReferenceId === req.orderReferenceId && t.status === 'PENDING');
-      if (!existing) {
-        current.unshift({
-          id: 'pay-' + intentId,
-          transactionNumber: 'TXN-' + new Date().getFullYear() + '-' + intentId.slice(-8),
-          orderReferenceId: req.orderReferenceId,
-          domain: req.domain,
-          title: req.title,
-          amount: req.totalAmount,
-          currency: 'INR',
-          status: 'PENDING',
-          paymentRail: req.preferredRail || 'UPI_INTENT',
-          createdAt: new Date().toISOString(),
-          payerName: req.payer.name,
-          payerUnit: req.payer.unit,
-          vendorId: req.vendorId,
-          vendorName: req.vendorName,
-          reconciliationStatus: 'UNRECONCILED',
-          canRefund: false,
-        });
-        saveLocalTransactions(current);
-      }
-
-      return response;
-    }
+    return apiClient.post<ManaPaymentIntentResponse>('/payments/intents', {
+      idempotencyKey: req.idempotencyKey,
+      domain: req.domain,
+      orderReferenceId: req.orderReferenceId,
+      amount: req.totalAmount,
+      currency: req.currency || 'INR',
+      payerName: req.payer.name,
+      payerEmail: req.payer.email,
+      payerPhone: req.payer.phone,
+      preferredRail: req.preferredRail || 'UPI',
+      remarks: req.description || req.title,
+    });
   },
 
   /**
    * Step 2: Confirm payment after UPI / Gateway / Wallet debit.
+   * Payment status is determined solely by the backend — never fabricated client-side.
+   * Throws on backend failure so the caller can surface it to the user.
    */
-  async confirmPayment(
-    req: ConfirmManaPaymentRequest,
-    meta?: {
-      title?: string;
-      domain?: ManaPayDomain;
-      orderReferenceId?: string;
-      payerId?: string;
-      payerName?: string;
-      payerUnit?: string;
-      vendorId?: string;
-      vendorName?: string;
-      amount?: number;
-    }
-  ): Promise<ManaPaymentRecord> {
-    try {
-      await apiClient.post(`/payments/intents/${req.intentId}/confirm`, {
-        gatewayPaymentId: req.gatewayPaymentId,
-        gatewayOrderId: req.gatewayOrderId,
-        gatewaySignature: req.gatewaySignature,
-        utr: req.utr,
-      });
-    } catch {
-      // Offline fallback
-    }
-
-    const current = loadLocalTransactions();
-    const txnIndex = current.findIndex(t => t.id === 'pay-' + req.intentId || t.orderReferenceId === meta?.orderReferenceId);
-
-    const utr = req.utr || (req.rail.startsWith('UPI') ? '6284' + Math.floor(10000000 + Math.random() * 90000000) : undefined);
-    const gatewayRef = req.gatewayPaymentId || (req.rail === 'GATEWAY_CARD_NETBANKING' ? 'pay_rzp_' + Math.random().toString(36).substring(2, 12) : undefined);
-    const receiptNumber = 'RCP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
-
-    let updatedTxn: ManaPaymentRecord;
-
-    if (txnIndex >= 0) {
-      updatedTxn = {
-        ...current[txnIndex],
-        status: 'SUCCESS',
-        paymentRail: req.rail,
-        paidAt: new Date().toISOString(),
-        utr,
-        gatewayRef,
-        receiptNumber,
-        reconciliationStatus: 'RECONCILED',
-        reconciledAt: new Date().toISOString(),
-        reconciledBy: 'Auto-Matched (Webhook/Rail)',
-        canRefund: true,
-      };
-      current[txnIndex] = updatedTxn;
-    } else {
-      updatedTxn = {
-        id: 'pay-' + req.intentId,
-        transactionNumber: 'TXN-' + new Date().getFullYear() + '-' + req.intentId.slice(-8),
-        orderReferenceId: meta?.orderReferenceId || 'ORD-' + Math.floor(1000 + Math.random() * 9000),
-        domain: meta?.domain || 'MAINTENANCE_BILL',
-        title: meta?.title || 'Community Payment',
-        amount: meta?.amount || 0,
-        currency: 'INR',
-        status: 'SUCCESS',
-        paymentRail: req.rail,
-        createdAt: new Date().toISOString(),
-        paidAt: new Date().toISOString(),
-        payerId: meta?.payerId || 'user-302',
-        payerName: meta?.payerName || 'Community Member',
-        payerUnit: meta?.payerUnit || 'Flat 302, Tower A',
-        vendorId: meta?.vendorId,
-        vendorName: meta?.vendorName,
-        utr,
-        gatewayRef,
-        receiptNumber,
-        reconciliationStatus: 'RECONCILED',
-        reconciledAt: new Date().toISOString(),
-        reconciledBy: 'Auto-Matched (Webhook/Rail)',
-        canRefund: true,
-      };
-      current.unshift(updatedTxn);
-    }
-
-    saveLocalTransactions(current);
-    return updatedTxn;
+  async confirmPayment(req: ConfirmManaPaymentRequest): Promise<ManaPaymentRecord> {
+    return apiClient.post<ManaPaymentRecord>(`/payments/intents/${req.intentId}/confirm`, {
+      gatewayPaymentId: req.gatewayPaymentId,
+      gatewayOrderId: req.gatewayOrderId,
+      gatewaySignature: req.gatewaySignature,
+      utr: req.utr,
+    });
   },
 
   /**
