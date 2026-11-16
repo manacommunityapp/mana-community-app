@@ -47,6 +47,7 @@ import {
 import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { TournamentRegistration } from "../../../types/api";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
 
 interface TournamentPlayersPaymentModalProps {
   isOpen: boolean;
@@ -109,6 +110,7 @@ export function TournamentPlayersPaymentModal({
 }: TournamentPlayersPaymentModalProps) {
   const { user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const canManagePayments = isAdmin || isSuperAdmin || isSportsAdmin;
+  const { options: checkoutOptions } = useCheckoutOptions();
 
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<UniqueTournamentPlayer[]>([]);
@@ -1610,11 +1612,30 @@ export function TournamentPlayersPaymentModal({
                   onChange={(e) => setPaymentMode(e.target.value as any)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-indigo-600 focus:outline-none bg-white"
                 >
-                  <option value="UPI">UPI / QR Code / GPay / PhonePe</option>
-                  <option value="CASH">Cash in Hand</option>
-                  <option value="BANK_TRANSFER">Direct Bank Transfer / NEFT / IMPS</option>
-                  <option value="ONLINE">Online Portal</option>
-                  <option value="WAIVED">Waived / Free Entry / Sponsor</option>
+                  {checkoutOptions?.manualPaymentModes && checkoutOptions.manualPaymentModes.length > 0 ? (
+                    <>
+                      {checkoutOptions.manualPaymentModes.map((mode) => {
+                        const labels: Record<string, string> = {
+                          CASH: "Cash in Hand",
+                          CHEQUE: "Cheque",
+                          BANK_TRANSFER: "Direct Bank Transfer / NEFT / IMPS",
+                          UPI_MANUAL: "UPI / QR Code / GPay / PhonePe",
+                          DEMAND_DRAFT: "Demand Draft",
+                        };
+                        return <option key={mode} value={mode}>{labels[mode] ?? mode}</option>;
+                      })}
+                      <option value="ONLINE">Online Portal</option>
+                      <option value="WAIVED">Waived / Free Entry / Sponsor</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="UPI">UPI / QR Code / GPay / PhonePe</option>
+                      <option value="CASH">Cash in Hand</option>
+                      <option value="BANK_TRANSFER">Direct Bank Transfer / NEFT / IMPS</option>
+                      <option value="ONLINE">Online Portal</option>
+                      <option value="WAIVED">Waived / Free Entry / Sponsor</option>
+                    </>
+                  )}
                 </select>
               </div>
 
