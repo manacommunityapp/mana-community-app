@@ -5,7 +5,7 @@ import { LiveMatchView } from "../LiveMatchView";
 import { LiveScoringPanel } from "../LiveScoringPanel";
 import { MatchDetailView } from "../MatchDetailView";
 import { GenericLiveMatchView } from "../GenericLiveMatchView";
-import { GenericLiveScoringPanel } from "../GenericLiveScoringPanel";
+import { GenericLiveScoringPanel, isIndividualSport } from "../GenericLiveScoringPanel";
 import { GenericMatchDetailView } from "../GenericMatchDetailView";
 import { Leaderboard } from "../Leaderboard";
 import { GenericLeaderboard } from "../GenericLeaderboard";
@@ -206,18 +206,19 @@ export function GenericMatchScorePage() {
     );
   }
 
+  const isIndiv = isIndividualSport(state?.sportType || "BADMINTON");
   return (
     <GenericLiveScoringPanel
       matchId={id}
       sportType={state?.sportType || "BADMINTON"}
       teamA={{
         id: state?.teamAId || 1,
-        name: state?.teamAName || "Team A",
+        name: state?.teamAName || (isIndiv ? "Player 1" : "Team A"),
         color: state?.teamAColor || "#3B82F6",
       }}
       teamB={{
         id: state?.teamBId || 2,
-        name: state?.teamBName || "Team B",
+        name: state?.teamBName || (isIndiv ? "Player 2" : "Team B"),
         color: state?.teamBColor || "#EF4444",
       }}
       onClose={() => navigate("/sports/schedule")}

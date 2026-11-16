@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Loader2,
   Plus,
@@ -25,9 +25,11 @@ import {
   Link2
 } from "lucide-react";
 import type { PlayerCategory } from "../../../../types/api";
+import { sportsService } from "../../../../services/sports/sportsService";
 import { familyService } from "../../../../services/common/familyService";
 import type { FamilyMemberSlim } from "../../../../services/common/familyService";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 const calculateAge = (dobString?: string): number | null => {
   if (!dobString) return null;
@@ -82,6 +84,8 @@ export interface CardSubmitResult {
 interface AddPlayerModalProps {
   showAddPlayerModal: boolean;
   setShowAddPlayerModal: (v: boolean) => void;
+  selectedEvent?: any;
+  onRefreshCategories?: () => void;
   addPlayerForms: AddPlayerForm[];
   setAddPlayerForms: React.Dispatch<React.SetStateAction<AddPlayerForm[]>>;
   communityUsers: any[];
@@ -114,6 +118,8 @@ interface AddPlayerModalProps {
 export function AddPlayerModal({
   showAddPlayerModal,
   setShowAddPlayerModal,
+  selectedEvent,
+  onRefreshCategories,
   addPlayerForms,
   setAddPlayerForms,
   communityUsers,
@@ -144,6 +150,71 @@ export function AddPlayerModal({
   const [expandedStatsCards, setExpandedStatsCards] = useState<Record<string, boolean>>({});
   const [partnerSearchQueries, setPartnerSearchQueries] = useState<Record<string, string>>({});
   const [partnerSearchOpen, setPartnerSearchOpen] = useState<Record<string, boolean>>({});
+
+  const [localCategories, setLocalCategories] = useState<PlayerCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
+    try {
+      const cats = await sportsService.getCategories();
+      if (Array.isArray(cats)) {
+        setLocalCategories(cats);
+        onRefreshCategories?.();
+      }
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showAddPlayerModal) return;
+    if (playerCategories && playerCategories.length > 0) {
+      setLocalCategories(playerCategories);
+    } else {
+      fetchCategories();
+    }
+  }, [showAddPlayerModal, playerCategories]);
+
+  // Combined categories prioritizing event categories if available
+  const displayCategories = useMemo(() => {
+    const baseCats = (localCategories.length > 0 ? localCategories : playerCategories) || [];
+    const eventCats = selectedEvent?.categories || [];
+    if (eventCats.length > 0) {
+      const map = new Map<number, PlayerCategory>();
+      eventCats.forEach((c: any) => { if (c?.id) map.set(c.id, c); });
+      baseCats.forEach(c => { if (c?.id && !map.has(c.id)) map.set(c.id, c); });
+      return Array.from(map.values());
+    }
+    return baseCats;
+  }, [localCategories, playerCategories, selectedEvent]);
+
+  // Auto-populate empty categoryId in forms once displayCategories are available
+  useEffect(() => {
+    if (!showAddPlayerModal || displayCategories.length === 0) return;
+    setAddPlayerForms(prev => {
+      let changed = false;
+      const updated = prev.map(form => {
+        if (!form.categoryId) {
+          changed = true;
+          const matchedCat = selectedEvent
+            ? displayCategories.find(c =>
+                (selectedEvent.categoryName && c.name?.toLowerCase() === selectedEvent.categoryName.toLowerCase()) ||
+                (selectedEvent.category && typeof selectedEvent.category === "string" && c.name?.toLowerCase() === selectedEvent.category.toLowerCase()) ||
+                (selectedEvent.category?.name && c.name?.toLowerCase() === selectedEvent.category.name.toLowerCase()) ||
+                (Array.isArray(selectedEvent.categoryIds) && selectedEvent.categoryIds.includes(c.id))
+              )
+            : null;
+          const catToUse = matchedCat || displayCategories[0];
+          return { ...form, categoryId: catToUse ? String(catToUse.id) : "" };
+        }
+        return form;
+      });
+      return changed ? updated : prev;
+    });
+  }, [showAddPlayerModal, displayCategories, selectedEvent, setAddPlayerForms]);
 
   const toggleFamilyAccordion = async (userId: number) => {
     const isExpanded = !!expandedFamilyUserIds[userId];
@@ -249,7 +320,14 @@ export function AddPlayerModal({
               <Plus className="w-4 h-4 text-[#f97316]" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-[#f1f5f9] leading-5 tracking-tight m-0 mb-0">Add Tournament Participants</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-bold text-[#f1f5f9] leading-5 tracking-tight m-0 mb-0">Add Tournament Participants</h3>
+                {selectedEvent?.name && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30">
+                    {selectedEvent.name}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[#94a3b8] leading-4 hidden sm:block m-0">Select community residents or family members to register</p>
             </div>
           </div>
@@ -396,7 +474,7 @@ export function AddPlayerModal({
                                   </p>
                                   {friend.flatNo && (
                                     <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
-                                      {friend.block ? `${friend.block}-${friend.flatNo}` : `Flat ${friend.flatNo}`}
+                                      {formatFlatLabel(friend.flatNo, friend.block)}
                                     </span>
                                   )}
                                 </div>
@@ -664,7 +742,7 @@ export function AddPlayerModal({
                           </div>
                           {form.flatNumber && (
                             <span className="mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-center truncate max-w-full leading-3">
-                              Flat {form.flatNumber}
+                              {formatFlatLabel(form.flatNumber)}
                             </span>
                           )}
                         </div>
@@ -714,10 +792,17 @@ export function AddPlayerModal({
 
                           {/* Category with eligibility hints */}
                           <div className="flex flex-col w-full gap-1 text-left">
-                            <label className="text-xs font-medium text-[#cbd5e1] leading-4 flex items-center gap-1.5">
-                              <Trophy className="w-3.5 h-3.5 text-[#94a3b8]" />
-                              <span>Tournament Category</span>
-                              <span className="text-[#ef4444] font-semibold">*</span>
+                            <label className="text-xs font-medium text-[#cbd5e1] leading-4 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 text-[#94a3b8]" />
+                                <span>Tournament Category</span>
+                                <span className="text-[#ef4444] font-semibold">*</span>
+                              </span>
+                              {loadingCategories && (
+                                <span className="text-[10px] text-[#94a3b8] flex items-center gap-1">
+                                  <Loader2 className="w-2.5 h-2.5 animate-spin text-[#f97316]" /> Loading...
+                                </span>
+                              )}
                             </label>
                             <select
                               required
@@ -728,17 +813,36 @@ export function AddPlayerModal({
                               }}
                               className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-3 py-2 text-xs sm:text-sm leading-5 text-[#f1f5f9] focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316]/20 outline-none transition-all cursor-pointer"
                             >
-                              <option value="">Select Category...</option>
-                              {playerCategories.map(c => (
+                              <option value="" disabled={displayCategories.length > 0}>
+                                {loadingCategories
+                                  ? "Loading categories..."
+                                  : displayCategories.length === 0
+                                  ? "No categories found — click Retry"
+                                  : "Select Category..."}
+                              </option>
+                              {displayCategories.map(c => (
                                 <option key={c.id} value={c.id}>
                                   {c.name} ({c.categoryType}){c.minAge || c.maxAge ? ` · ${c.minAge || 0}-${c.maxAge || "∞"} yrs` : ""}
                                 </option>
                               ))}
                             </select>
 
+                            {displayCategories.length === 0 && !loadingCategories && (
+                              <div className="mt-1 flex items-center justify-between text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 p-1.5 rounded-lg">
+                                <span>No categories loaded.</span>
+                                <button
+                                  type="button"
+                                  onClick={fetchCategories}
+                                  className="text-xs font-semibold text-[#f97316] hover:underline cursor-pointer"
+                                >
+                                  Retry Load
+                                </button>
+                              </div>
+                            )}
+
                             {/* Live Category Eligibility Hint */}
                             {(() => {
-                              const selCat = playerCategories.find(c => String(c.id) === String(form.categoryId));
+                              const selCat = displayCategories.find(c => String(c.id) === String(form.categoryId));
                               if (!selCat) return null;
                               const ageInvalid = (selCat.minAge != null && selCat.minAge > 0 && form.age < selCat.minAge) ||
                                                  (selCat.maxAge != null && selCat.maxAge > 0 && form.age > selCat.maxAge);
@@ -927,7 +1031,7 @@ export function AddPlayerModal({
                                     </span>
                                   </div>
                                   {form.partnerFlatNumber && (
-                                    <p className="text-xs text-[#94a3b8]">Flat {form.partnerFlatNumber}</p>
+                                    <p className="text-xs text-[#94a3b8]">{formatFlatLabel(form.partnerFlatNumber)}</p>
                                   )}
                                 </div>
                               </div>
@@ -1017,7 +1121,7 @@ export function AddPlayerModal({
                                               partnerName: u.fullName || "Resident",
                                               partnerEmail: u.email || "",
                                               partnerPhone: u.phone || "",
-                                              partnerFlatNumber: u.flatNo || "",
+                                              partnerFlatNumber: formatFlatLabel(u.flatNo, (u as any).block) || "",
                                               partnerGender: u.gender || "",
                                               partnerMode: "community"
                                             } : p));
@@ -1028,7 +1132,7 @@ export function AddPlayerModal({
                                         >
                                           <div className="min-w-0">
                                             <p className="text-xs font-semibold text-[#f1f5f9] truncate">{u.fullName}</p>
-                                            <p className="text-xs text-[#94a3b8]">{u.flatNo ? `Flat ${u.flatNo}` : ""} {u.gender ? `· ${u.gender}` : ""}</p>
+                                            <p className="text-xs text-[#94a3b8]">{u.flatNo ? formatFlatLabel(u.flatNo, (u as any).block) : ""} {u.gender ? `· ${u.gender}` : ""}</p>
                                           </div>
                                           <span className="text-[10px] text-indigo-400 font-semibold flex-shrink-0">Select →</span>
                                         </button>

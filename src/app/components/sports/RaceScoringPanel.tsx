@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Timer, Plus, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { X, Loader2, Timer, Plus, RefreshCw, Play, Pause, RotateCcw } from "lucide-react";
 import {
   tournamentService,
   type RaceResult,
@@ -39,6 +39,10 @@ export function RaceScoringPanel({
   const [milliseconds, setMilliseconds] = useState("");
   const [raceStatus, setRaceStatus] = useState<RaceResultRequest["raceStatus"]>("FINISHED");
   const [notes, setNotes] = useState("");
+  const [stopwatchMs, setStopwatchMs] = useState(0);
+  const [stopwatchRunning, setStopwatchRunning] = useState(false);
+  const timerStartedAtRef = useRef<number | null>(null);
+  const elapsedBaseRef = useRef(0);
 
   const fetchResults = useCallback(() => {
     tournamentService
@@ -51,6 +55,47 @@ export function RaceScoringPanel({
   useEffect(() => {
     fetchResults();
   }, [fetchResults]);
+
+  useEffect(() => {
+    if (!stopwatchRunning) return;
+    const startedAt = Date.now();
+    timerStartedAtRef.current = startedAt;
+    const interval = setInterval(() => {
+      setStopwatchMs(elapsedBaseRef.current + Date.now() - startedAt);
+    }, 25);
+    return () => clearInterval(interval);
+  }, [stopwatchRunning]);
+
+  const formatStopwatch = (millis: number) => {
+    const minutes = Math.floor(millis / 60000);
+    const seconds = Math.floor((millis % 60000) / 1000);
+    const centiseconds = Math.floor((millis % 1000) / 10);
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
+  };
+
+  const captureStopwatchTime = () => {
+    const startedAt = timerStartedAtRef.current;
+    const elapsed = stopwatchRunning && startedAt !== null
+      ? elapsedBaseRef.current + Date.now() - startedAt
+      : stopwatchMs;
+    elapsedBaseRef.current = elapsed;
+    timerStartedAtRef.current = null;
+    setStopwatchMs(elapsed);
+    setStopwatchRunning(false);
+    setMinutes(String(Math.floor(elapsed / 60000)));
+    setSeconds(String(Math.floor((elapsed % 60000) / 1000)));
+    setMilliseconds(String(elapsed % 1000).padStart(3, "0"));
+  };
+
+  const resetStopwatch = () => {
+    timerStartedAtRef.current = null;
+    elapsedBaseRef.current = 0;
+    setStopwatchRunning(false);
+    setStopwatchMs(0);
+    setMinutes("");
+    setSeconds("");
+    setMilliseconds("");
+  };
 
   const parseTimeToMillis = (): number | undefined => {
     const m = parseInt(minutes) || 0;
@@ -94,6 +139,7 @@ export function RaceScoringPanel({
       setSeconds("");
       setMilliseconds("");
       setNotes("");
+      resetStopwatch();
       fetchResults();
     } catch {
       toast.error("Failed to record result");
@@ -137,8 +183,8 @@ export function RaceScoringPanel({
 
         <div className="p-4 space-y-4">
           {/* Entry Form */}
-          <div className="space-y-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          <div className="space-y-3 bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-3 sm:p-4">
+            <div className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
               Record Result
             </div>
 
@@ -146,7 +192,7 @@ export function RaceScoringPanel({
             <select
               value={playerId}
               onChange={(e) => setPlayerId(e.target.value ? Number(e.target.value) : "")}
-              className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
+              className="w-full min-h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
             >
               <option value="">Select Player</option>
               {players?.map((p) => (
@@ -161,7 +207,7 @@ export function RaceScoringPanel({
                 placeholder="Heat #"
                 value={heatNumber}
                 onChange={(e) => setHeatNumber(e.target.value ? Number(e.target.value) : "")}
-                className="text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
+                className="min-h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
               />
               <input
                 type="number"
@@ -170,6 +216,33 @@ export function RaceScoringPanel({
                 onChange={(e) => setLaneNumber(e.target.value ? Number(e.target.value) : "")}
                 className="text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
               />
+            </div>
+
+            {/* Official Stopwatch */}
+            <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-950 to-slate-900 px-4 py-3 text-white shadow-inner">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Official Track Time</div>
+                  <div className="mt-1 font-mono text-4xl font-black tracking-tight text-amber-300 tabular-nums">
+                    {formatStopwatch(stopwatchMs)}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {stopwatchRunning ? (
+                    <button type="button" onClick={captureStopwatchTime} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3 text-xs font-extrabold text-slate-950 transition hover:bg-amber-300">
+                      <Pause className="h-3.5 w-3.5" /> Finish &amp; Use Time
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setStopwatchRunning(true)} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-extrabold text-white transition hover:bg-emerald-500">
+                      <Play className="h-3.5 w-3.5" /> {stopwatchMs > 0 ? "Resume Race" : "Start Race"}
+                    </button>
+                  )}
+                  <button type="button" onClick={resetStopwatch} disabled={stopwatchMs === 0 && !stopwatchRunning} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-700 px-3 text-[11px] font-bold text-slate-300 transition hover:bg-slate-800 disabled:opacity-40">
+                    <RotateCcw className="h-3 w-3" /> Reset
+                  </button>
+                </div>
+              </div>
+              <p className="m-0 mt-2 text-[10px] text-slate-400">Finish the race to copy its time into the result form, or enter a time manually below.</p>
             </div>
 
             {/* Time Entry */}
@@ -183,7 +256,7 @@ export function RaceScoringPanel({
                     value={minutes}
                     onChange={(e) => setMinutes(e.target.value)}
                     min={0}
-                    className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
+                    className="w-full min-h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">min</span>
                 </div>
@@ -195,7 +268,7 @@ export function RaceScoringPanel({
                     onChange={(e) => setSeconds(e.target.value)}
                     min={0}
                     max={59}
-                    className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
+                    className="w-full min-h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">sec</span>
                 </div>
@@ -207,7 +280,7 @@ export function RaceScoringPanel({
                     onChange={(e) => setMilliseconds(e.target.value)}
                     min={0}
                     max={999}
-                    className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
+                    className="w-full min-h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">ms</span>
                 </div>
@@ -243,7 +316,7 @@ export function RaceScoringPanel({
             <button
               onClick={handleSubmit}
               disabled={submitting || !playerId}
-              className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+              className="w-full min-h-12 bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white text-sm font-extrabold py-2.5 rounded-xl transition flex items-center justify-center gap-2"
             >
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Record Result

@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
-import { useParams, Link } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
+import { useParams, Link, useSearchParams } from "react-router";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info, Zap } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -14,6 +15,7 @@ import { CREATE_EDIT_SPORTS_MAIN } from "../../../constants/permissions";
 import { showSuccess, showWarning, showError, showInfo } from "../../../utils/ToastUtils";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
+import { formatFlatLabel, isByeMatch, isExplicitTime, isPlaceholderOrTbd, propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
 import { DatePicker } from "../ui/date-picker";
 import { TimePicker } from "../ui/time-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -30,13 +32,14 @@ const toast = {
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
+import { ScheduleAdminTab } from "./admin/ScheduleAdminTab";
 import { tournamentService, type ConfigInfo, type EventInfo, type TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
 import { LiveMatchView } from "./LiveMatchView";
 import { LiveScoringPanel } from "./LiveScoringPanel";
 import { GenericMatchDetailView } from "./GenericMatchDetailView";
 import { GenericLiveMatchView } from "./GenericLiveMatchView";
-import { GenericLiveScoringPanel } from "./GenericLiveScoringPanel";
+import { GenericLiveScoringPanel, isIndividualSport } from "./GenericLiveScoringPanel";
 import { isCricketSport, getSportType, isTimeSport } from "./utils/sportScoringConstants";
 import { Leaderboard } from "./Leaderboard";
 import { GenericLeaderboard } from "./GenericLeaderboard";
@@ -44,9 +47,57 @@ import { RaceScoringPanel } from "./RaceScoringPanel";
 import { RaceResultsView } from "./RaceResultsView";
 import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
 import { TeamsHubShowcase } from "./teams";
+import { TournamentStageManager } from "./admin/TournamentStageManager";
+import { SchedulePublicationManager } from "./admin/SchedulePublicationManager";
+import { ScheduleVersionHistory } from "./admin/ScheduleVersionHistory";
+import { TournamentEventSelector } from "./admin/TournamentEventSelector";
+import { TournamentOperationsHub } from "./admin/TournamentOperationsHub";
+import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
+import { EmergencyScoreModal } from "./EmergencyScoreModal";
 
-const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Tournament Operations", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
+
+interface ManualCricketBattingRow {
+  playerId: string;
+  runsScored: string;
+  ballsFaced: string;
+  fours: string;
+  sixes: string;
+  dismissalType: string;
+  dismissedByPlayerId: string;
+  fielderPlayerId: string;
+}
+
+interface ManualCricketBowlingRow {
+  playerId: string;
+  oversBowled: string;
+  maidens: string;
+  runsConceded: string;
+  wicketsTaken: string;
+  dotBalls: string;
+  wides: string;
+  noBalls: string;
+}
+
+interface ManualCricketInnings {
+  runs: string;
+  wickets: string;
+  overs: string;
+  byes: string;
+  legByes: string;
+  wides: string;
+  noBalls: string;
+  penalty: string;
+  fallOfWickets: string;
+  batting: ManualCricketBattingRow[];
+  bowling: ManualCricketBowlingRow[];
+}
+
+const emptyCricketInnings = (): ManualCricketInnings => ({
+  runs: "", wickets: "", overs: "", byes: "", legByes: "", wides: "", noBalls: "", penalty: "",
+  fallOfWickets: "", batting: [], bowling: [],
+});
 
 
 
@@ -71,6 +122,7 @@ const safeFormatDate = (dateStr: string, formatStr: string) => {
 
 interface ScheduleEntry {
   id: number;
+  registrationId?: number;
   date: string;
   endDate: string;
   time: string;
@@ -81,6 +133,12 @@ interface ScheduleEntry {
   category: string;
   status: string;
   statusColor: string;
+  playerName?: string;
+  partnerName?: string;
+  partnerStatus?: string;
+  isDoubles?: boolean;
+  flatNumber?: string;
+  partnerFlat?: string;
 }
 
 
@@ -105,9 +163,32 @@ function MyMatchCard({ item }: { item: ScheduleEntry }) {
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wide" style={{ color: sportColors.color }}>{item.sport}</span>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${statusTone}`}>{statusLabel}</span>
+              {item.isDoubles && (
+                <span className="rounded-full bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-600/15 px-2 py-0.5 text-[10px] font-bold uppercase">Doubles</span>
+              )}
             </div>
             <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">{item.name}</h3>
             <p className="mt-1 text-xs text-slate-500">{item.category}</p>
+            {item.playerName && item.playerName !== item.name && (
+              <p className="mt-1 text-xs text-slate-700">
+                Player: <span className="font-bold text-slate-900">{item.playerName}</span>
+              </p>
+            )}
+            {item.partnerName && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-indigo-900 bg-indigo-50/70 border border-indigo-100 rounded-lg px-2.5 py-1 w-fit">
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>Partner: <strong className="font-semibold">{item.partnerName}</strong></span>
+                {item.partnerStatus && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                    ["CONFIRMED", "ACCEPTED"].includes(item.partnerStatus.toUpperCase()) ? "bg-emerald-100 text-emerald-800" :
+                    ["DECLINED", "REJECTED"].includes(item.partnerStatus.toUpperCase()) ? "bg-rose-100 text-rose-800" :
+                    "bg-amber-100 text-amber-800"
+                  }`}>
+                    {item.partnerStatus.toUpperCase() === "CONFIRMED" ? "Confirmed" : item.partnerStatus}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:w-[310px] sm:shrink-0 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
@@ -142,13 +223,20 @@ type BracketMatch = {
 };
 type BracketRound = { name: string; matches: BracketMatch[] };
 
-function getPlayerInitials(fullName: string): string {
+export function getPlayerInitials(fullName: string): string {
+  if (!fullName) return "";
+  if (fullName.includes(" / ")) {
+    return fullName.split(" / ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" / ");
+  }
+  if (fullName.includes(" & ")) {
+    return fullName.split(" & ").map(part => part.trim().split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()).join(" & ");
+  }
   return fullName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
 function MatchCard({ match }: { match: BracketMatch }) {
+  const isByeMatch = Boolean(match.isBye || (match.p1 && !match.p2) || (!match.p1 && match.p2));
   const players = [match.p1, match.p2].filter(Boolean) as BracketPlayer[];
-  const isByeMatch = match.isBye || players.length === 1;
 
   return (
     <div className="rounded-xl overflow-hidden card-hover-lift"
@@ -160,7 +248,11 @@ function MatchCard({ match }: { match: BracketMatch }) {
     >
       <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 text-left">
         <div className="text-xs font-bold text-slate-800">{match.label}</div>
-        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>{match.date} | {match.time}</div>
+        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
+          {isByeMatch
+            ? (match.date && match.date !== "—" ? match.date : "Date TBD")
+            : `${match.date} | ${match.time}`}
+        </div>
         {isByeMatch && <div className="text-xs text-emerald-600 font-bold mt-1">BYE</div>}
       </div>
       <div className="px-3 py-3 space-y-2.5 text-left">
@@ -199,27 +291,33 @@ function MatchCard({ match }: { match: BracketMatch }) {
   );
 }
 
-function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null }) {
+function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null; isAdmin?: boolean }) {
   const [rounds, setRounds] = useState<BracketRound[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(initialConfigId ?? null);
   const [bracketMatches, setBracketMatches] = useState<any[]>([]);
 
+  const visibleConfigs = useMemo(() => {
+    return isAdmin ? tournamentConfigs : tournamentConfigs.filter(c => c.status !== "DRAFT");
+  }, [tournamentConfigs, isAdmin]);
+
   useEffect(() => {
     if (initialConfigId) {
       setSelectedConfigId(initialConfigId);
-    } else if (tournamentConfigs.length > 0 && !selectedConfigId) {
-      setSelectedConfigId(tournamentConfigs[0].id);
+    } else if (visibleConfigs.length > 0 && !selectedConfigId) {
+      setSelectedConfigId(visibleConfigs[0].id);
     }
-  }, [tournamentConfigs, initialConfigId, selectedConfigId]);
+  }, [visibleConfigs, initialConfigId, selectedConfigId]);
 
   useEffect(() => {
     if (selectedConfigId) {
       setLoading(true);
       tournamentService.getMatchesByConfigId(selectedConfigId)
         .then(matches => {
-          setBracketMatches(matches);
-          const matchesBySport = matches.filter(m => m.status !== "BYE");
+          const nonDraftMatches = isAdmin ? matches : matches.filter(m => m.status !== "DRAFT");
+          const propagatedMatches = propagateByeAdvancements(nonDraftMatches);
+          setBracketMatches(propagatedMatches);
+          const matchesBySport = propagatedMatches.filter(m => m.status !== "BYE");
           if (matchesBySport.length > 0) {
             const roundMap = new Map<string, any[]>();
             for (const m of matchesBySport) {
@@ -229,16 +327,39 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
             }
             const generatedRounds: BracketRound[] = Array.from(roundMap.entries()).map(([name, rMatches]) => ({
               name,
-              matches: rMatches.map((m, idx) => ({
-                id: `M-${m.matchId}`,
-                label: `${name} #${m.matchNumber || idx + 1}`,
-                date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
-                time: m.scheduledAt ? safeFormatDate(m.scheduledAt, "hh:mm a") : "—",
-                p1: m.teamAName ? { initials: getPlayerInitials(m.teamAName), fullName: m.teamAName } : null,
-                p2: m.teamBName ? { initials: getPlayerInitials(m.teamBName), fullName: m.teamBName } : null,
-                venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
-                isBye: !m.teamAName || !m.teamBName,
-              })),
+              matches: rMatches.map((m, idx) => {
+                const isBye = isByeMatch(m);
+                const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
+                const rawAName = m.teamAName || m.homeName || m.team1 || "";
+                const rawBName = m.teamBName || m.awayName || m.team2 || "";
+                const aIsBye = String(rawAName).trim().toUpperCase() === "BYE";
+                const bIsBye = String(rawBName).trim().toUpperCase() === "BYE";
+
+                const p1: BracketPlayer | null = aIsBye ? null : {
+                  initials: isPlaceholderOrTbd(rawAName) ? "TBD" : getPlayerInitials(rawAName),
+                  fullName: isPlaceholderOrTbd(rawAName) ? (rawAName || "TBD") : rawAName,
+                  flatNumber: m.teamAFlat || m.homeFlat,
+                  isTBD: isPlaceholderOrTbd(rawAName),
+                };
+
+                const p2: BracketPlayer | null = bIsBye ? null : {
+                  initials: isPlaceholderOrTbd(rawBName) ? "TBD" : getPlayerInitials(rawBName),
+                  fullName: isPlaceholderOrTbd(rawBName) ? (rawBName || "TBD") : rawBName,
+                  flatNumber: m.teamBFlat || m.awayFlat,
+                  isTBD: isPlaceholderOrTbd(rawBName),
+                };
+
+                return {
+                  id: `M-${m.matchId}`,
+                  label: `${name} #${m.matchNumber || idx + 1}`,
+                  date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
+                  time: isBye || !hasExplicit ? "—" : safeFormatDate(m.scheduledAt, "hh:mm a"),
+                  p1,
+                  p2,
+                  venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
+                  isBye,
+                };
+              }),
             }));
             setRounds(generatedRounds);
           } else {
@@ -263,14 +384,22 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           return;
         }
 
-        const players = confirmed
-          .filter(r => r.user)
-          .map(r => ({
-            id: r.user!.id,
-            initials: getPlayerInitials(r.user!.fullName),
-            fullName: r.user!.fullName,
+        const players = confirmed.map((r, idx) => {
+          let name = r.playerName || r.user?.fullName || `Player ${idx + 1}`;
+          const rawFmt = r.matchFormat || r.matchType || (r as any).format;
+          const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
+          const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") || Boolean(r.partnerName || r.partner?.fullName);
+          if (isDoubles) {
+            const pName = (r.partnerFamilyMember?.name || (r as any).partnerFamilyMemberName || r.partnerName || r.partner?.fullName || "").trim();
+            if (pName && pName.toLowerCase() !== name.trim().toLowerCase()) name = `${name} / ${pName}`;
+          }
+          return {
+            id: r.user?.id ?? r.id,
+            initials: getPlayerInitials(name),
+            fullName: name,
             flatNumber: r.flatNumber || undefined,
-          }));
+          };
+        });
 
         const generatedRounds = generateKnockoutBracket(players);
         setRounds(generatedRounds);
@@ -286,16 +415,16 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
 
   const distinctTournaments = useMemo(() => {
     const set = new Set<string>();
-    tournamentConfigs.forEach(c => {
+    visibleConfigs.forEach(c => {
       const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
       if (name) set.add(name);
     });
     return Array.from(set);
-  }, [tournamentConfigs]);
+  }, [visibleConfigs]);
 
   const activeTournamentConfig = useMemo(() => {
-    return tournamentConfigs.find(c => c.id === selectedConfigId) || null;
-  }, [tournamentConfigs, selectedConfigId]);
+    return visibleConfigs.find(c => c.id === selectedConfigId) || null;
+  }, [visibleConfigs, selectedConfigId]);
 
   const activeTournamentName = useMemo(() => {
     if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
@@ -303,13 +432,13 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
   }, [activeTournamentConfig, distinctTournaments]);
 
   const eventsForActiveTournament = useMemo(() => {
-    if (!activeTournamentName) return tournamentConfigs;
-    const match = tournamentConfigs.filter(c => {
+    if (!activeTournamentName) return visibleConfigs;
+    const match = visibleConfigs.filter(c => {
       const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
       return name === activeTournamentName;
     });
     return match;
-  }, [tournamentConfigs, activeTournamentName]);
+  }, [visibleConfigs, activeTournamentName]);
 
   const tournamentResults = useMemo(() => {
     const finalMatch = bracketMatches.find(m => {
@@ -366,7 +495,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
   return (
     <div className="space-y-4">
       {/* Dual Tournament & Event Selector */}
-      {tournamentConfigs.length > 0 && (
+      {visibleConfigs.length > 0 && (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
             <div className="flex items-center gap-2">
@@ -393,7 +522,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
                   value={activeTournamentName}
                   onChange={e => {
                     const tName = e.target.value;
-                    const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
+                    const first = visibleConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
                     if (first) setSelectedConfigId(first.id);
                   }}
                   className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
@@ -440,7 +569,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
           }}
         >
           <p className="text-sm text-[#6b7094]">
-            {tournamentConfigs.length === 0
+            {visibleConfigs.length === 0
               ? "No tournaments configured yet. Create a tournament from the Config tab to see brackets."
               : "No matches found for this tournament. Generate a schedule first."}
           </p>
@@ -556,19 +685,63 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission, isAdmin: authIsAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
-  const isAdmin = isSuperAdmin || authIsAdmin || isSportsAdmin || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
+  const isSportsAdminOnly = Boolean(isSuperAdmin || authIsAdmin || isSportsAdmin);
+  const isAdmin = isSportsAdminOnly || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
+
+  const [setupScheduleConfigId, setSetupScheduleConfigId] = useState<number | null>(() => {
+    const cid = searchParams.get('configId');
+    return cid ? Number(cid) : null;
+  });
+  const [setupScheduleEventId, setSetupScheduleEventId] = useState<string | undefined>(() => {
+    return searchParams.get('eventId') || eventId;
+  });
+
+  const handleEditScheduleFromConfig = (config: ConfigInfo) => {
+    setSetupScheduleConfigId(config.id);
+    if (config.eventId) {
+      setSetupScheduleEventId(String(config.eventId));
+    }
+    setActiveTab("Setup Schedule");
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'setup');
+      next.set('configId', String(config.id));
+      if (config.eventId) {
+        next.set('eventId', String(config.eventId));
+      }
+      return next;
+    }, { replace: true });
+  };
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab');
+    if ((tabParam === 'published' || tabParam === 'schedule' || tabParam === 'fixtures') && isSportsAdminOnly) return "Published Schedules";
+    if (tabParam === 'setup' && isAdmin) return "Setup Schedule";
+    if (tabParam === 'config' && isAdmin) return "Config";
+    if (tabParam === 'manual' && isAdmin) return "Manual";
     if (eventId && isAdmin) return "Setup Schedule";
     return "Overview";
   });
+
+  // Guard: Published Schedules is strictly for Admin and Sports Admin only
+  useEffect(() => {
+    if (!isSportsAdminOnly && activeTab === "Published Schedules") {
+      setActiveTab("Overview");
+    }
+  }, [isSportsAdminOnly, activeTab]);
+  useEffect(() => {
+    if (!isSuperAdmin && activeTab === "Brackets") {
+      setActiveTab("Overview");
+    }
+  }, [isSuperAdmin, activeTab]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -586,6 +759,13 @@ export function SportsSchedule() {
   const [fixtureDateFilter, setFixtureDateFilter] = useState<string | null>(null);
 
   const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
+  const [goLiveFeedVisibility, setGoLiveFeedVisibility] = useState<"inherit" | "show" | "hide">("inherit");
+  const [reschedulingFixture, setReschedulingFixture] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleVenueId, setRescheduleVenueId] = useState<string>("");
+  const [rescheduleCourtId, setRescheduleCourtId] = useState<string>("");
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
@@ -593,7 +773,9 @@ export function SportsSchedule() {
   const [scoreSummaryFixture, setScoreSummaryFixture] = useState<(typeof fixturesList)[number] | null>(null);
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
-  const [activeMatchFixture, setActiveMatchFixture] = useState<{ teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+  const [activeMatchFixture, setActiveMatchFixture] = useState<{ configId?: number; teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+  const [rulesModalFixture, setRulesModalFixture] = useState<any | null>(null);
+  const [emergencyModalFixture, setEmergencyModalFixture] = useState<any | null>(null);
 
   const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
     if (!fixture.matchId) return;
@@ -609,10 +791,10 @@ export function SportsSchedule() {
     setViewingMatchId(fixture.matchId);
   };
 
-  const openLiveScoring = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+  const openLiveScoring = (fixture: { matchId?: number; configId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
     if (!fixture.matchId) return;
     setActiveMatchSport(fixture.sport);
-    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setActiveMatchFixture({ configId: fixture.configId, teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
     setLiveScoringMatchId(fixture.matchId);
   };
 
@@ -634,8 +816,13 @@ export function SportsSchedule() {
   const [tournamentPickerOpen, setTournamentPickerOpen] = useState(false);
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
-  const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
+  const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("LIVE");
   const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
+
+  // Stage admin tab config IDs (driven by TournamentEventSelector)
+  const [stageManagerConfigId, setStageManagerConfigId] = useState<number>(0);
+  const [publicationConfigId, setPublicationConfigId] = useState<number>(0);
+  const [historyConfigId, setHistoryConfigId] = useState<number>(0);
 
   const metaLoadedRef = useRef(false);
   const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events" || activeTab === "My Matches";
@@ -718,6 +905,13 @@ export function SportsSchedule() {
         status: tournament.status || "",
         searchValue: [name, ...relatedEvents.map(event => event.name), ...sports, ...formats].filter(Boolean).join(" "),
       };
+    }).filter(option => {
+      const publishedConfigIds = new Set(option.configs
+        .filter(config => ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(config.status || "").toUpperCase()))
+        .map(config => config.id));
+      return publishedConfigIds.size > 0 || fixturesList.some(match =>
+        match.configId != null && option.configs.some(config => config.id === match.configId) && match.publishedSchedule
+      );
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [actualTournaments, sportsEvents, tournamentConfigs, fixturesList]);
 
@@ -824,6 +1018,59 @@ export function SportsSchedule() {
   const [scoreWinnerName, setScoreWinnerName] = useState("");
   const [scoreResultType, setScoreResultType] = useState("WIN");
   const [scoreMatchNotes, setScoreMatchNotes] = useState("");
+  const [scoreTossWinnerSide, setScoreTossWinnerSide] = useState<"A" | "B" | "">("");
+  const [scoreTossDecision, setScoreTossDecision] = useState<"BAT" | "BOWL" | "">("");
+  const [badmintonGames, setBadmintonGames] = useState([
+    { teamA: "", teamB: "" },
+    { teamA: "", teamB: "" },
+    { teamA: "", teamB: "" },
+  ]);
+  const [cricketTeamAScore, setCricketTeamAScore] = useState<ManualCricketInnings>(emptyCricketInnings);
+  const [cricketTeamBScore, setCricketTeamBScore] = useState<ManualCricketInnings>(emptyCricketInnings);
+  const [cricketPlayersA, setCricketPlayersA] = useState<{ id: number; name: string }[]>([]);
+  const [cricketPlayersB, setCricketPlayersB] = useState<{ id: number; name: string }[]>([]);
+  const [cricketRosterLoading, setCricketRosterLoading] = useState(false);
+
+  const openScoreEntry = async (fixture: (typeof fixturesList)[number]) => {
+    setScoringFixtureId(fixture.id);
+    setFixtureScore1(fixture.score1 || "");
+    setFixtureScore2(fixture.score2 || "");
+    setScoreWinnerId(null);
+    setScoreWinnerSide(null);
+    setScoreWinnerName("");
+    setScoreResultType("WIN");
+    setScoreMatchNotes("");
+    setScoreTossWinnerSide("");
+    setScoreTossDecision("");
+    setBadmintonGames([{ teamA: "", teamB: "" }, { teamA: "", teamB: "" }, { teamA: "", teamB: "" }]);
+    setCricketTeamAScore(emptyCricketInnings());
+    setCricketTeamBScore(emptyCricketInnings());
+    setCricketPlayersA([]);
+    setCricketPlayersB([]);
+    setCricketRosterLoading(false);
+    setShowScoreModal(true);
+    if (isCricketSport(fixture.sport) && fixture.configId) {
+      setCricketRosterLoading(true);
+      try {
+        const teams = await tournamentService.getConfigTeams(fixture.configId);
+        const normalizeRoster = (teamId?: number) => {
+          const team = teams.find((item: any) => Number(item.id) === Number(teamId));
+          return Array.isArray(team?.players)
+            ? team.players.map((player: any) => ({
+                id: Number(player.id ?? player.playerId),
+                name: String(player.playerName ?? player.name ?? "").trim(),
+              })).filter((player: any) => Number.isFinite(player.id) && player.id > 0 && player.name)
+            : [];
+        };
+        setCricketPlayersA(normalizeRoster(fixture.teamAId));
+        setCricketPlayersB(normalizeRoster(fixture.teamBId));
+      } catch {
+        toast.error("Could not load team rosters for the cricket scorecard.");
+      } finally {
+        setCricketRosterLoading(false);
+      }
+    }
+  };
 
   const handleScoreUpdateSubmit = async () => {
     if (scoringFixtureId === null) return;
@@ -833,20 +1080,182 @@ export function SportsSchedule() {
       toast.error("This fixture is not linked to a saved match record.");
       return;
     }
+    if (isCricketSport(fixture.sport) && Boolean(scoreTossWinnerSide) !== Boolean(scoreTossDecision)) {
+      toast.error("Choose both the toss winner and their decision, or leave both blank.");
+      return;
+    }
+
+    const isCricketFixture = isCricketSport(fixture.sport);
+    const isBadmintonFixture = /badminton/i.test(fixture.sport || "");
+    const completeBadmintonGames = badmintonGames
+      .map((game, index) => ({ ...game, periodNumber: index + 1 }))
+      .filter(game => game.teamA.trim() !== "" && game.teamB.trim() !== "");
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score =>
+      !score.runs.trim() || !score.wickets.trim() || !score.overs.trim() || score.batting.length === 0 || score.bowling.length === 0
+    )) {
+      toast.error("Enter both innings totals and add batting and bowling figures for each innings.");
+      return;
+    }
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score =>
+      !/^\d+$/.test(score.runs) || !/^\d{1,2}$/.test(score.wickets) || Number(score.wickets) > 10 ||
+      !/^\d+(?:\.[0-5])?$/.test(score.overs) ||
+      [score.byes, score.legByes, score.wides, score.noBalls, score.penalty].some(value => value.trim() && !/^\d+$/.test(value)) ||
+      score.batting.some(row => !row.playerId || !/^\d+$/.test(row.runsScored) || !/^\d+$/.test(row.ballsFaced) || !/^\d+$/.test(row.fours) || !/^\d+$/.test(row.sixes)) ||
+      score.bowling.some(row => !row.playerId || !/^\d+(?:\.[0-5])?$/.test(row.oversBowled) || !/^\d+$/.test(row.maidens) || !/^\d+$/.test(row.runsConceded) || !/^\d+$/.test(row.wicketsTaken) || !/^\d+$/.test(row.dotBalls) || !/^\d+$/.test(row.wides) || !/^\d+$/.test(row.noBalls))
+    )) {
+      toast.error("Complete every cricket scorecard row with valid runs, balls, overs, and bowling figures.");
+      return;
+    }
+    if (isCricketFixture && [cricketTeamAScore, cricketTeamBScore].some(score => {
+      const batterRuns = score.batting.reduce((total, row) => total + (Number(row.runsScored) || 0), 0);
+      const extras = [score.byes, score.legByes, score.wides, score.noBalls, score.penalty].reduce((total, value) => total + (Number(value) || 0), 0);
+      return batterRuns + extras !== Number(score.runs);
+    })) {
+      toast.error("Each innings total must equal batter runs plus extras.");
+      return;
+    }
+    if (isBadmintonFixture && completeBadmintonGames.length < 2) {
+      toast.error("Enter the score for at least two badminton games.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some(game =>
+      Boolean(game.teamA.trim()) !== Boolean(game.teamB.trim())
+    )) {
+      toast.error("Enter both players’ scores for each badminton game.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some(game =>
+      game.teamA.trim() && game.teamB.trim() && Number(game.teamA) === Number(game.teamB)
+    )) {
+      toast.error("A badminton game score must have a winner.");
+      return;
+    }
+    if (isBadmintonFixture && badmintonGames.some((game, index) =>
+      index > 0 && (game.teamA.trim() || game.teamB.trim()) &&
+      badmintonGames.slice(0, index).some(previous => !previous.teamA.trim() || !previous.teamB.trim())
+    )) {
+      toast.error("Enter badminton game scores in order without skipping a game.");
+      return;
+    }
 
     setScoreSaving(true);
     try {
+      let finalScoreA = fixtureScore1;
+      let finalScoreB = fixtureScore2;
       const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
         ? null : scoreWinnerId;
-      await tournamentService.recordResult({
+      const cricketRunsA = Number(cricketTeamAScore.runs) || 0;
+      const cricketRunsB = Number(cricketTeamBScore.runs) || 0;
+      const badmintonWinsA = completeBadmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length;
+      const badmintonWinsB = completeBadmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length;
+      const badmintonWinnerSide = badmintonWinsA === badmintonWinsB ? null : badmintonWinsA > badmintonWinsB ? "A" : "B";
+      if (isBadmintonFixture && scoreResultType === "WIN" && (!badmintonWinnerSide || (scoreWinnerSide && scoreWinnerSide !== badmintonWinnerSide))) {
+        toast.error("The badminton game scores must show a clear winner and match the selected winner.");
+        setScoreSaving(false);
+        return;
+      }
+      if (isCricketFixture) {
+        finalScoreA = `${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})`;
+        finalScoreB = `${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})`;
+      } else if (isBadmintonFixture) {
+        finalScoreA = String(badmintonWinsA);
+        finalScoreB = String(badmintonWinsB);
+      }
+      const firstBattingSide =
+        (scoreTossWinnerSide === "B" && scoreTossDecision === "BAT") ||
+        (scoreTossWinnerSide === "A" && scoreTossDecision === "BOWL") ? "B" : "A";
+      const firstInningsScore = firstBattingSide === "A" ? cricketTeamAScore : cricketTeamBScore;
+      const secondInningsScore = firstBattingSide === "A" ? cricketTeamBScore : cricketTeamAScore;
+      const firstInningsTeamId = firstBattingSide === "A" ? fixture.teamAId : fixture.teamBId;
+      const secondInningsTeamId = firstBattingSide === "A" ? fixture.teamBId : fixture.teamAId;
+
+      const resultDetail = {
         matchId: fixture.matchId,
-        winnerTeamId: winnerId ?? undefined,
-        winnerName: scoreResultType === "WIN" ? (scoreWinnerName || undefined) : undefined,
-        winnerSide: scoreResultType === "WIN" ? (scoreWinnerSide || undefined) : undefined,
-        scoreTeamA: fixtureScore1,
-        scoreTeamB: fixtureScore2,
+        winnerTeamId: (scoreResultType !== "WIN" ? null : isBadmintonFixture ? badmintonWinnerSide === "A" ? fixture.teamAId : fixture.teamBId : winnerId) ?? undefined,
+        resultType: scoreResultType,
+        scoreTeamA: finalScoreA,
+        scoreTeamB: finalScoreB,
         matchNotes: scoreMatchNotes || undefined,
-      });
+        matchSummary: isBadmintonFixture
+          ? `Game scores: ${completeBadmintonGames.map((game, index) => `Game ${index + 1}: ${game.teamA}-${game.teamB}`).join("; ")}`
+          : isCricketFixture
+            ? `Innings totals: ${fixture.team1} ${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs} ov, ${[cricketTeamAScore.byes, cricketTeamAScore.legByes, cricketTeamAScore.wides, cricketTeamAScore.noBalls, cricketTeamAScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0)} extras); ${fixture.team2} ${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs} ov, ${[cricketTeamBScore.byes, cricketTeamBScore.legByes, cricketTeamBScore.wides, cricketTeamBScore.noBalls, cricketTeamBScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0)} extras)`
+            : undefined,
+        tossWinnerTeamId: scoreTossWinnerSide === "A"
+          ? fixture.teamAId
+          : scoreTossWinnerSide === "B" ? fixture.teamBId : undefined,
+        tossDecision: scoreTossDecision || undefined,
+        ...(isCricketFixture ? {
+        innings: [
+            {
+              inningsNumber: 1,
+              battingTeamId: firstInningsTeamId!,
+              bowlingTeamId: secondInningsTeamId!,
+              totalRuns: Number(firstInningsScore.runs) || 0,
+              totalWickets: Number(firstInningsScore.wickets) || 0,
+              totalOvers: firstInningsScore.overs,
+              extras: [firstInningsScore.byes, firstInningsScore.legByes, firstInningsScore.wides, firstInningsScore.noBalls, firstInningsScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0),
+              extrasDetail: `b ${firstInningsScore.byes || 0}, lb ${firstInningsScore.legByes || 0}, w ${firstInningsScore.wides || 0}, nb ${firstInningsScore.noBalls || 0}, p ${firstInningsScore.penalty || 0}`,
+              fallOfWickets: firstInningsScore.fallOfWickets || undefined,
+              batting: firstInningsScore.batting.map((row, index) => ({
+                playerId: Number(row.playerId), battingPosition: index + 1,
+                runsScored: Number(row.runsScored), ballsFaced: Number(row.ballsFaced),
+                fours: Number(row.fours), sixes: Number(row.sixes),
+                dismissalType: row.dismissalType || undefined,
+                dismissedByPlayerId: row.dismissedByPlayerId ? Number(row.dismissedByPlayerId) : undefined,
+                fielderPlayerId: row.fielderPlayerId ? Number(row.fielderPlayerId) : undefined,
+              })),
+              bowling: firstInningsScore.bowling.map((row, index) => ({
+                playerId: Number(row.playerId), bowlingOrder: index + 1,
+                oversBowled: row.oversBowled, maidens: Number(row.maidens),
+                runsConceded: Number(row.runsConceded), wicketsTaken: Number(row.wicketsTaken),
+                dotBalls: Number(row.dotBalls), wides: Number(row.wides), noBalls: Number(row.noBalls),
+              })),
+            },
+            {
+              inningsNumber: 2,
+              battingTeamId: secondInningsTeamId!,
+              bowlingTeamId: firstInningsTeamId!,
+              totalRuns: Number(secondInningsScore.runs) || 0,
+              totalWickets: Number(secondInningsScore.wickets) || 0,
+              totalOvers: secondInningsScore.overs,
+              extras: [secondInningsScore.byes, secondInningsScore.legByes, secondInningsScore.wides, secondInningsScore.noBalls, secondInningsScore.penalty].reduce((sum, value) => sum + (Number(value) || 0), 0),
+              extrasDetail: `b ${secondInningsScore.byes || 0}, lb ${secondInningsScore.legByes || 0}, w ${secondInningsScore.wides || 0}, nb ${secondInningsScore.noBalls || 0}, p ${secondInningsScore.penalty || 0}`,
+              fallOfWickets: secondInningsScore.fallOfWickets || undefined,
+              batting: secondInningsScore.batting.map((row, index) => ({
+                playerId: Number(row.playerId), battingPosition: index + 1,
+                runsScored: Number(row.runsScored), ballsFaced: Number(row.ballsFaced),
+                fours: Number(row.fours), sixes: Number(row.sixes),
+                dismissalType: row.dismissalType || undefined,
+                dismissedByPlayerId: row.dismissedByPlayerId ? Number(row.dismissedByPlayerId) : undefined,
+                fielderPlayerId: row.fielderPlayerId ? Number(row.fielderPlayerId) : undefined,
+              })),
+              bowling: secondInningsScore.bowling.map((row, index) => ({
+                playerId: Number(row.playerId), bowlingOrder: index + 1,
+                oversBowled: row.oversBowled, maidens: Number(row.maidens),
+                runsConceded: Number(row.runsConceded), wicketsTaken: Number(row.wicketsTaken),
+                dotBalls: Number(row.dotBalls), wides: Number(row.wides), noBalls: Number(row.noBalls),
+              })),
+            },
+          ],
+        } : {}),
+      };
+      if (isBadmintonFixture) {
+        for (const game of completeBadmintonGames) {
+          await tournamentService.recordPeriodScore(fixture.matchId, game.periodNumber, Number(game.teamA), Number(game.teamB));
+          await tournamentService.completePeriod(fixture.matchId, game.periodNumber);
+        }
+      }
+      try {
+        await tournamentService.recordDetailedResult(resultDetail);
+      } catch (detailError) {
+        if (isCricketFixture) throw detailError;
+        await tournamentService.recordResult({
+          ...resultDetail,
+          winnerName: scoreResultType === "WIN" ? (scoreWinnerName || undefined) : undefined,
+          winnerSide: scoreResultType === "WIN" ? (scoreWinnerSide || undefined) : undefined,
+        });
+      }
       toast.success("Match result saved!");
     } catch (e: any) {
       toast.error(e?.message || "Failed to save result");
@@ -856,8 +1265,10 @@ export function SportsSchedule() {
     setScoreSaving(false);
 
     setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED",
-      winnerName: scoreWinnerName || undefined,
+      ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
+      score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
+      status: "COMPLETED",
+      winnerName: scoreWinnerName || (/badminton/i.test(f.sport || "") ? (badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length > badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length ? f.team1 : f.team2) : undefined),
     } : f));
     setShowScoreModal(false);
     setScoringFixtureId(null);
@@ -868,6 +1279,11 @@ export function SportsSchedule() {
     setScoreWinnerName("");
     setScoreResultType("WIN");
     setScoreMatchNotes("");
+    setScoreTossWinnerSide("");
+    setScoreTossDecision("");
+    setBadmintonGames([{ teamA: "", teamB: "" }, { teamA: "", teamB: "" }, { teamA: "", teamB: "" }]);
+    setCricketTeamAScore(emptyCricketInnings());
+    setCricketTeamBScore(emptyCricketInnings());
   };
 
   const resetFixtureForm = () => {
@@ -885,16 +1301,6 @@ export function SportsSchedule() {
     setShowFixtureForm(false);
   };
 
-  const fixtureDates = useMemo(() => {
-    const dates = new Set<string>();
-    for (const f of fixturesList) {
-      if (f.date) {
-        try { dates.add(format(new Date(f.date), "yyyy-MM-dd")); } catch {}
-      }
-    }
-    return Array.from(dates).sort();
-  }, [fixturesList]);
-
   const overviewFixtures = useMemo(() => {
     const activeTournamentConfigIds = new Set(configsForActiveTournament.map(config => config.id));
     const selectedEventConfigIds = selectedSportsEventId === null
@@ -909,13 +1315,52 @@ export function SportsSchedule() {
     });
   }, [fixturesList, selectedTournamentId, selectedActualTournamentId, selectedSportsEventId, configsForActiveTournament, tournamentConfigs]);
 
+  const upcomingFixtures = useMemo(() => {
+    const now = Date.now();
+    return overviewFixtures
+      .filter(fixture => {
+        if (fixture.status !== "SCHEDULED") return false;
+        const start = fixture.scheduledAt
+          ? parseISO(fixture.scheduledAt)
+          : fixture.date
+            ? parseISO(fixture.date)
+            : null;
+        return !start || Number.isNaN(start.getTime()) || start.getTime() >= now;
+      })
+      .sort((a, b) => {
+        const timestampA = a.scheduledAt ? parseISO(a.scheduledAt).getTime() : parseISO(a.date).getTime();
+        const timestampB = b.scheduledAt ? parseISO(b.scheduledAt).getTime() : parseISO(b.date).getTime();
+        const safeTimestampA = Number.isNaN(timestampA) ? Number.MAX_SAFE_INTEGER : timestampA;
+        const safeTimestampB = Number.isNaN(timestampB) ? Number.MAX_SAFE_INTEGER : timestampB;
+        return safeTimestampA - safeTimestampB;
+      })
+      .slice(0, 6);
+  }, [overviewFixtures]);
+
+  const fixtureDates = useMemo(() => {
+    const searchQuery = fixtureSearchQuery.trim().toLowerCase();
+    const dates = new Set<string>();
+    for (const fixture of overviewFixtures) {
+      const searchText = `${fixture.name} ${fixture.team1} ${fixture.team2} ${fixture.venue}`.toLowerCase();
+      const matchesSearch = !searchQuery || searchText.includes(searchQuery);
+      const matchesSport = fixtureSportFilter === "All" || fixture.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
+      if (!matchesSearch || !matchesSport || !fixture.date) continue;
+      try { dates.add(format(parseISO(fixture.date), "yyyy-MM-dd")); } catch {}
+    }
+    return Array.from(dates).sort();
+  }, [overviewFixtures, fixtureSearchQuery, fixtureSportFilter]);
+
+  useEffect(() => {
+    if (fixtureDateFilter && !fixtureDates.includes(fixtureDateFilter)) setFixtureDateFilter(null);
+  }, [fixtureDateFilter, fixtureDates]);
+
   const scopedFixtures = useMemo(() => overviewFixtures.filter(f => {
     const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
     const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
     const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
     let matchesDate = true;
     if (fixtureDateFilter) {
-      try { matchesDate = format(new Date(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
+      try { matchesDate = format(parseISO(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
     }
     return matchesSearch && matchesSport && matchesDate;
   }), [overviewFixtures, fixtureSearchQuery, fixtureSportFilter, fixtureDateFilter]);
@@ -927,12 +1372,12 @@ export function SportsSchedule() {
   ), [scopedFixtures, fixtureStatusFilter]);
 
   const sortedFixtures = useMemo(() => {
-    const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
     return [...filteredFixtures].sort((a, b) => {
-      const weightA = statusWeight[a.status as keyof typeof statusWeight] ?? 99;
-      const weightB = statusWeight[b.status as keyof typeof statusWeight] ?? 99;
-      if (weightA !== weightB) return weightA - weightB;
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
+      const timestampA = a.scheduledAt ? parseISO(a.scheduledAt).getTime() : parseISO(a.date).getTime();
+      const timestampB = b.scheduledAt ? parseISO(b.scheduledAt).getTime() : parseISO(b.date).getTime();
+      const safeTimestampA = Number.isNaN(timestampA) ? Number.MAX_SAFE_INTEGER : timestampA;
+      const safeTimestampB = Number.isNaN(timestampB) ? Number.MAX_SAFE_INTEGER : timestampB;
+      return safeTimestampA - safeTimestampB;
     });
   }, [filteredFixtures]);
 
@@ -958,14 +1403,21 @@ export function SportsSchedule() {
           activeRegistrations.forEach((registration: any) => {
             const eventName = registration.eventName ?? registration.event?.name ?? "Sports event";
             const sport = registration.sportName ?? registration.event?.sportName ?? "Other";
-            const eventKey = registration.eventId != null
-              ? String(registration.eventId)
-              : `${sport.toLowerCase()}:${eventName.toLowerCase()}`;
+            const registrationId = registration.id != null ? String(registration.id) : null;
+            const eventKey = registrationId
+              ? `reg:${registrationId}`
+              : `${sport.toLowerCase()}:${eventName.toLowerCase()}:${registration.playerName || ""}`;
             if (registeredEvents.has(eventKey)) return;
+
+            const rawFmt = registration.format || registration.matchType || registration.event?.format;
+            const fmtStr = Array.isArray(rawFmt) ? rawFmt.join(" ") : String(rawFmt || "");
+            const isDoubles = fmtStr.toUpperCase().includes("DOUBLES") ||
+              Boolean(registration.partnerName || registration.partnerUserId || registration.partnerFamilyMemberId);
 
             const status = String(registration.status ?? "REGISTERED").toUpperCase();
             registeredEvents.set(eventKey, {
               id: Number(registration.eventId ?? registration.id),
+              registrationId: registration.id,
               date: registration.eventDateStart ?? registration.event?.eventDateStart ?? "",
               endDate: registration.eventDateEnd ?? registration.event?.eventDateEnd ?? "",
               time: registration.startTime ?? registration.event?.startTime ?? "",
@@ -976,6 +1428,17 @@ export function SportsSchedule() {
               category: registration.categoryName ?? registration.category?.name ?? "General category",
               status,
               statusColor: status === "CONFIRMED" || status === "REGISTERED" ? "#10b981" : "#f97316",
+              playerName: registration.playerName || registration.familyMember?.name || registration.user?.fullName,
+              partnerName: (() => {
+                const primary = (registration.playerName || registration.familyMember?.name || registration.user?.fullName || "").trim();
+                const partner = (registration.partnerFamilyMember?.name || (registration as any).partnerFamilyMemberName || registration.partnerName || registration.partner?.fullName || "").trim();
+                if (!partner || (primary && partner.toLowerCase() === primary.toLowerCase())) return undefined;
+                return partner;
+              })(),
+              partnerStatus: registration.partnerConfirmationStatus || registration.partnerStatus,
+              isDoubles,
+              flatNumber: formatFlatLabel(registration.flatNumber || registration.user?.flatNo, (registration as any).user?.block || (registration as any).block),
+              partnerFlat: formatFlatLabel(registration.partnerFlat || registration.partnerFlatNumber || registration.partnerFamilyMember?.user?.flatNo || registration.partner?.flatNumber || registration.partner?.flatNo, (registration as any).partner?.block || (registration as any).partnerBlock),
             });
           });
 
@@ -992,35 +1455,44 @@ export function SportsSchedule() {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
           for (const cfg of configs || []) {
+            const configIsPublished = ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(cfg.status || "").toUpperCase());
             try {
               const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
-              for (const m of matches) {
-                if (m.status === "BYE") continue;
-                const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
-                let scheduledTime = "";
-                try {
-                  if (m.scheduledAt) scheduledTime = format(new Date(m.scheduledAt), "hh:mm a");
-                } catch (_e) {}
+              const propagatedMatches = propagateByeAdvancements(matches);
+              for (const m of propagatedMatches) {
+                const matchStatus = String(m.status || "").toUpperCase();
+                if (matchStatus === "BYE" || matchStatus === "DRAFT" || isByeMatch(m)) continue;
+                const matchIsPublished = ["PUBLISHED", "COMPLETED", "IN_PROGRESS", "LIVE"].includes(matchStatus);
+                if (!configIsPublished && !matchIsPublished) continue;
+                const scheduledAt = m.scheduledAt ? parseISO(m.scheduledAt) : null;
+                const hasValidScheduledAt = scheduledAt != null && !Number.isNaN(scheduledAt.getTime());
+                const scheduledDate = hasValidScheduledAt ? format(scheduledAt, "yyyy-MM-dd") : "";
+                const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
+                const scheduledTime = (hasValidScheduledAt && hasExplicit) ? format(scheduledAt, "hh:mm a") : "";
 
                 matchFixtures.push({
                   id: -(m.matchId ?? 0),
                   matchId: m.matchId,
                   configId: cfg.id,
                   tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
-                  teamAId: m.teamAId,
-                  teamBId: m.teamBId,
+                  teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
+                  teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
                   name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
                   sport: cfg.sportName || cfg.eventName || "Tournament",
                   venue: m.venueName || "TBD",
                   date: scheduledDate,
                   time: scheduledTime,
+                  scheduledAt: hasValidScheduledAt ? m.scheduledAt : undefined,
+                  publishedSchedule: configIsPublished || matchIsPublished,
                   status: String(m.status || "SCHEDULED").toUpperCase() === "COMPLETED"
                     ? "COMPLETED"
                     : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
                       ? "LIVE"
                       : "SCHEDULED",
-                  team1: m.teamAName || "TBD",
-                  team2: m.teamBName || "TBD",
+                  team1: m.teamAName || m.homeName || m.teamA?.name || "TBD",
+                  team2: m.teamBName || m.awayName || m.teamB?.name || "TBD",
+                  team1Flat: m.teamAFlat || m.homeFlat,
+                  team2Flat: m.teamBFlat || m.awayFlat,
                   score1: m.scoreTeamA || "",
                   score2: m.scoreTeamB || "",
                   rawStartDate: m.scheduledAt || cfg.startDate,
@@ -1040,7 +1512,7 @@ export function SportsSchedule() {
     } else {
       setLoading(false);
     }
-  }, [activeTab, user?.userId]);
+  }, [activeTab, user?.userId, isAdmin]);
 
   return (
     <div className="auction-hub-wrapper">
@@ -1080,16 +1552,32 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Leaderboard
           </button>
-          <button
-            className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
-            onClick={() => setActiveTab("Brackets")}
-          >
-            <div className="nav-dot"></div>Brackets
-          </button>
+          {isSuperAdmin && (
+            <button
+              className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
+              onClick={() => setActiveTab("Brackets")}
+            >
+              <div className="nav-dot"></div>Brackets
+            </button>
+          )}
         </div>
         {isAdmin && (
         <div className="nav-section">
           <div className="nav-label">Operations</div>
+          <button
+            className={`nav-item ${activeTab === "Tournament Operations" ? "active" : ""}`}
+            onClick={() => setActiveTab("Tournament Operations")}
+          >
+            <div className="nav-dot"></div>Tournament Operations
+          </button>
+          {isSportsAdminOnly && (
+            <button
+              className={`nav-item ${activeTab === "Published Schedules" ? "active" : ""}`}
+              onClick={() => setActiveTab("Published Schedules")}
+            >
+              <div className="nav-dot"></div>Published Schedules
+            </button>
+          )}
           <button
             className={`nav-item ${activeTab === "Config" ? "active" : ""}`}
             onClick={() => setActiveTab("Config")}
@@ -1114,26 +1602,60 @@ export function SportsSchedule() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
-                {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
-              </div>
-              <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
-                {activeTab === "Overview"
-                  ? "Your community sports schedule, live matches and latest results."
-                  : activeTab === "Config"
-                  ? "Configure tournament formats, dates, venues and match rules."
-                  : activeTab === "Manual"
-                  ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
-                  : "Sports scheduling & event matches"}
-              </div>
+          <div className={`page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${["Overview", "My Matches", "Published Schedules"].includes(activeTab) ? "max-sm:!hidden sm:flex" : ""}`}>
+            <div className={["Overview", "My Matches", "Published Schedules"].includes(activeTab) ? "hidden sm:block" : ""}>
+              {(!["Published Schedules"].includes(activeTab) || isSportsAdminOnly) && (
+                <>
+                  <div className={activeTab === "Tournament Operations" ? "flex items-center gap-1.5" : undefined}>
+                    <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
+                      {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
+                    </div>
+                    {activeTab === "Tournament Operations" && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer"
+                            title="Tournament Operations Info"
+                            aria-label="Tournament Operations Info"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-80 p-3 bg-white border border-slate-200 shadow-xl rounded-xl z-50">
+                          <div className="text-xs font-bold text-slate-800 mb-1">Tournament Operations Hub</div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed">
+                            End-to-end tournament lifecycle: Stage planning, automatic qualification, fixture rescheduling with impact check, and staged version publishing.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                  <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
+                    {activeTab === "Overview"
+                      ? "Your community sports schedule, live matches and latest results."
+                      : activeTab === "Config"
+                      ? "Configure tournament formats, dates, venues and match rules."
+                      : activeTab === "Published Schedules"
+                      ? "View published fixtures, filter by stage (Group Stage, Quarters, Semis, Final), and export cleanly."
+                      : activeTab === "Manual"
+                      ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
+                      : activeTab === "Stage Manager"
+                      ? "Configure tournament stages, scheduling modes, and stage progression."
+                      : activeTab === "Publication"
+                      ? "Manage stage-wise schedule publication, notifications, and version control."
+                      : activeTab === "Schedule History"
+                      ? "View schedule version history, changes, approvals, and audit trail."
+                      : "Sports scheduling & event matches"}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
       {/* Overview */}
       {activeTab === "Overview" && (
-        <div className="space-y-3 sm:space-y-6 animate-fade-in-up text-left">
+        <div className="space-y-3 sm:space-y-4 animate-fade-in-up text-left">
           {/* Tournament Sponsors Banner */}
           <TournamentSponsorBanner
             sponsors={DEFAULT_TOURNAMENT_SPONSORS}
@@ -1142,24 +1664,13 @@ export function SportsSchedule() {
 
           {/* Tournament & Sport Event Quick Selector (Separate Dropdowns) */}
           {actualTournaments.length > 0 && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
-              {(selectedActualTournamentId !== null || selectedSportsEventId !== null) && (
-                <div className="flex justify-end border-b border-slate-100 pb-3">
-                  <button
-                    onClick={() => { setSelectedActualTournamentId(null); setSelectedSportsEventId(null); setSelectedTournamentId(null); setSelectedTournamentName(null); }}
-                    className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto cursor-pointer"
-                  >
-                    Clear Filter
-                  </button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-0.5">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 shadow-sm space-y-2.5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {/* 1. Tournament Dropdown */}
-                <div className="relative flex flex-col gap-1.5">
-                  <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    <Trophy className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Tournament</span>
+                <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
+                  <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider truncate">
+                    <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-600 shrink-0" />
+                    <span className="truncate">Tournament</span>
                   </label>
                   <Popover open={tournamentPickerOpen} onOpenChange={setTournamentPickerOpen}>
                     <PopoverTrigger asChild>
@@ -1169,12 +1680,12 @@ export function SportsSchedule() {
                         role="combobox"
                         aria-expanded={tournamentPickerOpen}
                         aria-label="Search and select a tournament"
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                        className="flex w-full items-center justify-between gap-1.5 sm:gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3.5 sm:py-2.5 text-left text-xs sm:text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 min-w-0"
                       >
                         <span className={`min-w-0 truncate ${activeTournamentName ? "text-slate-900" : "text-slate-500"}`}>
                           {activeTournamentName || "All Tournaments"}
                         </span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-slate-400" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
@@ -1192,60 +1703,28 @@ export function SportsSchedule() {
                                 setSelectedTournamentName(null);
                                 setTournamentPickerOpen(false);
                               }}
-                              className="cursor-pointer px-3 py-2.5 aria-selected:bg-indigo-50"
+                              className="cursor-pointer px-3 py-2 aria-selected:bg-indigo-50 flex items-center justify-between"
                             >
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-xs font-bold text-slate-800">All Tournaments</span>
-                                <span className="mt-0.5 block text-[10px] text-slate-500">Show schedules across all tournaments</span>
-                              </div>
-                              {!activeTournamentName && <Check className="h-4 w-4 text-indigo-600" />}
+                              <span className="text-xs font-semibold text-slate-800 truncate">All Tournaments</span>
+                              {!activeTournamentName && <Check className="h-4 w-4 text-indigo-600 shrink-0" />}
                             </CommandItem>
-                            {tournamentOptions.map(option => {
-                              const dateLabel = option.startDate
-                                ? `${safeFormatDate(option.startDate, "d MMM yyyy")}${option.endDate ? ` – ${safeFormatDate(option.endDate, "d MMM yyyy")}` : ""}`
-                                : "Dates not set";
-                              return (
-                                <CommandItem
-                                  key={option.name}
-                                  value={option.searchValue}
-                                  onSelect={() => {
-                                    setSelectedTournamentId(null);
-                                    setSelectedActualTournamentId(option.id);
-                                    setSelectedSportsEventId(null);
-                                    setSelectedTournamentName(option.name);
-                                    setTournamentPickerOpen(false);
-                                  }}
-                                  className="cursor-pointer items-start px-3 py-2.5 aria-selected:bg-indigo-50"
-                                >
-                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><Trophy className="h-4 w-4" /></span>
-                                    <span className="min-w-0 flex-1">
-                                      <span className="flex items-center justify-between gap-2">
-                                        <span className="truncate text-xs font-bold text-slate-900">{option.name}</span>
-                                        <span className="flex shrink-0 items-center gap-1">
-                                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{option.eventCount} {option.eventCount === 1 ? "event" : "events"}</span>
-                                          {option.status && <span className="max-w-[72px] truncate rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">{option.status.replaceAll("_", " ")}</span>}
-                                        </span>
-                                      </span>
-                                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500">
-                                        <span>{option.teamCount} teams</span>
-                                        <span>{option.savedMatchCount} saved matches</span>
-                                        <span>{dateLabel}</span>
-                                      </span>
-                                      {option.events.length > 0 && (
-                                        <span className="mt-1 block truncate text-[10px] font-semibold text-slate-600">
-                                          {option.events.slice(0, 2).join(" · ")}{option.events.length > 2 ? ` · +${option.events.length - 2} more` : ""}
-                                        </span>
-                                      )}
-                                      <span className="mt-0.5 block truncate text-[10px] font-medium text-indigo-600">
-                                        {[...option.sports, ...option.formats].filter(Boolean).join(" · ") || "Tournament details unavailable"}
-                                      </span>
-                                    </span>
-                                  </div>
-                                  {selectedActualTournamentId === option.id && <Check className="mt-1 h-4 w-4 shrink-0 text-indigo-600" />}
-                                </CommandItem>
-                              );
-                            })}
+                            {tournamentOptions.map(option => (
+                              <CommandItem
+                                key={option.name}
+                                value={option.searchValue}
+                                onSelect={() => {
+                                  setSelectedTournamentId(null);
+                                  setSelectedActualTournamentId(option.id);
+                                  setSelectedSportsEventId(null);
+                                  setSelectedTournamentName(option.name);
+                                  setTournamentPickerOpen(false);
+                                }}
+                                className="cursor-pointer px-3 py-2 aria-selected:bg-indigo-50 flex items-center justify-between"
+                              >
+                                <span className="truncate text-xs font-semibold text-slate-900">{option.name}</span>
+                                {selectedActualTournamentId === option.id && <Check className="h-4 w-4 shrink-0 text-indigo-600" />}
+                              </CommandItem>
+                            ))}
                           </CommandGroup>
                         </CommandList>
                       </Command>
@@ -1254,11 +1733,22 @@ export function SportsSchedule() {
                 </div>
 
                 {/* 2. Sports Event Dropdown */}
-                <div className="relative flex flex-col gap-1.5">
-                  <label htmlFor="overviewEventSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    <Calendar className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Sports Event / Category</span>
-                  </label>
+                <div className="relative flex flex-col gap-1 sm:gap-1.5 min-w-0">
+                  <div className="flex min-w-0 items-center justify-between gap-1">
+                    <label htmlFor="overviewEventSelect" className="flex min-w-0 items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 shrink-0" />
+                      <span className="truncate">Event / Category</span>
+                    </label>
+                    {(selectedActualTournamentId !== null || selectedSportsEventId !== null) && (
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedActualTournamentId(null); setSelectedSportsEventId(null); setSelectedTournamentId(null); setSelectedTournamentName(null); }}
+                        className="shrink-0 text-[10px] sm:text-xs font-semibold text-slate-500 transition hover:text-indigo-600 cursor-pointer"
+                      >
+                        Clear Filter
+                      </button>
+                    )}
+                  </div>
                   <Popover open={eventPickerOpen} onOpenChange={setEventPickerOpen}>
                     <PopoverTrigger asChild>
                       <button
@@ -1267,12 +1757,12 @@ export function SportsSchedule() {
                         role="combobox"
                         aria-expanded={eventPickerOpen}
                         aria-label="Search and select a sports event"
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                        className="flex w-full items-center justify-between gap-1.5 sm:gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-2 sm:px-3.5 sm:py-2.5 text-left text-xs sm:text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100 min-w-0"
                       >
                         <span className={`min-w-0 truncate ${selectedSportsEventId ? "text-slate-900" : "text-slate-500"}`}>
                           {sportsEvents.find(event => Number(event.id) === selectedSportsEventId)?.name || "All Events / Categories"}
                         </span>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-slate-400" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
@@ -1336,6 +1826,7 @@ export function SportsSchedule() {
                   </Popover>
                 </div>
               </div>
+
             </div>
           )}
 
@@ -1459,6 +1950,51 @@ export function SportsSchedule() {
                 </div>
               </div>
 
+              {/* Upcoming Scheduled Matches */}
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 m-0">
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    Upcoming Matches
+                  </h3>
+                  <button onClick={() => setActiveTab("All Events")} className="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                    View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2 sm:space-y-3">
+                  {upcomingFixtures.length === 0 ? (
+                    <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
+                      No upcoming scheduled matches.
+                    </div>
+                  ) : (
+                    upcomingFixtures.map(fixture => {
+                      const IconComponent = getSportIcon(fixture.sport);
+                      const colors = getSportColor(fixture.sport);
+                      return (
+                        <div key={fixture.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:p-3.5 transition hover:border-amber-200 hover:bg-amber-50/40">
+                          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+                            <div className="shrink-0 rounded-lg p-2" style={{ backgroundColor: colors.bg, color: colors.color }}>
+                              <IconComponent className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0 text-left">
+                              <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{fixture.sport}</p>
+                              <h4 className="m-0 truncate text-xs font-bold text-slate-800">{fixture.team1} vs {fixture.team2}</h4>
+                              <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.name}</p>
+                              <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.venue}</p>
+                            </div>
+                          </div>
+                          <div className="shrink-0 rounded-lg border border-amber-100 bg-white px-2 py-1.5 text-right">
+                            <p className="m-0 text-[10px] font-bold text-slate-700">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"}</p>
+                            <p className="m-0 mt-0.5 text-[10px] font-semibold text-amber-700">{fixture.time || "Time TBD"}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               {/* Quick Navigation Cards */}
               <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
                 <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 m-0">
@@ -1487,16 +2023,18 @@ export function SportsSchedule() {
                     <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Browse, search and configure overall match listings.</p>
                   </div>
 
-                  <div
-                    onClick={() => setActiveTab("Brackets")}
-                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
-                  >
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
-                      <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                  {isSuperAdmin && (
+                    <div
+                      onClick={() => setActiveTab("Brackets")}
+                      className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
+                    >
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                        <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
-                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1602,7 +2140,7 @@ export function SportsSchedule() {
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sports</p>
               <p className="mt-1 text-2xl font-extrabold text-slate-900">{new Set(myMatches.map(match => match.sport)).size}</p>
             </div>
-            <div className="col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm sm:col-span-1">
+            <div className="hidden sm:block col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm sm:col-span-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Showing</p>
               <p className="mt-1 text-sm font-bold text-indigo-950">{selectedSportFilter === "All" ? "All registered sports" : selectedSportFilter}</p>
             </div>
@@ -1658,71 +2196,16 @@ export function SportsSchedule() {
             </div>
           )}
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
-                <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
-                <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
-                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "LIVE").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
-                <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "SCHEDULED").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
-                <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
-                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-              </div>
-              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "COMPLETED").length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
-              </div>
-            </div>
-          </div>
-
           {/* Add / Edit Fixture Form (Inline Card) */}
           {isAdmin && showFixtureForm && (
-            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
+            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/80 shadow-md animate-fade-in-up space-y-3">
               <div className="flex items-center justify-between border-b border-slate-100">
                 <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
                 <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Match Name / Round</label>
                   <input
@@ -1850,10 +2333,10 @@ export function SportsSchedule() {
           )}
 
           {/* Tournament & Sport Event Selectors */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm space-y-2.5">
+            <div className="grid grid-cols-2 items-center gap-2.5">
               <div className="flex-1 min-w-0">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
+                <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tournament</label>
                 <select
                   value={selectedActualTournamentId ?? ""}
                   onChange={e => {
@@ -1864,7 +2347,7 @@ export function SportsSchedule() {
                     setSelectedSportsEventId(null);
                     setSelectedTournamentId(null);
                   }}
-                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
                 >
                   <option value="">All Tournaments</option>
                   {tournamentOptions.map(tournament => (
@@ -1873,11 +2356,11 @@ export function SportsSchedule() {
                 </select>
               </div>
               <div className="flex-1 min-w-0">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sport</label>
+                <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sport</label>
                 <select
                   value={selectedSportFilter}
                   onChange={e => { setSelectedSportFilter(e.target.value); setFixtureSportFilter(e.target.value); }}
-                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
                 >
                   <option value="All">All Sports</option>
                   {sportsMeta.map(s => (
@@ -1889,7 +2372,7 @@ export function SportsSchedule() {
           </div>
 
           {/* Status Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
             {["All", "LIVE", "SCHEDULED", "COMPLETED"].map(status => {
               const isActive = fixtureStatusFilter === status;
               const count = status === "All" ? scopedFixtures.length : scopedFixtures.filter(f => f.status === status).length;
@@ -1903,7 +2386,7 @@ export function SportsSchedule() {
                 <button
                   key={status}
                   onClick={() => setFixtureStatusFilter(status)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${statusColors[status]}`}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${statusColors[status]}`}
                 >
                   {status === "LIVE" && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
                   {status === "All" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
@@ -1917,7 +2400,7 @@ export function SportsSchedule() {
 
           {/* Date Strip Navigation */}
           {fixtureDates.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-0.5" style={{ WebkitOverflowScrolling: "touch" }}>
               <button
                 onClick={() => setFixtureDateFilter(null)}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -1950,8 +2433,8 @@ export function SportsSchedule() {
           )}
 
           {/* Search and Actions Bar */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/50">
+          <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/50">
               <Search className="w-4 h-4 text-slate-400" />
               <input
                 type="text"
@@ -1965,7 +2448,7 @@ export function SportsSchedule() {
               {isAdmin && !showFixtureForm && (
                 <button
                   onClick={() => setActiveTab("Manual")}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
+                  className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Manage schedule
@@ -1975,7 +2458,7 @@ export function SportsSchedule() {
           </div>
 
           {/* Fixtures List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
             {sortedFixtures.map((fixture) => {
               const IconComponent = getSportIcon(fixture.sport);
               const sportStyle = getSportColor(fixture.sport);
@@ -1985,7 +2468,7 @@ export function SportsSchedule() {
               return (
                 <div
                   key={fixture.id}
-                  className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-150 flex flex-col justify-between"
+                  className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/80 shadow-sm hover:shadow-md active:scale-[0.99] transition-all duration-150 flex flex-col justify-between"
                   style={{
                     borderColor: isLive ? "rgba(239, 68, 68, 0.4)" : "rgba(226, 232, 240, 0.8)",
                     boxShadow: isLive ? "0 4px 18px rgba(239, 68, 68, 0.08)" : "none"
@@ -1993,7 +2476,7 @@ export function SportsSchedule() {
                 >
                   <div>
                     {/* Card Header: Sport badge, Venue and Status */}
-                    <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
                       <span
                         className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
                         style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
@@ -2013,49 +2496,56 @@ export function SportsSchedule() {
                             COMPLETED
                           </span>
                         )}
-                        {!isLive && !isCompleted && (
-                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
-                            SCHEDULED
-                          </span>
-                        )}
+                        <div className="flex shrink-0 items-center gap-2 rounded-lg border border-amber-100 bg-white px-2 py-1.5">
+                          <span className="text-[10px] font-extrabold text-slate-800">{fixture.date ? safeFormatDate(fixture.date, "d MMM") : "Date TBD"}</span>
+                          <span className="text-[10px] font-extrabold text-amber-800">{fixture.time || "Time TBD"}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{fixture.name}</h4>
+                    <h4 className="text-sm sm:text-xs font-bold leading-snug text-slate-800 line-clamp-2 sm:line-clamp-1">{fixture.name}</h4>
 
                     {/* Venue, Date & Time info */}
-                    <div className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-slate-500 text-xs">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="mt-2 grid grid-cols-1 gap-2 text-slate-500">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{fixture.venue}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-                        <span>{fixture.date} at {fixture.time}</span>
+                        <span className="min-w-0 truncate text-[10px] sm:text-xs">{fixture.venue}</span>
                       </div>
                     </div>
 
                     {/* Teams and Scores Display */}
-                    <div className="mt-2 sm:mt-4 bg-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-slate-100 space-y-1.5 sm:space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team1}
-                        </span>
-                        {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
-                            {fixture.score1 || (fixture.matchId ? "0" : "—")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
-                          {fixture.team2}
-                        </span>
-                        {(isLive || isCompleted) && (
-                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
-                            {fixture.score2 || (fixture.matchId ? "0" : "—")}
-                          </span>
-                        )}
+                    <div className="mt-2 bg-slate-50 rounded-lg sm:rounded-xl p-2 border border-slate-100">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex min-w-0 items-center justify-between gap-1">
+                          <div className="min-w-0">
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                              {fixture.team1}
+                            </span>
+                            {fixture.team1Flat && (
+                              <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
+                            )}
+                          </div>
+                          {(isLive || isCompleted) && (
+                            <span className="text-[10px] font-bold font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
+                              {fixture.score1 || (fixture.matchId ? "0" : "—")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 items-center justify-between gap-1">
+                          <div className="min-w-0">
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                              {fixture.team2}
+                            </span>
+                            {fixture.team2Flat && (
+                              <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
+                            )}
+                          </div>
+                          {(isLive || isCompleted) && (
+                            <span className="text-[10px] font-bold font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800 shrink-0">
+                              {fixture.score2 || (fixture.matchId ? "0" : "—")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2100,16 +2590,28 @@ export function SportsSchedule() {
 
                   {/* Actions Row */}
                   {isAdmin && (
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                      <div className="flex min-w-0 flex-1 sm:flex-none">
                         {fixture.status === "SCHEDULED" && (
-                          <button
-                            onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
-                          >
-                            <Play className="w-3 h-3 fill-red-600" />
-                            Go Live
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setConfirmGoLiveFixture(fixture)}
+                              className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
+                            >
+                              <Play className="w-3 h-3 fill-red-600" />
+                              Go Live
+                            </button>
+                            {fixture.matchId && (
+                              <button
+                                onClick={() => openScoreEntry(fixture)}
+                                className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-1.5 min-h-10 sm:min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl sm:rounded-lg transition active:scale-[0.98] cursor-pointer"
+                                title="Enter the final scoreboard for a match played without live scoring"
+                              >
+                                <Trophy className="w-3 h-3" />
+                                Enter Result
+                              </button>
+                            )}
+                          </>
                         )}
                         {fixture.status === "LIVE" && (
                           <>
@@ -2118,26 +2620,18 @@ export function SportsSchedule() {
                                 if (fixture.matchId) {
                                   openLiveScoring(fixture);
                                 } else {
-                                  setScoringFixtureId(fixture.id);
-                                  setFixtureScore1(fixture.score1 || "");
-                                  setFixtureScore2(fixture.score2 || "");
-                                  setShowScoreModal(true);
+                                  openScoreEntry(fixture);
                                 }
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                               title="Record live points, sets, or match scores"
                             >
                               <Activity className="w-3 h-3" />
                               Live Score
                             </button>
                             <button
-                              onClick={() => {
-                                setScoringFixtureId(fixture.id);
-                                setFixtureScore1(fixture.score1 || "");
-                                setFixtureScore2(fixture.score2 || "");
-                                setShowScoreModal(true);
-                              }}
-                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                              onClick={() => openScoreEntry(fixture)}
+                              className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 min-h-[34px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition active:scale-[0.98] cursor-pointer"
                             >
                               <Trophy className="w-3 h-3" />
                               End Match
@@ -2145,12 +2639,52 @@ export function SportsSchedule() {
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-end gap-1 shrink-0">
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
+                            onClick={() => setRulesModalFixture(fixture)}
+                            title={`Configure scoring rules for ${fixture.name}`}
+                          className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          >
+                            <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className="hidden sm:inline">Rules</span>
+                          </button>
+                        )}
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
+                            onClick={() => setEmergencyModalFixture(fixture)}
+                            title={`Manual Override / Walkover / Forfeit for ${fixture.name}`}
+                            className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-amber-700 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-amber-200"
+                          >
+                            <Zap className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="hidden sm:inline">Override</span>
+                          </button>
+                        )}
+                        {fixture.matchId && fixture.status !== "COMPLETED" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReschedulingFixture(fixture);
+                              setRescheduleDate(fixture.date ? format(new Date(fixture.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
+                              setRescheduleTime(fixture.time || "09:00 AM");
+                              const matchedVenue = venues.find(v => v.name.toLowerCase() === (fixture.venue || "").toLowerCase());
+                              setRescheduleVenueId(matchedVenue ? String(matchedVenue.id) : "");
+                              setRescheduleCourtId("");
+                            }}
+                            title={`Reschedule ${fixture.name}`}
+                          className="min-h-10 min-w-10 sm:min-w-0 p-2 sm:px-2.5 sm:py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer border border-slate-200/80"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className="hidden sm:inline">Reschedule</span>
+                          </button>
+                        )}
                         {fixture.matchId && (
                           <button
                             onClick={() => handleFixtureDelete(fixture.id)}
                             aria-label={`Delete ${fixture.name}`}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          className="min-h-10 min-w-10 p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2165,8 +2699,13 @@ export function SportsSchedule() {
             {sortedFixtures.length === 0 && (
               <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-12 border border-slate-100 shadow-sm text-center">
                 <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h4 className="text-xs font-bold text-slate-700">No matching fixtures found</h4>
-                <p className="text-xs text-slate-500 mt-1">Try adjusting your filters or search keywords.</p>
+                <h4 className="text-xs font-bold text-slate-700">{fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 ? "No live matches right now" : "No matching fixtures found"}</h4>
+                <p className="text-xs text-slate-500 mt-1">{fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 ? "You can switch to All or Scheduled to see upcoming matches." : "Try adjusting your filters or search keywords."}</p>
+                {fixtureStatusFilter === "LIVE" && scopedFixtures.length > 0 && (
+                  <button onClick={() => setFixtureStatusFilter("All")} className="mt-3 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-indigo-700">
+                    Show all matches
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2175,19 +2714,22 @@ export function SportsSchedule() {
           {showScoreModal && scoringFixtureId !== null && (() => {
             const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
             return (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-              <div className="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-[95vw] sm:max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-slate-100 mb-4">
-                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Update Match Score</h3>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-fade-in">
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-2xl shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-100 mb-4 pb-2">
+                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Record Final Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
-                    className="text-slate-400 hover:text-slate-600"
+                    className="text-slate-400 hover:text-slate-600 p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wider">
                   {scoringFixture?.name}
+                </p>
+                <p className="-mt-2 mb-4 text-[11px] text-slate-500">
+                  Enter the scoreboard and result after the match. Live scoring is not required.
                 </p>
 
                 {/* Result Type */}
@@ -2203,59 +2745,151 @@ export function SportsSchedule() {
                   </select>
                 </div>
 
-                {/* Scores */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      {scoringFixture?.team1}
-                    </label>
-                    <input type="text" placeholder="0" value={fixtureScore1}
-                      onChange={e => setFixtureScore1(e.target.value)}
-                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
+                {isCricketSport(scoringFixture?.sport || "") ? (
+                  <div className="mb-4 space-y-3">
+                    {[
+                      { side: "A" as const, label: scoringFixture?.team1 || "Team A", score: cricketTeamAScore, setScore: setCricketTeamAScore, batters: cricketPlayersA, bowlers: cricketPlayersB },
+                      { side: "B" as const, label: scoringFixture?.team2 || "Team B", score: cricketTeamBScore, setScore: setCricketTeamBScore, batters: cricketPlayersB, bowlers: cricketPlayersA },
+                    ].map((innings) => (
+                      <section key={innings.side} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between bg-slate-50 px-3 py-2">
+                          <div><h4 className="m-0 text-xs font-extrabold text-slate-800">{innings.label}</h4><p className="m-0 mt-0.5 text-[10px] text-slate-500">Batting innings</p></div>
+                          <div className="text-right"><span className="text-lg font-black tabular-nums text-slate-900">{innings.score.runs || "0"}/{innings.score.wickets || "0"}</span><span className="ml-1.5 text-[10px] font-semibold text-slate-500">({innings.score.overs || "0.0"} ov)</span></div>
+                        </div>
+                        <div className="space-y-3 p-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            {([["Runs", "runs"], ["Wickets", "wickets"], ["Overs", "overs"]] as const).map(([label, key]) => (
+                              <label key={key} className="text-[10px] font-bold uppercase text-slate-500">{label}<input type="text" inputMode={key === "overs" ? "decimal" : "numeric"} value={innings.score[key]} onChange={event => innings.setScore(previous => ({ ...previous, [key]: event.target.value }))} placeholder={key === "overs" ? "20.0" : "0"} className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" /></label>
+                            ))}
+                          </div>
+
+                          <div>
+                            <div className="mb-1.5 flex items-center justify-between"><h5 className="m-0 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">Batting</h5><button type="button" onClick={() => innings.setScore(previous => ({ ...previous, batting: [...previous.batting, { playerId: "", runsScored: "0", ballsFaced: "0", fours: "0", sixes: "0", dismissalType: "", dismissedByPlayerId: "", fielderPlayerId: "" }] }))} className="text-[10px] font-bold text-indigo-600">+ Add batter</button></div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-100">
+                              <table className="min-w-[720px] w-full text-[10px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-2 py-1.5 text-left">Batter</th><th className="px-1 py-1.5 text-right">R</th><th className="px-1 py-1.5 text-right">B</th><th className="px-1 py-1.5 text-right">4s</th><th className="px-1 py-1.5 text-right">6s</th><th className="px-2 py-1.5 text-left">Dismissal</th><th className="px-2 py-1.5"></th></tr></thead>
+                                <tbody>{innings.score.batting.map((row, index) => <tr key={index} className="border-t border-slate-100">
+                                  <td className="px-2 py-1"><select value={row.playerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, playerId: event.target.value } : item) }))} className="w-36 rounded border border-slate-200 bg-white px-1.5 py-1"><option value="">Select batter</option>{innings.batters.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select></td>
+                                  {([["runsScored", "Runs"], ["ballsFaced", "Balls"], ["fours", "4s"], ["sixes", "6s"]] as const).map(([key, label]) => <td key={key} className="px-1 py-1"><input aria-label={`${label} for batter ${index + 1}`} type="number" min="0" value={row[key]} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, [key]: event.target.value } : item) }))} className="w-12 rounded border border-slate-200 px-1 py-1 text-right" /></td>)}
+                                  <td className="px-2 py-1"><select aria-label={`Dismissal for batter ${index + 1}`} value={row.dismissalType} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, dismissalType: event.target.value } : item) }))} className="w-28 rounded border border-slate-200 bg-white px-1 py-1"><option value="">Not out</option><option value="BOWLED">Bowled</option><option value="CAUGHT">Caught</option><option value="LBW">LBW</option><option value="RUN_OUT">Run out</option><option value="STUMPED">Stumped</option><option value="HIT_WICKET">Hit wicket</option><option value="RETIRED_HURT">Retired hurt</option></select></td>
+                                  <td className="px-2 py-1 text-right"><button type="button" aria-label={`Remove batter ${index + 1}`} onClick={() => innings.setScore(previous => ({ ...previous, batting: previous.batting.filter((_, i) => i !== index) }))} className="text-slate-400 hover:text-red-600"><X className="h-3 w-3" /></button></td>
+                                </tr>)}</tbody>
+                              </table>
+                            </div>
+                            {innings.score.batting.some(row => ["BOWLED", "CAUGHT", "LBW", "STUMPED", "HIT_WICKET"].includes(row.dismissalType)) && <div className="mt-2 grid grid-cols-2 gap-2">{innings.score.batting.map((row, index) => row.dismissalType ? <div key={index} className="grid grid-cols-2 gap-1"><select aria-label={`Bowler for batter ${index + 1}`} value={row.dismissedByPlayerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, dismissedByPlayerId: event.target.value } : item) }))} className="min-w-0 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px]"><option value="">Bowler</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select>{row.dismissalType === "CAUGHT" && <select aria-label={`Fielder for batter ${index + 1}`} value={row.fielderPlayerId} onChange={event => innings.setScore(previous => ({ ...previous, batting: previous.batting.map((item, i) => i === index ? { ...item, fielderPlayerId: event.target.value } : item) }))} className="min-w-0 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px]"><option value="">Fielder</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select>}</div> : null)}</div>}
+                          </div>
+
+                          <div>
+                            <div className="mb-1.5 flex items-center justify-between"><h5 className="m-0 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">Bowling</h5><button type="button" onClick={() => innings.setScore(previous => ({ ...previous, bowling: [...previous.bowling, { playerId: "", oversBowled: "0.0", maidens: "0", runsConceded: "0", wicketsTaken: "0", dotBalls: "0", wides: "0", noBalls: "0" }] }))} className="text-[10px] font-bold text-indigo-600">+ Add bowler</button></div>
+                            <div className="overflow-x-auto rounded-lg border border-slate-100"><table className="min-w-[660px] w-full text-[10px]"><thead className="bg-slate-50 text-slate-500"><tr><th className="px-2 py-1.5 text-left">Bowler</th>{["O", "M", "R", "W", "Dots", "Wd", "Nb"].map(label => <th key={label} className="px-1 py-1.5 text-right">{label}</th>)}<th></th></tr></thead><tbody>{innings.score.bowling.map((row, index) => <tr key={index} className="border-t border-slate-100"><td className="px-2 py-1"><select value={row.playerId} onChange={event => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.map((item, i) => i === index ? { ...item, playerId: event.target.value } : item) }))} className="w-36 rounded border border-slate-200 bg-white px-1.5 py-1"><option value="">Select bowler</option>{innings.bowlers.map(player => <option key={player.id} value={player.id}>{player.name}</option>)}</select></td>{([["oversBowled", "Overs"], ["maidens", "Maidens"], ["runsConceded", "Runs"], ["wicketsTaken", "Wickets"], ["dotBalls", "Dots"], ["wides", "Wides"], ["noBalls", "No balls"]] as const).map(([key, label]) => <td key={key} className="px-1 py-1"><input aria-label={`${label} for bowler ${index + 1}`} type="text" inputMode={key === "oversBowled" ? "decimal" : "numeric"} value={row[key]} onChange={event => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.map((item, i) => i === index ? { ...item, [key]: event.target.value } : item) }))} className="w-12 rounded border border-slate-200 px-1 py-1 text-right" /></td>)}<td className="px-2 py-1 text-right"><button type="button" aria-label={`Remove bowler ${index + 1}`} onClick={() => innings.setScore(previous => ({ ...previous, bowling: previous.bowling.filter((_, i) => i !== index) }))} className="text-slate-400 hover:text-red-600"><X className="h-3 w-3" /></button></td></tr>)}</tbody></table></div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">{([["Byes", "byes"], ["Leg byes", "legByes"], ["Wides", "wides"], ["No balls", "noBalls"], ["Penalty", "penalty"]] as const).map(([label, key]) => <label key={key} className="text-[9px] font-bold text-slate-500">{label}<input type="number" min="0" value={innings.score[key]} onChange={event => innings.setScore(previous => ({ ...previous, [key]: event.target.value }))} className="mt-1 w-full rounded border border-slate-200 px-2 py-1.5" /></label>)}</div>
+                          <label className="block text-[10px] font-semibold text-slate-500">Fall of wickets<input type="text" value={innings.score.fallOfWickets} onChange={event => innings.setScore(previous => ({ ...previous, fallOfWickets: event.target.value }))} placeholder="e.g. 32-1 (Player, 5.4 ov)" className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs" /></label>
+                        </div>
+                      </section>
+                    ))}
+                    {cricketRosterLoading && <p className="m-0 flex items-center gap-1.5 text-[10px] text-slate-500"><Loader2 className="h-3 w-3 animate-spin" />Loading player rosters…</p>}
+                    {!cricketRosterLoading && (!cricketPlayersA.length || !cricketPlayersB.length) && <p className="m-0 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[10px] text-amber-800">Team rosters are missing. Add players to both teams before entering the detailed scorecard.</p>}
+                    <p className="m-0 text-[10px] text-slate-500">Enter the batting and bowling tables, extras, and fall of wickets for both innings. The saved result will render as a full scorecard.</p>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      {scoringFixture?.team2}
-                    </label>
-                    <input type="text" placeholder="0" value={fixtureScore2}
-                      onChange={e => setFixtureScore2(e.target.value)}
-                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
-                    />
+                ) : /badminton/i.test(scoringFixture?.sport || "") ? (
+                  <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="mb-2 text-xs font-bold text-slate-700">Game scores · best of 3</p>
+                    <div className="space-y-2">
+                      {badmintonGames.map((game, index) => (
+                        <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+                          <label className="min-w-0 text-[10px] font-semibold text-slate-500">
+                            <span className="block truncate">{scoringFixture?.team1 || "Player 1"}</span>
+                            <input type="number" min="0" value={game.teamA} onChange={event => setBadmintonGames(previous => previous.map((item, i) => i === index ? { ...item, teamA: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                          </label>
+                          <span className="pt-4 text-[10px] font-bold text-slate-400">Game {index + 1}</span>
+                          <label className="min-w-0 text-[10px] font-semibold text-slate-500">
+                            <span className="block truncate">{scoringFixture?.team2 || "Player 2"}</span>
+                            <input type="number" min="0" value={game.teamB} onChange={event => setBadmintonGames(previous => previous.map((item, i) => i === index ? { ...item, teamB: event.target.value } : item))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-center text-sm font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">{scoringFixture?.team1}</label>
+                      <input type="text" placeholder="0" value={fixtureScore1} onChange={e => setFixtureScore1(e.target.value)} className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2 truncate">{scoringFixture?.team2}</label>
+                      <input type="text" placeholder="0" value={fixtureScore2} onChange={e => setFixtureScore2(e.target.value)} className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500" />
+                    </div>
+                  </div>
+                )}
 
                 {/* Winner Selection (only for WIN result) */}
                 {scoreResultType === "WIN" && (
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Winner</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <button type="button"
                         onClick={() => {
                           if (scoringFixture?.teamAId) setScoreWinnerId(scoringFixture.teamAId);
                           setScoreWinnerSide("A");
-                          setScoreWinnerName(scoringFixture?.team1 || "Team A");
+                          const isIndiv = isIndividualSport(scoringFixture?.sport);
+                          setScoreWinnerName(scoringFixture?.team1 || (isIndiv ? "Player 1" : "Team A"));
                         }}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                        className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "A" || (scoringFixture?.teamAId && scoreWinnerId === scoringFixture.teamAId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}>
-                        {scoringFixture?.team1 || "Team A"}
+                        {scoringFixture?.team1 || (isIndividualSport(scoringFixture?.sport) ? "Player 1" : "Team A")}
                       </button>
                       <button type="button"
                         onClick={() => {
                           if (scoringFixture?.teamBId) setScoreWinnerId(scoringFixture.teamBId);
                           setScoreWinnerSide("B");
-                          setScoreWinnerName(scoringFixture?.team2 || "Team B");
+                          const isIndiv = isIndividualSport(scoringFixture?.sport);
+                          setScoreWinnerName(scoringFixture?.team2 || (isIndiv ? "Player 2" : "Team B"));
                         }}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                        className={`px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition truncate ${
                           scoreWinnerSide === "B" || (scoringFixture?.teamBId && scoreWinnerId === scoringFixture.teamBId)
                             ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}>
-                        {scoringFixture?.team2 || "Team B"}
+                        {scoringFixture?.team2 || (isIndividualSport(scoringFixture?.sport) ? "Player 2" : "Team B")}
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {isCricketSport(scoringFixture?.sport || "") && scoringFixture?.teamAId && scoringFixture?.teamBId && (
+                  <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-800">Toss details (optional)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-600">Toss won by</label>
+                        <select
+                          value={scoreTossWinnerSide}
+                          onChange={e => setScoreTossWinnerSide(e.target.value as "A" | "B" | "")}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-amber-500"
+                        >
+                          <option value="">Select team</option>
+                          <option value="A">{scoringFixture.team1}</option>
+                          <option value="B">{scoringFixture.team2}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-slate-600">Chose to</label>
+                        <select
+                          value={scoreTossDecision}
+                          onChange={e => setScoreTossDecision(e.target.value as "BAT" | "BOWL" | "")}
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-amber-500"
+                        >
+                          <option value="">Select decision</option>
+                          <option value="BAT">Bat first</option>
+                          <option value="BOWL">Bowl first</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2269,17 +2903,17 @@ export function SportsSchedule() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-3 border-t border-slate-100">
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
-                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleScoreUpdateSubmit}
-                    disabled={scoreSaving || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide)}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50"
+                    disabled={scoreSaving || (isCricketSport(scoringFixture?.sport || "") && (cricketRosterLoading || !cricketPlayersA.length || !cricketPlayersB.length)) || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide && !/badminton/i.test(scoringFixture?.sport || ""))}
+                    className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50 cursor-pointer"
                   >
                     {scoreSaving ? "Saving..." : "Complete & Save"}
                   </button>
@@ -2325,26 +2959,38 @@ export function SportsSchedule() {
               try {
                 if (!fixture.matchId) throw new Error("This fixture is not linked to a saved match record.");
                 await apiClient.put(`/sports/matches/${fixture.matchId}/status`, { status: "LIVE" });
+                if (goLiveFeedVisibility !== "inherit") {
+                  try {
+                    await tournamentService.setFeedVisibility("match", fixture.matchId, goLiveFeedVisibility === "show");
+                  } catch {
+                    toast.error("Match is live, but the feed setting could not be saved.");
+                  }
+                }
                 setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
                 toast.success(`Match "${fixture.name}" is now LIVE!`);
               } catch (err: any) {
                 toast.error(err?.message || "Failed to broadcast match status to LIVE on server");
               } finally {
                 setConfirmGoLiveFixture(null);
+                setGoLiveFeedVisibility("inherit");
               }
             };
 
-            return (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+            return createPortal(
+              <div
+                className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] overflow-y-auto"
+                onClick={(e) => { if (e.target === e.currentTarget) setConfirmGoLiveFixture(null); }}
+              >
+                <div className="min-h-full flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left">
                   {/* Header */}
-                  <div className="flex items-center justify-between border-b border-slate-100">
+                  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
                         <Radio className="w-5 h-5 animate-pulse" />
                       </div>
                       <div>
-                        <h3 className="text-xs font-bold text-slate-900 leading-none m-0 mb-0">Confirm Go Live</h3>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight m-0">Confirm Go Live</h3>
                         <p className="text-xs text-slate-400 mt-1 m-0">Check schedule & broadcast live match</p>
                       </div>
                     </div>
@@ -2374,9 +3020,15 @@ export function SportsSchedule() {
 
                     {(fixture.team1 || fixture.team2) && (
                       <div className="mt-2.5 flex items-center justify-between text-xs font-bold text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60 shadow-xs">
-                        <span className="truncate max-w-[42%] text-slate-800">{fixture.team1 || "TBD"}</span>
-                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50">VS</span>
-                        <span className="truncate max-w-[42%] text-slate-800 text-right">{fixture.team2 || "TBD"}</span>
+                        <div className="truncate max-w-[42%] text-left">
+                          <span className="truncate block text-slate-800">{fixture.team1 || "TBD"}</span>
+                          {fixture.team1Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team1Flat}</span>}
+                        </div>
+                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50 shrink-0">VS</span>
+                        <div className="truncate max-w-[42%] text-right">
+                          <span className="truncate block text-slate-800">{fixture.team2 || "TBD"}</span>
+                          {fixture.team2Flat && <span className="block text-[9px] text-slate-400 font-normal truncate">🏠 {fixture.team2Flat}</span>}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2447,6 +3099,25 @@ export function SportsSchedule() {
                     )}
                   </div>
 
+                  {/* Community feed visibility */}
+                  <div className="mt-4 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                    <label htmlFor="goLiveFeedVisibility" className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
+                      <Radio className="w-3 h-3 text-indigo-600" />
+                      Show on community feed
+                    </label>
+                    <select
+                      id="goLiveFeedVisibility"
+                      value={goLiveFeedVisibility}
+                      onChange={(e) => setGoLiveFeedVisibility(e.target.value as "inherit" | "show" | "hide")}
+                      className="mt-1.5 w-full rounded-lg border border-indigo-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-800"
+                    >
+                      <option value="inherit">Use tournament / event setting</option>
+                      <option value="show">Yes - show this match live on the feed</option>
+                      <option value="hide">No - keep off the feed</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-indigo-700/80">It leaves the feed automatically when the match completes.</p>
+                  </div>
+
                   {/* Actions */}
                   <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
                     <button
@@ -2466,9 +3137,225 @@ export function SportsSchedule() {
                     </button>
                   </div>
                 </div>
-              </div>
+                </div>
+              </div>,
+              document.body
             );
           })()}
+
+          {/* Reschedule Match Modal */}
+          {reschedulingFixture && createPortal(
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[1000] overflow-y-auto"
+              onClick={(e) => { if (e.target === e.currentTarget && !isSubmittingReschedule) setReschedulingFixture(null); }}
+            >
+              <div className="min-h-full flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left">
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 leading-tight m-0">Reschedule Match</h3>
+                        <p className="text-xs text-slate-400 mt-1 m-0">Update match date, time, and court</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule}
+                      onClick={() => setReschedulingFixture(null)}
+                      className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Match Info Summary */}
+                  <div className="mt-4 p-3 bg-slate-50/80 rounded-2xl border border-slate-100">
+                    <div className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded inline-block mb-1.5">
+                      {reschedulingFixture.sport || "Sport"}
+                    </div>
+                    <div className="text-xs font-bold text-slate-800 leading-snug">
+                      {reschedulingFixture.name}
+                    </div>
+                    {(reschedulingFixture.team1 || reschedulingFixture.team2) && (
+                      <div className="mt-2 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                        <span className="truncate">{reschedulingFixture.team1 || "TBD"}</span>
+                        <span className="text-[10px] font-black text-indigo-500 uppercase px-1 rounded bg-indigo-50">VS</span>
+                        <span className="truncate">{reschedulingFixture.team2 || "TBD"}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Form fields */}
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Scheduled Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                        className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Scheduled Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 09:30 AM or 14:00"
+                        value={rescheduleTime}
+                        onChange={(e) => setRescheduleTime(e.target.value)}
+                        className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Accepts 12-hour (e.g. 10:00 AM) or 24-hour (14:30) format</p>
+                    </div>
+
+                    {venues.length > 0 && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Venue</label>
+                        <select
+                          value={rescheduleVenueId}
+                          onChange={(e) => {
+                            setRescheduleVenueId(e.target.value);
+                            setRescheduleCourtId("");
+                          }}
+                          className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                        >
+                          <option value="">-- Keep Current Venue --</option>
+                          {venues.map((v) => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {(() => {
+                      const selectedV = venues.find(v => String(v.id) === rescheduleVenueId);
+                      if (!selectedV || !selectedV.courts || selectedV.courts.length === 0) return null;
+                      return (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">Court</label>
+                          <select
+                            value={rescheduleCourtId}
+                            onChange={(e) => setRescheduleCourtId(e.target.value)}
+                            className="w-full text-xs font-semibold text-slate-800 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 focus:bg-white focus:border-indigo-500 outline-none transition cursor-pointer"
+                          >
+                            <option value="">-- Any / Unassigned Court --</option>
+                            {selectedV.courts.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule}
+                      onClick={() => setReschedulingFixture(null)}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmittingReschedule || !rescheduleDate}
+                      onClick={async () => {
+                        if (!reschedulingFixture.matchId) {
+                          toast.error("Match record not linked to server");
+                          return;
+                        }
+                        if (!rescheduleDate) {
+                          toast.error("Please pick a scheduled date");
+                          return;
+                        }
+                        setIsSubmittingReschedule(true);
+                        try {
+                          // Parse time into HH:mm
+                          let hours = 9;
+                          let minutes = 0;
+                          const t = (rescheduleTime || "").trim().toUpperCase();
+                          const match12 = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+                          if (match12) {
+                            hours = parseInt(match12[1], 10);
+                            minutes = parseInt(match12[2], 10);
+                            const meridiem = match12[3];
+                            if (meridiem === "PM" && hours < 12) hours += 12;
+                            if (meridiem === "AM" && hours === 12) hours = 0;
+                          } else {
+                            const match24 = t.match(/^(\d{1,2}):(\d{2})$/);
+                            if (match24) {
+                              hours = parseInt(match24[1], 10);
+                              minutes = parseInt(match24[2], 10);
+                            }
+                          }
+                          const hh = String(hours).padStart(2, "0");
+                          const mm = String(minutes).padStart(2, "0");
+                          const scheduledAtIso = `${rescheduleDate}T${hh}:${mm}:00`;
+
+                          await tournamentService.rescheduleMatch(reschedulingFixture.matchId, {
+                            scheduledAt: scheduledAtIso,
+                            venue: rescheduleVenueId || undefined,
+                            court: rescheduleCourtId || undefined,
+                          });
+
+                          // Optimistic update in fixturesList
+                          const formattedTime = format(new Date(scheduledAtIso), "hh:mm a");
+                          const venueObj = venues.find(v => String(v.id) === rescheduleVenueId);
+                          const courtObj = venueObj?.courts?.find(c => String(c.id) === rescheduleCourtId);
+                          const updatedVenueName = venueObj ? (courtObj ? `${venueObj.name} · ${courtObj.name}` : venueObj.name) : reschedulingFixture.venue;
+
+                          setFixturesList(prev => prev.map(f => {
+                            if (f.id === reschedulingFixture.id) {
+                              return {
+                                ...f,
+                                date: rescheduleDate,
+                                time: formattedTime,
+                                venue: updatedVenueName,
+                                rawStartDate: scheduledAtIso,
+                              };
+                            }
+                            return f;
+                          }));
+
+                          toast.success(`Match rescheduled to ${rescheduleDate} at ${formattedTime}`);
+                          setReschedulingFixture(null);
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to reschedule match on server");
+                        } finally {
+                          setIsSubmittingReschedule(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingReschedule ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Saving…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Schedule</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
       )}
 
@@ -2526,11 +3413,11 @@ export function SportsSchedule() {
       })()}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} />}
+      {activeTab === "Brackets" && isSuperAdmin && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} isAdmin={isSuperAdmin} />}
 
       {/* Config */}
       {activeTab === "Config" && (
-        isAdmin ? <TournamentScheduler /> : (
+        isAdmin ? <TournamentScheduler onEditSchedule={handleEditScheduleFromConfig} /> : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
@@ -2541,7 +3428,20 @@ export function SportsSchedule() {
 
       {/* Setup Schedule */}
       {activeTab === "Setup Schedule" && (
-        isAdmin ? <SetupSchedule initialEventId={eventId} /> : (
+        isAdmin ? (
+          <SetupSchedule
+            initialEventId={setupScheduleEventId || eventId}
+            initialConfigId={setupScheduleConfigId}
+            onClearConfigSelection={() => {
+              setSetupScheduleConfigId(null);
+              setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('configId');
+                return next;
+              }, { replace: true });
+            }}
+          />
+        ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>
@@ -2570,6 +3470,54 @@ export function SportsSchedule() {
             <p className="text-xs text-slate-500 mt-1">Manual Scheduler is restricted to administrators.</p>
           </div>
         )
+      )}
+
+      {/* Tournament Operations Hub (Unified Console for Stages, Fixtures, Publication, Reserve Days) */}
+      {(activeTab === "Tournament Operations" || activeTab === "Stage Manager" || activeTab === "Publication" || activeTab === "Schedule History") && (
+        isAdmin ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <TournamentOperationsHub
+              initialConfigId={
+                selectedTournamentId ??
+                (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+                (tournamentConfigs[0]?.id) ??
+                0
+              }
+              initialSubTab={
+                activeTab === "Publication" || activeTab === "Schedule History" ? "publication" : "stages"
+              }
+            />
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Tournament Operations Hub is restricted to administrators.</p>
+          </div>
+        )
+      )}
+
+      {/* Published Tournament Schedules & Stage-Wise Exports (Admin and Sports Admin Only) */}
+      {activeTab === "Published Schedules" && (
+        isSportsAdminOnly ? (
+          <div className="p-4 sm:p-6 bg-slate-50/50 min-h-[500px]">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-xs">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Published Tournament Schedules &amp; Stage Exports</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Browse fixtures, filter by stage (Group Stage, Quarter-Finals, Semi-Finals, Final), control community feed broadcast, and export cleanly.
+                </p>
+              </div>
+              <Link
+                to="/sports/admin?tab=schedule"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 transition-colors shrink-0"
+              >
+                Open in Admin Hub →
+              </Link>
+            </div>
+            <ScheduleAdminTab />
+          </div>
+        ) : null
       )}
 
       {scoreSummaryFixture && (
@@ -2618,7 +3566,13 @@ export function SportsSchedule() {
       {/* Live Scoring Panel (Admin) */}
       {liveScoringMatchId !== null && (
         activeIsCricket ? (
-          <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+          <LiveScoringPanel
+            matchId={liveScoringMatchId}
+            configId={activeMatchFixture?.configId}
+            teamAName={activeMatchFixture?.team1}
+            teamBName={activeMatchFixture?.team2}
+            onClose={() => setLiveScoringMatchId(null)}
+          />
         ) : activeIsTimeSport ? (
           <RaceScoringPanel
             matchId={liveScoringMatchId}
@@ -2630,10 +3584,51 @@ export function SportsSchedule() {
             matchId={liveScoringMatchId}
             sportType={activeSportType}
             onClose={() => setLiveScoringMatchId(null)}
-            teamA={{ id: activeMatchFixture?.teamAId || 0, name: activeMatchFixture?.team1 || "Team A", color: "#6366f1" }}
-            teamB={{ id: activeMatchFixture?.teamBId || 0, name: activeMatchFixture?.team2 || "Team B", color: "#f97316" }}
+            teamA={{ id: activeMatchFixture?.teamAId || 1, name: activeMatchFixture?.team1 || (isIndividualSport(activeSportType) ? "Player 1" : "Team A"), color: "#6366f1" }}
+            teamB={{ id: activeMatchFixture?.teamBId || 2, name: activeMatchFixture?.team2 || (isIndividualSport(activeSportType) ? "Player 2" : "Team B"), color: "#f97316" }}
           />
         )
+      )}
+      {/* Match Scoring Rules Modal (Admin / Single Match Override) */}
+      {rulesModalFixture && (
+        <MatchScoringRulesModal
+          isOpen={!!rulesModalFixture}
+          onClose={() => setRulesModalFixture(null)}
+          matchId={rulesModalFixture.matchId}
+          sportType={rulesModalFixture.sport || activeMatchSport || "General"}
+          matchName={rulesModalFixture.name}
+          onSaved={() => {
+            // Scoring rules updated for match
+          }}
+        />
+      )}
+
+      {/* Emergency Score / Override Modal */}
+      {emergencyModalFixture && (
+        <EmergencyScoreModal
+          isOpen={!!emergencyModalFixture}
+          onClose={() => setEmergencyModalFixture(null)}
+          matchId={emergencyModalFixture.matchId}
+          configId={emergencyModalFixture.configId}
+          sportType={emergencyModalFixture.sport}
+          teamAId={emergencyModalFixture.teamAId}
+          teamBId={emergencyModalFixture.teamBId}
+          teamAName={emergencyModalFixture.team1}
+          teamBName={emergencyModalFixture.team2}
+          currentScoreA={emergencyModalFixture.score1}
+          currentScoreB={emergencyModalFixture.score2}
+          onSuccess={(resultData) => {
+            if (emergencyModalFixture) {
+              setFixturesList(prev => prev.map(f => f.id === emergencyModalFixture.id ? {
+                ...f,
+                score1: resultData?.scoreTeamA != null ? String(resultData.scoreTeamA) : f.score1,
+                score2: resultData?.scoreTeamB != null ? String(resultData.scoreTeamB) : f.score2,
+                status: "COMPLETED",
+              } : f));
+            }
+            setEmergencyModalFixture(null);
+          }}
+        />
       )}
         </div>
       </main>

@@ -16,10 +16,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { sportsService } from "../../../services/sports/sportsService";
+import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
 import { userService } from "../../../services/common/userService";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import type { SportsTournament, UserResponse } from "../../../types/api";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 export interface PaymentCoordinator {
   id: string;
@@ -157,8 +158,8 @@ export function TournamentPaymentContactsModal({
 
     // Auto-fill details (Flat, Block, Phone)
     const detailParts: string[] = [];
-    if (u.flatNo) detailParts.push(`Flat ${u.flatNo}`);
-    if (u.block) detailParts.push(`Block ${u.block}`);
+    const formattedFlat = formatFlatLabel(u.flatNo, u.block);
+    if (formattedFlat) detailParts.push(formattedFlat);
     if (u.phone) detailParts.push(`Ph: ${u.phone}`);
     setNewDetail(detailParts.join(", "));
   };
@@ -280,16 +281,17 @@ export function TournamentPaymentContactsModal({
         },
       ];
 
-      // Update tournament via sportsService
-      const payload: any = {
-        name: tournament.name,
-        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
-        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
-        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
-        otherContacts: JSON.stringify(updatedOther),
-      };
-
-      await sportsService.updateTournament(tournament.id, payload);
+      // Update tournament payment coordinators (otherContacts)
+      await tournamentPaymentService.updateTournamentOtherContacts(
+        tournament.id,
+        JSON.stringify(updatedOther),
+        {
+          ...tournament,
+          communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
+        }
+      );
 
       // Mutate local tournament object
       tournament.otherContacts = JSON.stringify(updatedOther);
@@ -333,15 +335,18 @@ export function TournamentPaymentContactsModal({
         (c) => !(c.name === coordToRemove.name && c.detail === coordToRemove.detail)
       );
 
-      const payload: any = {
-        name: tournament.name,
-        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
-        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
-        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
-        otherContacts: JSON.stringify(updatedOther),
-      };
+      // Update tournament payment coordinators (otherContacts)
+      await tournamentPaymentService.updateTournamentOtherContacts(
+        tournament.id,
+        JSON.stringify(updatedOther),
+        {
+          ...tournament,
+          communityId: effectiveCommunityId,
+          eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+          eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
+        }
+      );
 
-      await sportsService.updateTournament(tournament.id, payload);
       tournament.otherContacts = JSON.stringify(updatedOther);
       if (onTournamentUpdated) {
         onTournamentUpdated({
@@ -540,8 +545,7 @@ export function TournamentPaymentContactsModal({
                                     {u.fullName}
                                   </div>
                                   <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                                    {u.flatNo && <span>Flat {u.flatNo}</span>}
-                                    {u.block && <span>• Block {u.block}</span>}
+                                    {(u.flatNo || u.block) && <span>{formatFlatLabel(u.flatNo, u.block)}</span>}
                                     {u.phone && <span>• {u.phone}</span>}
                                   </div>
                                 </div>
@@ -573,7 +577,7 @@ export function TournamentPaymentContactsModal({
                       <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                       <span className="text-[11px] text-indigo-950 truncate">
                         Selected <strong>{selectedUser.fullName}</strong>
-                        {selectedUser.flatNo ? ` (Flat ${selectedUser.flatNo})` : ""} — details auto-filled. You can also edit manually below.
+                        {selectedUser.flatNo || selectedUser.block ? ` (${formatFlatLabel(selectedUser.flatNo, selectedUser.block)})` : ""} — details auto-filled. You can also edit manually below.
                       </span>
                     </div>
                     <button

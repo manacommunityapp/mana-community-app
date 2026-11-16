@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sports Module End-to-End Flow — Live Scoring & Tournament Suite</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .gold-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .badge-q { background: rgba(34, 197, 94, 0.12); color: #15803d; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- Top App Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-indigo-200">
+          ⚡
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-bold text-slate-900 tracking-tight">Mana Community · Sports Module</h1>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">Production Verified</span>
+          </div>
+          <p class="text-xs text-slate-500">Live Scoring Studio · Bracket Progression · Non-Auction Winners · Auto-Completion</p>
+        </div>
+      </div>
+
+      <!-- Quick Steps Navigation -->
+      <div class="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button onclick="switchTab('fixtures')" id="tabBtn-fixtures" class="px-3 py-1.5 rounded-lg bg-white text-indigo-700 shadow-xs transition cursor-pointer">1. Fixtures & Score</button>
+        <button onclick="switchTab('livescoring')" id="tabBtn-livescoring" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> 2. Live Scoring Studio</button>
+        <button onclick="switchTab('bracket')" id="tabBtn-bracket" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">3. Knockout Bracket</button>
+        <button onclick="switchTab('standings')" id="tabBtn-standings" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">4. Points Table</button>
+        <button onclick="switchTab('completion')" id="tabBtn-completion" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">5. Completion</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Top Tournament Live Status Banner -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-2xl shadow-inner">
+          🏆
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900" id="tourneyTitle">Annual Community Sports Fest 2026</h2>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider" id="tourneyStatusBadge">
+              <!-- Rendered via JS -->
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Badminton Singles & Cricket Premier League · 16 Participants · Court 1 & Main Ground</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 self-stretch sm:self-auto flex-wrap">
+        <button onclick="resetSimulation()" class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+          <span>🔄</span> Reset State
+        </button>
+        <button onclick="switchTab('livescoring')" class="text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm shadow-red-200 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+          <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> Open Live Scorer
+        </button>
+        <button onclick="openScoreModal('match-sf1')" class="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-200 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer">
+          <span>✍️</span> Manual Score Entry
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: FIXTURES & RESULTS VIEW -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <section id="view-fixtures" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span>📅</span> Match Fixtures & Live Status
+          </h3>
+          <p class="text-xs text-slate-500">Test winner selection for both individual non-auction competitors and team auction matches.</p>
+        </div>
+        <div class="text-xs font-medium text-slate-500">Showing <span class="font-bold text-slate-800">4</span> scheduled fixtures</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="fixturesGrid">
+        <!-- Rendered dynamically via renderFixtures() -->
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: LIVE SCORING STUDIO (NEW!) -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <section id="view-livescoring" class="hidden space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200">
+              <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span> LIVE SCORING STUDIO
+            </span>
+            <span class="text-xs text-slate-400">· Real-Time Match Controller</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Simulate live ball-by-ball cricket scoring or point-by-point racquet scoring. Watch match completion auto-advance the tournament bracket!</p>
+        </div>
+
+        <!-- Sport Switcher -->
+        <div class="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold self-start">
+          <button onclick="switchLiveSport('cricket')" id="btnLiveSport-cricket" class="px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition cursor-pointer">🏏 Cricket (Innings 2 Chase)</button>
+          <button onclick="switchLiveSport('badminton')" id="btnLiveSport-badminton" class="px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer">🏸 Badminton (Decider Set 3)</button>
+        </div>
+      </div>
+
+      <!-- CRICKET LIVE SCORER PANEL -->
+      <div id="panel-live-cricket" class="space-y-4">
+        <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 relative overflow-hidden">
+          
+          <!-- Background Glow -->
+          <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Match Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <div>
+              <span class="text-[10px] font-bold tracking-widest text-indigo-400 uppercase">Cricket League · Match #4 · Main Ground</span>
+              <div class="text-sm font-extrabold text-white">Titans CC vs Warriors XI (Chasing 85)</div>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] font-bold text-slate-400 block uppercase">1st Innings: Titans CC</span>
+              <span class="text-xs font-mono font-bold text-slate-200">84/4 (10.0 ov)</span>
+            </div>
+          </div>
+
+          <!-- Main Live Scoreboard Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            
+            <!-- Left: Current Score & Target -->
+            <div>
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Warriors XI Batting</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-4xl font-extrabold text-white font-mono tracking-tight" id="cricketScore">81/2</span>
+                <span class="text-lg text-slate-400 font-semibold" id="cricketOvers">(8.2 ov)</span>
+              </div>
+              <div class="mt-2 text-xs font-semibold text-amber-400 flex items-center gap-1.5" id="cricketTargetStatus">
+                <span>🎯</span> Need <strong id="cricketRunsNeeded" class="text-white font-mono">4 runs</strong> from <strong id="cricketBallsRemaining" class="text-white font-mono">10 balls</strong>
+              </div>
+              <div class="mt-1 text-[11px] text-slate-400 font-mono">CRR: <span id="cricketCRR" class="text-slate-200">9.72</span> · RRR: <span id="cricketRRR" class="text-emerald-400 font-bold">2.40</span></div>
+            </div>
+
+            <!-- Middle: Active Batsmen Table -->
+            <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/80 space-y-1.5 text-xs font-medium">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700 pb-1">Batters on Pitch</div>
+              <div class="flex items-center justify-between" id="strikerRow">
+                <span class="text-white font-bold flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span id="strikerName">Rohit Sharma</span>*
+                </span>
+                <span class="font-mono text-slate-200"><strong id="strikerRuns">43</strong> <span class="text-slate-400">(<span id="strikerBalls">25</span>b)</span> · 4s:<span id="strikerFours">4</span> 6s:<span id="strikerSixes">2</span></span>
+              </div>
+              <div class="flex items-center justify-between" id="nonStrikerRow">
+                <span class="text-slate-300 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-transparent"></span>
+                  <span id="nonStrikerName">Surya Kumar</span>
+                </span>
+                <span class="font-mono text-slate-300"><strong>28</strong> (18b) · 4s:3 6s:1</span>
+              </div>
+            </div>
+
+            <!-- Right: Active Bowler & Current Over -->
+            <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700/80 space-y-2 text-xs font-medium">
+              <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700 pb-1">
+                <span>Bowler: Jasprit Bumrah</span>
+                <span class="font-mono text-slate-300">1.2-0-13-1</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400 block mb-1">Current Over Timeline</span>
+                <div class="flex items-center gap-1.5 flex-wrap" id="overTimeline">
+                  <span class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-mono text-[11px] font-bold">1</span>
+                  <span class="w-6 h-6 rounded-md bg-indigo-600 text-white flex items-center justify-center font-mono text-[11px] font-bold">4</span>
+                  <span class="w-6 h-6 rounded-md bg-slate-700 text-slate-300 flex items-center justify-center font-mono text-[11px] font-bold">0</span>
+                  <span class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-mono text-[11px] font-bold">2</span>
+                  <span class="w-6 h-6 rounded-md bg-rose-600 text-white flex items-center justify-center font-mono text-[11px] font-bold">W</span>
+                  <span class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-mono text-[11px] font-bold">1</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Match Completed Banner (Inside Scorer) -->
+          <div id="cricketCompleteBanner" class="hidden mt-4 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">🎉</span>
+              <div>
+                <div class="text-xs font-extrabold text-emerald-300 uppercase tracking-wider">Target Achieved & Match Concluded!</div>
+                <div class="text-sm font-bold text-white">Warriors XI won by 8 wickets! Bracket advanced automatically.</div>
+              </div>
+            </div>
+            <button onclick="switchTab('bracket')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer">
+              View in Bracket ➔
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Live Ball-by-Ball Action Controller Pads -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Record Next Delivery (Click to Score)</span>
+            <span class="text-[11px] font-mono text-slate-400">Idempotent commandId auto-generated</span>
+          </div>
+
+          <!-- Runs Pad -->
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+            <button onclick="recordCricketBall(0, false, false, null)" class="py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-base transition active:scale-95 cursor-pointer">
+              0 <span class="block text-[10px] font-medium text-slate-400">Dot Ball</span>
+            </button>
+            <button onclick="recordCricketBall(1, false, false, null)" class="py-3 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 text-indigo-800 font-extrabold text-base transition active:scale-95 cursor-pointer">
+              1 <span class="block text-[10px] font-medium text-indigo-500">Single</span>
+            </button>
+            <button onclick="recordCricketBall(2, false, false, null)" class="py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-base transition active:scale-95 cursor-pointer">
+              2 <span class="block text-[10px] font-medium text-slate-400">Double</span>
+            </button>
+            <button onclick="recordCricketBall(3, false, false, null)" class="py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-base transition active:scale-95 cursor-pointer">
+              3 <span class="block text-[10px] font-medium text-slate-400">Three</span>
+            </button>
+            <button onclick="recordCricketBall(4, true, false, null)" class="py-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-extrabold text-base transition active:scale-95 cursor-pointer ring-1 ring-emerald-200">
+              4 🏏 <span class="block text-[10px] font-bold text-emerald-600">FOUR!</span>
+            </button>
+            <button onclick="recordCricketBall(6, true, true, null)" class="py-3 rounded-xl border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-800 font-extrabold text-base transition active:scale-95 cursor-pointer ring-1 ring-purple-200">
+              6 🚀 <span class="block text-[10px] font-bold text-purple-600">SIX!</span>
+            </button>
+          </div>
+
+          <!-- Extras & Wickets Row -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-slate-100">
+            <button onclick="recordCricketBall(1, false, false, 'WIDE')" class="py-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100 text-amber-800 font-bold text-xs transition cursor-pointer">
+              +1 Wd (Wide)
+            </button>
+            <button onclick="recordCricketBall(1, false, false, 'NO_BALL')" class="py-2.5 rounded-xl border border-amber-200 bg-amber-50/60 hover:bg-amber-100 text-amber-800 font-bold text-xs transition cursor-pointer">
+              +1 Nb (No Ball)
+            </button>
+            <button onclick="recordCricketWicket()" class="py-2.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1">
+              <span>🔴</span> WICKET (Dismissal)
+            </button>
+            <button onclick="undoCricketBall()" class="py-2.5 rounded-xl border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer flex items-center justify-center gap-1">
+              <span>↩️</span> Undo Last Ball
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BADMINTON / RACQUET GENERIC LIVE SCORER PANEL -->
+      <div id="panel-live-badminton" class="hidden space-y-4">
+        <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 relative overflow-hidden">
+          
+          <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <div>
+              <span class="text-[10px] font-bold tracking-widest text-emerald-400 uppercase">Badminton Championship · Semi-Final #2 · Court 1</span>
+              <div class="text-sm font-extrabold text-white">PV Sindhu vs Saina Nehwal (Best of 3 Sets)</div>
+            </div>
+            <div class="text-right">
+              <span class="text-[10px] font-bold text-amber-400 block uppercase">Deciding Set 3 in progress</span>
+              <span class="text-xs font-mono font-bold text-slate-300">Set 1: 21-18 · Set 2: 19-21</span>
+            </div>
+          </div>
+
+          <!-- Big Live Set 3 Score Display -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            
+            <!-- Competitor A: Sindhu -->
+            <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-slate-400 block">Competitor A (Sets: 1)</span>
+                <span class="text-base font-extrabold text-white">PV Sindhu</span>
+                <span class="text-[11px] text-emerald-400 block mt-0.5" id="sindhuStatus">Serving · Match Point</span>
+              </div>
+              <div class="text-5xl font-mono font-extrabold text-emerald-400" id="scoreSindhu">20</div>
+            </div>
+
+            <!-- Competitor B: Saina -->
+            <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-slate-400 block">Competitor B (Sets: 1)</span>
+                <span class="text-base font-extrabold text-white">Saina Nehwal</span>
+                <span class="text-[11px] text-slate-400 block mt-0.5" id="sainaStatus">Receiving</span>
+              </div>
+              <div class="text-5xl font-mono font-extrabold text-slate-300" id="scoreSaina">19</div>
+            </div>
+
+          </div>
+
+          <!-- Deuce Warning Callout -->
+          <div id="deuceBanner" class="hidden mt-3 p-2.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-center text-xs font-bold text-amber-300">
+            ⚠️ DEUCE (20 - 20): Must win by 2 clear points!
+          </div>
+
+          <!-- Badminton Complete Banner -->
+          <div id="badmintonCompleteBanner" class="hidden mt-4 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">🏸</span>
+              <div>
+                <div class="text-xs font-extrabold text-emerald-300 uppercase tracking-wider">Match Concluded & Winner Declared!</div>
+                <div class="text-sm font-bold text-white" id="badmintonWinnerText">PV Sindhu won 2-1 (21-18, 19-21, 21-19)! Advanced to Final.</div>
+              </div>
+            </div>
+            <button onclick="switchTab('bracket')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer">
+              View in Bracket ➔
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Racquet Point Action Buttons -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Live Point Controls</span>
+            <span class="text-[11px] text-slate-400">Clicking winning point automatically triggers bracket advancement</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onclick="addPointBadminton('A')" class="py-3 px-4 rounded-xl border-2 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-extrabold text-sm transition active:scale-98 cursor-pointer flex items-center justify-between">
+              <span>🏸 +1 Point: PV Sindhu</span>
+              <span class="text-xs bg-emerald-200/70 px-2 py-0.5 rounded-md">Score Point</span>
+            </button>
+            <button onclick="addPointBadminton('B')" class="py-3 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 font-extrabold text-sm transition active:scale-98 cursor-pointer flex items-center justify-between">
+              <span>🏸 +1 Point: Saina Nehwal</span>
+              <span class="text-xs bg-slate-200/70 px-2 py-0.5 rounded-md">Score Point</span>
+            </button>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-1">
+            <button onclick="undoPointBadminton()" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer">
+              ↩️ Undo Last Point
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: KNOCKOUT BRACKET PROGRESSION -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <section id="view-bracket" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span>🌿</span> Automated Knockout Bracket Progression
+          </h3>
+          <p class="text-xs text-slate-500">Winners of Semi-Finals automatically advance into the Final match via database link <code class="text-indigo-600 font-mono text-[11px]">winnerAdvancesToMatchId</code>.</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs overflow-x-auto">
+        <div class="min-w-[700px] flex items-center justify-between gap-8 relative">
+
+          <!-- Semi-Finals Column -->
+          <div class="w-72 space-y-8">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Semi-Finals (Round 1)</div>
+
+            <!-- SF 1 Card -->
+            <div id="bracket-sf1" class="border rounded-xl p-3.5 bg-slate-50 relative transition-all">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-2">
+                <span class="font-bold text-indigo-600">Match #1 · Semi-Final</span>
+                <span class="status-indicator" id="bracket-status-sf1">SCHEDULED</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-center justify-between p-1.5 rounded-lg" id="bracket-sf1-compA">
+                  <span class="font-semibold text-slate-800">Rohit Sharma</span>
+                  <span class="font-mono font-bold" id="bracket-sf1-scoreA">—</span>
+                </div>
+                <div class="flex items-center justify-between p-1.5 rounded-lg" id="bracket-sf1-compB">
+                  <span class="font-semibold text-slate-800">Virat Kohli</span>
+                  <span class="font-mono font-bold" id="bracket-sf1-scoreB">—</span>
+                </div>
+              </div>
+              <div class="mt-2 text-[10px] text-emerald-600 font-semibold hidden" id="bracket-sf1-adv">
+                ✓ Advanced to Final Home Slot
+              </div>
+            </div>
+
+            <!-- SF 2 Card -->
+            <div id="bracket-sf2" class="border rounded-xl p-3.5 bg-slate-50 relative transition-all">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 mb-2">
+                <span class="font-bold text-indigo-600">Match #2 · Semi-Final</span>
+                <span class="status-indicator" id="bracket-status-sf2">SCHEDULED</span>
+              </div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-center justify-between p-1.5 rounded-lg" id="bracket-sf2-compA">
+                  <span class="font-semibold text-slate-800">PV Sindhu</span>
+                  <span class="font-mono font-bold" id="bracket-sf2-scoreA">—</span>
+                </div>
+                <div class="flex items-center justify-between p-1.5 rounded-lg" id="bracket-sf2-compB">
+                  <span class="font-semibold text-slate-800">Saina Nehwal</span>
+                  <span class="font-mono font-bold" id="bracket-sf2-scoreB">—</span>
+                </div>
+              </div>
+              <div class="mt-2 text-[10px] text-emerald-600 font-semibold hidden" id="bracket-sf2-adv">
+                ✓ Advanced to Final Away Slot
+              </div>
+            </div>
+          </div>
+
+          <!-- Connector Graphic -->
+          <div class="flex flex-col justify-around h-64 text-slate-300">
+            <div class="text-xl font-bold">➔</div>
+            <div class="text-xl font-bold">➔</div>
+          </div>
+
+          <!-- Finals Column -->
+          <div class="w-80">
+            <div class="text-xs font-bold uppercase tracking-wider text-amber-500 mb-2 flex items-center gap-1.5">
+              <span>👑</span> Championship Final
+            </div>
+
+            <div id="bracket-final" class="border-2 border-dashed border-amber-300 bg-amber-50/40 rounded-2xl p-4.5 relative shadow-sm transition-all">
+              <div class="flex items-center justify-between text-[11px] mb-3">
+                <span class="font-bold text-amber-800">Match #3 · FINAL</span>
+                <span class="status-indicator" id="bracket-status-final">AWAITING SF RESULTS</span>
+              </div>
+
+              <div class="space-y-2 text-xs">
+                <div class="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/70" id="bracket-final-slotA">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span class="font-semibold text-slate-800" id="finalHomeName">Winner SF 1 (TBD)</span>
+                  </div>
+                  <span class="font-mono font-bold" id="bracket-final-scoreA">—</span>
+                </div>
+
+                <div class="flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/70" id="bracket-final-slotB">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                    <span class="font-semibold text-slate-800" id="finalAwayName">Winner SF 2 (TBD)</span>
+                  </div>
+                  <span class="font-mono font-bold" id="bracket-final-scoreB">—</span>
+                </div>
+              </div>
+
+              <div class="mt-3 pt-3 border-t border-amber-200/80 flex items-center justify-between">
+                <span class="text-[11px] text-amber-700 font-medium">Champion:</span>
+                <span class="text-xs font-extrabold text-amber-900" id="finalChampionName">Not Decided</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 4: STANDINGS / POINTS TABLE -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <section id="view-standings" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span>📊</span> Group Standings (Points Table)
+          </h3>
+          <p class="text-xs text-slate-500">Real-time standings with Played, Won, Lost, Drawn, Points, and Net Run Rate (NRR).</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-800">Group A · Cricket & Badminton Standings</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">Top 2 Qualify (Q)</span>
+          </div>
+          <span class="text-xs text-slate-400 font-mono">Win: 2 pts · Draw: 1 pt · Loss: 0 pts</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200/80 bg-slate-50/40 text-slate-400 font-semibold uppercase text-[10px]">
+                <th class="py-2.5 px-4 w-12 text-center">Rank</th>
+                <th class="py-2.5 px-4">Team / Competitor</th>
+                <th class="py-2.5 px-3 text-center w-12" title="Matches Played">P</th>
+                <th class="py-2.5 px-3 text-center w-12 text-emerald-600" title="Won">W</th>
+                <th class="py-2.5 px-3 text-center w-12 text-rose-500" title="Lost">L</th>
+                <th class="py-2.5 px-3 text-center w-12 text-slate-500" title="Drawn/Tied">D</th>
+                <th class="py-2.5 px-3 text-center w-16 font-bold text-slate-800" title="Points">Pts</th>
+                <th class="py-2.5 px-4 text-center w-24" title="Net Run Rate">NRR</th>
+              </tr>
+            </thead>
+            <tbody id="standingsTableBody" class="divide-y divide-slate-100 font-medium">
+              <!-- Rendered via renderStandings() -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- TAB 5: TOURNAMENT COMPLETION BANNER -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <section id="view-completion" class="hidden space-y-4">
+      <div id="completionNotice" class="bg-white rounded-2xl border border-slate-200/90 p-8 text-center space-y-4">
+        <!-- Dynamically toggled based on final match completion -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: SCORE ENTRY & WINNER SELECTION (SIMULATES UI COMPONENT) -->
+  <!-- ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="scoreModalBackdrop" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+        <div>
+          <h4 class="text-sm font-bold text-slate-900" id="modalMatchTitle">Enter Match Result</h4>
+          <p class="text-[11px] text-slate-500" id="modalMatchSubtitle">Badminton Singles · Semi-Final #1</p>
+        </div>
+        <button onclick="closeScoreModal()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center text-sm cursor-pointer">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-5">
+        
+        <!-- Score Input Row -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Final Scores</label>
+          <div class="flex items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+            <div class="flex-1 text-center">
+              <span class="block text-xs font-semibold text-slate-700 truncate mb-1" id="modalTeam1Label">Rohit Sharma</span>
+              <input type="text" id="modalScore1" placeholder="21" value="21" class="w-full text-center text-lg font-bold bg-white border border-slate-300 rounded-lg py-1.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none" />
+            </div>
+            <span class="text-slate-400 font-bold text-sm">vs</span>
+            <div class="flex-1 text-center">
+              <span class="block text-xs font-semibold text-slate-700 truncate mb-1" id="modalTeam2Label">Virat Kohli</span>
+              <input type="text" id="modalScore2" placeholder="18" value="18" class="w-full text-center text-lg font-bold bg-white border border-slate-300 rounded-lg py-1.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Result Type Radio -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Result Outcome</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" onclick="selectResultType('WIN')" id="resType-WIN" class="py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer bg-indigo-50 border-indigo-300 text-indigo-700">Winner</button>
+            <button type="button" onclick="selectResultType('DRAW')" id="resType-DRAW" class="py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer bg-white border-slate-200 text-slate-600 hover:bg-slate-50">Draw / Tie</button>
+            <button type="button" onclick="selectResultType('NO_RESULT')" id="resType-NO_RESULT" class="py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer bg-white border-slate-200 text-slate-600 hover:bg-slate-50">No Result</button>
+          </div>
+        </div>
+
+        <!-- Winner Selector (Works for BOTH non-auction names & auction team IDs) -->
+        <div id="winnerSelectSection">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+            Select Winner <span class="text-emerald-600 font-semibold">(Required to Advance Bracket)</span>
+          </label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" onclick="chooseWinner('A')" id="btnWinnerA" class="p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300">
+              <span id="winnerBtnTextA" class="truncate">Rohit Sharma</span>
+              <span id="winnerCheckA" class="hidden text-emerald-600">✓</span>
+            </button>
+            <button type="button" onclick="chooseWinner('B')" id="btnWinnerB" class="p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-slate-300">
+              <span id="winnerBtnTextB" class="truncate">Virat Kohli</span>
+              <span id="winnerCheckB" class="hidden text-emerald-600">✓</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Match Notes / Margin -->
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Win Margin / Notes</label>
+          <input type="text" id="modalNotes" placeholder="e.g. Won by 21-18, 21-16 (Straight sets)" class="w-full text-xs bg-white border border-slate-300 rounded-lg p-2.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 outline-none" />
+        </div>
+
+      </div>
+
+      <!-- Modal Footer Actions -->
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button onclick="closeScoreModal()" class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-lg transition cursor-pointer">
+          Cancel
+        </button>
+        <button onclick="saveMatchScore()" id="btnSubmitScore" class="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm shadow-emerald-200 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+          <span>✓</span> Complete & Save Result
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Client State & Flow Controller Script -->
+  <script>
+    // ── Simulation State ──
+    const STATE = {
+      tournament: {
+        id: 101,
+        title: "Annual Community Sports Fest 2026",
+        status: "ACTIVE", // ACTIVE -> COMPLETED
+        champion: null
+      },
+      matches: [
+        {
+          id: "match-sf1",
+          round: "SEMI_FINAL",
+          matchNumber: 1,
+          sport: "Badminton Singles",
+          isAuction: false,
+          teamA: "Rohit Sharma",
+          teamB: "Virat Kohli",
+          scoreA: "",
+          scoreB: "",
+          status: "SCHEDULED",
+          winner: null,
+          winnerSide: null,
+          advancesTo: "match-final",
+          advancesSlot: "A"
+        },
+        {
+          id: "match-sf2",
+          round: "SEMI_FINAL",
+          matchNumber: 2,
+          sport: "Badminton Singles",
+          isAuction: false,
+          teamA: "PV Sindhu",
+          teamB: "Saina Nehwal",
+          scoreA: "Set 1: 21-18, Set 2: 19-21",
+          scoreB: "",
+          status: "LIVE",
+          winner: null,
+          winnerSide: null,
+          advancesTo: "match-final",
+          advancesSlot: "B"
+        },
+        {
+          id: "match-final",
+          round: "FINAL",
+          matchNumber: 3,
+          sport: "Badminton Singles",
+          isAuction: false,
+          teamA: "Winner SF 1 (TBD)",
+          teamB: "Winner SF 2 (TBD)",
+          scoreA: "",
+          scoreB: "",
+          status: "SCHEDULED",
+          winner: null,
+          winnerSide: null,
+          advancesTo: null
+        },
+        {
+          id: "match-cricket-league",
+          round: "GROUP_STAGE",
+          matchNumber: 4,
+          sport: "Cricket 10-Over",
+          isAuction: true,
+          teamA: "Titans CC",
+          teamB: "Warriors XI",
+          scoreA: "84/4 (10.0 ov)",
+          scoreB: "81/2 (8.2 ov)",
+          status: "LIVE",
+          winner: null,
+          winnerSide: null,
+          advancesTo: null
+        }
+      ],
+      cricket: {
+        target: 85,
+        totalRuns: 81,
+        wickets: 2,
+        ballsBowled: 50, // 8.2 overs = 50 balls
+        oversLimit: 10,
+        strikerRuns: 43,
+        strikerBalls: 25,
+        strikerFours: 4,
+        strikerSixes: 2,
+        overBalls: ["1", "4", "0", "2", "W", "1"],
+        completed: false
+      },
+      badminton: {
+        set1A: 21, set1B: 18,
+        set2A: 19, set2B: 21,
+        set3A: 20, set3B: 19,
+        completed: false
+      },
+      standings: [
+        { position: 1, name: "Warriors XI", p: 2, w: 2, l: 0, d: 0, pts: 4, nrr: 0.850, qualified: true },
+        { position: 2, name: "Rohit Sharma", p: 1, w: 1, l: 0, d: 0, pts: 2, nrr: 0.420, qualified: true },
+        { position: 3, name: "Titans CC", p: 2, w: 0, l: 2, d: 0, pts: 0, nrr: -0.650, qualified: false },
+        { position: 4, name: "Virat Kohli", p: 1, w: 0, l: 1, d: 0, pts: 0, nrr: -0.420, qualified: false }
+      ],
+      activeModalMatchId: null,
+      selectedWinnerSide: null,
+      selectedResultType: "WIN"
+    };
+
+    // ── Tab Navigation ──
+    function switchTab(tabId) {
+      ['fixtures', 'livescoring', 'bracket', 'standings', 'completion'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (btn) {
+          btn.classList.remove('bg-white', 'text-indigo-700', 'shadow-xs');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-white', 'text-indigo-700', 'shadow-xs');
+        activeBtn.classList.remove('text-slate-600');
+      }
+    }
+
+    function switchLiveSport(sport) {
+      if (sport === 'cricket') {
+        document.getElementById('panel-live-cricket').classList.remove('hidden');
+        document.getElementById('panel-live-badminton').classList.add('hidden');
+        document.getElementById('btnLiveSport-cricket').className = "px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition cursor-pointer";
+        document.getElementById('btnLiveSport-badminton').className = "px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer";
+      } else {
+        document.getElementById('panel-live-cricket').classList.add('hidden');
+        document.getElementById('panel-live-badminton').classList.remove('hidden');
+        document.getElementById('btnLiveSport-badminton').className = "px-3.5 py-1.5 rounded-lg bg-white text-slate-900 shadow-xs transition cursor-pointer";
+        document.getElementById('btnLiveSport-cricket').className = "px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition cursor-pointer";
+      }
+    }
+
+    // ── Cricket Live Scoring Operations ──
+    function recordCricketBall(runs, isBoundary, isSix, extrasType) {
+      if (STATE.cricket.completed) return;
+
+      const c = STATE.cricket;
+      const isExtra = extrasType === 'WIDE' || extrasType === 'NO_BALL';
+      
+      c.totalRuns += runs;
+      if (!isExtra) {
+        c.ballsBowled += 1;
+        c.strikerRuns += runs;
+        c.strikerBalls += 1;
+        if (isSix) c.strikerSixes += 1;
+        else if (isBoundary) c.strikerFours += 1;
+      }
+
+      // Add to current over timeline
+      const symbol = isSix ? '6' : isBoundary ? '4' : isExtra ? (extrasType === 'WIDE' ? 'Wd' : 'Nb') : String(runs);
+      c.overBalls.push(symbol);
+      if (c.overBalls.length > 6) c.overBalls.shift();
+
+      // Check Target Reached
+      if (c.totalRuns >= c.target) {
+        c.completed = true;
+        const cricketMatch = STATE.matches.find(m => m.id === 'match-cricket-league');
+        if (cricketMatch) {
+          cricketMatch.status = "COMPLETED";
+          cricketMatch.scoreB = `${c.totalRuns}/${c.wickets} (${Math.floor(c.ballsBowled/6)}.${c.ballsBowled%6} ov)`;
+          cricketMatch.winner = "Warriors XI";
+          cricketMatch.winnerSide = "B";
+        }
+        updateSimulatedStandings("Warriors XI");
+        renderFixtures();
+        renderStandings();
+      }
+
+      renderCricketLiveView();
+    }
+
+    function recordCricketWicket() {
+      if (STATE.cricket.completed) return;
+      const c = STATE.cricket;
+      c.wickets += 1;
+      c.ballsBowled += 1;
+      c.overBalls.push('W');
+      if (c.overBalls.length > 6) c.overBalls.shift();
+      renderCricketLiveView();
+    }
+
+    function undoCricketBall() {
+      const c = STATE.cricket;
+      if (c.totalRuns > 80) c.totalRuns -= 1;
+      if (c.ballsBowled > 50) c.ballsBowled -= 1;
+      if (c.overBalls.length > 0) c.overBalls.pop();
+      c.completed = false;
+      renderCricketLiveView();
+    }
+
+    function renderCricketLiveView() {
+      const c = STATE.cricket;
+      const ov = `${Math.floor(c.ballsBowled / 6)}.${c.ballsBowled % 6}`;
+      const needed = Math.max(0, c.target - c.totalRuns);
+      const ballsLeft = Math.max(0, (c.oversLimit * 6) - c.ballsBowled);
+
+      document.getElementById('cricketScore').innerText = `${c.totalRuns}/${c.wickets}`;
+      document.getElementById('cricketOvers').innerText = `(${ov} ov)`;
+      document.getElementById('cricketRunsNeeded').innerText = `${needed} runs`;
+      document.getElementById('cricketBallsRemaining').innerText = `${ballsLeft} balls`;
+      document.getElementById('strikerRuns').innerText = c.strikerRuns;
+      document.getElementById('strikerBalls').innerText = c.strikerBalls;
+      document.getElementById('strikerFours').innerText = c.strikerFours;
+      document.getElementById('strikerSixes').innerText = c.strikerSixes;
+
+      // Update over timeline
+      const timelineEl = document.getElementById('overTimeline');
+      timelineEl.innerHTML = c.overBalls.map(b => {
+        const bg = b === '6' ? 'bg-purple-600' : b === '4' ? 'bg-emerald-600' : b === 'W' ? 'bg-rose-600' : 'bg-slate-700';
+        return `<span class="w-6 h-6 rounded-md ${bg} text-white flex items-center justify-center font-mono text-[11px] font-bold">${b}</span>`;
+      }).join('');
+
+      // Completion Banner
+      const banner = document.getElementById('cricketCompleteBanner');
+      if (c.completed) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    // ── Badminton Live Scoring Operations ──
+    function addPointBadminton(side) {
+      if (STATE.badminton.completed) return;
+      const b = STATE.badminton;
+
+      if (side === 'A') b.set3A += 1;
+      else b.set3B += 1;
+
+      // Check Match Point & Win conditions (first to 21 or 2 clear after 20-20)
+      const diff = Math.abs(b.set3A - b.set3B);
+      const isDeuce = b.set3A >= 20 && b.set3B >= 20;
+
+      if ((b.set3A >= 21 || b.set3B >= 21) && diff >= 2) {
+        b.completed = true;
+        const winner = b.set3A > b.set3B ? "PV Sindhu" : "Saina Nehwal";
+        const winnerSide = b.set3A > b.set3B ? "A" : "B";
+
+        const sf2 = STATE.matches.find(m => m.id === 'match-sf2');
+        if (sf2) {
+          sf2.status = "COMPLETED";
+          sf2.scoreA = `21-18, 19-21, ${b.set3A}-${b.set3B}`;
+          sf2.winner = winner;
+          sf2.winnerSide = winnerSide;
+
+          // Auto Advance to Final
+          const fin = STATE.matches.find(m => m.id === 'match-final');
+          if (fin) {
+            fin.teamB = winner;
+          }
+        }
+
+        document.getElementById('badmintonCompleteBanner').classList.remove('hidden');
+        document.getElementById('badmintonWinnerText').innerText = `${winner} won 2-1 (21-18, 19-21, ${b.set3A}-${b.set3B})! Auto-advanced to Final slot B.`;
+        renderFixtures();
+        renderBracket();
+      }
+
+      renderBadmintonLiveView();
+    }
+
+    function undoPointBadminton() {
+      const b = STATE.badminton;
+      if (b.set3A > 20) b.set3A -= 1;
+      b.completed = false;
+      document.getElementById('badmintonCompleteBanner').classList.add('hidden');
+      renderBadmintonLiveView();
+    }
+
+    function renderBadmintonLiveView() {
+      const b = STATE.badminton;
+      document.getElementById('scoreSindhu').innerText = b.set3A;
+      document.getElementById('scoreSaina').innerText = b.set3B;
+
+      const deuceBanner = document.getElementById('deuceBanner');
+      if (b.set3A >= 20 && b.set3B >= 20 && !b.completed) {
+        deuceBanner.classList.remove('hidden');
+      } else {
+        deuceBanner.classList.add('hidden');
+      }
+    }
+
+    // ── Render Top Status Badge ──
+    function renderTopBadge() {
+      const badge = document.getElementById('tourneyStatusBadge');
+      if (STATE.tournament.status === 'COMPLETED') {
+        badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-purple-100 text-purple-700 border border-purple-300";
+        badge.innerHTML = "✓ Tournament Completed";
+      } else {
+        badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-300";
+        badge.innerHTML = "● Active In Progress";
+      }
+    }
+
+    // ── Render Fixtures List ──
+    function renderFixtures() {
+      const grid = document.getElementById('fixturesGrid');
+      grid.innerHTML = STATE.matches.map(m => {
+        const isCompleted = m.status === 'COMPLETED';
+        const isLive = m.status === 'LIVE';
+        const statusClass = isCompleted 
+          ? "bg-purple-50 text-purple-700 border-purple-200" 
+          : isLive 
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200 animate-pulse" 
+          : "bg-blue-50 text-blue-700 border-blue-200";
+
+        return `
+          <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs flex flex-col justify-between space-y-4 hover:border-indigo-200 transition">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-indigo-600">${m.round.replace('_', ' ')} · Match #${m.matchNumber}</span>
+                  <span class="text-[10px] text-slate-400 font-medium">· ${m.sport}</span>
+                  ${m.isAuction ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 font-semibold">Auction Team</span>' : '<span class="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">Individual/Non-Auction</span>'}
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusClass}">${m.status}</span>
+              </div>
+
+              <!-- Competitors row -->
+              <div class="bg-slate-50/70 rounded-xl p-3 border border-slate-100 space-y-2">
+                <div class="flex items-center justify-between text-xs font-semibold">
+                  <span class="${m.winnerSide === 'A' ? 'text-emerald-700 font-bold flex items-center gap-1' : 'text-slate-800'}">
+                    ${m.teamA} ${m.winnerSide === 'A' ? '<span class="text-[10px] bg-emerald-100 px-1 rounded">WINNER</span>' : ''}
+                  </span>
+                  <span class="font-mono text-sm font-extrabold text-slate-700">${m.scoreA || '—'}</span>
+                </div>
+                <div class="border-t border-slate-200/50"></div>
+                <div class="flex items-center justify-between text-xs font-semibold">
+                  <span class="${m.winnerSide === 'B' ? 'text-emerald-700 font-bold flex items-center gap-1' : 'text-slate-800'}">
+                    ${m.teamB} ${m.winnerSide === 'B' ? '<span class="text-[10px] bg-emerald-100 px-1 rounded">WINNER</span>' : ''}
+                  </span>
+                  <span class="font-mono text-sm font-extrabold text-slate-700">${m.scoreB || '—'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+              <span class="text-[11px] text-slate-400 font-medium">
+                ${isCompleted && m.winner ? `Winner: <strong class="text-slate-700">${m.winner}</strong>` : isLive ? '<span class="text-emerald-600 font-bold">● Match In Play</span>' : 'Awaiting start'}
+              </span>
+              <div class="flex items-center gap-2">
+                ${isLive ? `
+                  <button onclick="switchTab('livescoring')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition cursor-pointer flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span> Live Score
+                  </button>
+                ` : ''}
+                <button onclick="openScoreModal('${m.id}')" class="px-3 py-1.5 rounded-lg text-xs font-bold ${isCompleted ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-100'} transition cursor-pointer">
+                  ${isCompleted ? '✏️ Edit Score' : '✍️ Record Score'}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Render Knockout Bracket Tab ──
+    function renderBracket() {
+      const sf1 = STATE.matches.find(m => m.id === 'match-sf1');
+      const sf2 = STATE.matches.find(m => m.id === 'match-sf2');
+      const fin = STATE.matches.find(m => m.id === 'match-final');
+
+      // SF1 Card
+      document.getElementById('bracket-sf1-scoreA').innerText = sf1.scoreA || '—';
+      document.getElementById('bracket-sf1-scoreB').innerText = sf1.scoreB || '—';
+      document.getElementById('bracket-status-sf1').innerText = sf1.status;
+      if (sf1.status === 'COMPLETED') {
+        document.getElementById('bracket-sf1-adv').classList.remove('hidden');
+        document.getElementById('bracket-sf1-compA').className = sf1.winnerSide === 'A' ? "flex items-center justify-between p-1.5 rounded-lg bg-emerald-100 text-emerald-900 font-bold" : "flex items-center justify-between p-1.5 rounded-lg text-slate-400";
+        document.getElementById('bracket-sf1-compB').className = sf1.winnerSide === 'B' ? "flex items-center justify-between p-1.5 rounded-lg bg-emerald-100 text-emerald-900 font-bold" : "flex items-center justify-between p-1.5 rounded-lg text-slate-400";
+      }
+
+      // SF2 Card
+      document.getElementById('bracket-sf2-scoreA').innerText = sf2.scoreA || '—';
+      document.getElementById('bracket-sf2-scoreB').innerText = sf2.scoreB || '—';
+      document.getElementById('bracket-status-sf2').innerText = sf2.status;
+      if (sf2.status === 'COMPLETED') {
+        document.getElementById('bracket-sf2-adv').classList.remove('hidden');
+        document.getElementById('bracket-sf2-compA').className = sf2.winnerSide === 'A' ? "flex items-center justify-between p-1.5 rounded-lg bg-emerald-100 text-emerald-900 font-bold" : "flex items-center justify-between p-1.5 rounded-lg text-slate-400";
+        document.getElementById('bracket-sf2-compB').className = sf2.winnerSide === 'B' ? "flex items-center justify-between p-1.5 rounded-lg bg-emerald-100 text-emerald-900 font-bold" : "flex items-center justify-between p-1.5 rounded-lg text-slate-400";
+      }
+
+      // Final Match Card
+      document.getElementById('finalHomeName').innerText = fin.teamA;
+      document.getElementById('finalAwayName').innerText = fin.teamB;
+      document.getElementById('bracket-final-scoreA').innerText = fin.scoreA || '—';
+      document.getElementById('bracket-final-scoreB').innerText = fin.scoreB || '—';
+      document.getElementById('bracket-status-final').innerText = fin.status;
+      document.getElementById('finalChampionName').innerText = STATE.tournament.champion || 'Not Decided';
+
+      if (fin.status === 'COMPLETED') {
+        document.getElementById('bracket-final-slotA').className = fin.winnerSide === 'A' ? "flex items-center justify-between p-2 rounded-xl bg-emerald-100 border border-emerald-300 font-bold text-emerald-950" : "flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/70 text-slate-400";
+        document.getElementById('bracket-final-slotB').className = fin.winnerSide === 'B' ? "flex items-center justify-between p-2 rounded-xl bg-emerald-100 border border-emerald-300 font-bold text-emerald-950" : "flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/70 text-slate-400";
+      }
+    }
+
+    // ── Render Standings Points Table ──
+    function renderStandings() {
+      const tbody = document.getElementById('standingsTableBody');
+      tbody.innerHTML = STATE.standings.map((s, idx) => `
+        <tr class="hover:bg-slate-50/70 transition">
+          <td class="py-2.5 px-4 text-center font-bold ${s.position <= 2 ? 'text-amber-500' : 'text-slate-400'}">${s.position === 1 ? '🥇' : s.position === 2 ? '🥈' : s.position}</td>
+          <td class="py-2.5 px-4 font-semibold text-slate-800 flex items-center gap-2">
+            <span>${s.name}</span>
+            ${s.qualified ? '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded badge-q">Q</span>' : ''}
+          </td>
+          <td class="py-2.5 px-3 text-center text-slate-600">${s.p}</td>
+          <td class="py-2.5 px-3 text-center text-emerald-600 font-bold">${s.w}</td>
+          <td class="py-2.5 px-3 text-center text-rose-500">${s.l}</td>
+          <td class="py-2.5 px-3 text-center text-slate-400">${s.d}</td>
+          <td class="py-2.5 px-3 text-center font-extrabold text-slate-900">${s.pts}</td>
+          <td class="py-2.5 px-4 text-center font-mono text-[11px] font-semibold ${s.nrr >= 0 ? 'text-emerald-600' : 'text-rose-500'}">
+            ${s.nrr >= 0 ? '+' : ''}${s.nrr.toFixed(3)}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ── Render Completion Tab ──
+    function renderCompletion() {
+      const container = document.getElementById('completionNotice');
+      if (STATE.tournament.status === 'COMPLETED') {
+        container.innerHTML = `
+          <div class="w-16 h-16 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center text-3xl mx-auto shadow-inner">🏆</div>
+          <div class="space-y-1">
+            <h4 class="text-lg font-extrabold text-slate-900">Tournament Successfully Completed!</h4>
+            <p class="text-xs text-slate-500">The Championship Final has concluded. All bracket progressions, standing stats, and result notifications have finalized.</p>
+          </div>
+          <div class="inline-block bg-gradient-to-r from-amber-500 to-amber-600 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md shadow-amber-200">
+            👑 Grand Champion: ${STATE.tournament.champion}
+          </div>
+          <div class="pt-4 border-t border-slate-100 max-w-sm mx-auto text-left text-xs space-y-2 text-slate-600">
+            <div class="flex items-center justify-between">
+              <span>Automated Notifications:</span>
+              <span class="text-emerald-600 font-bold">✓ Dispatched (16 Players)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Tournament Status:</span>
+              <span class="font-bold text-purple-700">COMPLETED</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span>Parent Event Status:</span>
+              <span class="font-bold text-purple-700">COMPLETED</span>
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mx-auto">⏳</div>
+          <h4 class="text-sm font-bold text-slate-800">Tournament In Progress</h4>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto">Complete the Final match between the advancing semi-final winners to automatically trigger tournament completion and champion declaration.</p>
+          <button onclick="switchTab('fixtures')" class="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer">Go to Fixtures & Record Final</button>
+        `;
+      }
+    }
+
+    // ── Score Modal Logic ──
+    function openScoreModal(matchId) {
+      const match = STATE.matches.find(m => m.id === matchId);
+      if (!match) return;
+
+      STATE.activeModalMatchId = matchId;
+      STATE.selectedWinnerSide = match.winnerSide || null;
+      STATE.selectedResultType = "WIN";
+
+      document.getElementById('modalMatchTitle').innerText = `${match.round.replace('_', ' ')} #${match.matchNumber}`;
+      document.getElementById('modalMatchSubtitle').innerText = `${match.sport} · ${match.teamA} vs ${match.teamB}`;
+      document.getElementById('modalTeam1Label').innerText = match.teamA;
+      document.getElementById('modalTeam2Label').innerText = match.teamB;
+      document.getElementById('winnerBtnTextA').innerText = match.teamA;
+      document.getElementById('winnerBtnTextB').innerText = match.teamB;
+
+      document.getElementById('modalScore1').value = match.scoreA || "21";
+      document.getElementById('modalScore2').value = match.scoreB || "18";
+      document.getElementById('modalNotes').value = match.scoreA ? `Won ${match.scoreA} - ${match.scoreB}` : "Straight sets victory";
+
+      updateWinnerButtons();
+      document.getElementById('scoreModalBackdrop').classList.remove('hidden');
+    }
+
+    function closeScoreModal() {
+      document.getElementById('scoreModalBackdrop').classList.add('hidden');
+      STATE.activeModalMatchId = null;
+    }
+
+    function selectResultType(type) {
+      STATE.selectedResultType = type;
+      ['WIN', 'DRAW', 'NO_RESULT'].forEach(t => {
+        const btn = document.getElementById(`resType-${t}`);
+        if (t === type) {
+          btn.className = "py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer bg-indigo-50 border-indigo-300 text-indigo-700";
+        } else {
+          btn.className = "py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
+        }
+      });
+
+      const winSection = document.getElementById('winnerSelectSection');
+      if (type === 'WIN') {
+        winSection.classList.remove('hidden');
+      } else {
+        winSection.classList.add('hidden');
+        STATE.selectedWinnerSide = null;
+      }
+      updateWinnerButtons();
+    }
+
+    function chooseWinner(side) {
+      STATE.selectedWinnerSide = side;
+      updateWinnerButtons();
+    }
+
+    function updateWinnerButtons() {
+      const btnA = document.getElementById('btnWinnerA');
+      const btnB = document.getElementById('btnWinnerB');
+      const checkA = document.getElementById('winnerCheckA');
+      const checkB = document.getElementById('winnerCheckB');
+
+      if (STATE.selectedWinnerSide === 'A') {
+        btnA.className = "p-2.5 rounded-xl border-2 text-xs font-bold transition flex items-center justify-between cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100";
+        btnB.className = "p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-slate-300";
+        checkA.classList.remove('hidden');
+        checkB.classList.add('hidden');
+      } else if (STATE.selectedWinnerSide === 'B') {
+        btnB.className = "p-2.5 rounded-xl border-2 text-xs font-bold transition flex items-center justify-between cursor-pointer border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100";
+        btnA.className = "p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-slate-300";
+        checkB.classList.remove('hidden');
+        checkA.classList.add('hidden');
+      } else {
+        btnA.className = "p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-slate-300";
+        btnB.className = "p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer border-slate-200 bg-white text-slate-600 hover:border-slate-300";
+        checkA.classList.add('hidden');
+        checkB.classList.add('hidden');
+      }
+    }
+
+    // ── Save Result & Trigger Advancement ──
+    function saveMatchScore() {
+      const match = STATE.matches.find(m => m.id === STATE.activeModalMatchId);
+      if (!match) return;
+
+      const scoreA = document.getElementById('modalScore1').value.trim();
+      const scoreB = document.getElementById('modalScore2').value.trim();
+
+      match.scoreA = scoreA;
+      match.scoreB = scoreB;
+      match.status = "COMPLETED";
+
+      if (STATE.selectedResultType === 'WIN' && STATE.selectedWinnerSide) {
+        match.winnerSide = STATE.selectedWinnerSide;
+        match.winner = STATE.selectedWinnerSide === 'A' ? match.teamA : match.teamB;
+
+        // Automated Knockout Advancement Engine
+        if (match.advancesTo) {
+          const nextMatch = STATE.matches.find(m => m.id === match.advancesTo);
+          if (nextMatch) {
+            if (match.advancesSlot === 'A') {
+              nextMatch.teamA = match.winner;
+            } else if (match.advancesSlot === 'B') {
+              nextMatch.teamB = match.winner;
+            }
+          }
+        }
+
+        // Automated Tournament Completion Trigger
+        if (match.round === 'FINAL') {
+          STATE.tournament.status = 'COMPLETED';
+          STATE.tournament.champion = match.winner;
+        }
+
+        updateSimulatedStandings(match.winner);
+      }
+
+      closeScoreModal();
+      renderAll();
+
+      if (match.round === 'SEMI_FINAL') {
+        switchTab('bracket');
+      } else if (match.round === 'FINAL') {
+        switchTab('completion');
+      }
+    }
+
+    function updateSimulatedStandings(winnerName) {
+      const entry = STATE.standings.find(s => s.name === winnerName);
+      if (entry) {
+        entry.p += 1;
+        entry.w += 1;
+        entry.pts += 2;
+        entry.nrr += 0.250;
+      }
+      STATE.standings.sort((a, b) => b.pts - a.pts || b.nrr - a.nrr);
+      STATE.standings.forEach((s, i) => s.position = i + 1);
+    }
+
+    function resetSimulation() {
+      STATE.tournament.status = "ACTIVE";
+      STATE.tournament.champion = null;
+      
+      STATE.matches[0].status = "SCHEDULED";
+      STATE.matches[0].scoreA = "";
+      STATE.matches[0].scoreB = "";
+      STATE.matches[0].winner = null;
+      STATE.matches[0].winnerSide = null;
+
+      STATE.matches[1].status = "LIVE";
+      STATE.matches[1].scoreA = "Set 1: 21-18, Set 2: 19-21";
+      STATE.matches[1].scoreB = "";
+      STATE.matches[1].winner = null;
+      STATE.matches[1].winnerSide = null;
+
+      STATE.matches[2].status = "SCHEDULED";
+      STATE.matches[2].teamA = "Winner SF 1 (TBD)";
+      STATE.matches[2].teamB = "Winner SF 2 (TBD)";
+      STATE.matches[2].scoreA = "";
+      STATE.matches[2].scoreB = "";
+      STATE.matches[2].winner = null;
+      STATE.matches[2].winnerSide = null;
+
+      STATE.matches[3].status = "LIVE";
+      STATE.matches[3].scoreB = "81/2 (8.2 ov)";
+      STATE.matches[3].winner = null;
+      STATE.matches[3].winnerSide = null;
+
+      STATE.cricket.totalRuns = 81;
+      STATE.cricket.wickets = 2;
+      STATE.cricket.ballsBowled = 50;
+      STATE.cricket.strikerRuns = 43;
+      STATE.cricket.strikerBalls = 25;
+      STATE.cricket.strikerFours = 4;
+      STATE.cricket.strikerSixes = 2;
+      STATE.cricket.overBalls = ["1", "4", "0", "2", "W", "1"];
+      STATE.cricket.completed = false;
+
+      STATE.badminton.set3A = 20;
+      STATE.badminton.set3B = 19;
+      STATE.badminton.completed = false;
+
+      renderAll();
+      renderCricketLiveView();
+      renderBadmintonLiveView();
+      switchTab('livescoring');
+    }
+
+    function renderAll() {
+      renderTopBadge();
+      renderFixtures();
+      renderBracket();
+      renderStandings();
+      renderCompletion();
+      renderCricketLiveView();
+      renderBadmintonLiveView();
+    }
+
+    window.onload = renderAll;
+  </script>
+</body>
+</html>

@@ -18,9 +18,11 @@ import {
 import { format, parseISO } from 'date-fns';
 import type { FixtureTableRow } from './FixturesTableView';
 import { rankStage, exportListViewToPDF } from '../../../utils/sportsExportUtils';
+import type { TournamentBreak } from './breakScheduleUtils';
 
 export interface FixturesListViewProps {
   fixtures: FixtureTableRow[];
+  breaks?: TournamentBreak[];
   onEditMatch: (fixture: FixtureTableRow) => void;
   onExportPDF?: () => void;
   sportName?: string;
@@ -41,6 +43,28 @@ function formatDateSafely(dateStr: string): string {
   } catch {
     return dateStr;
   }
+}
+
+function isUnresolvedBracketSlot(name?: string | null): boolean {
+  const value = (name || '').trim();
+  return !value
+    || /^(?:TBD|TO BE DETERMINED)$/i.test(value)
+    || /\bmatch\s*#?\d+\s*\(winner\)/i.test(value)
+    || /^winner\s+(?:of\s+)?(?:match|m)\s*#?\d+/i.test(value);
+}
+
+function isPlaceholderAutoAdvance(fixture: FixtureTableRow): boolean {
+  const homeName = fixture.home?.name || '';
+  const awayName = fixture.away?.name || '';
+  const homeBye = fixture.home?.id?.toLowerCase() === 'bye' || homeName.trim().toUpperCase() === 'BYE';
+  const awayBye = fixture.away?.id?.toLowerCase() === 'bye' || awayName.trim().toUpperCase() === 'BYE';
+  const autoAdvanced = ['BYE', 'AUTO_ADVANCED'].includes(String(fixture.rawMatch?.status || '').toUpperCase());
+
+  if (String(fixture.rawMatch?.status || '').toUpperCase() === 'PENDING_SLOT') return true;
+  if (homeBye && isUnresolvedBracketSlot(awayName)) return true;
+  if (awayBye && isUnresolvedBracketSlot(homeName)) return true;
+  return autoAdvanced && !homeBye && !awayBye
+    && (isUnresolvedBracketSlot(homeName) || isUnresolvedBracketSlot(awayName));
 }
 
 export interface RoundTheme {
@@ -334,6 +358,7 @@ export function getRoundTheme(stageName: string): RoundTheme {
 
 export function FixturesListView({
   fixtures,
+  breaks,
   onEditMatch,
   onExportPDF,
   sportName = 'Match',
@@ -343,7 +368,7 @@ export function FixturesListView({
       onExportPDF();
     } else {
       exportListViewToPDF(
-        filteredFixtures.length > 0 ? filteredFixtures : fixtures,
+        filteredFixtures.length > 0 ? filteredFixtures : displayFixtures,
         `${sportName} Fixtures Schedule (List View)`,
         'Mana Community Sports',
         sportName
@@ -354,18 +379,23 @@ export function FixturesListView({
   const [selectedStage, setSelectedStage] = useState<string>('ALL');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
 
+  const displayFixtures = useMemo(
+    () => fixtures.filter(fixture => !isPlaceholderAutoAdvance(fixture)),
+    [fixtures]
+  );
+
   // Distinct Stages in tournament order
   const distinctStages = useMemo(() => {
     const stageSet = new Set<string>();
-    fixtures.forEach(f => {
+    displayFixtures.forEach(f => {
       if (f.stage) stageSet.add(f.stage);
     });
     return Array.from(stageSet).sort((a, b) => rankStage(a) - rankStage(b));
-  }, [fixtures]);
+  }, [displayFixtures]);
 
   // Filtered Fixtures
   const filteredFixtures = useMemo(() => {
-    return fixtures.filter(f => {
+    return displayFixtures.filter(f => {
       // Stage filter
       if (selectedStage !== 'ALL' && f.stage !== selectedStage) {
         return false;
@@ -395,7 +425,7 @@ export function FixturesListView({
 
       return true;
     });
-  }, [fixtures, selectedStage, searchQuery]);
+  }, [displayFixtures, selectedStage, searchQuery]);
 
   // Group filtered fixtures by stage
   const groupedByStage = useMemo(() => {
@@ -408,7 +438,12 @@ export function FixturesListView({
       map.get(stage)!.push(f);
     });
 
-    return Array.from(map.entries()).sort((a, b) => rankStage(a[0]) - rankStage(b[0]));
+    return Array.from(map.entries())
+      .map(([stage, stageFixtures]) => [
+        stage,
+        [...stageFixtures].sort((a, b) => a.matchNumber - b.matchNumber),
+      ] as [string, FixtureTableRow[]])
+      .sort((a, b) => rankStage(a[0]) - rankStage(b[0]));
   }, [filteredFixtures]);
 
   return (
@@ -494,12 +529,12 @@ export function FixturesListView({
                   : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
               }`}
             >
-              All Rounds ({fixtures.length})
+              All Rounds ({displayFixtures.length})
             </button>
 
             {distinctStages.map(stageName => {
               const theme = getRoundTheme(stageName);
-              const count = fixtures.filter(f => f.stage === stageName).length;
+              const count = displayFixtures.filter(f => f.stage === stageName).length;
               const isSelected = selectedStage === stageName;
 
               return (
@@ -521,6 +556,24 @@ export function FixturesListView({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Active Tournament Breaks Bar */}
+        {breaks && breaks.some(b => b.enabled) && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 flex-wrap text-xs text-slate-500">
+            <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider flex items-center gap-1">
+              <span>🥪</span> Scheduled Breaks:
+            </span>
+            {breaks.filter(b => b.enabled).map(b => (
+              <span
+                key={b.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-semibold"
+              >
+                <span>{b.name}</span>
+                <span className="text-amber-600 font-normal">({b.startTime} - {b.endTime})</span>
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -587,11 +640,16 @@ export function FixturesListView({
                 {stageMatches.map(m => {
                   const hasConflicts = m.conflicts && m.conflicts.length > 0;
                   const courtDisplay = [m.venueName, m.courtName].filter(Boolean).join(' - ') || 'TBD';
+                  const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
+                  const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
+                  const isBye = isHomeBye || isAwayBye || (m.rawMatch as any)?.status === 'AUTO_ADVANCED';
 
                   return (
                     <div
                       key={m.id}
-                      className={`bg-white border border-[rgba(99,102,241,0.14)] rounded-2xl overflow-hidden relative shadow-md hover:shadow-lg ${theme.cardBorder} transition-all duration-200 flex flex-col justify-between`}
+                      className={`bg-white border border-[rgba(99,102,241,0.14)] rounded-2xl overflow-hidden relative shadow-md hover:shadow-lg ${theme.cardBorder} transition-all duration-200 flex flex-col justify-between ${
+                        isBye ? 'opacity-90' : ''
+                      }`}
                     >
                       {/* Top Round Color Accent Line */}
                       <div className={`w-full h-1.5 bg-gradient-to-r ${theme.accentGradient}`} />
@@ -604,11 +662,15 @@ export function FixturesListView({
                             <span>{stageName} · Match #{m.matchNumber}</span>
                           </span>
 
-                          <div className="flex items-center gap-1 text-xs font-bold text-slate-700">
-                            <Clock className="w-3 h-3 text-indigo-600" />
-                            <span>{m.time}</span>
-                            {m.duration ? <span className="text-[10px] text-slate-400 font-normal">({m.duration}m)</span> : null}
-                          </div>
+                          {isBye ? (
+                            <span className="text-[11px] font-bold text-slate-400 italic">Auto-Advanced</span>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs font-bold text-slate-700">
+                              <Clock className="w-3 h-3 text-indigo-600" />
+                              <span>{m.time}</span>
+                              {m.duration ? <span className="text-[10px] text-slate-400 font-normal">({m.duration}m)</span> : null}
+                            </div>
+                          )}
                         </div>
 
                         {/* Date & Court Info */}
@@ -617,9 +679,9 @@ export function FixturesListView({
                             <Calendar className="w-3 h-3 text-slate-400" />
                             <span className="font-semibold text-slate-700">{formatDateSafely(m.date)}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-right truncate max-w-[50%]" title={courtDisplay}>
+                          <div className="flex items-center gap-1 text-right truncate max-w-[50%]" title={isBye ? 'No court required (BYE)' : courtDisplay}>
                             <MapPin className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="truncate">{courtDisplay}</span>
+                            <span className="truncate">{isBye ? 'No Court Required' : courtDisplay}</span>
                           </div>
                         </div>
                       </div>
@@ -630,17 +692,25 @@ export function FixturesListView({
                         <div className="hidden sm:flex items-center justify-between gap-2 p-2.5 bg-slate-50/70 rounded-xl border border-slate-100">
                           {/* Home Competitor */}
                           <div className="flex items-center gap-2.5 w-[42%] min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                              <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
-                                {m.home.name}
+                            {isHomeBye ? (
+                              <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                BYE
                               </span>
-                              {m.home.flatNumber && (
-                                <span className="text-[10px] text-slate-500 truncate">{m.home.flatNumber}</span>
-                              )}
-                            </div>
+                            ) : (
+                              <>
+                                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                                  <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
+                                    {m.home.name}
+                                  </span>
+                                  {m.home.flatNumber && (
+                                    <span className="text-[10px] text-slate-500 truncate">{m.home.flatNumber}</span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
 
                           {/* VS Badge */}
@@ -652,30 +722,46 @@ export function FixturesListView({
 
                           {/* Away Competitor */}
                           <div className="flex items-center justify-end gap-2.5 w-[42%] min-w-0 text-right">
-                            <div className="flex flex-col min-w-0 items-end">
-                              <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
-                                {m.away.name}
+                            {isAwayBye ? (
+                              <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                BYE
                               </span>
-                              {m.away.flatNumber && (
-                                <span className="text-[10px] text-slate-500 truncate">{m.away.flatNumber}</span>
-                              )}
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                              <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                            </div>
+                            ) : (
+                              <>
+                                <div className="flex flex-col min-w-0 items-end">
+                                  <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
+                                    {m.away.name}
+                                  </span>
+                                  {m.away.flatNumber && (
+                                    <span className="text-[10px] text-slate-500 truncate">{m.away.flatNumber}</span>
+                                  )}
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                                  <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 
                         {/* Mobile Vertical VS */}
                         <div className="flex sm:hidden flex-col gap-2 p-2 bg-slate-50/70 rounded-xl border border-slate-100">
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden shrink-0">
-                              <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-slate-900 truncate">{m.home.name}</span>
-                              {m.home.flatNumber && <span className="text-[10px] text-slate-500">{m.home.flatNumber}</span>}
-                            </div>
+                            {isHomeBye ? (
+                              <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                BYE
+                              </span>
+                            ) : (
+                              <>
+                                <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden shrink-0">
+                                  <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-slate-900 truncate">{m.home.name}</span>
+                                  {m.home.flatNumber && <span className="text-[10px] text-slate-500">{m.home.flatNumber}</span>}
+                                </div>
+                              </>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-center py-0.5 border-y border-slate-200/50 my-0.5">
@@ -683,13 +769,21 @@ export function FixturesListView({
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden shrink-0">
-                              <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-slate-900 truncate">{m.away.name}</span>
-                              {m.away.flatNumber && <span className="text-[10px] text-slate-500">{m.away.flatNumber}</span>}
-                            </div>
+                            {isAwayBye ? (
+                              <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                BYE
+                              </span>
+                            ) : (
+                              <>
+                                <div className="w-7 h-7 rounded-full bg-slate-800 overflow-hidden shrink-0">
+                                  <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-slate-900 truncate">{m.away.name}</span>
+                                  {m.away.flatNumber && <span className="text-[10px] text-slate-500">{m.away.flatNumber}</span>}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -697,10 +791,17 @@ export function FixturesListView({
                       {/* Card Bottom Footer */}
                       <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between gap-2 mt-auto">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Scheduled
-                          </span>
+                          {isBye ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-200">
+                              <span>🛡️</span>
+                              Auto-Advanced • BYE
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Scheduled
+                            </span>
+                          )}
 
                           {hasConflicts && (
                             <span
@@ -713,14 +814,16 @@ export function FixturesListView({
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => onEditMatch(m)}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
+                        {!isBye && (
+                          <button
+                            type="button"
+                            onClick={() => onEditMatch(m)}
+                            className="px-2.5 py-1 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -734,12 +837,19 @@ export function FixturesListView({
                 {stageMatches.map(m => {
                   const hasConflicts = m.conflicts && m.conflicts.length > 0;
                   const courtDisplay = [m.venueName, m.courtName].filter(Boolean).join(' - ') || 'TBD';
+                  const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
+                  const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
+                  const isBye = isHomeBye || isAwayBye || (m.rawMatch as any)?.status === 'AUTO_ADVANCED';
 
                   return (
                     <div
                       key={m.id}
                       className={`p-3.5 hover:bg-slate-50/80 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3 border-l-4 ${
-                        hasConflicts ? 'border-l-amber-500' : 'border-l-indigo-500'
+                        isBye
+                          ? 'border-l-slate-300 bg-slate-50/40'
+                          : hasConflicts
+                          ? 'border-l-amber-500'
+                          : 'border-l-indigo-500'
                       }`}
                     >
                       {/* Match ID & Timing */}
@@ -748,16 +858,20 @@ export function FixturesListView({
                           #{m.matchNumber}
                         </span>
                         <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                            <Clock className="w-3 h-3 text-indigo-600" />
-                            <span>{m.time}</span>
-                            <span className="text-slate-300">·</span>
-                            <Calendar className="w-3 h-3 text-slate-400" />
-                            <span>{formatDateSafely(m.date)}</span>
-                          </div>
+                          {isBye ? (
+                            <span className="text-xs font-bold text-slate-400 italic">Auto-Advanced</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                              <Clock className="w-3 h-3 text-indigo-600" />
+                              <span>{m.time}</span>
+                              <span className="text-slate-300">·</span>
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              <span>{formatDateSafely(m.date)}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1 text-[11px] text-slate-500">
                             <MapPin className="w-3 h-3 text-slate-400" />
-                            <span>{courtDisplay}</span>
+                            <span>{isBye ? 'No Court Required' : courtDisplay}</span>
                           </div>
                         </div>
                       </div>
@@ -765,12 +879,20 @@ export function FixturesListView({
                       {/* Competitor Pair */}
                       <div className="flex-1 flex items-center justify-start md:justify-center gap-3 min-w-0 px-2">
                         <div className="flex items-center gap-2 min-w-0 max-w-[40%]">
-                          <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
-                            <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                          </div>
-                          <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
-                            {m.home.name}
-                          </span>
+                          {isHomeBye ? (
+                            <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                              BYE
+                            </span>
+                          ) : (
+                            <>
+                              <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
+                                <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
+                                {m.home.name}
+                              </span>
+                            </>
+                          )}
                         </div>
 
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
@@ -778,12 +900,20 @@ export function FixturesListView({
                         </span>
 
                         <div className="flex items-center gap-2 min-w-0 max-w-[40%]">
-                          <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
-                            {m.away.name}
-                          </span>
-                          <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
-                            <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
-                          </div>
+                          {isAwayBye ? (
+                            <span className="text-xs font-bold text-slate-500 italic bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                              BYE
+                            </span>
+                          ) : (
+                            <>
+                              <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
+                                {m.away.name}
+                              </span>
+                              <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
+                                <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -799,19 +929,27 @@ export function FixturesListView({
                           </span>
                         )}
 
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Scheduled
-                        </span>
+                        {isBye ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-200">
+                            Auto-Advanced
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Scheduled
+                          </span>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => onEditMatch(m)}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <Pencil className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
+                        {!isBye && (
+                          <button
+                            type="button"
+                            onClick={() => onEditMatch(m)}
+                            className="px-2.5 py-1 text-xs font-bold text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

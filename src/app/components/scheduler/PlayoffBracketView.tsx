@@ -1,4 +1,5 @@
 import { Pencil, MapPin, Download } from 'lucide-react';
+import { isByeParticipant } from './playoffSchedule';
 import type { PlayoffMatchDraft, PlayoffParticipantRef } from './playoffSchedule';
 import './PlayoffBracketView.css';
 
@@ -11,6 +12,9 @@ type Props = {
   onDownloadBracket?: () => void;
   resolveVenueName?: (venueId: number | null) => string;
   resolveCourtName?: (courtId: string | null) => string;
+  showByes?: boolean;
+  onToggleShowByes?: () => void;
+  totalDrawCount?: number;
 };
 
 function formatBracketDateOnly(dateStr: string): string {
@@ -44,10 +48,6 @@ function isPlaceholder(id: string, name: string): boolean {
     /\b(winner|loser)\b/i.test(name) ||
     /group\s+\d+/i.test(name)
   );
-}
-
-function isByeParticipant(participant: PlayoffParticipantRef): boolean {
-  return participant.id === 'bye' || participant.name === 'BYE';
 }
 
 function ParticipantRow({ participant }: { participant: PlayoffParticipantRef }) {
@@ -114,6 +114,7 @@ function MatchCard({
 }: MatchCardProps) {
   // A bye match has no real opponent, so date/time/venue/court are meaningless.
   const isByeMatch = isByeParticipant(match.home) || isByeParticipant(match.away);
+  const isPendingSlot = match.status === 'PENDING_SLOT';
 
   return (
     <div
@@ -122,14 +123,22 @@ function MatchCard({
       style={{ top }}
     >
       <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
-        {!isByeMatch && (
+        {isPendingSlot ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-slate-400">
+            Awaiting bracket slot
+          </div>
+        ) : isByeMatch ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <span>BYE • Advances to R2</span>
+          </div>
+        ) : (
           <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#6b7094]">
             <span>{formatBracketDateOnly(match.date)}</span>
             <span className="opacity-40">|</span>
             <span>{match.time}</span>
           </div>
         )}
-        {onEdit && (
+        {onEdit && !isPendingSlot && (
           <button
             type="button"
             onClick={onEdit}
@@ -184,7 +193,10 @@ function getRoundHeader(roundName: string): string {
   if (roundName === 'FINAL') return 'Finals';
   if (roundName === 'SEMI_FINAL') return 'Semi-Finals';
   if (roundName === 'QUARTER_FINAL') return 'Quarter-Finals';
-  return roundName;
+  if (roundName === 'ROUND_OF_16') return 'Round of 16';
+  if (roundName === 'ROUND_OF_32') return 'Round of 32';
+  if (roundName === 'ROUND_OF_64') return 'Round of 64';
+  return roundName.replace(/_/g, ' ');
 }
 
 function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: number }) {
@@ -225,7 +237,16 @@ function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: numb
   );
 }
 
-export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, resolveVenueName, resolveCourtName }: Props) {
+export function PlayoffBracketView({
+  matches,
+  onEditMatch,
+  onDownloadBracket,
+  resolveVenueName,
+  resolveCourtName,
+  showByes,
+  onToggleShowByes,
+  totalDrawCount,
+}: Props) {
   if (matches.length === 0) return null;
 
   const bracketMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
@@ -259,8 +280,13 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
     const rMatches = roundsMatches[rIndex] || [];
     
     rMatches.forEach((m, idx) => {
-      const homeParentId = findParentMatchId(m.home.id, prevMatches);
-      const awayParentId = findParentMatchId(m.away.id, prevMatches);
+      let homeParentId = findParentMatchId(m.home.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
 
       const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
       const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
@@ -288,8 +314,29 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
   return (
     <div className="playoff-bracket flex flex-col">
       <div className="flex items-center justify-between text-xs text-[#6b7094] mb-3 px-1">
-        <div className="flex items-center gap-2.5">
-          <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+            {totalDrawCount && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {totalDrawCount} Draw
+              </span>
+            )}
+          </div>
+          {onToggleShowByes && (
+            <button
+              type="button"
+              onClick={onToggleShowByes}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                showByes
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+              title="Toggle display of 1st round BYE match slots (16/32/64/128 draw)"
+            >
+              <span>{showByes ? '✓ Showing BYEs' : 'Show BYEs (Draw)'}</span>
+            </button>
+          )}
           {onDownloadBracket && (
             <button
               type="button"
@@ -337,8 +384,13 @@ export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, re
                   if (colIdx > 0) {
                     const prevRoundIdx = roundIndices[colIdx - 1];
                     const prevMatches = roundsMatches[prevRoundIdx] || [];
-                    const homeParentId = findParentMatchId(m.home.id, prevMatches);
-                    const awayParentId = findParentMatchId(m.away.id, prevMatches);
+                    let homeParentId = findParentMatchId(m.home.id, prevMatches);
+                    let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+                    if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+                      homeParentId = prevMatches[idx * 2]?.id;
+                      awayParentId = prevMatches[idx * 2 + 1]?.id;
+                    }
 
                     const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
                     const awayTop = awayParentId ? matchTops[awayParentId] : undefined;

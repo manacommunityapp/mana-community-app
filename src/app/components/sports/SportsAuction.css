@@ -759,23 +759,28 @@
     border-bottom: 1px solid rgba(99, 102, 241, 0.2);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    padding: 0 4px;
+    gap: 4px;
   }
   .auction-hub-wrapper .sidebar::-webkit-scrollbar { display: none; }
   .auction-hub-wrapper .sidebar-brand { display: none; }
   .auction-hub-wrapper .nav-section {
+    display: flex;
     flex-direction: row;
-    padding: 8px 10px;
-    gap: 8px;
+    padding: 6px 4px;
+    gap: 4px;
+    flex-shrink: 0;
   }
   .auction-hub-wrapper .nav-label { display: none; }
   .auction-hub-wrapper .nav-item {
     width: auto;
     flex-shrink: 0;
     white-space: nowrap;
-    padding: 10px 14px;
-    min-height: 44px;
-    font-size: 13px;
+    padding: 8px 12px;
+    min-height: 38px;
+    font-size: 12px;
     font-weight: 600;
+    border-radius: 8px;
   }
   .auction-hub-wrapper .active-indicator { display: none; }
 

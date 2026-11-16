@@ -161,6 +161,35 @@ describe("Sports Services API Test Suite", () => {
       await sportsService.closeSportsEvent(51);
       expect(apiClient.put).toHaveBeenCalledWith("/sports/events/51/status?status=REGISTRATION_CLOSED");
     });
+
+    it("fetches tournament details by id using /sports/tournaments/:id", async () => {
+      const mockTournament = {
+        id: 97,
+        name: "Spring Badminton Tournament",
+        registrationStatus: "REGISTRATION_OPEN",
+        sportsEvents: [{ id: 101, name: "Men's Singles" }],
+      };
+      (apiClient.get as any).mockResolvedValueOnce(mockTournament);
+
+      const res = await sportsService.getTournamentById(97);
+      expect(apiClient.get).toHaveBeenCalledWith("/sports/tournaments/97");
+      expect(res.id).toBe(97);
+      expect(res.name).toBe("Spring Badminton Tournament");
+    });
+
+    it("fetches event details by id using /sports/events/:id", async () => {
+      const mockEvent = {
+        id: 101,
+        name: "Men's Singles",
+        status: "REGISTRATION_OPEN",
+      };
+      (apiClient.get as any).mockResolvedValueOnce(mockEvent);
+
+      const res = await sportsService.getEventById(101);
+      expect(apiClient.get).toHaveBeenCalledWith("/sports/events/101");
+      expect(res.id).toBe(101);
+      expect(res.name).toBe("Men's Singles");
+    });
   });
 
   describe("3. auctionService", () => {

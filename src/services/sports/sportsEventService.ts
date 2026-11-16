@@ -107,7 +107,8 @@ export const sportsEventService = {
       .then((x: any) => this.mapEvent(x));
   },
   async getEventById(id: number): Promise<SportsEvent> {
-    return this.getTournamentById(id);
+    return apiClient.get<SportsEvent>(`/sports/events/${id}`)
+      .then((x: any) => this.mapEvent(x));
   },
 
   /** GET /api/sports/events/by-uuid/{uuid} — public lookup for shareable registration links */
@@ -118,7 +119,38 @@ export const sportsEventService = {
 
   /** GET /api/sports/community-residents/{userId}/family-members — safe family choices for community registration */
   async getCommunityResidentFamilyMembers(userId: number): Promise<SportsCommunityFamilyMember[]> {
-    return apiClient.get<SportsCommunityFamilyMember[]>(`/sports/community-residents/${userId}/family-members`);
+    const normalize = (raw: any): SportsCommunityFamilyMember[] => {
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data) ? raw.data
+        : Array.isArray(raw?.content) ? raw.content
+        : Array.isArray(raw?.familyMembers) ? raw.familyMembers
+        : Array.isArray(raw?.members) ? raw.members
+        : [];
+      return list
+        .filter((m: any) => m && m.id != null)
+        .map((m: any) => ({
+          ...m,
+          id: m.id,
+          name: m.name || m.fullName || [m.firstName, m.lastName].filter(Boolean).join(" ") || "Family Member",
+          relation: m.relation || m.relationship,
+          dob: m.dob || m.dateOfBirth || m.birthDate,
+          age: m.age ?? m.approxAge,
+        }));
+    };
+
+    try {
+      const primary = normalize(await apiClient.get<any>(`/sports/community-residents/${userId}/family-members`, { bypassCache: true } as any));
+      if (primary.length > 0) return primary;
+    } catch (err) {
+      console.warn("Sports family-members endpoint failed, using generic family endpoints:", err);
+    }
+    try {
+      const { familyService } = await import("../common/familyService");
+      return normalize(await familyService.getAdminFamilyMembers(userId));
+    } catch {
+      return [];
+    }
   },
 
   /** GET /api/sports/tournament-list-map — lightweight list of tournament ID and Name */
@@ -203,10 +235,19 @@ export const sportsEventService = {
     return apiClient.put<SportsEvent>(`/sports/events/${id}/status?status=${status}`)
       .then((x: any) => this.mapEvent(x));
   },
+  async setCaptainNominationOpen(id: number, open: boolean): Promise<SportsEvent> {
+    return apiClient.put<SportsEvent>(`/sports/events/${id}/captain-nominations?open=${open}`)
+      .then((x: any) => this.mapEvent(x));
+  },
 
   /** Close tournament registration: set status to REGISTRATION_CLOSED */
   async closeTournament(id: number): Promise<any> {
     return this.updateTournamentStatus(id, "REGISTRATION_CLOSED");
+  },
+
+  /** Complete tournament: set status to COMPLETED (completely closed) */
+  async completeTournament(id: number): Promise<any> {
+    return this.updateTournamentStatus(id, "COMPLETED");
   },
 
   /** Close sports event registration: set status to REGISTRATION_CLOSED */
@@ -219,6 +260,44 @@ export const sportsEventService = {
     return this.updateEventStatus(id, "REGISTRATION_OPEN");
   },
 
+  /** Batch update event status (PUT /api/sports/events/batch/status) */
+  async batchUpdateEventStatus(eventIds: number[], status: string): Promise<SportsEvent[]> {
+    if (!eventIds || eventIds.length === 0) return [];
+    return apiClient.put<SportsEvent[]>("/sports/events/batch/status", { eventIds, status })
+      .then((res: any) => (Array.isArray(res) ? res.map((x: any) => this.mapEvent(x)) : []))
+      .catch(async (err: any) => {
+        // Fallback to sequential/concurrent single updates if batch endpoint is not available
+        if (err?.response?.status === 404 || err?.status === 404) {
+          const results = await Promise.all(eventIds.map((id) => this.updateEventStatus(id, status)));
+          return results;
+        }
+        throw err;
+      });
+  },
+
+  /** Batch open sports events registration */
+  async batchOpenSportsEvents(eventIds: number[]): Promise<SportsEvent[]> {
+    return this.batchUpdateEventStatus(eventIds, "REGISTRATION_OPEN");
+  },
+
+  /** Batch close sports events registration */
+  async batchCloseSportsEvents(eventIds: number[]): Promise<SportsEvent[]> {
+    return this.batchUpdateEventStatus(eventIds, "REGISTRATION_CLOSED");
+  },
+
+  /** Batch delete sports events (POST /api/sports/events/batch/delete) */
+  async batchDeleteSportsEvents(eventIds: number[]): Promise<void> {
+    if (!eventIds || eventIds.length === 0) return;
+    return apiClient.post<void>("/sports/events/batch/delete", { eventIds })
+      .catch(async (err: any) => {
+        if (err?.response?.status === 404 || err?.status === 404) {
+          await Promise.all(eventIds.map((id) => this.deleteEvent(id)));
+          return;
+        }
+        throw err;
+      });
+  },
+
   /** GET /api/sports/tournaments/closed — all REGISTRATION_CLOSED tournaments */
   async getClosedTournaments(): Promise<SportsEvent[]> {
     return apiClient.get<SportsEvent[]>("/sports/tournaments/closed")
@@ -226,6 +305,15 @@ export const sportsEventService = {
   },
   async getClosedEvents(): Promise<SportsEvent[]> {
     return this.getClosedTournaments();
+  },
+
+  /** GET /api/sports/tournaments/completed — all COMPLETED tournaments */
+  async getCompletedTournaments(): Promise<SportsEvent[]> {
+    return apiClient.get<SportsEvent[]>("/sports/tournaments/completed")
+      .then((res: any) => res.map((x: any) => this.mapEvent(x)));
+  },
+  async getCompletedEvents(): Promise<SportsEvent[]> {
+    return this.getCompletedTournaments();
   },
 
   /** POST /api/sports/register — register authenticated user for a tournament */
@@ -295,6 +383,12 @@ export const sportsEventService = {
     return this.getTournamentRegistrations(eventId, latestOnly);
   },
 
+  /** GET /api/sports/tournaments/{tournamentId}/all-registrations — batch load all registrations across all events in a tournament */
+  async getAllTournamentRegistrations(tournamentId: number, eventIds?: number[]): Promise<TournamentRegistration[]> {
+    const qs = eventIds && eventIds.length > 0 ? `?eventIds=${eventIds.join(",")}` : "";
+    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${tournamentId}/all-registrations${qs}`);
+  },
+
   /** GET /api/sports/tournaments/{eventId}/registrations/{registrationId}/history — lazy load player registration history */
   async getRegistrationHistory(eventId: number, registrationId: number): Promise<TournamentRegistration[]> {
     return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations/${registrationId}/history`);
@@ -346,11 +440,13 @@ export const sportsEventService = {
   async nominatePartner(
     registrationId: number,
     partnerUserId?: number | null,
-    partnerFamilyMemberId?: number | null
+    partnerFamilyMemberId?: number | null,
+    autoConfirm?: boolean | null
   ): Promise<EventRegistration> {
     const params = new URLSearchParams();
     if (partnerUserId != null) params.set("partnerUserId", String(partnerUserId));
     if (partnerFamilyMemberId != null) params.set("partnerFamilyMemberId", String(partnerFamilyMemberId));
+    if (autoConfirm != null) params.set("autoConfirm", String(autoConfirm));
     const qs = params.toString() ? `?${params.toString()}` : "";
     return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/nominate-partner${qs}`);
   },

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mana Community — Live Umpire Console (Field Mode)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; touch-action: manipulation; }
+    .brand-font { font-family: 'Outfit', sans-serif; }
+    .mono-num { font-family: 'JetBrains Mono', monospace; }
+    /* Prevent zoom on double tap for fast keypad scoring */
+    button { touch-action: manipulation; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-red-600 selection:text-white">
+
+  <!-- ================= TOP STATUS BAR ================= -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-50">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-red-600/40 animate-pulse">
+          ⚡
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="brand-font text-sm font-black tracking-tight text-white">UMPIRE CONSOLE</h1>
+            <span class="text-[9px] font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+              LIVE
+            </span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-medium">Court 1 / Ground A · Match #SF-01</p>
+        </div>
+      </div>
+
+      <!-- Quick Switcher & Nav -->
+      <div class="flex items-center gap-2">
+        <a href="sports_tournament_suite.html" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+          Suite ↗
+        </a>
+        <a href="https://www.figma.com/design/eP59JCDniN7tqsP7kqVZTE" target="_blank" class="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-500/30">
+          Figma 🎨
+        </a>
+      </div>
+    </div>
+
+    <!-- Sport Selector Pill Tabs -->
+    <div class="max-w-md mx-auto mt-2.5 grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+      <button onclick="setSport('cricket')" id="btn-sport-cricket" class="py-1.5 rounded-lg text-xs font-bold transition text-white bg-indigo-600 shadow-sm">
+        🏏 Cricket
+      </button>
+      <button onclick="setSport('badminton')" id="btn-sport-badminton" class="py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200">
+        🏸 Racquet
+      </button>
+      <button onclick="setSport('athletics')" id="btn-sport-athletics" class="py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200">
+        ⏱️ Athletics
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN BODY CONTAINER ================= -->
+  <main class="max-w-md mx-auto w-full px-3 py-3 flex-1 flex flex-col justify-between">
+
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <!-- 1. CRICKET VIEW -->
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <div id="view-cricket" class="space-y-3 flex-1 flex flex-col justify-between">
+      
+      <!-- Live Score Header Card -->
+      <div class="bg-gradient-to-br from-slate-900 to-slate-850 p-4 rounded-2xl border border-slate-800 shadow-xl relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+              1st Semi-Final · 12 Overs
+            </span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="brand-font text-3xl font-black text-white" id="cricket-team-name">Phoenix Titans</span>
+              <span class="text-xs text-slate-400 font-semibold">(vs Cyber Strikers)</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Target</span>
+            <div class="mono-num text-sm font-black text-slate-300">115</div>
+          </div>
+        </div>
+
+        <!-- Big Runs / Wickets & Overs Display -->
+        <div class="mt-3 flex items-baseline justify-between border-t border-slate-800/80 pt-3">
+          <div class="flex items-baseline gap-1.5">
+            <span class="mono-num text-5xl font-black text-white tracking-tight" id="cricket-score">85</span>
+            <span class="mono-num text-3xl font-bold text-red-500">/</span>
+            <span class="mono-num text-4xl font-black text-red-500" id="cricket-wickets">2</span>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Overs</div>
+            <div class="mono-num text-2xl font-black text-amber-400" id="cricket-overs">8.4 <span class="text-xs text-slate-500 font-bold">/ 12</span></div>
+            <div class="text-[10px] text-emerald-400 font-semibold mono-num" id="cricket-crr">CRR: 9.80 · RRR: 8.62</div>
+          </div>
+        </div>
+
+        <!-- Current Batter & Bowler Strip -->
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+          <div class="border-r border-slate-800 pr-2">
+            <div class="flex items-center justify-between text-slate-400 text-[10px]">
+              <span>BATSMAN</span>
+              <span class="text-amber-400 font-bold">★ ON STRIKE</span>
+            </div>
+            <div class="font-bold text-white truncate" id="cricket-striker-name">A. Kumar</div>
+            <div class="mono-num text-[11px] text-slate-300"><span id="cricket-striker-runs">44</span>* (26b) · 4x4, 2x6</div>
+          </div>
+          <div class="pl-2">
+            <div class="flex items-center justify-between text-slate-400 text-[10px]">
+              <span>BOWLER</span>
+              <span class="text-slate-500">Ov 1.4</span>
+            </div>
+            <div class="font-bold text-white truncate" id="cricket-bowler-name">R. Sharma</div>
+            <div class="mono-num text-[11px] text-slate-300">1.4-0-16-1</div>
+          </div>
+        </div>
+
+        <!-- This Over Ball Ticker -->
+        <div class="mt-2.5 flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">This Over:</span>
+          <div class="flex items-center gap-1.5" id="cricket-over-balls">
+            <span class="w-6 h-6 rounded-full bg-slate-800 text-[11px] mono-num font-bold flex items-center justify-center text-slate-200">1</span>
+            <span class="w-6 h-6 rounded-full bg-indigo-600 text-[11px] mono-num font-bold flex items-center justify-center text-white">4</span>
+            <span class="w-6 h-6 rounded-full bg-slate-800 text-[11px] mono-num font-bold flex items-center justify-center text-slate-400">•</span>
+            <span class="w-6 h-6 rounded-full bg-slate-800 text-[11px] mono-num font-bold flex items-center justify-center text-slate-200">2</span>
+            <span class="w-6 h-6 rounded-full bg-red-600 text-[11px] mono-num font-bold flex items-center justify-center text-white">W</span>
+            <span class="w-6 h-6 rounded-full bg-amber-500 text-[11px] mono-num font-bold flex items-center justify-center text-slate-950 font-black">6</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KEYPAD GRID -->
+      <div class="space-y-2 mt-auto">
+        <!-- Main Run Numbers (High-touch targets) -->
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="recordCricketBall('0', 0)" class="h-14 rounded-2xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-xl font-black text-slate-300 flex items-center justify-center shadow">
+            • Dot
+          </button>
+          <button onclick="recordCricketBall('1', 1)" class="h-14 rounded-2xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-2xl font-black text-white flex items-center justify-center shadow">
+            1
+          </button>
+          <button onclick="recordCricketBall('2', 2)" class="h-14 rounded-2xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-2xl font-black text-white flex items-center justify-center shadow">
+            2
+          </button>
+          <button onclick="recordCricketBall('3', 3)" class="h-14 rounded-2xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-2xl font-black text-white flex items-center justify-center shadow">
+            3
+          </button>
+          <button onclick="recordCricketBall('4', 4, true)" class="h-14 rounded-2xl bg-indigo-600 active:bg-indigo-700 text-2xl font-black text-white flex items-center justify-center shadow-lg shadow-indigo-600/30">
+            4 🏏
+          </button>
+          <button onclick="recordCricketBall('6', 6, false, true)" class="h-14 rounded-2xl bg-amber-500 active:bg-amber-600 text-2xl font-black text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            6 🚀
+          </button>
+        </div>
+
+        <!-- Extras Row -->
+        <div class="grid grid-cols-4 gap-1.5">
+          <button onclick="recordExtra('Wd', 1)" class="py-3 rounded-xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-xs font-bold text-amber-400">
+            Wide (+1)
+          </button>
+          <button onclick="recordExtra('Nb', 1)" class="py-3 rounded-xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-xs font-bold text-amber-400">
+            No Ball (+1)
+          </button>
+          <button onclick="recordExtra('B', 1)" class="py-3 rounded-xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300">
+            Bye
+          </button>
+          <button onclick="recordExtra('Lb', 1)" class="py-3 rounded-xl bg-slate-900 active:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-300">
+            Leg Bye
+          </button>
+        </div>
+
+        <!-- Actions Row: WICKET, STRIKE ROTATE, UNDO -->
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <button onclick="openWicketSheet()" class="py-3.5 rounded-xl bg-red-600 active:bg-red-700 text-white font-extrabold text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/30">
+            <span>🔴</span> WICKET
+          </button>
+          <button onclick="rotateStrike()" class="py-3.5 rounded-xl bg-slate-800 active:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1">
+            <span>⇄</span> Swap Strike
+          </button>
+          <button onclick="undoCricketBall()" class="py-3.5 rounded-xl bg-slate-800 active:bg-slate-700 border border-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-1">
+            <span>↩️</span> Undo
+          </button>
+        </div>
+
+        <!-- Finish / Finalize Match -->
+        <button onclick="completeCricketMatch()" class="w-full mt-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white uppercase tracking-wider shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2">
+          <span>✓</span> Declare Match Completed
+        </button>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <!-- 2. RACQUET VIEW (Badminton / Tennis / Pickleball) -->
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <div id="view-badminton" class="space-y-4 flex-1 flex flex-col justify-between hidden">
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+        <div class="flex justify-between items-center">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-400/20">
+            Badminton Singles · Set 3 of 3 (Decider)
+          </span>
+          <span class="text-[11px] mono-num font-bold text-slate-400">Match #R-04</span>
+        </div>
+
+        <!-- Set 1 & Set 2 History Pill -->
+        <div class="flex items-center justify-center gap-4 text-xs mono-num bg-slate-950 p-2 rounded-xl border border-slate-800 text-slate-400">
+          <div>Set 1: <span class="text-white font-bold">21-18</span> (P1)</div>
+          <div class="text-slate-600">|</div>
+          <div>Set 2: <span class="text-white font-bold">19-21</span> (P2)</div>
+        </div>
+
+        <!-- Competitor 1 vs Competitor 2 Scoreboards -->
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Player A -->
+          <div class="bg-slate-950 p-3.5 rounded-2xl border-2 border-indigo-500 text-center relative">
+            <span class="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-600 text-white">
+              Serving 🏸
+            </span>
+            <div class="text-sm font-bold text-white truncate mt-1">S. Verma</div>
+            <div class="text-[10px] text-slate-500">Non-Auction Singles</div>
+            <div class="mono-num text-5xl font-black text-indigo-400 my-2" id="racquet-score-a">20</div>
+            <button onclick="addRacquetPoint('A')" class="w-full py-3 rounded-xl bg-indigo-600 active:bg-indigo-700 text-white font-black text-sm shadow-lg shadow-indigo-600/30">
+              +1 Point
+            </button>
+          </div>
+
+          <!-- Player B -->
+          <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-center relative">
+            <div class="text-sm font-bold text-white truncate mt-1">R. Mehta</div>
+            <div class="text-[10px] text-slate-500">Non-Auction Singles</div>
+            <div class="mono-num text-5xl font-black text-slate-300 my-2" id="racquet-score-b">19</div>
+            <button onclick="addRacquetPoint('B')" class="w-full py-3 rounded-xl bg-slate-800 active:bg-slate-700 text-white font-black text-sm border border-slate-700">
+              +1 Point
+            </button>
+          </div>
+        </div>
+
+        <!-- Banner for Game Point / Match Point -->
+        <div id="racquet-status-banner" class="text-center py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-1.5 animate-pulse">
+          <span>🔥</span> MATCH POINT FOR S. VERMA (20-19)
+        </div>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="grid grid-cols-2 gap-2 mt-auto">
+        <button onclick="toggleService()" class="py-3 rounded-xl bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700">
+          🏸 Switch Server
+        </button>
+        <button onclick="undoRacquetPoint()" class="py-3 rounded-xl bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700">
+          ↩️ Undo Point
+        </button>
+        <button onclick="completeRacquetMatch()" class="col-span-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30">
+          ✓ Save &amp; Advance Winner into Knockout Semi-Final
+        </button>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <!-- 3. ATHLETICS / SWIMMING VIEW -->
+    <!-- ───────────────────────────────────────────────────────────── -->
+    <div id="view-athletics" class="space-y-4 flex-1 flex flex-col justify-between hidden">
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+        <div class="flex justify-between items-center">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-400/20">
+            Men's 100m Sprint · Heat 1 of 2
+          </span>
+          <span class="text-[11px] mono-num font-bold text-slate-400">Track 1</span>
+        </div>
+
+        <!-- Big Millisecond Stopwatch -->
+        <div class="text-center py-5 bg-slate-950 rounded-2xl border border-slate-800">
+          <div class="text-[10px] uppercase font-bold tracking-widest text-slate-500">Official Track Time</div>
+          <div class="mono-num text-5xl font-black text-amber-400 my-1" id="stopwatch-display">00:10.84</div>
+          <div class="text-xs text-slate-400 font-medium">Record: 10.42s (Mana Games '24)</div>
+        </div>
+
+        <!-- Lane Results Grid -->
+        <div class="space-y-1.5" id="athletics-lanes-list">
+          <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950 border border-amber-500/30 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black flex items-center justify-center text-[10px]">1</span>
+              <div>
+                <div class="font-bold text-white">Lane 4: Arjun Patel</div>
+                <div class="text-[10px] text-slate-500">Sector 7</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="mono-num font-black text-amber-400">10.84s</div>
+              <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300">Q Final</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-slate-700 text-slate-200 font-black flex items-center justify-center text-[10px]">2</span>
+              <div>
+                <div class="font-bold text-white">Lane 3: Rohan Gupta</div>
+                <div class="text-[10px] text-slate-500">Sector 3</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="mono-num font-black text-slate-300">11.02s</div>
+              <span class="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">Q Final</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-black flex items-center justify-center text-[10px]">3</span>
+              <div>
+                <div class="font-bold text-white">Lane 5: Karthik S.</div>
+                <div class="text-[10px] text-slate-500">Sector 12</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="mono-num font-black text-slate-400">11.28s</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Race Controls -->
+      <div class="grid grid-cols-2 gap-2 mt-auto">
+        <button onclick="toggleStopwatch()" id="btn-stopwatch-toggle" class="py-3.5 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30">
+          ▶ Start Race
+        </button>
+        <button onclick="resetStopwatch()" class="py-3.5 rounded-xl bg-slate-800 active:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700">
+          🔄 Reset Split
+        </button>
+        <button onclick="submitRaceResults()" class="col-span-2 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/30">
+          ✓ Save Official Timings &amp; Advance Qualifiers
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= WICKET MODAL SHEET ================= -->
+  <div id="wicket-sheet" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="text-red-500 text-lg">🔴</span>
+          <h3 class="brand-font font-black text-white text-base">SELECT DISMISSAL TYPE</h3>
+        </div>
+        <button onclick="closeWicketSheet()" class="text-slate-400 hover:text-white text-sm font-bold p-1">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="confirmWicket('Bowled')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          🎳 Bowled
+        </button>
+        <button onclick="confirmWicket('Caught')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          🧤 Caught
+        </button>
+        <button onclick="confirmWicket('LBW')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          🎯 LBW
+        </button>
+        <button onclick="confirmWicket('Run Out')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          🏃 Run Out
+        </button>
+        <button onclick="confirmWicket('Stumped')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          ⚡ Stumped
+        </button>
+        <button onclick="confirmWicket('Hit Wicket')" class="p-3 rounded-xl bg-slate-950 hover:bg-red-950/40 border border-slate-800 hover:border-red-500 text-left text-xs font-bold text-white transition">
+          💥 Hit Wicket
+        </button>
+      </div>
+
+      <button onclick="closeWicketSheet()" class="w-full py-2.5 rounded-xl bg-slate-800 text-slate-400 font-bold text-xs">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= NOTIFICATION TOAST ================= -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 border border-emerald-500/50 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold shadow-2xl flex items-center gap-2 pointer-events-none transition-all duration-300 opacity-0 translate-y-3">
+    <span>✓</span> <span id="toast-msg">Score broadcasted successfully!</span>
+  </div>
+
+  <!-- ================= JAVASCRIPT STATE & INTERACTIONS ================= -->
+  <script>
+    const UMPIRE_STATE = {
+      activeSport: 'cricket',
+      cricket: {
+        runs: 85,
+        wickets: 2,
+        balls: 52, // 8.4 overs
+        strikerRuns: 44,
+        strikerBalls: 26,
+        overBalls: ["1", "4", "•", "2", "W", "6"],
+        history: []
+      },
+      badminton: {
+        scoreA: 20,
+        scoreB: 19,
+        server: 'A',
+        history: []
+      },
+      athletics: {
+        running: false,
+        timer: null,
+        ms: 10840
+      }
+    };
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').innerText = msg;
+      toast.classList.remove('opacity-0', 'translate-y-3');
+      setTimeout(() => toast.classList.add('opacity-0', 'translate-y-3'), 2000);
+    }
+
+    function setSport(sport) {
+      UMPIRE_STATE.activeSport = sport;
+      ['cricket', 'badminton', 'athletics'].forEach(s => {
+        const btn = document.getElementById(`btn-sport-${s}`);
+        const view = document.getElementById(`view-${s}`);
+        if (s === sport) {
+          btn.className = "py-1.5 rounded-lg text-xs font-bold transition text-white bg-indigo-600 shadow-sm";
+          view.classList.remove('hidden');
+        } else {
+          btn.className = "py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200";
+          view.classList.add('hidden');
+        }
+      });
+    }
+
+    /* ─── CRICKET LOGIC ─── */
+    function renderCricket() {
+      const c = UMPIRE_STATE.cricket;
+      document.getElementById('cricket-score').innerText = c.runs;
+      document.getElementById('cricket-wickets').innerText = c.wickets;
+      
+      const overs = Math.floor(c.balls / 6);
+      const remBalls = c.balls % 6;
+      document.getElementById('cricket-overs').innerHTML = `${overs}.${remBalls} <span class="text-xs text-slate-500 font-bold">/ 12</span>`;
+      
+      const totalOversDec = (c.balls > 0) ? (c.balls / 6) : 1;
+      const crr = (c.runs / totalOversDec).toFixed(2);
+      document.getElementById('cricket-crr').innerText = `CRR: ${crr} · Target: 115`;
+      document.getElementById('cricket-striker-runs').innerText = c.strikerRuns;
+
+      // Render balls
+      const container = document.getElementById('cricket-over-balls');
+      container.innerHTML = c.overBalls.slice(-6).map(b => {
+        let bg = "bg-slate-800 text-slate-200";
+        if (b === '4') bg = "bg-indigo-600 text-white font-bold";
+        if (b === '6') bg = "bg-amber-500 text-slate-950 font-black";
+        if (b === 'W') bg = "bg-red-600 text-white font-bold";
+        if (b === '•') bg = "bg-slate-800 text-slate-500";
+        return `<span class="w-6 h-6 rounded-full ${bg} text-[11px] mono-num flex items-center justify-center">${b}</span>`;
+      }).join('');
+    }
+
+    function recordCricketBall(label, runs, isFour = false, isSix = false) {
+      const c = UMPIRE_STATE.cricket;
+      c.history.push(JSON.parse(JSON.stringify(c)));
+      c.runs += runs;
+      c.balls += 1;
+      c.strikerRuns += runs;
+      c.strikerBalls += 1;
+      c.overBalls.push(label);
+      renderCricket();
+      showToast(`+${runs} Runs (${label})`);
+    }
+
+    function recordExtra(type, runs) {
+      const c = UMPIRE_STATE.cricket;
+      c.history.push(JSON.parse(JSON.stringify(c)));
+      c.runs += runs;
+      c.overBalls.push(type);
+      renderCricket();
+      showToast(`Extra: ${type} (+${runs})`);
+    }
+
+    function rotateStrike() {
+      showToast("Strike rotated!");
+    }
+
+    function undoCricketBall() {
+      const c = UMPIRE_STATE.cricket;
+      if (c.history.length > 0) {
+        const prev = c.history.pop();
+        c.runs = prev.runs;
+        c.wickets = prev.wickets;
+        c.balls = prev.balls;
+        c.strikerRuns = prev.strikerRuns;
+        c.strikerBalls = prev.strikerBalls;
+        c.overBalls = prev.overBalls;
+        renderCricket();
+        showToast("Last ball undone");
+      } else {
+        showToast("No earlier balls to undo");
+      }
+    }
+
+    function openWicketSheet() {
+      document.getElementById('wicket-sheet').classList.remove('hidden');
+    }
+
+    function closeWicketSheet() {
+      document.getElementById('wicket-sheet').classList.add('hidden');
+    }
+
+    function confirmWicket(type) {
+      const c = UMPIRE_STATE.cricket;
+      c.history.push(JSON.parse(JSON.stringify(c)));
+      c.wickets += 1;
+      c.balls += 1;
+      c.overBalls.push('W');
+      c.strikerRuns = 0; // new batsman
+      closeWicketSheet();
+      renderCricket();
+      showToast(`Wicket (${type}) recorded!`);
+    }
+
+    function completeCricketMatch() {
+      showToast("Cricket match declared COMPLETED! Advancing Phoenix Titans.");
+      setTimeout(() => {
+        window.location.href = "sports_tournament_suite.html";
+      }, 1200);
+    }
+
+    /* ─── BADMINTON LOGIC ─── */
+    function renderRacquet() {
+      const b = UMPIRE_STATE.badminton;
+      document.getElementById('racquet-score-a').innerText = b.scoreA;
+      document.getElementById('racquet-score-b').innerText = b.scoreB;
+      const banner = document.getElementById('racquet-status-banner');
+      if (b.scoreA >= 20 || b.scoreB >= 20) {
+        banner.classList.remove('hidden');
+        if (b.scoreA > b.scoreB) {
+          banner.innerHTML = `<span>🔥</span> MATCH POINT FOR S. VERMA (${b.scoreA}-${b.scoreB})`;
+        } else if (b.scoreB > b.scoreA) {
+          banner.innerHTML = `<span>🔥</span> MATCH POINT FOR R. MEHTA (${b.scoreB}-${b.scoreA})`;
+        } else {
+          banner.innerHTML = `<span>⚡</span> DEUCE (${b.scoreA}-${b.scoreB}) · 2 Clear Points Needed`;
+        }
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    function addRacquetPoint(side) {
+      const b = UMPIRE_STATE.badminton;
+      b.history.push({ scoreA: b.scoreA, scoreB: b.scoreB, server: b.server });
+      if (side === 'A') b.scoreA += 1;
+      else b.scoreB += 1;
+      renderRacquet();
+      showToast(`Point to Player ${side}!`);
+    }
+
+    function undoRacquetPoint() {
+      const b = UMPIRE_STATE.badminton;
+      if (b.history.length > 0) {
+        const prev = b.history.pop();
+        b.scoreA = prev.scoreA;
+        b.scoreB = prev.scoreB;
+        b.server = prev.server;
+        renderRacquet();
+        showToast("Point undone");
+      }
+    }
+
+    function toggleService() {
+      const b = UMPIRE_STATE.badminton;
+      b.server = (b.server === 'A') ? 'B' : 'A';
+      showToast(`Service switched to Player ${b.server}`);
+    }
+
+    function completeRacquetMatch() {
+      showToast("Racquet result submitted! S. Verma advances.");
+      setTimeout(() => {
+        window.location.href = "sports_tournament_suite.html";
+      }, 1200);
+    }
+
+    /* ─── ATHLETICS LOGIC ─── */
+    function toggleStopwatch() {
+      const ath = UMPIRE_STATE.athletics;
+      const btn = document.getElementById('btn-stopwatch-toggle');
+      if (!ath.running) {
+        ath.running = true;
+        btn.innerText = "⏸ Pause Timer";
+        btn.className = "py-3.5 rounded-xl bg-amber-600 active:bg-amber-700 text-white font-bold text-xs uppercase tracking-wider";
+        ath.timer = setInterval(() => {
+          ath.ms += 10;
+          const secs = Math.floor(ath.ms / 1000);
+          const centis = Math.floor((ath.ms % 1000) / 10);
+          document.getElementById('stopwatch-display').innerText = `00:${secs < 10 ? '0' : ''}${secs}.${centis < 10 ? '0' : ''}${centis}`;
+        }, 10);
+      } else {
+        ath.running = false;
+        clearInterval(ath.timer);
+        btn.innerText = "▶ Resume Race";
+        btn.className = "py-3.5 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider";
+      }
+    }
+
+    function resetStopwatch() {
+      const ath = UMPIRE_STATE.athletics;
+      clearInterval(ath.timer);
+      ath.running = false;
+      ath.ms = 0;
+      document.getElementById('stopwatch-display').innerText = "00:00.00";
+      const btn = document.getElementById('btn-stopwatch-toggle');
+      btn.innerText = "▶ Start Race";
+      btn.className = "py-3.5 rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider";
+    }
+
+    function submitRaceResults() {
+      showToast("Lane timings officially saved! Arjun Patel qualifies.");
+      setTimeout(() => {
+        window.location.href = "sports_tournament_suite.html";
+      }, 1200);
+    }
+
+    window.onload = () => {
+      renderCricket();
+      renderRacquet();
+    };
+  </script>
+</body>
+</html>

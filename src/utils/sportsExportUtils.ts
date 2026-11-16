@@ -1,5 +1,7 @@
 import { format } from "date-fns";
 import { escapeHtml } from "./sanitize";
+import type { UniqueTournamentPlayer } from "../services/sports/tournamentPaymentService";
+import { formatFlatLabel } from "./sportsValidationUtils";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -55,11 +57,20 @@ export interface ExportablePlayer {
 
 export function extractPartnerExportDetails(p: ExportablePlayer): { partnerName: string; partnerContact: string; partnerStatus: string } {
   const isOpenPool = Boolean((p as any).openPool || (p as any).isPoolPlayer || (p as any).needsPartner);
-  const partnerName = p.partnerName || p.partner?.fullName || p.partner?.name || p.partnerFamilyMember?.name || "";
-  const flat = p.partnerFlatNumber || p.partner?.flatNo || "";
+  const rawPartnerName = (p.partnerFamilyMember?.name || (p as any).partnerFamilyMemberName || p.partnerName || p.partner?.fullName || p.partner?.name || "").trim();
+  const primaryName = (p.playerName || p.fullName || p.user?.fullName || "").trim();
+  const partnerFamId = (p as any).partnerFamilyMemberId != null ? String((p as any).partnerFamilyMemberId) : (p.partnerFamilyMember as any)?.id != null ? String((p.partnerFamilyMember as any).id) : null;
+  const primaryFamId = (p as any).familyMemberId != null ? String((p as any).familyMemberId) : (p as any).familyMember?.id != null ? String((p as any).familyMember.id) : null;
+  const isSameFamId = Boolean(partnerFamId && primaryFamId && partnerFamId === primaryFamId);
+  const isSelfPartner = isSameFamId || Boolean(rawPartnerName && primaryName && rawPartnerName.toLowerCase() === primaryName.toLowerCase());
+  const partnerName = isSelfPartner ? "" : rawPartnerName;
+
+  const rawFlat = p.partnerFlatNumber || p.partner?.flatNo || "";
+  const partnerBlock = (p.partner as any)?.block || (p as any).partnerBlock;
+  const flat = formatFlatLabel(rawFlat, partnerBlock);
   const phone = p.partnerPhone || p.partner?.phone || "";
   const contactParts: string[] = [];
-  if (flat) contactParts.push(`Flat ${flat}`);
+  if (flat) contactParts.push(flat);
   if (phone) contactParts.push(phone);
   const partnerContact = contactParts.join(" · ") || (partnerName ? "—" : "—");
 
@@ -348,8 +359,10 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
 export interface ExportableMatch {
   id?: number | string;
   matchNumber?: number | string;
+  round?: string;
   roundName?: string;
   roundNumber?: number;
+  groupName?: string;
   stage?: string;
   name?: string;
   sport?: string;
@@ -367,6 +380,12 @@ export interface ExportableMatch {
   team2Name?: string;
   homeTeamName?: string;
   awayTeamName?: string;
+  team1Flat?: string;
+  team2Flat?: string;
+  homeFlat?: string;
+  awayFlat?: string;
+  home?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
+  away?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
   homeScore?: number | string;
   awayScore?: number | string;
   status?: string;
@@ -374,7 +393,32 @@ export interface ExportableMatch {
   sportName?: string;
 }
 
+function getExportVenueCourt(match: ExportableMatch): string {
+  const rawVenue = match.venue as any;
+  const rawCourt = (match as any).court;
+  const venueName = typeof rawVenue === "string" ? rawVenue : rawVenue?.name || match.venueName || "";
+  const courtName = typeof rawCourt === "string" ? rawCourt : rawCourt?.name || match.courtName || (match as any).courtId || "";
+  if (venueName && courtName) {
+    if (venueName.toLowerCase().includes(String(courtName).toLowerCase())) return venueName;
+    return `${venueName} · ${String(courtName).toLowerCase().startsWith("court") ? courtName : `Court ${courtName}`}`;
+  }
+  return venueName || (courtName ? (String(courtName).toLowerCase().startsWith("court") ? courtName : `Court ${courtName}`) : "Main Arena");
+}
+
+function sortExportMatches(matches: ExportableMatch[]): ExportableMatch[] {
+  return matches
+    .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
+    .sort((a, b) => {
+      const numberA = Number.isFinite(a.number) && a.number > 0 ? a.number : a.index + 1;
+      const numberB = Number.isFinite(b.number) && b.number > 0 ? b.number : b.index + 1;
+      return numberA - numberB || a.index - b.index;
+    })
+    .map(({ match }) => match);
+}
+
+
 export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule") {
+  const orderedMatches = sortExportMatches(matches);
   const headers = [
     "Match #",
     "Round / Stage",
@@ -383,21 +427,25 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     "Time",
     "Venue / Court",
     "Team 1 / Player 1",
+    "Team 1 Flat",
     "Team 2 / Player 2",
+    "Team 2 Flat",
     "Score",
     "Status",
     "Winner",
   ];
 
-  const rows = matches.map((m, idx) => {
+  const rows = orderedMatches.map((m, idx) => {
     const matchNum = m.matchNumber ?? (idx + 1);
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
-    const venue = m.venue || m.venueName || m.courtName || "Main Arena";
-    const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-    const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+    const venue = getExportVenueCourt(m);
+    const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+    const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+    const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
+    const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
@@ -412,7 +460,9 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
       escapeCSV(mTime),
       escapeCSV(venue),
       escapeCSV(t1),
+      escapeCSV(t1Flat),
       escapeCSV(t2),
+      escapeCSV(t2Flat),
       escapeCSV(score),
       escapeCSV(status),
       escapeCSV(winner),
@@ -712,6 +762,7 @@ export function getRoundExportTheme(stageName: string): RoundExportTheme {
 }
 
 export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule") {
+  const orderedMatches = sortExportMatches(matches);
   const headers = [
     "Match #",
     "Stage / Round",
@@ -720,7 +771,9 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     "Time",
     "Venue / Court",
     "Team 1 / Player 1",
+    "Team 1 Flat",
     "Team 2 / Player 2",
+    "Team 2 Flat",
     "Score",
     "Status",
     "Winner",
@@ -734,24 +787,27 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
   th { background-color: #4f46e5; color: #ffffff; font-weight: bold; padding: 8px; border: 1px solid #cbd5e1; }
   td { padding: 6px 8px; border: 1px solid #e2e8f0; font-family: Calibri, sans-serif; font-size: 11pt; }
   .title-row { font-size: 14pt; font-weight: bold; color: #1e293b; }
+  .flat-cell { color: #4338ca; font-weight: 600; }
 </style>
 </head>
 <body>
 <table>
-  <tr><td colspan="11" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
-  <tr><td colspan="11">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${matches.length}</td></tr>
+  <tr><td colspan="13" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
+  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${orderedMatches.length}</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
-  matches.forEach((m, idx) => {
+  orderedMatches.forEach((m, idx) => {
     const matchNum = m.matchNumber ?? (idx + 1);
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
     const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
     const mTime = m.time || m.scheduledTime || "—";
-    const venue = m.venue || m.venueName || m.courtName || "Main Arena";
-    const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-    const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+    const venue = getExportVenueCourt(m);
+    const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+    const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+    const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
+    const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
@@ -766,7 +822,9 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
       <td>${mTime}</td>
       <td>${venue}</td>
       <td><b>${t1}</b></td>
+      <td class="flat-cell">${t1Flat !== "—" ? t1Flat : "—"}</td>
       <td><b>${t2}</b></td>
+      <td class="flat-cell">${t2Flat !== "—" ? t2Flat : "—"}</td>
       <td>${score}</td>
       <td>${status}</td>
       <td>${winner}</td>
@@ -780,21 +838,24 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
 }
 
 export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports") {
+  const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
     alert("Please allow popups to print/export PDF");
     return;
   }
 
-  const rowsHtml = matches
+  const rowsHtml = orderedMatches
     .map((m, idx) => {
       const matchNum = m.matchNumber ?? (idx + 1);
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
-      const venue = m.venue || m.venueName || m.courtName || "Arena";
-      const t1 = m.team1 || m.team1Name || m.homeTeamName || "TBD";
-      const t2 = m.team2 || m.team2Name || m.awayTeamName || "TBD";
+      const venue = getExportVenueCourt(m);
+      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
+      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
+      const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
+      const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
       const s1 = m.score1 ?? m.homeScore;
       const s2 = m.score2 ?? m.awayScore;
       const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} : ${s2}` : "vs";
@@ -805,9 +866,15 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
         <td style="font-weight:600; color:#4f46e5;">${escapeHtml(round)}</td>
         <td><b>${escapeHtml(mDate)}</b><br><span style="color:#64748b; font-size:10px;">${escapeHtml(mTime)}</span></td>
         <td>${escapeHtml(venue)}</td>
-        <td style="text-align:right; font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
+        <td style="text-align:right; font-size:12px;">
+          <div style="font-weight:bold;">${escapeHtml(t1)}</div>
+          ${t1Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t1Flat)}</div>` : ""}
+        </td>
         <td style="text-align:center; font-weight:bold; color:#e11d48; background:#fff1f2; padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
-        <td style="text-align:left; font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
+        <td style="text-align:left; font-size:12px;">
+          <div style="font-weight:bold;">${escapeHtml(t2)}</div>
+          ${t2Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t2Flat)}</div>` : ""}
+        </td>
         <td style="text-align:center;"><span class="badge badge-scheduled">${escapeHtml(m.status || "SCHEDULED")}</span></td>
       </tr>`;
     })
@@ -885,21 +952,24 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
 }
 
 export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "Match Scorecards") {
+  const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
     alert("Please allow popups to print/export PDF");
     return;
   }
 
-  const cardsHtml = matches
+  const cardsHtml = orderedMatches
     .map((m, idx) => {
       const matchNum = m.matchNumber ?? (idx + 1);
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
       const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
       const mTime = m.time || m.scheduledTime || "—";
-      const venue = m.venue || m.venueName || m.courtName || "Court 1";
-      const t1 = m.team1 || m.team1Name || m.homeTeamName || "Team A";
-      const t2 = m.team2 || m.team2Name || m.awayTeamName || "Team B";
+      const venue = getExportVenueCourt(m);
+      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "Team A";
+      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "Team B";
+      const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
+      const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
 
       return `
       <div class="scorecard">
@@ -926,11 +996,17 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
           </thead>
           <tbody>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
+              <td style="font-size:12px;">
+                <div style="font-weight:bold;">${escapeHtml(t1)}</div>
+                ${t1Flat ? `<div style="font-size:9.5px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 Flat: ${escapeHtml(t1Flat)}</div>` : ""}
+              </td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
+              <td style="font-size:12px;">
+                <div style="font-weight:bold;">${escapeHtml(t2)}</div>
+                ${t2Flat ? `<div style="font-size:9.5px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 Flat: ${escapeHtml(t2Flat)}</div>` : ""}
+              </td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
           </tbody>
@@ -1048,7 +1124,13 @@ export function exportListViewToPDF(
     );
     const datesSummary = dates.join(" · ");
 
-    const matchesHtml = stageMatches
+    const matchesHtml = [...stageMatches]
+      .sort((a, b) => {
+        const numberA = Number(a.matchNumber);
+        const numberB = Number(b.matchNumber);
+        if (Number.isFinite(numberA) && Number.isFinite(numberB) && numberA !== numberB) return numberA - numberB;
+        return 0;
+      })
       .map(m => {
         const mNum = m.matchNumber ?? "";
         const mTime = m.time || "—";
@@ -1057,11 +1139,13 @@ export function exportListViewToPDF(
         const durationStr = m.duration ? `${m.duration}m` : "";
 
         const t1 = m.home?.name || m.team1 || "TBD";
-        const t1Flat = m.home?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.home.flatNumber)}</span>` : "";
+        const t1FlatVal = m.home?.flatNumber || (m as any).homeFlat || (m as any).team1Flat;
+        const t1Flat = t1FlatVal ? `<span class="unit-pill">${escapeHtml(t1FlatVal)}</span>` : "";
         const t1Seed = m.home?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.home.seed)}</span>` : "";
 
         const t2 = m.away?.name || m.team2 || "TBD";
-        const t2Flat = m.away?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.away.flatNumber)}</span>` : "";
+        const t2FlatVal = m.away?.flatNumber || (m as any).awayFlat || (m as any).team2Flat;
+        const t2Flat = t2FlatVal ? `<span class="unit-pill">${escapeHtml(t2FlatVal)}</span>` : "";
         const t2Seed = m.away?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.away.seed)}</span>` : "";
 
         return `
@@ -1359,6 +1443,7 @@ export interface ExportableBracketMatch {
   courtId?: string | null;
   venueName?: string;
   courtName?: string;
+  status?: string | null;
 }
 
 export function exportBracketToPDF(
@@ -1382,7 +1467,8 @@ export function exportBracketToPDF(
     roundsMatches[rIndex] = bracketMatches.filter(m => m.roundIndex === rIndex);
   });
 
-  const baseSpacing = 160;
+  const firstRoundMatches = roundIndices.length > 0 ? (roundsMatches[roundIndices[0]] || []) : [];
+  const baseSpacing = firstRoundMatches.length > 8 ? 120 : 160;
   const matchTops: Record<string, number> = {};
 
   function findParentMatchId(participantId: string | undefined, prevMatches: ExportableBracketMatch[]): string | undefined {
@@ -1395,9 +1481,7 @@ export function exportBracketToPDF(
 
   // First round spacing
   if (roundIndices.length > 0) {
-    const firstRoundIdx = roundIndices[0];
-    const firstMatches = roundsMatches[firstRoundIdx] || [];
-    firstMatches.forEach((m, idx) => {
+    firstRoundMatches.forEach((m, idx) => {
       matchTops[m.id] = 50 + idx * baseSpacing;
     });
   }
@@ -1410,8 +1494,14 @@ export function exportBracketToPDF(
     const prevMatches = roundsMatches[prevRIdx] || [];
 
     currMatches.forEach((m, idx) => {
-      const homeParentId = findParentMatchId(m.home?.id, prevMatches);
-      const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+      let homeParentId = findParentMatchId(m.home?.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away?.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
+
       const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
       const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
 
@@ -1437,6 +1527,7 @@ export function exportBracketToPDF(
     if (roundName === "QUARTER_FINAL") return "Quarter-Finals";
     if (roundName === "ROUND_OF_16") return "Round of 16";
     if (roundName === "ROUND_OF_32") return "Round of 32";
+    if (roundName === "ROUND_OF_64") return "Round of 64";
     return roundName.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
   }
 
@@ -1457,8 +1548,14 @@ export function exportBracketToPDF(
       if (colIdx > 0) {
         const prevRoundIdx = roundIndices[colIdx - 1];
         const prevMatches = roundsMatches[prevRoundIdx] || [];
-        const homeParentId = findParentMatchId(m.home?.id, prevMatches);
-        const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+        let homeParentId = findParentMatchId(m.home?.id, prevMatches);
+        let awayParentId = findParentMatchId(m.away?.id, prevMatches);
+
+        if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+          homeParentId = prevMatches[idx * 2]?.id;
+          awayParentId = prevMatches[idx * 2 + 1]?.id;
+        }
+
         const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
         const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
 
@@ -1479,29 +1576,38 @@ export function exportBracketToPDF(
 
       const showMergerRight = !isLastRound;
       const showMergerLeft = colIdx > 0;
-      const venueCourt = [m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD";
+      const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
+      const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
+      const isPendingSlot = m.status === 'PENDING_SLOT';
+      const isByeMatch = isHomeBye || isAwayBye || m.status === 'AUTO_ADVANCED';
+      const venueCourt = isByeMatch ? "" : ([m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD");
 
       cardsHtml += `
         <div class="matchup" style="top:${top}px;">
           <div class="match-meta">
-            <span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>
+            ${isPendingSlot
+              ? `<span style="color:#64748b; font-weight:800;">AWAITING BRACKET SLOT</span>`
+              : isByeMatch
+              ? `<span style="color:#059669; font-weight:800; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:1px 6px;">BYE • ADVANCES</span>`
+              : `<span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>`
+            }
           </div>
           <div class="match-box">
-            <div class="participant-row">
-              <span class="p-accent"></span>
-              <span class="p-name">${escapeHtml(m.home?.name || "TBD")}</span>
+            <div class="participant-row ${isHomeBye ? 'bye-row' : ''}">
+              <span class="p-accent ${isHomeBye ? 'bye-accent' : ''}"></span>
+              <span class="p-name ${isHomeBye ? 'bye-name' : ''}">${escapeHtml(m.home?.name || "TBD")}</span>
               ${m.home?.flatNumber ? `<span class="p-flat">${escapeHtml(m.home.flatNumber)}</span>` : ""}
             </div>
-            <div class="participant-row">
-              <span class="p-accent"></span>
-              <span class="p-name">${escapeHtml(m.away?.name || "TBD")}</span>
+            <div class="participant-row ${isAwayBye ? 'bye-row' : ''}">
+              <span class="p-accent ${isAwayBye ? 'bye-accent' : ''}"></span>
+              <span class="p-name ${isAwayBye ? 'bye-name' : ''}">${escapeHtml(m.away?.name || "TBD")}</span>
               ${m.away?.flatNumber ? `<span class="p-flat">${escapeHtml(m.away.flatNumber)}</span>` : ""}
             </div>
             ${showConnector ? `<div class="connector" style="height:${connectorHeight}px; transform:translateY(${connectorTop}px);"></div>` : ""}
             ${showMergerRight ? `<div class="merger-right"></div>` : ""}
             ${showMergerLeft ? `<div class="merger-left"></div>` : ""}
           </div>
-          <div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>
+          ${!isByeMatch && !isPendingSlot ? `<div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>` : ""}
         </div>
       `;
     });
@@ -1680,6 +1786,18 @@ export function exportBracketToPDF(
       font-size: 11px;
       position: relative;
     }
+    .participant-row.bye-row {
+      background: #f1f5f9;
+      border: 1px dashed #cbd5e1;
+      opacity: 0.75;
+    }
+    .p-accent.bye-accent {
+      background: #94a3b8;
+    }
+    .p-name.bye-name {
+      color: #64748b;
+      font-style: italic;
+    }
     .p-accent {
       width: 3px;
       height: 14px;
@@ -1809,3 +1927,602 @@ export function exportBracketToPDF(
     printWindow.print();
   }, 400);
 }
+
+// ─── 4. Tournament Players & Payment Hub Exports ─────────────────────────────
+
+export interface TournamentExportStats {
+  total?: number;
+  flats?: number;
+  paid?: number;
+  unpaid?: number;
+  totalCollected?: number;
+}
+
+function checkIsHead(p: UniqueTournamentPlayer): boolean {
+  if (p.familyMemberId) return false;
+  if (!p.relation) return true;
+  const rel = p.relation.trim().toUpperCase();
+  return [
+    "SELF",
+    "PRIMARY",
+    "HEAD",
+    "RESIDENT",
+    "OWNER",
+    "TENANT",
+    "PRIMARY RESIDENT",
+    "HOUSEHOLD HEAD",
+  ].includes(rel);
+}
+
+/**
+ * Export tournament players and payments to CSV.
+ * Supports:
+ * - "roster": 1 row per unique player with all household, event summary, and payment details
+ * - "events": 1 row per event registration, expanding each player's events with partner details
+ */
+export function exportTournamentPaymentsToCSV(
+  players: UniqueTournamentPlayer[],
+  tournamentName = "Tournament_Payment_Roster",
+  mode: "roster" | "events" = "roster"
+) {
+  if (!players || players.length === 0) return;
+
+  let headers: string[];
+  let rows: string[];
+
+  if (mode === "events") {
+    headers = [
+      "S.No",
+      "Flat / Unit No",
+      "Player Name",
+      "Household Role",
+      "Relation",
+      "Participant Type",
+      "Phone",
+      "Email",
+      "Sport",
+      "Event Name",
+      "Category",
+      "Match Format",
+      "Role in Event",
+      "Partner Name",
+      "Partner Phone",
+      "Partner Confirmation Status",
+      "Payment Status",
+      "Fee Amount (INR)",
+      "Payment Mode",
+      "Transaction Ref",
+      "Paid Date",
+      "Collected By",
+      "Collector Contact",
+      "Payment Notes",
+    ];
+
+    rows = [];
+    let rowIdx = 1;
+    for (const p of players) {
+      const flat = p.flatNumber || "—";
+      const isHead = checkIsHead(p);
+      const roleLabel = isHead ? "Head of Household" : "Family Member";
+      const relLabel = p.relation || (isHead ? "Primary Resident" : "Family Member");
+      const pType = p.isPartnerOnly ? "Doubles Partner Only" : "Primary Participant";
+      const pPhone = p.phone || "—";
+      const pEmail = p.email || "—";
+      const payStatus = p.paymentStatus || "UNPAID";
+      const amount = p.payment?.amount != null ? p.payment.amount : payStatus === "PAID" ? "—" : 0;
+      const payMode = p.payment?.paymentMode || "—";
+      const txRef = p.payment?.transactionRef || "—";
+      const paidDate = p.payment?.paidAt ? format(new Date(p.payment.paidAt), "yyyy-MM-dd HH:mm") : "—";
+      const collectedBy = p.payment?.collectedByName || p.payment?.markedByUserName || "—";
+      const collectorContact = p.payment?.collectedByContact || "—";
+      const notes = p.payment?.notes || "—";
+
+      if (!p.registeredEvents || p.registeredEvents.length === 0) {
+        rows.push(
+          [
+            rowIdx++,
+            escapeCSV(flat),
+            escapeCSV(p.playerName),
+            escapeCSV(roleLabel),
+            escapeCSV(relLabel),
+            escapeCSV(pType),
+            escapeCSV(pPhone),
+            escapeCSV(pEmail),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV("—"),
+            escapeCSV(payStatus),
+            escapeCSV(amount),
+            escapeCSV(payMode),
+            escapeCSV(txRef),
+            escapeCSV(paidDate),
+            escapeCSV(collectedBy),
+            escapeCSV(collectorContact),
+            escapeCSV(notes),
+          ].join(",")
+        );
+      } else {
+        for (const ev of p.registeredEvents) {
+          const partnerRole = ev.isPartner ? "Nominated Partner" : "Primary Registrant";
+          const partnerName = ev.partnerName || "—";
+          const partnerPhone = ev.partnerPhone || "—";
+          const partnerStatus = ev.partnerConfirmationStatus || (ev.partnerName ? "Invited" : "—");
+
+          rows.push(
+            [
+              rowIdx++,
+              escapeCSV(flat),
+              escapeCSV(p.playerName),
+              escapeCSV(roleLabel),
+              escapeCSV(relLabel),
+              escapeCSV(pType),
+              escapeCSV(pPhone),
+              escapeCSV(pEmail),
+              escapeCSV(ev.sportName || "—"),
+              escapeCSV(ev.eventName || "—"),
+              escapeCSV(ev.categoryName || "—"),
+              escapeCSV(ev.matchType || "—"),
+              escapeCSV(partnerRole),
+              escapeCSV(partnerName),
+              escapeCSV(partnerPhone),
+              escapeCSV(partnerStatus),
+              escapeCSV(payStatus),
+              escapeCSV(amount),
+              escapeCSV(payMode),
+              escapeCSV(txRef),
+              escapeCSV(paidDate),
+              escapeCSV(collectedBy),
+              escapeCSV(collectorContact),
+              escapeCSV(notes),
+            ].join(",")
+          );
+        }
+      }
+    }
+  } else {
+    // Roster summary mode (1 row per unique participant)
+    headers = [
+      "S.No",
+      "Flat / Unit No",
+      "Household Role",
+      "Relation",
+      "Player Name",
+      "Participant Type",
+      "Phone",
+      "Email",
+      "Total Events",
+      "Registered Events",
+      "Sports",
+      "Doubles Partners & Details",
+      "Payment Status",
+      "Fee Amount (INR)",
+      "Payment Mode",
+      "Transaction Ref / UPI ID",
+      "Paid Date & Time",
+      "Collected By",
+      "Collector Contact",
+      "Payment Notes",
+    ];
+
+    rows = players.map((p, idx) => {
+      const flat = p.flatNumber || "—";
+      const isHead = checkIsHead(p);
+      const roleLabel = isHead ? "Head of Household" : "Family Member";
+      const relLabel = p.relation || (isHead ? "Primary Resident" : "Family Member");
+      const pType = p.isPartnerOnly ? "Doubles Partner Only" : "Primary Participant";
+      const pPhone = p.phone || "—";
+      const pEmail = p.email || "—";
+      const totalEvents = p.registeredEvents?.length || 0;
+
+      const eventsSummary =
+        (p.registeredEvents || [])
+          .map((e) => `${e.eventName}${e.categoryName ? ` [${e.categoryName}]` : ""}`)
+          .join("; ") || "—";
+
+      const sportsSummary =
+        Array.from(new Set((p.registeredEvents || []).map((e) => e.sportName).filter(Boolean))).join(", ") || "—";
+
+      const partnerSummary =
+        (p.registeredEvents || [])
+          .filter((e) => e.partnerName)
+          .map(
+            (e) =>
+              `${e.eventName}: ${e.partnerName} (${e.partnerConfirmationStatus || "Invited"}${
+                e.partnerPhone ? ` · ${e.partnerPhone}` : ""
+              })`
+          )
+          .join("; ") || "—";
+
+      const payStatus = p.paymentStatus || "UNPAID";
+      const amount = p.payment?.amount != null ? p.payment.amount : payStatus === "PAID" ? "—" : 0;
+      const payMode = p.payment?.paymentMode || "—";
+      const txRef = p.payment?.transactionRef || "—";
+      const paidDate = p.payment?.paidAt ? format(new Date(p.payment.paidAt), "yyyy-MM-dd HH:mm") : "—";
+      const collectedBy = p.payment?.collectedByName || p.payment?.markedByUserName || "—";
+      const collectorContact = p.payment?.collectedByContact || "—";
+      const notes = p.payment?.notes || "—";
+
+      return [
+        idx + 1,
+        escapeCSV(flat),
+        escapeCSV(roleLabel),
+        escapeCSV(relLabel),
+        escapeCSV(p.playerName),
+        escapeCSV(pType),
+        escapeCSV(pPhone),
+        escapeCSV(pEmail),
+        escapeCSV(totalEvents),
+        escapeCSV(eventsSummary),
+        escapeCSV(sportsSummary),
+        escapeCSV(partnerSummary),
+        escapeCSV(payStatus),
+        escapeCSV(amount),
+        escapeCSV(payMode),
+        escapeCSV(txRef),
+        escapeCSV(paidDate),
+        escapeCSV(collectedBy),
+        escapeCSV(collectorContact),
+        escapeCSV(notes),
+      ].join(",");
+    });
+  }
+
+  const csv = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+  const sanitizedTitle = (tournamentName || "Tournament_Payments").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const suffix = mode === "events" ? "Detailed_Events" : "Roster_Payments";
+  triggerDownload(csv, `${sanitizedTitle}_${suffix}_${format(new Date(), "yyyyMMdd_HHmm")}.csv`, "text/csv;charset=utf-8;");
+}
+
+/**
+ * Export tournament players and payments to formatted Excel spreadsheet (.xls).
+ * Includes summary metadata, Table 1 (Participant Roster & Payments Summary), and Table 2 (Event-by-Event Breakdown).
+ */
+export function exportTournamentPaymentsToExcel(
+  players: UniqueTournamentPlayer[],
+  tournamentName = "Tournament_Payment_Roster",
+  stats?: TournamentExportStats
+) {
+  if (!players || players.length === 0) return;
+
+  const total = stats?.total ?? players.length;
+  const flats = stats?.flats ?? new Set(players.map((p) => p.flatNumber).filter(Boolean)).size;
+  const paid = stats?.paid ?? players.filter((p) => p.paymentStatus === "PAID").length;
+  const unpaid = stats?.unpaid ?? players.filter((p) => p.paymentStatus !== "PAID").length;
+  const totalCollected = stats?.totalCollected ?? players.reduce((sum, p) => sum + (p.payment?.amount || 0), 0);
+
+  const rosterHeaders = [
+    "S.No",
+    "Flat / Unit No",
+    "Household Role",
+    "Relation",
+    "Player Name",
+    "Participant Type",
+    "Phone Number",
+    "Email",
+    "Events Count",
+    "Registered Events",
+    "Sports",
+    "Doubles Partner(s)",
+    "Payment Status",
+    "Fee Amount (INR)",
+    "Payment Mode",
+    "Transaction Ref",
+    "Paid Date & Time",
+    "Collected By",
+    "Collector Contact",
+    "Notes",
+  ];
+
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Tournament Roster &amp; Payments</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+<style>
+  body { font-family: Calibri, 'Segoe UI', Arial, sans-serif; }
+  th { background-color: #4338ca; color: #ffffff; font-weight: bold; text-align: left; padding: 8px 10px; border: 1px solid #c7d2fe; font-size: 10pt; }
+  td { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 10pt; vertical-align: middle; }
+  .title-banner { font-size: 16pt; font-weight: bold; color: #1e1b4b; background-color: #eef2ff; padding: 12px; border: 1px solid #c7d2fe; }
+  .summary-banner { font-size: 10pt; background-color: #f8fafc; color: #334155; padding: 8px; border: 1px solid #e2e8f0; }
+  .badge-paid { background-color: #dcfce7; color: #15803d; font-weight: bold; text-align: center; }
+  .badge-unpaid { background-color: #fef3c7; color: #b45309; font-weight: bold; text-align: center; }
+  .badge-waived { background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: center; }
+  .section-header { font-size: 12pt; font-weight: bold; color: #312e81; background-color: #e0e7ff; padding: 8px; }
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+</style>
+</head>
+<body>
+<table>
+  <tr><td colspan="20" class="title-banner">${escapeHtml(tournamentName)} — Participant Roster &amp; Payment Hub</td></tr>
+  <tr><td colspan="20" class="summary-banner">
+    <b>Generated On:</b> ${format(new Date(), "MMMM d, yyyy h:mm a")} &nbsp;|&nbsp;
+    <b>Total Registered:</b> ${total} Players &nbsp;|&nbsp;
+    <b>Registered Flats:</b> ${flats} Flats &nbsp;|&nbsp;
+    <b>Paid:</b> ${paid} &nbsp;|&nbsp;
+    <b>Unpaid:</b> ${unpaid} &nbsp;|&nbsp;
+    <b>Total Collected:</b> INR ${totalCollected.toLocaleString("en-IN")}
+  </td></tr>
+  <tr></tr>
+  <tr><td colspan="20" class="section-header">1. PARTICIPANT ROSTER &amp; PAYMENT STATUS (Summary)</td></tr>
+  <tr>${rosterHeaders.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+
+  players.forEach((p, idx) => {
+    const flat = p.flatNumber || "—";
+    const isHead = checkIsHead(p);
+    const roleLabel = isHead ? "Head of Household" : "Family Member";
+    const relLabel = p.relation || (isHead ? "Primary Resident" : "Family Member");
+    const pType = p.isPartnerOnly ? "Doubles Partner Only" : "Primary Participant";
+    const pPhone = p.phone || "—";
+    const pEmail = p.email || "—";
+    const totalEvents = p.registeredEvents?.length || 0;
+
+    const eventsSummary = (p.registeredEvents || [])
+      .map((e) => `${escapeHtml(e.eventName)}${e.categoryName ? ` [${escapeHtml(e.categoryName)}]` : ""}`)
+      .join("<br/>") || "—";
+
+    const sportsSummary = Array.from(
+      new Set((p.registeredEvents || []).map((e) => e.sportName).filter(Boolean))
+    ).map((s) => escapeHtml(s!)).join(", ") || "—";
+
+    const partnerSummary = (p.registeredEvents || [])
+      .filter((e) => e.partnerName)
+      .map((e) => `<b>${escapeHtml(e.eventName)}:</b> ${escapeHtml(e.partnerName!)} (${escapeHtml(e.partnerConfirmationStatus || "Invited")}${e.partnerPhone ? ` · ${escapeHtml(e.partnerPhone)}` : ""})`)
+      .join("<br/>") || "—";
+
+    const payStatus = p.paymentStatus || "UNPAID";
+    const badgeClass = payStatus === "PAID" ? "badge-paid" : payStatus === "WAIVED" ? "badge-waived" : "badge-unpaid";
+    const amount = p.payment?.amount != null ? `INR ${p.payment.amount}` : payStatus === "PAID" ? "—" : "INR 0";
+    const payMode = p.payment?.paymentMode || "—";
+    const txRef = p.payment?.transactionRef || "—";
+    const paidDate = p.payment?.paidAt ? format(new Date(p.payment.paidAt), "yyyy-MM-dd HH:mm") : "—";
+    const collectedBy = p.payment?.collectedByName || p.payment?.markedByUserName || "—";
+    const collectorContact = p.payment?.collectedByContact || "—";
+    const notes = p.payment?.notes || "—";
+
+    html += `<tr>
+      <td class="text-center">${idx + 1}</td>
+      <td><b>${escapeHtml(flat)}</b></td>
+      <td>${escapeHtml(roleLabel)}</td>
+      <td>${escapeHtml(relLabel)}</td>
+      <td><b>${escapeHtml(p.playerName)}</b></td>
+      <td>${escapeHtml(pType)}</td>
+      <td>${escapeHtml(pPhone)}</td>
+      <td>${escapeHtml(pEmail)}</td>
+      <td class="text-center">${totalEvents}</td>
+      <td>${eventsSummary}</td>
+      <td>${sportsSummary}</td>
+      <td>${partnerSummary}</td>
+      <td class="${badgeClass}">${escapeHtml(payStatus)}</td>
+      <td class="text-right">${amount}</td>
+      <td>${escapeHtml(payMode)}</td>
+      <td>${escapeHtml(txRef)}</td>
+      <td>${escapeHtml(paidDate)}</td>
+      <td>${escapeHtml(collectedBy)}</td>
+      <td>${escapeHtml(collectorContact)}</td>
+      <td>${escapeHtml(notes)}</td>
+    </tr>`;
+  });
+
+  // Table 2: Detailed Event Breakdown
+  html += `<tr></tr>
+  <tr><td colspan="20" class="section-header">2. DETAILED EVENT-BY-EVENT REGISTRATIONS (Check-In Sheet)</td></tr>
+  <tr>
+    <th>S.No</th>
+    <th>Flat No</th>
+    <th>Player Name</th>
+    <th>Relation</th>
+    <th>Sport</th>
+    <th>Event Name</th>
+    <th>Category</th>
+    <th>Match Format</th>
+    <th>Role in Event</th>
+    <th>Partner Name</th>
+    <th>Partner Phone</th>
+    <th>Partner Status</th>
+    <th>Payment Status</th>
+    <th>Fee Amount</th>
+    <th>Payment Mode</th>
+    <th>Transaction Ref</th>
+    <th>Paid Date</th>
+    <th colspan="3">Notes</th>
+  </tr>`;
+
+  let eventRowIdx = 1;
+  players.forEach((p) => {
+    const flat = p.flatNumber || "—";
+    const relLabel = p.relation || (checkIsHead(p) ? "Primary Resident" : "Family Member");
+    const payStatus = p.paymentStatus || "UNPAID";
+    const badgeClass = payStatus === "PAID" ? "badge-paid" : payStatus === "WAIVED" ? "badge-waived" : "badge-unpaid";
+    const amount = p.payment?.amount != null ? `INR ${p.payment.amount}` : payStatus === "PAID" ? "—" : "INR 0";
+    const payMode = p.payment?.paymentMode || "—";
+    const txRef = p.payment?.transactionRef || "—";
+    const paidDate = p.payment?.paidAt ? format(new Date(p.payment.paidAt), "yyyy-MM-dd HH:mm") : "—";
+    const notes = p.payment?.notes || "—";
+
+    (p.registeredEvents || []).forEach((ev) => {
+      const partnerRole = ev.isPartner ? "Nominated Partner" : "Primary Registrant";
+      const partnerName = ev.partnerName || "—";
+      const partnerPhone = ev.partnerPhone || "—";
+      const partnerStatus = ev.partnerConfirmationStatus || (ev.partnerName ? "Invited" : "—");
+
+      html += `<tr>
+        <td class="text-center">${eventRowIdx++}</td>
+        <td><b>${escapeHtml(flat)}</b></td>
+        <td><b>${escapeHtml(p.playerName)}</b></td>
+        <td>${escapeHtml(relLabel)}</td>
+        <td>${escapeHtml(ev.sportName || "—")}</td>
+        <td>${escapeHtml(ev.eventName || "—")}</td>
+        <td>${escapeHtml(ev.categoryName || "—")}</td>
+        <td>${escapeHtml(ev.matchType || "—")}</td>
+        <td>${escapeHtml(partnerRole)}</td>
+        <td>${escapeHtml(partnerName)}</td>
+        <td>${escapeHtml(partnerPhone)}</td>
+        <td>${escapeHtml(partnerStatus)}</td>
+        <td class="${badgeClass}">${escapeHtml(payStatus)}</td>
+        <td class="text-right">${amount}</td>
+        <td>${escapeHtml(payMode)}</td>
+        <td>${escapeHtml(txRef)}</td>
+        <td>${escapeHtml(paidDate)}</td>
+        <td colspan="3">${escapeHtml(notes)}</td>
+      </tr>`;
+    });
+  });
+
+  html += `</table></body></html>`;
+
+  const sanitizedTitle = (tournamentName || "Tournament_Payments").replace(/[^a-zA-Z0-9_-]/g, "_");
+  triggerDownload(html, `${sanitizedTitle}_Complete_Details_${format(new Date(), "yyyyMMdd_HHmm")}.xls`, "application/vnd.ms-excel");
+}
+
+/**
+ * Print / Save PDF formatted Tournament Participant & Payment Roster
+ */
+export function exportTournamentPaymentsToPDF(
+  players: UniqueTournamentPlayer[],
+  tournamentName = "Tournament_Payment_Roster",
+  stats?: TournamentExportStats,
+  communityName = "Mana Community"
+) {
+  if (!players || players.length === 0) return;
+
+  const total = stats?.total ?? players.length;
+  const flats = stats?.flats ?? new Set(players.map((p) => p.flatNumber).filter(Boolean)).size;
+  const paid = stats?.paid ?? players.filter((p) => p.paymentStatus === "PAID").length;
+  const unpaid = stats?.unpaid ?? players.filter((p) => p.paymentStatus !== "PAID").length;
+  const totalCollected = stats?.totalCollected ?? players.reduce((sum, p) => sum + (p.payment?.amount || 0), 0);
+
+  const printWindow = window.open("", "_blank", "width=1000,height=800");
+  if (!printWindow) {
+    alert("Please allow popups to print/export PDF roster.");
+    return;
+  }
+
+  const rowsHtml = players
+    .map((p, idx) => {
+      const flat = p.flatNumber || "—";
+      const isHead = checkIsHead(p);
+      const relLabel = p.relation || (isHead ? "Head" : "Family");
+      const pPhone = p.phone || "—";
+      const payStatus = p.paymentStatus || "UNPAID";
+      const isPaid = payStatus === "PAID";
+      const statusClass = isPaid ? "status-paid" : payStatus === "WAIVED" ? "status-waived" : "status-unpaid";
+      const amount = p.payment?.amount != null ? `₹${p.payment.amount}` : isPaid ? "—" : "₹0";
+      const payMode = p.payment?.paymentMode || "—";
+      const txRef = p.payment?.transactionRef || "";
+      const collectedBy = p.payment?.collectedByName || p.payment?.markedByUserName || "—";
+
+      const eventsSummary = (p.registeredEvents || [])
+        .map((e) => {
+          const partnerText = e.partnerName ? ` (w/ ${escapeHtml(e.partnerName)})` : "";
+          return `• ${escapeHtml(e.eventName)}${partnerText}`;
+        })
+        .join("<br/>") || "—";
+
+      return `<tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td><b>${escapeHtml(flat)}</b></td>
+        <td>
+          <div style="font-weight:bold; color:#0f172a;">${escapeHtml(p.playerName)}</div>
+          <div style="font-size:10px; color:#64748b;">${escapeHtml(relLabel)}${p.isPartnerOnly ? " · Partner Only" : ""}</div>
+        </td>
+        <td>${escapeHtml(pPhone)}</td>
+        <td style="font-size:11px;">${eventsSummary}</td>
+        <td style="text-align:center;"><span class="badge ${statusClass}">${escapeHtml(payStatus)}</span></td>
+        <td style="text-align:right; font-weight:bold;">${amount}</td>
+        <td style="font-size:10px;">
+          <div>${escapeHtml(payMode)}</div>
+          ${txRef ? `<div style="color:#64748b;">${escapeHtml(txRef)}</div>` : ""}
+        </td>
+        <td style="font-size:10px; color:#475569;">${escapeHtml(collectedBy)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(tournamentName)} — Participant Roster</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 20px; color: #1e293b; font-size: 11px; }
+    .no-print { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; }
+    .header { margin-bottom: 16px; }
+    .header h1 { font-size: 18px; margin: 0 0 4px 0; color: #0f172a; }
+    .header p { margin: 0; font-size: 11px; color: #64748b; }
+    .stats-row { display: flex; gap: 12px; margin-bottom: 16px; }
+    .stat-badge { padding: 6px 12px; background: #f1f5f9; border-radius: 6px; font-size: 11px; border: 1px solid #e2e8f0; }
+    .stat-badge b { color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { background: #4338ca; color: white; padding: 6px 8px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background-color: #f8fafc; }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; text-transform: uppercase; }
+    .status-paid { background: #dcfce7; color: #15803d; }
+    .status-unpaid { background: #fef3c7; color: #b45309; }
+    .status-waived { background: #f1f5f9; color: #475569; }
+    .btn-print { background: #4338ca; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
+    @media print {
+      .no-print { display: none !important; }
+      body { margin: 0; }
+      th { background-color: #e2e8f0 !important; color: #0f172a !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <div>
+      <b>Print Preview:</b> ${escapeHtml(tournamentName)} (${players.length} participants)
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button class="btn-print" style="background:#64748b;" onclick="window.close()">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="header">
+    <h1>🏆 ${escapeHtml(tournamentName)} — Participant Roster &amp; Payment Hub</h1>
+    <p>${escapeHtml(communityName)} · Official Tournament Participant List · Generated on ${format(new Date(), "MMMM d, yyyy h:mm a")}</p>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-badge">Total Registered: <b>${total} Players</b></div>
+    <div class="stat-badge">Flats: <b>${flats} Flats</b></div>
+    <div class="stat-badge">Paid: <b style="color:#15803d;">${paid}</b></div>
+    <div class="stat-badge">Unpaid: <b style="color:#b45309;">${unpaid}</b></div>
+    <div class="stat-badge">Total Fees Collected: <b style="color:#4338ca;">₹${totalCollected.toLocaleString("en-IN")}</b></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:25px;">#</th>
+        <th style="width:60px;">Flat</th>
+        <th>Player</th>
+        <th style="width:90px;">Phone</th>
+        <th>Registered Events &amp; Partners</th>
+        <th style="width:65px; text-align:center;">Payment</th>
+        <th style="width:60px; text-align:right;">Amount</th>
+        <th style="width:80px;">Mode / Ref</th>
+        <th style="width:90px;">Collected By</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+  printWindow.document.write(content);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 400);
+}
+

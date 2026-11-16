@@ -26,7 +26,7 @@ const buildTime: string = new Date().toISOString()
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8081';
+  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8080';
 
   return {
     define: {
@@ -38,7 +38,22 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      babel({ presets: [reactCompilerPreset()] })
+      babel({ presets: [reactCompilerPreset()] }),
+      {
+        name: 'generate-version-json',
+        generateBundle() {
+          this.emitFile({
+            type: 'asset',
+            fileName: 'version.json',
+            source: JSON.stringify({
+              version: appVersion,
+              commit: gitCommit,
+              branch: gitBranch,
+              buildTime,
+            }, null, 2),
+          });
+        },
+      },
     ],
     server: {
       headers: {

@@ -83,12 +83,14 @@ export function SportsAdmin() {
                 handleDelete={s.handleDelete}
                 handleActivate={s.handleActivate}
                 handleCloseTournament={s.handleCloseTournament}
+                handleCompleteTournament={s.handleCompleteTournament}
                 handleCloseEvent={s.handleCloseEvent}
                 handleStartEventRegistration={s.handleStartEventRegistration}
                 handleStartAllPendingEvents={s.handleStartAllPendingEvents}
                 handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
                 handleViewPlayers={s.handleViewPlayers}
                 handleViewCaptains={s.handleViewCaptains}
+                handleToggleCaptainNomination={s.handleToggleCaptainNomination}
                 viewingEventId={s.viewingEventId}
                 viewMode={s.viewMode}
                 registrations={s.registrations}
@@ -142,6 +144,13 @@ export function SportsAdmin() {
                 tournamentEndDate={tourneyEnd}
                 sportsEventSubTab={s.sportsEventSubTab}
                 setSportsEventSubTab={s.setSportsEventSubTab}
+                selectedEventIds={s.selectedBatchEventIds}
+                onToggleSelectEvent={s.handleToggleSelectEvent}
+                onSelectAllEvents={s.handleSelectAllEvents}
+                onClearSelectedEvents={s.handleClearSelectedEvents}
+                onBatchStartEvents={s.handleBatchStartEvents}
+                onBatchCloseEvents={s.handleBatchCloseEvents}
+                onBatchDeleteEvents={s.handleBatchDeleteEvents}
               />
             );
           })()}
@@ -361,6 +370,8 @@ export function SportsAdmin() {
       <AddPlayerModal
         showAddPlayerModal={s.showAddPlayerModal}
         setShowAddPlayerModal={s.setShowAddPlayerModal}
+        selectedEvent={s.selectedEventForAdd}
+        onRefreshCategories={s.refreshCategories}
         addPlayerForms={s.addPlayerForms}
         setAddPlayerForms={s.setAddPlayerForms}
         communityUsers={s.communityUsers}

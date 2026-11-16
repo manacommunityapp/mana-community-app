@@ -17,9 +17,9 @@ interface SportsEventTabProps {
   handleEdit: (e: SportsEvent) => void;
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
-  handleAnnounce: (id: number, name: string) => void;
-  handleViewPlayers: (id: number) => void;
-  handleViewCaptains: (id: number) => void;
+  handleViewPlayers: (id: number, forceReload?: boolean) => void;
+  handleViewCaptains: (id: number, forceReload?: boolean) => void;
+  handleToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -55,9 +55,11 @@ interface SportsEventTabProps {
   handleSportEdit: (sport: any) => void;
   handleSportDelete: (id: number) => void;
   handleCloseTournament?: (id: number) => void;
+  handleCompleteTournament?: (id: number) => void;
   handleCloseEvent?: (id: number) => void;
   handleStartEventRegistration?: (id: number, name?: string) => void;
   handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
+  handleAnnounce?: (id: number, name: string) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -80,6 +82,13 @@ interface SportsEventTabProps {
   tournamentEndDate?: Date;
   sportsEventSubTab?: "list" | "config";
   setSportsEventSubTab?: (tab: "list" | "config") => void;
+  selectedEventIds?: number[];
+  onToggleSelectEvent?: (id: number) => void;
+  onSelectAllEvents?: (ids: number[], select: boolean) => void;
+  onClearSelectedEvents?: () => void;
+  onBatchStartEvents?: (ids?: number[]) => void;
+  onBatchCloseEvents?: (ids?: number[]) => void;
+  onBatchDeleteEvents?: (ids?: number[]) => void;
 }
 
 export function SportsEventTab({
@@ -96,12 +105,14 @@ export function SportsEventTab({
   handleDelete,
   handleActivate,
   handleCloseTournament,
+  handleCompleteTournament,
   handleCloseEvent,
   handleStartEventRegistration,
   handleStartAllPendingEvents,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
+  handleToggleCaptainNomination,
   viewingEventId,
   viewMode,
   registrations,
@@ -155,6 +166,13 @@ export function SportsEventTab({
   tournamentEndDate,
   sportsEventSubTab: controlledSubTab,
   setSportsEventSubTab: setControlledSubTab,
+  selectedEventIds,
+  onToggleSelectEvent,
+  onSelectAllEvents,
+  onClearSelectedEvents,
+  onBatchStartEvents,
+  onBatchCloseEvents,
+  onBatchDeleteEvents,
 }: SportsEventTabProps) {
   const [internalSubTab, setInternalSubTab] = useState<"list" | "config">("list");
   const sportsEventSubTab = controlledSubTab ?? internalSubTab;
@@ -229,9 +247,10 @@ export function SportsEventTab({
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           handleActivate={handleActivate}
-          handleAnnounce={handleAnnounce}
+          handleAnnounce={handleAnnounce || (() => {})}
           handleViewPlayers={handleViewPlayers}
           handleViewCaptains={handleViewCaptains}
+          handleToggleCaptainNomination={handleToggleCaptainNomination}
           viewingEventId={viewingEventId}
           viewMode={viewMode}
           registrations={registrations}
@@ -252,9 +271,17 @@ export function SportsEventTab({
           handleSportEdit={onEditEventFromList}
           handleSportDelete={handleSportDelete}
           handleCloseTournament={handleCloseTournament}
+          handleCompleteTournament={handleCompleteTournament}
           handleCloseEvent={handleCloseEvent}
           handleStartEventRegistration={handleStartEventRegistration}
           handleStartAllPendingEvents={handleStartAllPendingEvents}
+          selectedEventIds={selectedEventIds}
+          onToggleSelectEvent={onToggleSelectEvent}
+          onSelectAllEvents={onSelectAllEvents}
+          onClearSelectedEvents={onClearSelectedEvents}
+          onBatchStartEvents={onBatchStartEvents}
+          onBatchCloseEvents={onBatchCloseEvents}
+          onBatchDeleteEvents={onBatchDeleteEvents}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();

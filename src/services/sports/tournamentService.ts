@@ -1,6 +1,40 @@
-import { apiClient } from "../common/apiClient";
-import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../../app/components/scheduler/playoffSchedule";
+﻿import { apiClient } from "../common/apiClient";
+import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
+
+export type FeedVisibilityLevel = "tournament" | "event" | "match";
+export type FeedPostPolicy = "FINALS_ONLY" | "KNOCKOUTS_ONLY" | "ALL_MATCHES" | "NONE" | "CUSTOM";
+
+export interface FeedBroadcastSettings {
+  showInFeed: boolean;
+  explicit?: boolean;
+  feedPostPolicy?: FeedPostPolicy;
+  feedPostStages?: string;
+  postToFeed?: boolean | null;
+}
+
+/** A match shown in the community feed "Live Now" strip. */
+export interface FeedLiveMatch {
+  matchId: number;
+  configId?: number | null;
+  sportName?: string | null;
+  tournamentName?: string | null;
+  eventName?: string | null;
+  roundName?: string | null;
+  teamAName: string;
+  teamBName: string;
+  teamAId?: number | null;
+  teamBId?: number | null;
+  teamAFlat?: string | null;
+  teamBFlat?: string | null;
+  scoreTeamA?: string | null;
+  scoreTeamB?: string | null;
+  status: "LIVE" | "COMPLETED" | string;
+  winnerName?: string | null;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  venueName?: string | null;
+}
 
 export interface TournamentTypeInfo {
   id: string;
@@ -44,6 +78,8 @@ export interface EventInfo {
   maxPlayers?: number;
 }
 
+import type { TournamentBreak } from "../../app/components/scheduler/breakScheduleUtils";
+
 export interface ConfigInfo {
   id: number;
   tournamentName: string;
@@ -59,13 +95,31 @@ export interface ConfigInfo {
   swissRounds?: number;
   matchDurationMinutes?: number;
   breakBetweenMatchesMinutes?: number;
+  breaksConfig?: TournamentBreak[];
+  endTime?: string;
+  matchDays?: number[];
+  roundTimings?: Record<string, RoundTimingAnchor>;
   venueId?: number;
   pointsForWin?: number;
   pointsForDraw?: number;
   pointsForLoss?: number;
   thirdPlaceMatch?: boolean;
   hasSeeding?: boolean;
+  seedingOrder?: string;
+  byesFirstRoundOnly?: boolean;
+  showByesInBracket?: boolean;
+  limitMatchesPerDay?: boolean;
+  maxMatchesPerDay?: number;
+  usePlayoffDays?: boolean;
+  playoffDays?: number[] | null;
+  venueAssignType?: string;
+  playoffRoundDates?: Record<string, string> | null;
+  playoffRoundTimes?: Record<string, string> | null;
+  playoffRoundDurations?: Record<string, string> | null;
+  playoffRoundModes?: Record<string, 'sequential' | 'same_time' | string> | null;
   sportName?: string;
+  tournamentId?: number;
+  showInFeed?: boolean | null;
 }
 
 // ─── Match Result Types ──────────────────────────────────────────────────────
@@ -82,6 +136,15 @@ export interface MatchResultRequestData {
   runsTeamB?: number;
   oversTeamA?: number;
   oversTeamB?: number;
+  tossWinnerTeamId?: number | null;
+  tossDecision?: string;
+}
+
+export type TossDecision = "BAT" | "BOWL" | "KICKOFF" | "DEFEND" | "RAID" | "SERVE" | "RECEIVE" | "GO_FIRST" | "GO_SECOND";
+
+export interface MatchTossRequestData {
+  tossWinnerTeamId: number;
+  tossDecision: TossDecision;
 }
 
 export interface MatchResultDetailRequestData {
@@ -171,6 +234,23 @@ export interface MatchDetailData {
   innings?: InningsDetailData[];
   topRunScorers?: PlayerStatsData[];
   topWicketTakers?: PlayerStatsData[];
+}
+
+export interface BatchRescheduleRequest {
+  configId?: number;
+  mode: 'TIME_SHIFT' | 'NEW_DATE';
+  delayMinutes?: number;
+  newDate?: string;
+  startTime?: string;
+  intervalMinutes?: number;
+  fromDateTime?: string;
+  matchIds?: number[];
+}
+
+export interface BatchRescheduleResponse {
+  updatedCount: number;
+  message: string;
+  updatedMatches: any[];
 }
 
 export interface InningsDetailData {
@@ -305,6 +385,8 @@ export interface LiveMatchStateData {
   oversLimit?: number;
   maxOversPerBowler?: number;
   ballsPerOver?: number;
+  tossWinnerTeamId?: number;
+  tossDecision?: string;
 }
 
 export interface InningsStateData {
@@ -418,6 +500,8 @@ export interface GenericMatchState {
   periodsWonB: number;
   periods: PeriodScore[];
   recentEvents: GenericScoreEvent[];
+  tossWinnerTeamId?: number;
+  tossDecision?: TossDecision;
   scoringConfig?: ScoringConfig;
 }
 
@@ -509,8 +593,14 @@ export const tournamentService = {
   },
 
   /** GET /api/tournament/events */
-  async getEventsForDropdown(): Promise<EventInfo[]> {
-    return apiClient.get<EventInfo[]>("/tournament/events");
+  async getEventsForDropdown(communityId?: number): Promise<EventInfo[]> {
+    try {
+      const url = communityId ? `/tournament/events?communityId=${communityId}` : "/tournament/events";
+      const data = await apiClient.get<EventInfo[]>(url);
+      return Array.isArray(data) ? data : [];
+    } catch (_err) {
+      return [];
+    }
   },
 
   /** GET /api/tournament/configs */
@@ -537,6 +627,16 @@ export const tournamentService = {
   /** PUT /api/tournament/config/{id} */
   async updateConfig(id: number, data: any): Promise<ConfigInfo> {
     return apiClient.put<ConfigInfo>(`/tournament/config/${id}`, data);
+  },
+
+  /** DELETE /api/tournament/config/{id} - Delete draft tournament configuration */
+  async deleteConfig(id: number): Promise<void> {
+    return apiClient.delete<void>(`/tournament/config/${id}`);
+  },
+
+  /** POST /api/tournament/config/{id}/publish - Publish tournament configuration and fixtures */
+  async publishTournamentConfig(id: number): Promise<ConfigInfo> {
+    return apiClient.post<ConfigInfo>(`/tournament/config/${id}/publish`);
   },
 
   /** GET /api/tournament/{configId}/teams */
@@ -568,6 +668,10 @@ export const tournamentService = {
     venueId?: number | null;
     courtId?: number | null;
     durationMinutes?: number;
+    homeName?: string | null;
+    awayName?: string | null;
+    homeFlat?: string | null;
+    awayFlat?: string | null;
   }): Promise<any> {
     const payload = {
       homeTeamId: (matchData.homeTeamId && !isNaN(Number(matchData.homeTeamId))) ? Number(matchData.homeTeamId) : null,
@@ -578,6 +682,10 @@ export const tournamentService = {
       venueId: (matchData.venueId && !isNaN(Number(matchData.venueId))) ? Number(matchData.venueId) : null,
       courtId: (matchData.courtId && !isNaN(Number(matchData.courtId))) ? Number(matchData.courtId) : null,
       durationMinutes: matchData.durationMinutes || 60,
+      homeName: matchData.homeName || null,
+      awayName: matchData.awayName || null,
+      homeFlat: matchData.homeFlat || null,
+      awayFlat: matchData.awayFlat || null,
     };
     return apiClient.post<any>(`/tournament/${configId}/manual/matches`, payload);
   },
@@ -585,6 +693,16 @@ export const tournamentService = {
   /** DELETE /api/tournament/match/{matchId} - Delete an individual match */
   async deleteMatch(matchId: number): Promise<void> {
     return apiClient.delete<void>(`/tournament/match/${matchId}`);
+  },
+
+  /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
+  async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
+    return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
+  },
+
+  /** POST /api/tournament/{configId}/matches/batch-reschedule - Batch reschedule / time-shift remaining uncompleted matches */
+  async batchRescheduleMatches(configId: number, data: BatchRescheduleRequest): Promise<BatchRescheduleResponse> {
+    return apiClient.post<BatchRescheduleResponse>(`/tournament/${configId}/matches/batch-reschedule`, data);
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
@@ -698,6 +816,11 @@ export const tournamentService = {
     return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
   },
 
+  /** PUT /api/tournament/match/{matchId}/toss — save cricket toss before scoring */
+  async recordMatchToss(matchId: number, data: MatchTossRequestData): Promise<MatchDetailData> {
+    return apiClient.put<MatchDetailData>(`/tournament/match/${matchId}/toss`, data);
+  },
+
   /** Strict analytics read for winner/result data. */
   async getMatchDetailForAnalytics(matchId: number): Promise<MatchDetailData> {
     return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
@@ -775,9 +898,15 @@ export const tournamentService = {
     return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
   },
 
+  /** GET /api/tournament/match/generic/match/{matchId}/config */
+  async getMatchScoringConfig(matchId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config`);
+  },
+
   /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
-  async updateMatchConfigOverride(matchId: number, overrideJson: string): Promise<void> {
-    return apiClient.put<void>(`/tournament/match/generic/match/${matchId}/config-override`, { overrideJson });
+  async updateMatchConfigOverride(matchId: number, override: string | ScoringConfig | Record<string, any>): Promise<ScoringConfig> {
+    const payload = typeof override === "string" ? { overrideJson: override } : override;
+    return apiClient.put<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config-override`, payload);
   },
 
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
@@ -811,4 +940,82 @@ export const tournamentService = {
   async recalculateRaceRanks(matchId: number): Promise<RaceResult[]> {
     return apiClient.post<RaceResult[]>(`/tournament/match/race/${matchId}/recalculate-ranks`, {});
   },
+
+  // ─── Community Feed Visibility ───────────────────────────────────────────────
+
+  /**
+   * Set the "show on community feed" flag at tournament / event / match level.
+   * `showInFeed: null` resets to "inherit" (not applicable for tournaments, where null = off).
+   * `cascade` clears overrides below the chosen level so everything inside follows it.
+   */
+  async setFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+    showInFeed: boolean | null,
+    cascade = false,
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, { showInFeed, cascade });
+  },
+
+  /** Get feed visibility and stage policy for a tournament, event, or match. */
+  async getFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+  ): Promise<FeedBroadcastSettings> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    return apiClient.get<FeedBroadcastSettings>(`/sports/${segment}/${id}/feed-visibility`);
+  },
+
+  /** Configure both live strip visibility and completed match feed-posting policy. */
+  async setFeedSettings(
+    level: FeedVisibilityLevel,
+    id: number,
+    settings: {
+      showInFeed?: boolean | null;
+      feedPostPolicy?: FeedPostPolicy;
+      feedPostStages?: string;
+      postToFeed?: boolean | null;
+      cascade?: boolean;
+    },
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, settings);
+  },
+
+  /** Manually publish an official result post to the community feed for a completed match. */
+  async publishMatchResultToFeed(
+    matchId: number,
+  ): Promise<{ matchId: number; postId: number; success: boolean; message?: string }> {
+    return apiClient.post<{ matchId: number; postId: number; success: boolean; message?: string }>(
+      `/sports/matches/${matchId}/publish-result-post`,
+      {},
+    );
+  },
+
+  /** Live matches (and ones completed in the last ~15 min) flagged for the community feed. */
+  async getLiveFeedMatches(communityId?: number | null): Promise<FeedLiveMatch[]> {
+    const qs = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/live-feed${qs}`);
+  },
+
+  /** Upcoming scheduled matches flagged for the community feed. */
+  async getUpcomingFeedMatches(communityId?: number | null, limit = 15): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/upcoming-feed${qs}`).catch(() => []);
+  },
+
+  /** Recently completed matches with winner details and scores for the results modal. */
+  async getRecentCompletedMatches(communityId?: number | null, limit = 30): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/recent-completed${qs}`);
+  },
 };
+
+

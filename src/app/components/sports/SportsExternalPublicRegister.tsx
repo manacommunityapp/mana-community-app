@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { sportsExternalFormService, type ExternalFormConfig, type FieldMapping } from "../../../services/sports/sportsExternalFormService";
 import { isValidIndianPhone, normalizeIndianPhone, isValidEmail } from "./sportsValidation";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -221,7 +222,7 @@ export function SportsExternalPublicRegister() {
         playerName: playerName.trim(),
         phone: normalizeIndianPhone(phone),
         email: email.trim(),
-        flatNumber: isGuest ? "" : flatNumber.trim(),
+        flatNumber: isGuest ? "" : formatFlatLabel(flatNumber.trim()),
         isExternalGuest: isGuest,
         gender,
         age: age.trim(),
