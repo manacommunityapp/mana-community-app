@@ -44,6 +44,8 @@ export interface PaymentOrder {
   receiptNumber?: string;
   failureReason?: string;
   refundedAmount: number;
+  convenienceFeeAmount: number;
+  grossAmount: number;
   createdAt: string;
   updatedAt: string;
 }

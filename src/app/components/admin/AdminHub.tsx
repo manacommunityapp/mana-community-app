@@ -65,6 +65,7 @@ import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
 import { SuperAdminPaymentSettings } from "./SuperAdminPaymentSettings";
 import { CommunityPaymentSettings } from "./CommunityPaymentSettings";
+import { PaymentAnalyticsDashboard } from "../payments/PaymentAnalyticsDashboard";
 import { communityService } from "../../../services/community/communityService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
@@ -101,6 +102,7 @@ const TAB_ITEMS = [
   { id: "privacy", label: "Privacy & Retention", icon: Shield },
   { id: "platform-payments", label: "Platform Payments", icon: CreditCard },
   { id: "community-payments", label: "Payment Settings", icon: CreditCard },
+  { id: "payment-analytics", label: "Payment Analytics", icon: TrendingUp },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -740,6 +742,7 @@ export function AdminHub() {
     if (t.id === "sports-meta") return isSuperAdmin || isAdmin;
     if (t.id === "platform-payments") return isSuperAdmin;
     if (t.id === "community-payments") return isAdmin || isSuperAdmin;
+    if (t.id === "payment-analytics") return isAdmin || isSuperAdmin;
     return true;
   });
 
@@ -837,6 +840,9 @@ export function AdminHub() {
         {activeTab === "privacy" && <PrivacyAdminHub />}
         {activeTab === "platform-payments" && <SuperAdminPaymentSettings />}
         {activeTab === "community-payments" && <CommunityPaymentSettings />}
+        {activeTab === "payment-analytics" && (
+          <PaymentAnalyticsDashboard communityId={user?.communityId as number} />
+        )}
       </div>
     </div>
   );

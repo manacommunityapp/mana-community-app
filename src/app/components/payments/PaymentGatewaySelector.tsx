@@ -22,9 +22,10 @@ interface Props {
   selectedGateway: string;
   selectedManualMode?: string;
   onChange: (gateway: string, manualMode?: string) => void;
+  orderAmount?: number;
 }
 
-export function PaymentGatewaySelector({ options, selectedGateway, selectedManualMode, onChange }: Props) {
+export function PaymentGatewaySelector({ options, selectedGateway, selectedManualMode, onChange, orderAmount }: Props) {
   const visibleGateways = options.gatewayOptions.filter((g) => g !== "MANUAL");
 
   // Pre-select defaultGateway on first render if nothing is selected
@@ -99,12 +100,34 @@ export function PaymentGatewaySelector({ options, selectedGateway, selectedManua
         </div>
       )}
 
-      {/* Convenience fee note */}
+      {/* Convenience fee note — shows calculated amounts when orderAmount is provided */}
       {options.convenienceFeePercent > 0 && (
-        <p className="text-[11px] text-gray-500 flex items-center gap-1">
-          <Info className="w-3 h-3 shrink-0" />
-          A {options.convenienceFeePercent}% convenience fee applies
-        </p>
+        <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-[11px] text-gray-500 space-y-0.5">
+          {orderAmount != null ? (
+            <>
+              <p className="flex items-center gap-1">
+                <Info className="w-3 h-3 shrink-0" />
+                <span>Convenience fee ({options.convenienceFeePercent}%):&nbsp;
+                  <span className="font-semibold text-gray-700">
+                    ₹{((orderAmount * options.convenienceFeePercent) / 100).toFixed(2)}
+                  </span>
+                </span>
+              </p>
+              <p className="flex items-center gap-1 pl-4">
+                Total payable:&nbsp;
+                <span className="font-semibold text-gray-800">
+                  ₹{(orderAmount + (orderAmount * options.convenienceFeePercent) / 100).toFixed(2)}
+                </span>
+                <span className="text-[10px] text-gray-400">(preview — final amount confirmed by server)</span>
+              </p>
+            </>
+          ) : (
+            <p className="flex items-center gap-1">
+              <Info className="w-3 h-3 shrink-0" />
+              A {options.convenienceFeePercent}% convenience fee applies
+            </p>
+          )}
+        </div>
       )}
 
       {/* Community payment instructions */}
