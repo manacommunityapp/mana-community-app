@@ -1,22 +1,37 @@
 // AdminBillingDashboard.tsx - Enterprise Community Billing, Rules Engine, Invoices & Ledger
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DollarSign, TrendingUp, AlertTriangle, CheckCircle2,
   Calendar, Layers, FileText, BookOpen, Sliders,
   ArrowUpRight, Download, RefreshCw, Plus, Search, Filter, ShieldCheck
 } from "lucide-react";
 import { communityFinanceService } from "../../../services/finance/communityFinanceService";
-import type { MaintenanceBill, ChargeRule, MaintenancePlan, GeneralLedgerTransaction, TrialBalanceItem } from "../../../services/finance/communityFinanceService";
+import type { MaintenanceBill, ChargeRule, MaintenancePlan, GeneralLedgerTransaction, TrialBalanceItem, FinanceSummary, PenaltyConfig } from "../../../services/finance/communityFinanceService";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export function AdminBillingDashboard() {
+  const { user } = useAuth();
+  const communityId = user?.communityId as number;
+
   const [activeTab, setActiveTab] = useState<"overview" | "rules" | "invoices" | "ledger" | "aging">("overview");
-  const [summary, setSummary] = useState(communityFinanceService.getSummary());
-  const [bills] = useState<MaintenanceBill[]>(communityFinanceService.getAllBills());
-  const [plans] = useState<MaintenancePlan[]>(communityFinanceService.getPlans());
-  const [rules] = useState<ChargeRule[]>(communityFinanceService.getRules());
-  const [penaltyConfig] = useState(communityFinanceService.getPenaltyConfig());
-  const [ledgerTxs] = useState<GeneralLedgerTransaction[]>(communityFinanceService.getLedgerTransactions());
-  const [trialBalance] = useState<TrialBalanceItem[]>(communityFinanceService.getTrialBalance());
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [bills, setBills] = useState<MaintenanceBill[]>([]);
+  const [plans, setPlans] = useState<MaintenancePlan[]>([]);
+  const [rules, setRules] = useState<ChargeRule[]>([]);
+  const [penaltyConfig, setPenaltyConfig] = useState<PenaltyConfig | null>(null);
+  const [ledgerTxs, setLedgerTxs] = useState<GeneralLedgerTransaction[]>([]);
+  const [trialBalance, setTrialBalance] = useState<TrialBalanceItem[]>([]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    communityFinanceService.getSummary(communityId).then(setSummary).catch(() => {});
+    communityFinanceService.getAllBills(communityId).then(r => setBills(r.content)).catch(() => {});
+    communityFinanceService.getPlans(communityId).then(setPlans).catch(() => {});
+    communityFinanceService.getRules(communityId).then(setRules).catch(() => {});
+    communityFinanceService.getPenaltyConfig(communityId).then(setPenaltyConfig).catch(() => {});
+    communityFinanceService.getLedgerTransactions(communityId).then(r => setLedgerTxs(r.content)).catch(() => {});
+    communityFinanceService.getTrialBalance(communityId).then(setTrialBalance).catch(() => {});
+  }, [communityId]);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -24,15 +39,16 @@ export function AdminBillingDashboard() {
   const [genSuccess, setGenSuccess] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const handleGenerateCycle = () => {
+  const handleGenerateCycle = async () => {
     setIsGenerating(true);
     setGenSuccess(null);
-    setTimeout(() => {
-      const res = communityFinanceService.generateMonthlyCycle(selectedMonth, selectedYear);
-      setIsGenerating(false);
+    try {
+      const res = await communityFinanceService.generateMonthlyCycle(communityId, selectedMonth, selectedYear);
       setGenSuccess(`Batch generated ${res.generatedCount} invoices for ${selectedMonth}/${selectedYear} (Total: ₹${res.totalBilled.toLocaleString("en-IN")}) with idempotency lock!`);
-      setSummary(communityFinanceService.getSummary());
-    }, 1000);
+      communityFinanceService.getSummary(communityId).then(setSummary).catch(() => {});
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const filteredBills = bills.filter(b =>
