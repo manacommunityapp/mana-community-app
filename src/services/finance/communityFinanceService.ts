@@ -1,4 +1,7 @@
-// communityFinanceService.ts - Complete Maintenance Billing, Ledger & Accounting Client Service
+import { apiClient } from "../common/apiClient";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export type BillStatus = "PAID" | "PARTIAL" | "OVERDUE" | "PENDING" | "ISSUED" | "CANCELLED";
 export type CalculationType = "FIXED_PER_FLAT" | "PER_SQUARE_FEET" | "HYBRID" | "FLAT_TYPE" | "TOWER" | "PARKING";
 export type PaymentMode = "UPI" | "CARD" | "NET_BANKING" | "BANK_TRANSFER" | "WALLET" | "CHEQUE" | "CASH";
@@ -129,323 +132,109 @@ export interface CommunityReceipt {
   allocations: { item: string; amount: number }[];
 }
 
-// ── In-Memory Sample Foundation & Fallback ────────────────────────────────────
-const now = new Date();
-const cm = now.getMonth() + 1;
-const cy = now.getFullYear();
-const pm = cm === 1 ? 12 : cm - 1;
-const py = cm === 1 ? cy - 1 : cy;
-
-const DEFAULT_PLANS: MaintenancePlan[] = [
-  { id: "plan-01", name: "Standard 2BHK Plan (Fixed)", calculationType: "FIXED_PER_FLAT", fixedAmountPerFlat: 3500, ratePerSqFt: 0, billingFrequency: "MONTHLY", isActive: true },
-  { id: "plan-02", name: "Area Based Plan (₹3.80 / sq.ft)", calculationType: "PER_SQUARE_FEET", fixedAmountPerFlat: 0, ratePerSqFt: 3.80, billingFrequency: "MONTHLY", isActive: true },
-  { id: "plan-03", name: "Penthouse & 4BHK Hybrid", calculationType: "HYBRID", fixedAmountPerFlat: 2000, ratePerSqFt: 3.00, billingFrequency: "MONTHLY", isActive: true },
-];
-
-const DEFAULT_RULES: ChargeRule[] = [
-  { id: "rule-01", ruleName: "Base Maintenance", componentType: "MAINTENANCE", calculationType: "PER_SQUARE_FEET", rate: 3.50, isActive: true },
-  { id: "rule-02", ruleName: "Sinking Fund Reserve", componentType: "SINKING_FUND", calculationType: "FIXED_PER_FLAT", rate: 1000, isActive: true },
-  { id: "rule-03", ruleName: "Common Water Utility", componentType: "WATER", calculationType: "FIXED_PER_FLAT", rate: 450, isActive: true },
-  { id: "rule-04", ruleName: "DG Power Backup", componentType: "POWER_BACKUP", calculationType: "FIXED_PER_FLAT", rate: 800, isActive: true },
-  { id: "rule-05", ruleName: "Covered Parking Slot", componentType: "PARKING", calculationType: "FIXED_PER_FLAT", rate: 500, isActive: true },
-];
-
-const SAMPLE_BILLS: MaintenanceBill[] = [
-  {
-    id: "b-01",
-    billNumber: `INV-${cy}${String(cm).padStart(2, "0")}-302A`,
-    flatNumber: "302",
-    tower: "A",
-    month: cm,
-    year: cy,
-    charges: [
-      { item: "Regular Maintenance (1200 sq.ft @ ₹3.50)", amount: 4200, componentType: "MAINTENANCE" },
-      { item: "Sinking / Capital Asset Fund", amount: 1000, componentType: "SINKING_FUND" },
-      { item: "Water Charges (Common Borewell)", amount: 450, componentType: "WATER" },
-      { item: "Power Backup (1 kVA generator)", amount: 800, componentType: "POWER_BACKUP" },
-      { item: "Basement Parking Slot B-12", amount: 500, componentType: "PARKING" },
-    ],
-    subtotal: 6950,
-    penaltyAmount: 0,
-    discountAmount: 0,
-    totalAmount: 6950,
-    paidAmount: 0,
-    dueAmount: 6950,
-    dueDate: new Date(Date.now() + 10 * 86400000).toISOString(),
-    status: "PENDING",
-    generatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-  {
-    id: "b-02",
-    billNumber: `INV-${py}${String(pm).padStart(2, "0")}-302A`,
-    flatNumber: "302",
-    tower: "A",
-    month: pm,
-    year: py,
-    charges: [
-      { item: "Regular Maintenance", amount: 4200 },
-      { item: "Sinking Fund", amount: 1000 },
-      { item: "Water & Backup", amount: 1250 },
-      { item: "Parking", amount: 500 },
-    ],
-    subtotal: 6950,
-    penaltyAmount: 0,
-    discountAmount: 0,
-    totalAmount: 6950,
-    paidAmount: 6950,
-    dueAmount: 0,
-    dueDate: new Date(Date.now() - 25 * 86400000).toISOString(),
-    status: "PAID",
-    generatedAt: new Date(Date.now() - 35 * 86400000).toISOString(),
-    paidAt: new Date(Date.now() - 27 * 86400000).toISOString(),
-    receiptNumber: `REC-${py}${String(pm).padStart(2, "0")}-9912`,
-  },
-  {
-    id: "b-03",
-    billNumber: `INV-${cy}${String(cm).padStart(2, "0")}-204B`,
-    flatNumber: "204",
-    tower: "B",
-    month: cm,
-    year: cy,
-    charges: [
-      { item: "Regular Maintenance (1450 sq.ft)", amount: 5075 },
-      { item: "Sinking Fund", amount: 1000 },
-      { item: "Water Charges", amount: 450 },
-      { item: "Power Backup", amount: 800 },
-      { item: "2 Parking Slots", amount: 1000 },
-    ],
-    subtotal: 8325,
-    penaltyAmount: 250,
-    discountAmount: 0,
-    totalAmount: 8575,
-    paidAmount: 0,
-    dueAmount: 8575,
-    dueDate: new Date(Date.now() - 8 * 86400000).toISOString(),
-    status: "OVERDUE",
-    generatedAt: new Date(Date.now() - 20 * 86400000).toISOString(),
-  },
-  {
-    id: "b-04",
-    billNumber: `INV-${cy}${String(cm).padStart(2, "0")}-501C`,
-    flatNumber: "501",
-    tower: "C",
-    month: cm,
-    year: cy,
-    charges: [
-      { item: "Regular Maintenance", amount: 4500 },
-      { item: "Sinking Fund", amount: 1000 },
-      { item: "Water & Utilities", amount: 1250 },
-    ],
-    subtotal: 6750,
-    penaltyAmount: 0,
-    discountAmount: 0,
-    totalAmount: 6750,
-    paidAmount: 3500,
-    dueAmount: 3250,
-    dueDate: new Date(Date.now() + 5 * 86400000).toISOString(),
-    status: "PARTIAL",
-    generatedAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-  },
-];
-
-const SAMPLE_LEDGER_TRANSACTIONS: GeneralLedgerTransaction[] = [
-  {
-    id: "tx-01",
-    transactionRef: "TX-INV-202610-001",
-    transactionDate: "2026-10-01",
-    referenceType: "INVOICE_CYCLE",
-    referenceId: "cycle-202610",
-    narration: "October 2026 Monthly Maintenance Cycle Invoices Dispatched (120 Flats)",
-    totalAmount: 840000,
-    entries: [
-      { id: "e-01", accountCode: "1100", accountName: "Resident Maintenance Receivable", entryType: "DEBIT", amount: 840000, notes: "Total receivable booked" },
-      { id: "e-02", accountCode: "4000", accountName: "Maintenance Fee Revenue", entryType: "CREDIT", amount: 620000, notes: "Monthly service charges" },
-      { id: "e-03", accountCode: "2100", accountName: "Sinking / Corpus Fund Reserve", entryType: "CREDIT", amount: 120000, notes: "Capital reserve fund" },
-      { id: "e-04", accountCode: "4100", accountName: "Water & Utility Charges Revenue", entryType: "CREDIT", amount: 54000, notes: "Borewell & common utility" },
-      { id: "e-05", accountCode: "4200", accountName: "Parking & Facility Fee Revenue", entryType: "CREDIT", amount: 46000, notes: "Basement parking allocation" },
-    ],
-  },
-  {
-    id: "tx-02",
-    transactionRef: "TX-PAY-202610-089",
-    transactionDate: "2026-10-04",
-    referenceType: "PAYMENT",
-    referenceId: "pay-891",
-    narration: "Resident Payment - Flat 302 Tower A via UPI (Ref: HDFC9912048)",
-    totalAmount: 6950,
-    entries: [
-      { id: "e-06", accountCode: "1000", accountName: "Bank & Cash Clearing", entryType: "DEBIT", amount: 6950, notes: "HDFC Payment Gateway settlement" },
-      { id: "e-07", accountCode: "1100", accountName: "Resident Maintenance Receivable", entryType: "CREDIT", amount: 6950, notes: "Clear October dues for flat 302" },
-    ],
-  },
-];
+// ── API-backed service ────────────────────────────────────────────────────────
 
 export const communityFinanceService = {
   // ── Resident Bills & Invoices ─────────────────────────────────────────────
-  getMyBill(flatNumber?: string): MaintenanceBill {
-    const flat = flatNumber || "302";
-    const found = SAMPLE_BILLS.find(b => b.flatNumber === flat && b.month === cm && b.year === cy);
-    if (found) return found;
-    return SAMPLE_BILLS[0];
+
+  async getMyBill(communityId: number, flatNumber?: string): Promise<MaintenanceBill | null> {
+    try {
+      const params = new URLSearchParams({ communityId: String(communityId) });
+      if (flatNumber) params.append("flatNumber", flatNumber);
+      return await apiClient.get<MaintenanceBill>(`/billing/my-bill?${params}`);
+    } catch {
+      return null;
+    }
   },
 
-  getAllBills(filter?: { tower?: string; status?: BillStatus; month?: number; year?: number }): MaintenanceBill[] {
-    let bills = [...SAMPLE_BILLS];
-    if (filter?.tower) bills = bills.filter(b => b.tower === filter.tower);
-    if (filter?.status) bills = bills.filter(b => b.status === filter.status);
-    if (filter?.month) bills = bills.filter(b => b.month === filter.month);
-    if (filter?.year) bills = bills.filter(b => b.year === filter.year);
-    return bills;
+  async getAllBills(
+    communityId: number,
+    filter?: { tower?: string; status?: BillStatus; month?: number; year?: number; page?: number; size?: number }
+  ): Promise<{ content: MaintenanceBill[]; totalElements: number }> {
+    const params = new URLSearchParams({ communityId: String(communityId) });
+    if (filter?.tower) params.append("tower", filter.tower);
+    if (filter?.status) params.append("status", filter.status);
+    if (filter?.month) params.append("month", String(filter.month));
+    if (filter?.year) params.append("year", String(filter.year));
+    params.append("page", String(filter?.page ?? 0));
+    params.append("size", String(filter?.size ?? 20));
+    return apiClient.get(`/billing/invoices?${params}`);
   },
 
-  getMyBillHistory(flatNumber?: string): MaintenanceBill[] {
-    const flat = flatNumber || "302";
-    return SAMPLE_BILLS.filter(b => b.flatNumber === flat).sort((a, b) => b.year - a.year || b.month - a.month);
+  async getMyBillHistory(communityId: number, flatNumber?: string): Promise<MaintenanceBill[]> {
+    const params = new URLSearchParams({ communityId: String(communityId) });
+    if (flatNumber) params.append("flatNumber", flatNumber);
+    return apiClient.get<MaintenanceBill[]>(`/billing/invoices/my?${params}`);
   },
 
   // ── Summary & Aging Analytics ─────────────────────────────────────────────
-  getSummary(): FinanceSummary {
-    const bills = SAMPLE_BILLS;
-    const totalCollected = bills.reduce((s, b) => s + b.paidAmount, 0);
-    const totalDue = bills.reduce((s, b) => s + b.dueAmount, 0);
-    const totalOverdue = bills.filter(b => b.status === "OVERDUE").reduce((s, b) => s + b.dueAmount, 0);
-    const totalAll = totalCollected + totalDue;
-    const collectionPercent = totalAll > 0 ? Math.round((totalCollected / totalAll) * 100) : 0;
-    const currentAmount = Math.max(0, totalDue - totalOverdue);
 
-    return {
-      totalCollected,
-      totalDue,
-      totalOverdue,
-      collectionPercent,
-      activeFlats: bills.length,
-      paidFlats: bills.filter(b => b.status === "PAID").length,
-      overdueFlats: bills.filter(b => b.status === "OVERDUE").length,
-      agingBuckets: [
-        { period: "0 - 30 Days (Current)", amount: currentAmount, count: bills.filter(b => b.status !== "OVERDUE" && b.dueAmount > 0).length, percentage: totalDue > 0 ? Math.round((currentAmount / totalDue) * 100) : 0 },
-        { period: "31 - 60 Days", amount: 0, count: 0, percentage: 0 },
-        { period: "61 - 90 Days", amount: 0, count: 0, percentage: 0 },
-        { period: "90+ Days (Defaulters)", amount: totalOverdue, count: bills.filter(b => b.status === "OVERDUE").length, percentage: totalDue > 0 ? Math.round((totalOverdue / totalDue) * 100) : 0 },
-      ],
-      towerPerformance: Array.from(new Set(bills.map(b => b.tower))).map(t => {
-        const tbills = bills.filter(b => b.tower === t);
-        const billed = tbills.reduce((s, b) => s + b.totalAmount, 0);
-        const collected = tbills.reduce((s, b) => s + b.paidAmount, 0);
-        return { tower: `Tower ${t}`, billed, collected, percent: billed > 0 ? Math.round((collected / billed) * 100) : 0 };
-      }),
-    };
+  async getSummary(communityId: number): Promise<FinanceSummary> {
+    return apiClient.get<FinanceSummary>(`/cfbos/dashboard/summary?communityId=${communityId}`);
   },
 
   // ── Payment Processing & Receipts ─────────────────────────────────────────
-  recordPayment(billId: string, amount: number, mode: PaymentMode = "UPI"): { bill: MaintenanceBill; receipt: CommunityReceipt } | null {
-    const bill = SAMPLE_BILLS.find(b => b.id === billId);
-    if (!bill) return null;
 
-    const newPaid = bill.paidAmount + amount;
-    const newDue = Math.max(0, bill.totalAmount - newPaid);
-    bill.paidAmount = newPaid;
-    bill.dueAmount = newDue;
-    bill.status = newDue === 0 ? "PAID" : "PARTIAL";
-    bill.paidAt = new Date().toISOString();
-    const recNum = `REC-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}-${Math.floor(1000 + Math.random() * 9000)}`;
-    bill.receiptNumber = recNum;
-
-    const receipt: CommunityReceipt = {
-      receiptNumber: recNum,
-      receiptDate: new Date().toISOString(),
-      invoiceNumber: bill.billNumber,
-      flatNumber: bill.flatNumber,
-      tower: bill.tower,
-      amountPaid: amount,
-      paymentMode: mode,
-      transactionRef: `TX-UPI-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
-      payerName: "Sandeep Kumar (Owner)",
-      allocations: bill.charges.map(c => ({ item: c.item, amount: c.amount })),
-    };
-
-    return { bill, receipt };
+  async recordPayment(
+    billId: string,
+    amount: number,
+    mode: PaymentMode,
+    communityId: number
+  ): Promise<{ bill: MaintenanceBill; receipt: CommunityReceipt }> {
+    return apiClient.post(`/billing/invoices/${billId}/pay`, { amount, paymentMode: mode, communityId });
   },
 
-  getReceipt(receiptNumber: string): CommunityReceipt | null {
-    return {
-      receiptNumber,
-      receiptDate: new Date().toISOString(),
-      invoiceNumber: "INV-202609-302A",
-      flatNumber: "302",
-      tower: "A",
-      amountPaid: 6950,
-      paymentMode: "UPI",
-      transactionRef: "UPI-ICICI-990812384",
-      payerName: "Sandeep Kumar",
-      allocations: [
-        { item: "Regular Maintenance Fee", amount: 4200 },
-        { item: "Sinking / Capital Fund", amount: 1000 },
-        { item: "Water & DG Power Backup", amount: 1250 },
-        { item: "Basement Parking Slot", amount: 500 },
-      ],
-    };
+  async getReceipt(receiptNumber: string): Promise<CommunityReceipt> {
+    return apiClient.get<CommunityReceipt>(`/cfbos/receipts/by-number/${receiptNumber}`);
   },
 
   // ── Advance Wallet ────────────────────────────────────────────────────────
-  getAdvanceWallet(flatNumber: string = "302"): AdvanceWallet {
-    return {
-      flatNumber,
-      balanceAmount: 14500,
-      totalDeposited: 35000,
-      totalUtilized: 20500,
-      lastUpdated: new Date().toISOString(),
-    };
+
+  async getAdvanceWallet(communityId: number, flatNumber: string): Promise<AdvanceWallet> {
+    return apiClient.get<AdvanceWallet>(
+      `/cfbos/wallet?communityId=${communityId}&flatNumber=${encodeURIComponent(flatNumber)}`
+    );
   },
 
-  depositAdvance(flatNumber: string, amount: number): AdvanceWallet {
-    return {
-      flatNumber,
-      balanceAmount: 14500 + amount,
-      totalDeposited: 35000 + amount,
-      totalUtilized: 20500,
-      lastUpdated: new Date().toISOString(),
-    };
+  async depositAdvance(communityId: number, flatNumber: string, amount: number): Promise<AdvanceWallet> {
+    return apiClient.post<AdvanceWallet>(`/cfbos/wallet/deposit`, { communityId, flatNumber, amount });
   },
 
   // ── Rules & Plans ─────────────────────────────────────────────────────────
-  getPlans(): MaintenancePlan[] {
-    return DEFAULT_PLANS;
+
+  async getPlans(communityId: number): Promise<MaintenancePlan[]> {
+    return apiClient.get<MaintenancePlan[]>(`/cfbos/billing/schedules?communityId=${communityId}`);
   },
 
-  getRules(): ChargeRule[] {
-    return DEFAULT_RULES;
+  async getRules(communityId: number): Promise<ChargeRule[]> {
+    return apiClient.get<ChargeRule[]>(`/cfbos/charges?communityId=${communityId}`);
   },
 
-  getPenaltyConfig(): PenaltyConfig {
-    return {
-      gracePeriodDays: 10,
-      penaltyType: "PERCENTAGE_PER_MONTH",
-      penaltyValue: 2.0,
-      maxPenaltyCap: 5000,
-    };
+  async getPenaltyConfig(communityId: number): Promise<PenaltyConfig> {
+    return apiClient.get<PenaltyConfig>(`/cfbos/penalty/config?communityId=${communityId}`);
   },
 
-  generateMonthlyCycle(month: number, year: number): { generatedCount: number; totalBilled: number } {
-    return {
-      generatedCount: 120,
-      totalBilled: 840000,
-    };
+  async generateMonthlyCycle(
+    communityId: number,
+    month: number,
+    year: number
+  ): Promise<{ generatedCount: number; totalBilled: number }> {
+    return apiClient.post(`/cfbos/billing/runs/generate`, { communityId, month, year });
   },
 
   // ── General Ledger & Double Entry ─────────────────────────────────────────
-  getLedgerTransactions(): GeneralLedgerTransaction[] {
-    return SAMPLE_LEDGER_TRANSACTIONS;
+
+  async getLedgerTransactions(
+    communityId: number,
+    page = 0,
+    size = 20
+  ): Promise<{ content: GeneralLedgerTransaction[]; totalElements: number }> {
+    return apiClient.get(
+      `/cfbos/v1/accounting/journal-entries?communityId=${communityId}&page=${page}&size=${size}`
+    );
   },
 
-  getTrialBalance(): TrialBalanceItem[] {
-    return [
-      { accountCode: "1000", accountName: "Bank & Cash Clearing", accountType: "ASSET", debitAmount: 765000, creditAmount: 0 },
-      { accountCode: "1100", accountName: "Resident Maintenance Receivable", accountType: "ASSET", debitAmount: 185000, creditAmount: 0 },
-      { accountCode: "2000", accountName: "Resident Advance Payments Wallet", accountType: "LIABILITY", debitAmount: 0, creditAmount: 110000 },
-      { accountCode: "2100", accountName: "Sinking / Corpus Fund Reserve", accountType: "LIABILITY", debitAmount: 0, creditAmount: 220000 },
-      { accountCode: "4000", accountName: "Maintenance Fee Revenue", accountType: "REVENUE", debitAmount: 0, creditAmount: 520000 },
-      { accountCode: "4100", accountName: "Water & Utility Charges Revenue", accountType: "REVENUE", debitAmount: 0, creditAmount: 62000 },
-      { accountCode: "4200", accountName: "Parking & Facility Fee Revenue", accountType: "REVENUE", debitAmount: 0, creditAmount: 38000 },
-    ];
+  async getTrialBalance(communityId: number): Promise<TrialBalanceItem[]> {
+    return apiClient.get<TrialBalanceItem[]>(`/cfbos/v1/accounting/trial-balance?communityId=${communityId}`);
   },
 };

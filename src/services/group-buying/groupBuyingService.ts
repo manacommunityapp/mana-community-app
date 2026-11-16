@@ -51,6 +51,7 @@ export interface GroupDeal {
 
 export interface GroupOrder {
   id: string;
+  commerceOrderId?: number;
   orderNumber?: string;
   dealId: string;
   dealTitle: string;
@@ -463,60 +464,69 @@ export const groupBuyingService = {
     userId?: string,
     fulfillment: FulfillmentType = "PICKUP",
     paymentMethod: PaymentMethod = "UPI",
-    pickupPoint?: string
+    pickupPoint?: string,
+    deliveryAddress?: string
   ): Promise<GroupOrder> {
     const deal = liveDeals.find(d => d.id === dealId);
     const price = deal ? getCurrentTierPrice(deal) : 0;
     
-    // Attempt backend join if endpoint available
-    try {
-      const resp = await apiClient.post<any>(`/group-buying/deals/${dealId}/join`, {
-        quantity,
-        fulfillmentType: fulfillment,
-        paymentType: paymentMethod,
-        pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
-      });
-      if (resp) {
-        const order: GroupOrder = {
-          id: String(resp.orderNumber || resp.id || `ord-${Date.now()}`),
-          orderNumber: resp.orderNumber,
-          dealId,
-          dealTitle: resp.dealTitle || deal?.title || "Group Buy Order",
-          quantity: resp.quantity || quantity,
-          pricePerUnit: resp.pricePerUnit || price,
-          totalAmount: resp.totalAmount || (price * quantity),
-          status: (resp.status || "CONFIRMED") as OrderStatus,
-          orderedAt: resp.createdAt || new Date().toISOString(),
-          qrCode: resp.qrCode || `QR-${dealId.toUpperCase()}-${Date.now()}`,
-          fulfillment,
-          paymentMethod,
-          pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
-          vendorName: deal?.vendor || "Community Vendor",
-        };
-        const orders = loadOrders();
-        saveOrders([order, ...orders]);
-        return order;
-      }
-    } catch {}
+    const resp = await apiClient.post<any>(`/group-buying/deals/${dealId}/join`, {
+      quantity,
+      fulfillmentType: fulfillment,
+      paymentType: paymentMethod,
+      pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
+      deliveryAddress,
+    });
 
     const order: GroupOrder = {
-      id: `ord-${Date.now()}`,
-      dealId,
-      dealTitle: deal?.title || "Group Buy Order",
-      quantity,
-      pricePerUnit: price,
-      totalAmount: price * quantity,
-      status: "CONFIRMED",
-      orderedAt: new Date().toISOString(),
-      qrCode: `QR-${dealId.toUpperCase()}-${(userId || "GUEST").slice(0, 6).toUpperCase()}-${Date.now()}`,
+      id: String(resp.orderNumber || resp.id || `ord-${Date.now()}`),
+      commerceOrderId: resp.commerceOrderId,
+      orderNumber: resp.orderNumber,
+      dealId: String(resp.dealId || dealId),
+      dealTitle: resp.dealTitle || deal?.title || "Group Buy Order",
+      quantity: resp.quantity || quantity,
+      pricePerUnit: resp.unitPrice || resp.pricePerUnit || price,
+      totalAmount: resp.totalAmount || (price * quantity),
+      status: (resp.status || "PENDING_PAYMENT") as OrderStatus,
+      orderedAt: resp.createdAt || new Date().toISOString(),
+      qrCode: resp.qrToken || resp.qrCode || `QR-${dealId.toUpperCase()}-${Date.now()}`,
       fulfillment,
       paymentMethod,
       pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
+      deliveryAddress,
       vendorName: deal?.vendor || "Community Vendor",
     };
     const orders = loadOrders();
     saveOrders([order, ...orders]);
     return order;
+  },
+
+  async fetchVendorDeals(): Promise<GroupDeal[]> {
+    try {
+      const data = await apiClient.get<any[]>("/group-buying/vendor/deals");
+      if (Array.isArray(data)) {
+        return data.map(mapBackendDeal);
+      }
+    } catch {}
+    return [];
+  },
+
+  async createVendorDeal(deal: {
+    title: string;
+    category: string;
+    description: string;
+    mrp: number;
+    standardPrice: number;
+    currentPrice: number;
+    targetQty: number;
+    dealEndsAt?: string;
+    pickupPoint?: string;
+    imageUrl?: string;
+  }): Promise<GroupDeal> {
+    const resp = await apiClient.post<any>("/group-buying/vendor/deals", deal);
+    const mapped = mapBackendDeal(resp);
+    liveDeals.unshift(mapped);
+    return mapped;
   },
 
   async fetchMyOrders(userId?: string): Promise<GroupOrder[]> {

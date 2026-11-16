@@ -10,6 +10,9 @@ export type InsuranceCategory =
   | 'HOME'
   | 'TRAVEL'
   | 'PERSONAL_ACCIDENT'
+  | 'SPORTS_PA'
+  | 'SPORTS_EVENT_LIABILITY'
+  | 'SPORTS_TEAM_GROUP'
   | 'OTHER';
 
 export type ConsentPurpose =

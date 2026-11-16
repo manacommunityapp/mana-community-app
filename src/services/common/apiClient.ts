@@ -54,6 +54,7 @@ export function removeToken(): void {
 
 export interface StoredUser {
   userId: string;
+  vendorId?: number;
   communityId?: number;
   communityName?: string;
   roleId?: number;
