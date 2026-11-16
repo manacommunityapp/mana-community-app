@@ -35,6 +35,7 @@ import {
   Film,
   UtensilsCrossed,
   Truck,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -62,6 +63,8 @@ import { NoticeBoard } from "../notices/NoticeBoard";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
+import { SuperAdminPaymentSettings } from "./SuperAdminPaymentSettings";
+import { CommunityPaymentSettings } from "./CommunityPaymentSettings";
 import { communityService } from "../../../services/community/communityService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
@@ -96,6 +99,8 @@ const TAB_ITEMS = [
   { id: "sports-meta", label: "Sports Meta",  icon: Dumbbell },
   { id: "operations", label: "Platform Ops", icon: Server },
   { id: "privacy", label: "Privacy & Retention", icon: Shield },
+  { id: "platform-payments", label: "Platform Payments", icon: CreditCard },
+  { id: "community-payments", label: "Payment Settings", icon: CreditCard },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -733,6 +738,8 @@ export function AdminHub() {
     if (t.id === "community") return canManageCommunities;
     if (t.id === "users-roles" || t.id === "access-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
     if (t.id === "sports-meta") return isSuperAdmin || isAdmin;
+    if (t.id === "platform-payments") return isSuperAdmin;
+    if (t.id === "community-payments") return isAdmin || isSuperAdmin;
     return true;
   });
 
@@ -828,6 +835,8 @@ export function AdminHub() {
         {activeTab === "sports-meta" && <AdminSportsMeta isTab />}
         {activeTab === "operations" && <PlatformOperationsConsole />}
         {activeTab === "privacy" && <PrivacyAdminHub />}
+        {activeTab === "platform-payments" && <SuperAdminPaymentSettings />}
+        {activeTab === "community-payments" && <CommunityPaymentSettings />}
       </div>
     </div>
   );
