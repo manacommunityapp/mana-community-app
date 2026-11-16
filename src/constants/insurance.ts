@@ -7,7 +7,7 @@ export interface CategoryMeta {
   label: string;
   iconName: string;
   emoji: string;
-  group: 'HEALTH' | 'LIFE' | 'MOTOR' | 'HOME' | 'TRAVEL' | 'OTHER';
+  group: 'HEALTH' | 'LIFE' | 'MOTOR' | 'HOME' | 'TRAVEL' | 'SPORTS' | 'OTHER';
   description: string;
 }
 
@@ -21,6 +21,9 @@ export const CATEGORIES: CategoryMeta[] = [
   { key: 'HOME',              label: 'Home & Property',                iconName: 'Home',         emoji: '🏠', group: 'HOME',   description: 'Structure, fire, earthquake & contents protection' },
   { key: 'TRAVEL',            label: 'Travel Insurance',               iconName: 'Compass',      emoji: '✈️', group: 'TRAVEL', description: 'International medical, trip cancellation & baggage loss' },
   { key: 'PERSONAL_ACCIDENT', label: 'Personal Accident & Disability', iconName: 'Activity',     emoji: '🩹', group: 'OTHER',  description: 'Accidental injury, disability & loss of income' },
+  { key: 'SPORTS_PA',              label: 'Sports Personal Accident',       iconName: 'Dumbbell',     emoji: '🏏', group: 'SPORTS', description: 'Player injury cover for sports & outdoor activities' },
+  { key: 'SPORTS_EVENT_LIABILITY', label: 'Sports Event Liability',         iconName: 'ShieldAlert',  emoji: '🏟️', group: 'SPORTS', description: 'Third-party liability for tournaments & sporting events' },
+  { key: 'SPORTS_TEAM_GROUP',      label: 'Team / Group Sports Cover',      iconName: 'Users',        emoji: '🤝', group: 'SPORTS', description: 'Group policy for teams, academies & sports clubs' },
 ];
 
 export function categoryLabel(c: InsuranceCategory): string {
@@ -212,6 +215,24 @@ export function validateQuoteFields(
     }
     case 'PERSONAL_ACCIDENT':
       if (!int(f.age, 18, 70)) e.age = 'Age must be 18 to 70';
+      break;
+    case 'SPORTS_PA':
+      if (!int(f.age, 5, 70)) e.age = 'Age must be 5 to 70';
+      if (!String(f.sport ?? '').trim()) e.sport = 'Select a sport';
+      break;
+    case 'SPORTS_EVENT_LIABILITY': {
+      if (!String(f.eventName ?? '').trim()) e.eventName = 'Enter the event name';
+      if (!int(f.expectedParticipants, 1, 10_000)) e.expectedParticipants = 'Expected participants must be 1 to 10,000';
+      const evDate = Date.parse(String(f.eventDate ?? ''));
+      const t0s = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      if (Number.isNaN(evDate)) e.eventDate = 'Enter a valid event date (YYYY-MM-DD)';
+      else if (evDate < t0s) e.eventDate = 'Event date cannot be in the past';
+      break;
+    }
+    case 'SPORTS_TEAM_GROUP':
+      if (!String(f.teamName ?? '').trim()) e.teamName = 'Enter the team or club name';
+      if (!int(f.memberCount, 2, 500)) e.memberCount = 'Members must be 2 to 500';
+      if (!String(f.sport ?? '').trim()) e.sport = 'Select a sport';
       break;
     default:
       e.category = 'Quotes are not available for this category';

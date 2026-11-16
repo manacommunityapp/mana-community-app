@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Shield, Users } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Newspaper, MessageSquare, ShieldCheck } from "lucide-react";
 import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -22,8 +22,14 @@ const sportsNav = [
   { to: "/sports/my-sports", label: "My Sports", icon: Medal },
   { to: "/sports/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/sports/schedule", label: "Schedule", icon: CalendarDays },
+  { to: "/sports/trainers", label: "Trainers", icon: Dumbbell },
   { to: "/sports/my-teams", label: "My Teams", icon: Shield },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
+  { to: "/sports/badges", label: "Badges", icon: Award },
+  { to: "/sports/feed", label: "Feed", icon: Newspaper },
+  { to: "/sports/find-players", label: "Find Players", icon: Users },
+  { to: "/sports/messages", label: "Messages", icon: MessageSquare },
+  { to: "/sports/insurance", label: "Insurance", icon: ShieldCheck },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -51,6 +57,10 @@ export function SportsLayout() {
         return canAccessAdminSportsTabs || hasPermission(VIEW_SPORTS_MAIN);
       case "My Teams":
         return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
+      case "Trainers":
+        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
+      case "Badges":
+        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Auction":
         return hasAnyPermission(
           VIEW_AUCTION_CONFIG,
@@ -67,6 +77,14 @@ export function SportsLayout() {
           CREATE_EDIT_PLAYER_POOL,
           CREATE_EDIT_EVENT_REGISTRATIONS
         );
+      case "Feed":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Find Players":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Messages":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Insurance":
+        return hasPermission(VIEW_SPORTS_MAIN);
       case "Analytics":
         return canAccessAdminSportsTabs;
       default:
@@ -99,8 +117,7 @@ export function SportsLayout() {
 
         {/* Right: Page Header + Notification Bell */}
         <div className="flex items-center gap-2.5">
-          <SportsNotificationBell />
-          <div
+<div
             className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
           >

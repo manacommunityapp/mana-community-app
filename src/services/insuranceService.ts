@@ -77,4 +77,14 @@ export const insuranceService = {
   async createGroupEnquiry(input: GroupEnquiryInput): Promise<GroupEnquiryView> {
     return apiClient.post<GroupEnquiryView>('/insurance/group-enquiries', input);
   },
+
+  async sportsGroupPolicyRequest(input: {
+    teamName: string;
+    sport: string;
+    memberCount: number;
+    tournamentId?: number;
+    consentId: number;
+  }): Promise<GroupEnquiryView> {
+    return apiClient.post<GroupEnquiryView>('/insurance/sports-group-policy', input);
+  },
 };
