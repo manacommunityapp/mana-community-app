@@ -10,19 +10,79 @@ import {
   Menu,
   X,
   ChevronRight,
+  Briefcase,
+  TrendingUp,
+  BookOpen,
+  DollarSign,
+  Receipt,
+  Package,
+  CheckSquare,
+  HelpCircle,
+  BarChart3,
+  AlertTriangle,
+  ScrollText,
+  Shield,
+  FileBarChart,
+  Building2,
+  ChevronDown,
+  IdCard,
+  UserCheck,
+  ArrowLeftRight,
+  Link2,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "../ui/utils";
+import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
 
 const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boolean }[] = [
   { to: "/hrm",            icon: LayoutDashboard, label: "Dashboard",   end: true },
   { to: "/hrm/employees",  icon: Users,           label: "Employees" },
   { to: "/hrm/attendance", icon: Clock,           label: "Attendance" },
   { to: "/hrm/leaves",     icon: CalendarDays,    label: "Leaves" },
-  { to: "/hrm/shifts",     icon: Timer,           label: "Shifts" },
-  { to: "/hrm/settings",   icon: Settings,        label: "Settings" },
+  { to: "/hrm/shifts",       icon: Timer,           label: "Shifts" },
+  { to: "/hrm/recruitment",  icon: Briefcase,       label: "Recruitment" },
+  { to: "/hrm/performance",  icon: TrendingUp,      label: "Performance" },
+  { to: "/hrm/learning",     icon: BookOpen,        label: "Learning" },
+  { to: "/hrm/payroll",      icon: DollarSign,      label: "Payroll" },
+  { to: "/hrm/expenses",     icon: Receipt,         label: "Expenses" },
+  { to: "/hrm/assets",       icon: Package,         label: "Assets" },
+  { to: "/hrm/tasks",        icon: CheckSquare,     label: "Tasks" },
+  { to: "/hrm/helpdesk",     icon: HelpCircle,      label: "Help Desk" },
+  { to: "/hrm/analytics",   icon: BarChart3,       label: "Analytics" },
+  { to: "/hrm/compliance",  icon: AlertTriangle,   label: "Compliance" },
+  { to: "/hrm/audit",       icon: ScrollText,      label: "Audit Trail" },
+  { to: "/hrm/roles",       icon: Shield,          label: "Roles" },
+  { to: "/hrm/reports",     icon: FileBarChart,    label: "Reports" },
+  { to: "/hrm/skill-passport",  icon: IdCard,      label: "Skill Passport" },
+  { to: "/hrm/workforce-pool", icon: UserCheck,      label: "Workforce Pool" },
+  { to: "/hrm/job-board",    icon: Briefcase,       label: "Job Board" },
+  { to: "/hrm/duty-handover", icon: ArrowLeftRight, label: "Duty Handover" },
+  { to: "/hrm/integrations", icon: Link2,           label: "Integrations" },
+  { to: "/hrm/forecasting",  icon: BarChart2,       label: "Forecasting" },
+  { to: "/hrm/settings",     icon: Settings,        label: "Settings" },
 ];
 
-export function HrmLayout() {
+function OrgSwitcher() {
+  const { activeOrgId, organizations, setActiveOrgId } = useHrmOrg();
+  if (organizations.length <= 1) return null;
+  return (
+    <div className="relative mx-2 mb-1">
+      <Building2 className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <select
+        value={activeOrgId ?? ""}
+        onChange={(e) => setActiveOrgId(Number(e.target.value))}
+        className="w-full appearance-none rounded-md border border-border bg-background py-1.5 pl-7 pr-7 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        {organizations.map((org) => (
+          <option key={org.id} value={org.id}>{org.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function HrmLayoutInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -43,6 +103,10 @@ export function HrmLayout() {
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
           <Users className="h-5 w-5 text-primary" />
           <h3 className="text-sm font-bold text-foreground m-0 mb-0">HR Management</h3>
+        </div>
+
+        <div className="pt-2">
+          <OrgSwitcher />
         </div>
 
         <nav className="flex flex-col gap-0.5 p-2">
@@ -85,5 +149,13 @@ export function HrmLayout() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function HrmLayout() {
+  return (
+    <HrmOrgProvider>
+      <HrmLayoutInner />
+    </HrmOrgProvider>
   );
 }

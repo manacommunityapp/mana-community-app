@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import { useNavigate } from "react-router";
 import {
   Users,
@@ -38,9 +39,9 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "destructive" | "o
 
 export function EmployeeDirectory() {
   const navigate = useNavigate();
+  const { activeOrgId: orgId } = useHrmOrg();
   const [employees, setEmployees] = useState<HrEmployeeListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [orgId, setOrgId] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -49,23 +50,8 @@ export function EmployeeDirectory() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  useEffect(() => {
     if (orgId) loadEmployees();
   }, [orgId, page, statusFilter]);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) setOrgId(orgs[0].id);
-      else setLoading(false);
-    } catch (err: any) {
-      showError(err.message || "Failed to load organization");
-      setLoading(false);
-    }
-  }
 
   async function loadEmployees() {
     if (!orgId) return;
