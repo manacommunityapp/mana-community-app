@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { manaPayService } from '../../../../services/payments/manaPayService';
+import { unifiedPaymentService } from '../../../../services/payments/unifiedPaymentService';
 import { ManaPayQrCode } from './ManaPayQrCode';
 import type {
   CreateManaPaymentIntentRequest,
@@ -35,6 +36,8 @@ export interface ManaPayCheckoutModalProps {
   order: CreateManaPaymentIntentRequest;
   onPaymentSuccess: (record: ManaPaymentRecord) => void;
   residentWalletBalance?: number;
+  /** When provided, verifies the unified payment order server-side before calling onPaymentSuccess. */
+  paymentOrderId?: number;
 }
 
 export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
@@ -43,6 +46,7 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
   order,
   onPaymentSuccess,
   residentWalletBalance = 2450,
+  paymentOrderId,
 }) => {
   const [selectedRail, setSelectedRail] = useState<ManaPaymentRail>('UPI_QR');
   const [intent, setIntent] = useState<ManaPaymentIntentResponse | null>(null);
@@ -121,6 +125,12 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
           amount: order.totalAmount,
         }
       );
+
+      // Always verify the unified payment order server-side when one is provided.
+      // Never treat the ManaPay SDK confirmation alone as final.
+      if (paymentOrderId) {
+        await unifiedPaymentService.verifyPayment(paymentOrderId);
+      }
 
       toast.success('Payment completed successfully!');
       onPaymentSuccess(record);

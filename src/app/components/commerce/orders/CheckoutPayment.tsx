@@ -6,6 +6,10 @@ import type {
   RazorpaySuccessPayload,
   RazorpayCheckoutOptions,
 } from "../../../../types/payment";
+import { useCheckoutOptions } from "../../../../hooks/payments/useCheckoutOptions";
+import { PaymentGatewaySelector } from "../../payments/PaymentGatewaySelector";
+import { ManaPayCheckoutModal } from "../../payments/unified/ManaPayCheckoutModal";
+import type { ManaPaymentRecord } from "../../../../types/manaPay";
 
 const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -41,12 +45,25 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
   onDismissRef.current = onDismiss;
   onErrorRef.current = onError;
 
+  const { options: checkoutOptions } = useCheckoutOptions();
+  const [selectedGateway, setSelectedGateway] = useState<string>("RAZORPAY");
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
+
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway) setSelectedGateway(checkoutOptions.defaultGateway);
+  }, [checkoutOptions?.defaultGateway]);
+
   // Preload Razorpay script on mount
   useEffect(() => {
     loadRazorpayScript();
   }, []);
 
   const handlePay = async () => {
+    if (selectedGateway === "MANA_PAY") {
+      setShowManaPayModal(true);
+      return;
+    }
+
     setStatus("loading");
     setErrorMsg(null);
 
@@ -110,6 +127,40 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
+      {/* Gateway selector — only shown when multiple gateways are available */}
+      {checkoutOptions && checkoutOptions.gatewayOptions.length > 1 && status === "idle" && (
+        <div>
+          <p className="text-sm font-semibold text-gray-700 mb-2">Payment method</p>
+          <PaymentGatewaySelector
+            options={checkoutOptions}
+            selectedGateway={selectedGateway}
+            onChange={setSelectedGateway}
+          />
+        </div>
+      )}
+
+      {/* ManaPay modal */}
+      {showManaPayModal && (
+        <ManaPayCheckoutModal
+          isOpen={showManaPayModal}
+          onClose={() => setShowManaPayModal(false)}
+          order={{
+            domain: "MARKETPLACE",
+            orderReferenceId: order.orderNumber,
+            title: `Order ${order.orderNumber}`,
+            totalAmount: Number(order.totalAmount),
+            payer: { name: (user as any)?.fullName ?? "", unit: (user as any)?.flatNumber ?? "" },
+            idempotencyKey: `commerce-${order.orderNumber}-${Date.now()}`,
+          } as any}
+          onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+            setShowManaPayModal(false);
+            setStatus("done");
+            const updated = { ...order, paymentStatus: "PAID" } as CommerceOrderDto;
+            onSuccessRef.current(updated);
+          }}
+        />
+      )}
+
       {/* Order summary */}
       <div>
         <p className="text-sm font-semibold text-gray-800 mb-1">Order Summary</p>
@@ -161,7 +212,9 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
         </button>
       )}
 
-      <p className="text-center text-xs text-gray-400">Secured by Razorpay</p>
+      <p className="text-center text-xs text-gray-400">
+        {selectedGateway === "MANA_PAY" ? "Secured by ManaPay" : "Secured by Razorpay"}
+      </p>
     </div>
   );
 }

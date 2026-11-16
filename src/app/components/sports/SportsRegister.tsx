@@ -23,6 +23,10 @@ import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./spon
 import { useCashfree } from "../../../hooks/useCashfree";
 import CashfreeCheckout from "../payments/CashfreeCheckout";
 import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
+import type { ManaPaymentRecord } from "../../../types/manaPay";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -951,6 +955,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
   // Pending registration payload saved until payment succeeds.
   const pendingRegistrationRef = useRef<null | (() => Promise<void>)>(null);
+
+  // Gateway selection — driven by checkout-options API, not hardcoded.
+  const { options: checkoutOptions } = useCheckoutOptions();
+  const [selectedGateway, setSelectedGateway] = useState<string>("CASHFREE");
+  const [manaPayOrderId, setManaPayOrderId] = useState<number | undefined>(undefined);
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
+
+  // Keep selectedGateway in sync with the platform's default gateway once options load.
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway) {
+      setSelectedGateway(checkoutOptions.defaultGateway);
+    }
+  }, [checkoutOptions?.defaultGateway]);
 
   const [event, setEvent] = useState<SportsEvent | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
@@ -2228,6 +2245,24 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           setSubmitting(false);
         }
       };
+
+      // Route to ManaPay if selected; otherwise use Cashfree SDK.
+      if (selectedGateway === "MANA_PAY") {
+        try {
+          const unifiedOrder = await unifiedPaymentService.createOrder({
+            communityId: (user as any)?.communityId,
+            gateway: "CASHFREE", // placeholder until MANA_PAY is a PaymentGateway union member
+            referenceType: "SPORTS_REGISTRATION",
+            referenceId: event!.id,
+            amount: registrationFee,
+          });
+          setManaPayOrderId(unifiedOrder.id);
+          setShowManaPayModal(true);
+        } catch (err: any) {
+          toast.error(err?.message || "Could not initiate payment. Please try again.");
+        }
+        return;
+      }
 
       setShowPaymentOverlay(true);
       const paid = await cashfree.initiatePayment({
@@ -4581,6 +4616,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             cashfree.reset();
           }}
         />
+        {showManaPayModal && event && (
+          <ManaPayCheckoutModal
+            isOpen={showManaPayModal}
+            onClose={() => { setShowManaPayModal(false); setManaPayOrderId(undefined); }}
+            paymentOrderId={manaPayOrderId}
+            order={{
+              domain: "SPORTS",
+              orderReferenceId: String(event.id),
+              title: `${event.name ?? "Sports"} Registration Fee`,
+              totalAmount: Number((event as any).registrationFee ?? 0),
+              payer: { name: (user as any)?.fullName ?? "", unit: (user as any)?.flatNumber ?? "" },
+              idempotencyKey: `sports-${event.id}-${(user as any)?.id}-${Date.now()}`,
+            } as any}
+            onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+              setShowManaPayModal(false);
+              await pendingRegistrationRef.current?.();
+            }}
+          />
+        )}
         <Toaster richColors position="top-right" />
       </>
     );
@@ -4600,6 +4654,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           cashfree.reset();
         }}
       />
+      {showManaPayModal && event && (
+        <ManaPayCheckoutModal
+          isOpen={showManaPayModal}
+          onClose={() => { setShowManaPayModal(false); setManaPayOrderId(undefined); }}
+          paymentOrderId={manaPayOrderId}
+          order={{
+            domain: "SPORTS",
+            orderReferenceId: String(event.id),
+            title: `${event.name ?? "Sports"} Registration Fee`,
+            totalAmount: Number((event as any).registrationFee ?? 0),
+            payer: { name: (user as any)?.fullName ?? "", unit: (user as any)?.flatNumber ?? "" },
+            idempotencyKey: `sports-${event.id}-${(user as any)?.id}-${Date.now()}`,
+          } as any}
+          onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+            setShowManaPayModal(false);
+            await pendingRegistrationRef.current?.();
+          }}
+        />
+      )}
       <Toaster richColors position="top-right" />
     </>
   );

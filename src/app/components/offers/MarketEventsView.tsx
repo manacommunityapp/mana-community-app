@@ -5,6 +5,9 @@ import { cashfreePaymentService } from "../../../services/payments/cashfreePayme
 import { marketBazaarApi, type MarketApplication, type MarketEvent, type MarketStall } from "../../../services/market/marketBazaarApi";
 import { getStoredUser } from "../../../services/common/apiClient";
 import { MarketOrganizerPanel } from "./MarketOrganizerPanel";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import type { ManaPaymentRecord } from "../../../types/manaPay";
 
 const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
 
@@ -33,6 +36,9 @@ export function MarketEventsView() {
   const [busy, setBusy] = useState(false);
   const [applicationOpen, setApplicationOpen] = useState(false);
   const [form, setForm] = useState({ vendorName: "", businessName: "", category: "", phone: "", products: "" });
+
+  const { options: checkoutOptions } = useCheckoutOptions();
+  const [manaPayTarget, setManaPayTarget] = useState<{ application: MarketApplication; amount: number } | null>(null);
 
   const loadEvents = useCallback(async (eventId?: number) => {
     setLoading(true);
@@ -84,6 +90,15 @@ export function MarketEventsView() {
       toast.error("This application does not have a payment hold.");
       return;
     }
+
+    // Route to ManaPay if it is the platform's default/only enabled gateway.
+    const useMana = checkoutOptions?.gatewayOptions.includes("MANA_PAY") &&
+      !checkoutOptions.gatewayOptions.some((g) => g === "CASHFREE" || g === "RAZORPAY");
+    if (useMana) {
+      setManaPayTarget({ application, amount: (application as any).stallFee ?? 0 });
+      return;
+    }
+
     setBusy(true);
     try {
       const order = await marketBazaarApi.checkout(application.bookingId);
@@ -222,6 +237,25 @@ export function MarketEventsView() {
           <div className="flex justify-end gap-2 pt-2"><button type="button" onClick={() => setApplicationOpen(false)} className="rounded-xl border px-4 py-2 text-sm font-semibold">Cancel</button><button disabled={busy} className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">{busy ? "Submitting…" : "Submit application"}</button></div>
         </form>
       </div>}
+
+      {manaPayTarget && (
+        <ManaPayCheckoutModal
+          isOpen
+          onClose={() => setManaPayTarget(null)}
+          order={{
+            domain: "MARKETPLACE",
+            orderReferenceId: String(manaPayTarget.application.bookingId ?? manaPayTarget.application.id),
+            title: `Stall Fee — ${manaPayTarget.application.stallNumber ?? "Market Stall"}`,
+            totalAmount: manaPayTarget.amount,
+            payer: { name: storedUser?.fullName ?? storedUser?.name ?? "", unit: "" },
+            idempotencyKey: `market-${manaPayTarget.application.id}-${Date.now()}`,
+          } as any}
+          onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+            setManaPayTarget(null);
+            await loadEvents(selectedEvent?.id);
+          }}
+        />
+      )}
     </div>
   );
 }
