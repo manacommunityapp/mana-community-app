@@ -73,6 +73,8 @@ import { BudgetDashboard } from "./components/finance/BudgetDashboard";
 import { FinancialReports } from "./components/finance/FinancialReports";
 import { LedgerFinance } from "./components/finance/LedgerFinance";
 import { MyMoneyDashboard } from "./components/finance/personal/MyMoneyDashboard";
+import { EventBudgetsView } from "./components/finance/budget/EventBudgetsView";
+import { TournamentBudgetsView } from "./components/finance/budget/TournamentBudgetsView";
 import { ManaSplitHub } from "./components/split/ManaSplitHub";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
@@ -894,8 +896,20 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="invoice" /></PermissionGuard>
           },
           {
+            path: "accounting",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="accounting" /></PermissionGuard>
+          },
+          {
             path: "budget",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><BudgetDashboard /></PermissionGuard>
+          },
+          {
+            path: "event-budgets",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><EventBudgetsView /></PermissionGuard>
+          },
+          {
+            path: "tournament-budgets",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><TournamentBudgetsView /></PermissionGuard>
           },
           {
             path: "reports",

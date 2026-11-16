@@ -19,6 +19,9 @@ import { NewCreditNoteView } from "./invoice/NewCreditNoteView";
 import { CustomersView } from "./invoice/CustomersView";
 import { CustomerImportsView } from "./invoice/CustomerImportsView";
 import { PlaceholderView } from "./PlaceholderView";
+import { ChartOfAccountsView } from "./accounting/ChartOfAccountsView";
+import { JournalLedgerView } from "./accounting/JournalLedgerView";
+import { TrialBalanceView } from "./accounting/TrialBalanceView";
 import { BusinessExpensesView } from "./expense/BusinessExpensesView";
 import { NewExpenseView } from "./expense/NewExpenseView";
 import { StockPurchasesView } from "./expense/StockPurchasesView";
@@ -30,16 +33,17 @@ import { NewVendorView } from "./expense/NewVendorView";
 import { VendorPaymentsView } from "./expense/VendorPaymentsView";
 import { NewVendorPaymentView } from "./expense/NewVendorPaymentView";
 import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
+import { UnifiedVendorsView } from "./vendor/UnifiedVendorsView";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useMenuPermission } from "../../../hooks/useMenuPermission";
 
-type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder";
+type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder" | "chart-of-accounts" | "journal-ledger" | "trial-balance" | "unified-vendors";
 
-export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" }) {
+export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" | "accounting" }) {
   const { user } = useAuth();
   const { check: hasMenuPermission } = useMenuPermission();
   const [searchParams, setSearchParams] = useSearchParams();
-  const defaultView = section === "expense" ? "business-expenses" : "dashboard";
+  const defaultView = section === "expense" ? "business-expenses" : section === "accounting" ? "chart-of-accounts" : "dashboard";
   const view = (searchParams.get("tab") as View) || defaultView;
   const setView = (v: View) => {
     setSearchParams((prev) => {
@@ -113,12 +117,12 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
               Finance
             </NavLink>
             <span className="sep">›</span>
-            <span className="cur font-bold">{section === "expense" ? "Expense" : "Income"}</span>
+            <span className="cur font-bold">{section === "expense" ? "Expense" : section === "accounting" ? "Accounting" : "Income"}</span>
           </div>
           <div className="page-title">
             <div className="pt-text">
-              <h3 className="m-0 mb-0">{section === "expense" ? "Expenses" : "Income & Invoices"}</h3>
-              <p className="m-0">{section === "expense" ? "Bills, purchases & vendor payments" : "Invoices, receipts & customers"}</p>
+              <h3 className="m-0 mb-0">{section === "expense" ? "Expenses" : section === "accounting" ? "Accounting" : "Income & Invoices"}</h3>
+              <p className="m-0">{section === "expense" ? "Bills, purchases & vendor payments" : section === "accounting" ? "Chart of Accounts, Journal Ledger & Trial Balance" : "Invoices, receipts & customers"}</p>
             </div>
             <div className="pt-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 8.5h6M9 12h6M9 15.5h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
@@ -140,6 +144,13 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
                 {hasMenuPermission("customers", "view") && navPill("Customers", "customers", () => go("customers", "customers"))}
               </>
             )}
+            {section === "accounting" && (
+              <>
+                {navPill("Chart of Accounts", "chart-of-accounts", () => go("chart-of-accounts", "chart-of-accounts"))}
+                {navPill("Journal Ledger", "journal-ledger", () => go("journal-ledger", "journal-ledger"))}
+                {navPill("Trial Balance", "trial-balance", () => go("trial-balance", "trial-balance"))}
+              </>
+            )}
             {section === "expense" && (
               <>
                 {navPill("Business Expenses", "business-expenses", () => go("business-expenses", "business-expenses"))}
@@ -148,6 +159,7 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
                 {navPill("Vendor Payments", "vendor-payments", () => go("vendor-payments", "vendor-payments"))}
                 {navPill("Debit Notes", "debit-notes", () => go("debit-notes", "debit-notes"))}
                 {navPill("Vendors", "vendors", () => go("vendors", "vendors"))}
+                {navPill("Vendor Master", "unified-vendors", () => go("unified-vendors", "unified-vendors"))}
               </>
             )}
           </nav>
@@ -329,6 +341,10 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
                 onSave={() => go("vendors", "vendors")}
               />
             )}
+            {view === "chart-of-accounts" && <ChartOfAccountsView />}
+            {view === "journal-ledger" && <JournalLedgerView />}
+            {view === "trial-balance" && <TrialBalanceView />}
+            {view === "unified-vendors" && <UnifiedVendorsView communityId={user?.communityId ?? 0} />}
             {view === "placeholder" && <PlaceholderView title={placeholderTitle} />}
           </div>
         </main>
