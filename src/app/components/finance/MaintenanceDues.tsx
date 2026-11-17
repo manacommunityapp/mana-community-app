@@ -11,6 +11,7 @@ import { maintenanceDuesService } from "../../../services/finance/maintenanceDue
 import { personalFinanceService } from "../../../services/finance/personalFinanceService";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
 import { manaPayService } from "../../../services/payments/manaPayService";
+import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
 import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../../types/manaPay";
 
 import { useAuth } from "../../../contexts/AuthContext";
@@ -24,6 +25,7 @@ export function MaintenanceDues() {
   const [wallet, setWallet] = useState<{ balanceAmount: number; totalDeposited: number; totalUtilized: number } | null>(null);
   const [history, setHistory] = useState<MaintenanceBill[]>([]);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [manaPayOrderId, setManaPayOrderId] = useState<number | undefined>(undefined);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
   const [recordedInMyMoney, setRecordedInMyMoney] = useState(false);
@@ -176,7 +178,23 @@ export function MaintenanceDues() {
             <div className="flex items-center gap-3">
               {(bill.status as string) !== "PAID" ? (
                 <button
-                  onClick={() => setShowPayModal(true)}
+                  onClick={async () => {
+                    try {
+                      const order = await unifiedPaymentService.createOrder({
+                        communityId: (user as any)?.communityId,
+                        gateway: "MANA_PAY",
+                        referenceType: "MAINTENANCE_BILL",
+                        referenceId: bill.id,
+                        amount: bill.dueAmount,
+                      });
+                      setManaPayOrderId(order.id);
+                      setShowPayModal(true);
+                    } catch (err: any) {
+                      import('../../../utils/ToastUtils').then(({ showError }) =>
+                        showError(err?.message || 'Could not initiate payment. Please try again.')
+                      );
+                    }
+                  }}
                   className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2"
                 >
                   <CreditCard className="w-4 h-4" />
@@ -262,6 +280,7 @@ export function MaintenanceDues() {
         <ManaPayCheckoutModal
           isOpen={showPayModal}
           onClose={() => setShowPayModal(false)}
+          paymentOrderId={manaPayOrderId}
           residentWalletBalance={wallet.balanceAmount}
           order={{
             idempotencyKey: manaPayService.generateIdempotencyKey(

@@ -2251,7 +2251,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         try {
           const unifiedOrder = await unifiedPaymentService.createOrder({
             communityId: (user as any)?.communityId,
-            gateway: "CASHFREE", // placeholder until MANA_PAY is a PaymentGateway union member
+            gateway: "MANA_PAY",
             referenceType: "SPORTS_REGISTRATION",
             referenceId: event!.id,
             amount: registrationFee,

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { commercePaymentService } from "../../../../services/commerce/commercePaymentService";
+import { unifiedPaymentService } from "../../../../services/payments/unifiedPaymentService";
 import type { CommerceOrderDto } from "../../../../services/commerce/commerceOrderService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type {
@@ -48,6 +49,7 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
   const { options: checkoutOptions } = useCheckoutOptions();
   const [selectedGateway, setSelectedGateway] = useState<string>("RAZORPAY");
   const [showManaPayModal, setShowManaPayModal] = useState(false);
+  const [manaPayOrderId, setManaPayOrderId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (checkoutOptions?.defaultGateway) setSelectedGateway(checkoutOptions.defaultGateway);
@@ -60,6 +62,20 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
 
   const handlePay = async () => {
     if (selectedGateway === "MANA_PAY") {
+      try {
+        const payOrder = await unifiedPaymentService.createOrder({
+          communityId: (user as any)?.communityId,
+          gateway: "MANA_PAY",
+          referenceType: "MARKETPLACE_ORDER",
+          referenceId: order.id,
+          amount: Number(order.totalAmount),
+        });
+        setManaPayOrderId(payOrder.id);
+      } catch (err: any) {
+        setStatus("error");
+        setErrorMsg(err?.message || "Could not initiate payment. Please try again.");
+        return;
+      }
       setShowManaPayModal(true);
       return;
     }
@@ -144,6 +160,7 @@ export default function CheckoutPayment({ order, onSuccess, onDismiss, onError }
         <ManaPayCheckoutModal
           isOpen={showManaPayModal}
           onClose={() => setShowManaPayModal(false)}
+          paymentOrderId={manaPayOrderId}
           order={{
             domain: "MARKETPLACE",
             orderReferenceId: order.orderNumber,

@@ -7,6 +7,7 @@ import { getStoredUser } from "../../../services/common/apiClient";
 import { MarketOrganizerPanel } from "./MarketOrganizerPanel";
 import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
 import type { ManaPaymentRecord } from "../../../types/manaPay";
 
 const CASHFREE_SDK_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
@@ -39,6 +40,7 @@ export function MarketEventsView() {
 
   const { options: checkoutOptions } = useCheckoutOptions();
   const [manaPayTarget, setManaPayTarget] = useState<{ application: MarketApplication; amount: number } | null>(null);
+  const [manaPayOrderId, setManaPayOrderId] = useState<number | undefined>(undefined);
 
   const loadEvents = useCallback(async (eventId?: number) => {
     setLoading(true);
@@ -95,7 +97,21 @@ export function MarketEventsView() {
     const useMana = checkoutOptions?.gatewayOptions.includes("MANA_PAY") &&
       !checkoutOptions.gatewayOptions.some((g) => g === "CASHFREE" || g === "RAZORPAY");
     if (useMana) {
-      setManaPayTarget({ application, amount: (application as any).stallFee ?? 0 });
+      const stallFee = (application as any).stallFee ?? 0;
+      try {
+        const order = await unifiedPaymentService.createOrder({
+          communityId: (storedUser as any)?.communityId,
+          gateway: "MANA_PAY",
+          referenceType: "EVENT_REGISTRATION",
+          referenceId: application.bookingId!,
+          amount: stallFee,
+        });
+        setManaPayOrderId(order.id);
+      } catch (err: any) {
+        toast.error(err?.message || "Could not initiate payment. Please try again.");
+        return;
+      }
+      setManaPayTarget({ application, amount: stallFee });
       return;
     }
 
@@ -242,6 +258,7 @@ export function MarketEventsView() {
         <ManaPayCheckoutModal
           isOpen
           onClose={() => setManaPayTarget(null)}
+          paymentOrderId={manaPayOrderId}
           order={{
             domain: "MARKETPLACE",
             orderReferenceId: String(manaPayTarget.application.bookingId ?? manaPayTarget.application.id),
