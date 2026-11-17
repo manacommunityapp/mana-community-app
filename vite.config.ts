@@ -38,6 +38,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    optimizeDeps: {
+      include: ['@tanstack/react-query'],
+    },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
       __GIT_BRANCH__: JSON.stringify(gitBranch),
