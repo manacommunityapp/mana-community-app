@@ -62,6 +62,7 @@ import { resolveEventImage, resolveUserAvatar, resolveImageUrl } from "../../../
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
 import { escapeHtml } from "../../../utils/sanitize";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
 
 interface FamilyMember {
   id: string;
@@ -3173,7 +3174,7 @@ export function EventMemberView() {
 
                             {p.bookingFee && p.bookingFee > 0 ? (
                               <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                                ₹{p.bookingFee} ({p.paymentStatus || "PAID"})
+                                ₹{p.bookingFee} · <PaymentStatusBadge status={p.paymentStatus || "PAID"} size="sm" />
                               </span>
                             ) : (
                               <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/10 text-slate-600 border border-slate-500/20">
@@ -5321,7 +5322,7 @@ export function EventMemberView() {
                     <div className="col-span-2">
                       <span className="text-muted-foreground">Booking Fee</span>
                       <p className="font-bold text-foreground text-[11px] mt-0.5">
-                        ₹{managePassModal.bookingFee} · {managePassModal.paymentStatus || "PAID"}
+                        ₹{managePassModal.bookingFee} · <PaymentStatusBadge status={managePassModal.paymentStatus || "PAID"} size="sm" />
                       </p>
                     </div>
                   )}

@@ -20,9 +20,9 @@ export function MaintenanceDues() {
   const userFlat = user?.flatNumber || user?.flatNo || "302";
   const userTower = user?.tower || user?.block || "A";
 
-  const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill(userFlat));
-  const [wallet, setWallet] = useState(communityFinanceService.getAdvanceWallet(userFlat));
-  const [history, setHistory] = useState<MaintenanceBill[]>(communityFinanceService.getMyBillHistory(userFlat));
+  const [bill, setBill] = useState<MaintenanceBill | null>(null);
+  const [wallet, setWallet] = useState<{ balanceAmount: number; totalDeposited: number; totalUtilized: number } | null>(null);
+  const [history, setHistory] = useState<MaintenanceBill[]>([]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
@@ -34,6 +34,9 @@ export function MaintenanceDues() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
+    if (user?.communityId) {
+      communityFinanceService.getAdvanceWallet(user.communityId, userFlat).then(setWallet).catch(() => {});
+    }
     maintenanceDuesService.getMyDues().then((page) => {
       const dues = page.content;
       if (!dues.length) return;

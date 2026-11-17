@@ -1893,6 +1893,7 @@ function CartView() {
     checkout,
   } = useCart();
 
+  const { user } = useAuth();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
@@ -1910,6 +1911,20 @@ function CartView() {
     const order = await checkout();
     setShowPaymentModal(false);
     if (order) {
+      if (paymentMode !== "CASH_ON_HANDOVER" && user?.communityId) {
+        try {
+          const { unifiedPaymentService } = await import("../../../services/payments/unifiedPaymentService");
+          await unifiedPaymentService.createOrder({
+            referenceType: "MARKETPLACE_ORDER",
+            referenceId: order.id,
+            gateway: "UPI_DIRECT",
+            communityId: user.communityId,
+            amount: totalAmount,
+          });
+        } catch (e) {
+          console.error("[Payment] Failed to create payment record:", e);
+        }
+      }
       navigate("/marketplace/orders");
     }
   };

@@ -5,7 +5,12 @@
 
 import { apiClient } from "../common/apiClient";
 
-export type PaymentGateway = "CASHFREE" | "RAZORPAY";
+export type PaymentGateway =
+  | "CASHFREE"
+  | "RAZORPAY"
+  | "MANA_PAY"
+  | "UPI_DIRECT"
+  | "MANUAL";
 
 export type PaymentReferenceType =
   | "MAINTENANCE_BILL"
@@ -18,7 +23,8 @@ export type PaymentReferenceType =
   | "AMENITY_BOOKING"
   | "TRIP_SETTLEMENT"
   | "BBPS_BILL"
-  | "MANUAL";
+  | "MANUAL"
+  | "FOOD_GROCERY_ORDER";
 
 export type PaymentOrderStatus =
   | "INITIATED"
