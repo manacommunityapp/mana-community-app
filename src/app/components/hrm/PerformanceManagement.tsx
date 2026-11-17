@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Target, TrendingUp, Star, MessageSquare, Plus } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { Badge } from "@/app/components/ui/badge";
-import { Progress } from "@/app/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Input } from "@/app/components/ui/input";
-import { Label } from "@/app/components/ui/label";
-import { Textarea } from "@/app/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { hrmService } from "@/services/hrm/hrmService";
-import type { Goal, Okr, OkrKeyResult } from "@/types/hrm";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
+import { Progress } from "../ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { hrmService } from "../../../services/hrm/hrmService";
+import type { Goal, Okr, OkrKeyResult } from "../../../types/hrm";
 
 interface Props {
   orgId: number;
