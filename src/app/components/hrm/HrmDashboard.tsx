@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Users,
   UserCheck,
@@ -8,15 +9,17 @@ import {
   ClipboardList,
   UserPlus,
   PartyPopper,
-  Loader2,
   AlertCircle,
   ArrowRight,
+  CheckSquare,
+  GitBranch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { hrmService } from "../../../services/hrm/hrmService";
 import { showError } from "../../../utils/ToastUtils";
-import type { HrDashboardData } from "../../../types/hrm";
+import type { HrDashboardData, OnboardingTask } from "../../../types/hrm";
 import { useNavigate } from "react-router";
 
 function StatCard({
@@ -68,35 +71,25 @@ function DashboardSkeleton() {
 }
 
 export function HrmDashboard() {
+  const { activeOrgId: orgId } = useHrmOrg();
   const [data, setData] = useState<HrDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [orgId, setOrgId] = useState<number | null>(null);
+  const [pendingOnboarding, setPendingOnboarding] = useState<OnboardingTask[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadOrg();
-  }, []);
-
-  async function loadOrg() {
-    try {
-      const orgs = await hrmService.getMyOrganizations();
-      if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
-        await loadDashboard(orgs[0].id);
-      } else {
-        setLoading(false);
-      }
-    } catch (err: any) {
-      showError(err.message || "Failed to load organizations");
-      setLoading(false);
-    }
-  }
+    if (orgId) loadDashboard(orgId);
+  }, [orgId]);
 
   async function loadDashboard(id: number) {
     setLoading(true);
     try {
-      const dashData = await hrmService.getDashboard(id);
-      setData(dashData);
+      const [dashData, onboarding] = await Promise.allSettled([
+        hrmService.getDashboard(id),
+        hrmService.getPendingOnboarding(id),
+      ]);
+      if (dashData.status === "fulfilled") setData(dashData.value);
+      if (onboarding.status === "fulfilled") setPendingOnboarding(onboarding.value);
     } catch (err: any) {
       showError(err.message || "Failed to load dashboard");
     } finally {
@@ -187,6 +180,52 @@ export function HrmDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {pendingOnboarding.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-base">Pending Onboarding Tasks</CardTitle>
+              <Badge variant="secondary">{pendingOnboarding.length}</Badge>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/hrm/employees")} className="text-xs">
+              View All <ArrowRight className="ml-1 h-3 w-3" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {pendingOnboarding.slice(0, 5).map((task) => (
+                <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg border">
+                  <CheckSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{task.taskTitle}</p>
+                    <p className="text-xs text-muted-foreground">{task.employeeName ?? "New hire"} · {task.category}</p>
+                  </div>
+                  {task.dueDate && (
+                    <span className="text-xs text-amber-600 shrink-0">Due {task.dueDate}</span>
+                  )}
+                </div>
+              ))}
+              {pendingOnboarding.length > 5 && (
+                <p className="text-xs text-muted-foreground text-center pt-1">+{pendingOnboarding.length - 5} more tasks</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <GitBranch className="h-5 w-5 text-muted-foreground" />
+          <CardTitle className="text-base">Org Chart</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" size="sm" onClick={() => navigate("/hrm/org-chart")}>
+            View Organization Hierarchy <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
