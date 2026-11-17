@@ -195,7 +195,7 @@ export const ManaPayHub: React.FC = () => {
     }
   };
 
-  const handlePayCapabilityDemo = (card: typeof CAPABILITY_CARDS[0]) => {
+  const handlePayCapabilityDemo = async (card: typeof CAPABILITY_CARDS[0]) => {
     let title = `Pay ${card.title}`;
     let amount = 1000;
     let orderRef = `DEMO-${card.domain.slice(0, 3)}-${Date.now().toString().slice(-4)}`;
