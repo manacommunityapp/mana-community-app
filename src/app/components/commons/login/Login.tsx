@@ -123,7 +123,7 @@ export function Login() {
   };
 
   return (
-    <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
+    <div className="h-[100dvh] w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       {/* ── Left Brand Showcase Panel (Desktop Browser) ────────────────── */}
       <div
         className="hidden lg:flex flex-col justify-between relative overflow-hidden lg:w-[320px] xl:w-[360px] 2xl:w-[380px] shrink-0 text-white p-6 xl:p-8 select-none border-r border-white/10"
@@ -300,7 +300,7 @@ export function Login() {
 
         {/* Form area — flex-1 so it fills remaining height, centred vertically on desktop */}
         <div className="flex-1 flex flex-col justify-center overflow-y-auto">
-          <div className="w-full max-w-[420px] mx-auto px-5 sm:px-7 py-4 sm:py-6 lg:my-auto relative z-10">
+            <div className="w-full max-w-[460px] mx-auto px-5 sm:px-7 py-5 sm:py-7 lg:my-auto relative z-10">
             {/* Desktop-only header */}
             <div className="text-left mb-4 hidden lg:block">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold border border-indigo-100 dark:border-indigo-800/40 mb-2 shadow-2xs">
@@ -357,19 +357,19 @@ export function Login() {
             )}
 
             {/* Form Card */}
-            <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-xl shadow-indigo-950/[0.04] border border-border/80 p-5 sm:p-6">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
+            <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-xl shadow-indigo-950/[0.06] border border-border/80 p-5 sm:p-7">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
                 {/* Identifier */}
                 <div>
                   <label
                     htmlFor="identifier"
-                    className="block text-[11px] font-bold text-foreground/80 mb-1.5 uppercase tracking-wide"
+                    className="block text-xs font-bold text-foreground/80 mb-2 uppercase tracking-wide"
                   >
                     Email or Mobile Number
                   </label>
                   <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                      <Mail className="w-4 h-4" />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      <Mail className="w-[18px] h-[18px]" />
                     </div>
                     <input
                       id="identifier"
@@ -377,54 +377,55 @@ export function Login() {
                       inputMode="email"
                       autoComplete="username"
                       {...register("identifier", { validate: validateIdentifier })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-xs sm:text-sm text-foreground"
+                      className="h-14 w-full pl-12 pr-4 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/55 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm sm:text-base text-foreground shadow-xs"
                       placeholder="name@example.com or 9876543210"
                     />
                   </div>
                   {errors.identifier && (
-                    <p className="text-destructive text-[11px] mt-1 font-medium">{errors.identifier.message}</p>
+                    <p className="text-destructive text-xs mt-1.5 font-medium">{errors.identifier.message}</p>
                   )}
                 </div>
 
                 {/* Password */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <label
                       htmlFor="password"
-                      className="block text-[11px] font-bold text-foreground/80 uppercase tracking-wide"
+                      className="block text-xs font-bold text-foreground/80 uppercase tracking-wide"
                     >
                       Password
                     </label>
                     <Link
                       to="/forgot-password"
-                      className="text-[11px] text-primary hover:text-primary/80 font-bold transition-colors"
+                      className="text-xs text-primary hover:text-primary/80 font-bold transition-colors"
                     >
                       Forgot password?
                     </Link>
                   </div>
                   <div className="relative">
-                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-                      <Lock className="w-4 h-4" />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                      <Lock className="w-[18px] h-[18px]" />
                     </div>
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
                       {...register("password", { required: "Password is required" })}
-                      className="w-full pl-10 pr-10 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-xs sm:text-sm text-foreground"
+                      className="h-14 w-full pl-12 pr-14 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/55 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm sm:text-base text-foreground shadow-xs"
                       placeholder="Enter your password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       tabIndex={-1}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground p-0.5 transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground/70 hover:bg-muted hover:text-muted-foreground transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="text-destructive text-[11px] mt-1 font-medium">{errors.password.message}</p>
+                    <p className="text-destructive text-xs mt-1.5 font-medium">{errors.password.message}</p>
                   )}
                 </div>
 
@@ -434,9 +435,9 @@ export function Login() {
                     <input
                       type="checkbox"
                       {...register("rememberMe")}
-                      className="w-3.5 h-3.5 accent-primary bg-[var(--mana-bg-input)] border-border rounded focus:ring-primary cursor-pointer"
+                      className="w-4 h-4 accent-primary bg-[var(--mana-bg-input)] border-border rounded focus:ring-primary cursor-pointer"
                     />
-                    <span className="text-xs text-muted-foreground font-medium">Remember this device</span>
+                    <span className="text-sm text-muted-foreground font-medium">Remember this device</span>
                   </label>
                 </div>
 
@@ -445,7 +446,7 @@ export function Login() {
                   type="submit"
                   id="login-submit-btn"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center py-2.5 sm:py-3 px-4 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-md shadow-primary/25 hover:shadow-primary/35 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full min-h-14 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-base rounded-xl shadow-md shadow-primary/25 hover:shadow-primary/35 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>

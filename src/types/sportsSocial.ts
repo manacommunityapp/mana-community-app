@@ -30,6 +30,13 @@ export interface FeedScorecard {
   venue: string;
   date: string;
   playerOfMatch?: string;
+  winner?: "A" | "B" | "TIE" | string;
+  winnerName?: string;
+  winMargin?: string;
+  stage?: string;
+  playerOfMatchStats?: string;
+  playerOfMatchTeam?: string;
+  playerOfMatchAvatar?: string;
 }
 
 export interface FeedComment {

@@ -39,6 +39,8 @@ import {
   type RtmPromptData,
 } from "./auction";
 import { AuctionConfigModal, parseDisputeCommitteeIds } from "./AuctionConfigModal";
+import { TeamImageUploader } from "./teams/TeamImageUploader";
+import { setCachedTeamLogo, getCachedTeamLogo } from "./teams/teamImageUtils";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
@@ -82,6 +84,7 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
     ownerName: summary.ownerName || summary.captain || summary.captainName || summary.ownerUser?.fullName || summary.ownerUser?.name || 'Not Assigned',
     color: summary.colorHex || summary.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
     colorHex: summary.colorHex || summary.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
+    logoUrl: (summary as any).logoUrl || getCachedTeamLogo(nameVal) || undefined,
     emoji: summary.emoji || FALLBACK_EMOJIS[idx % FALLBACK_EMOJIS.length],
     budget: budgetVal,
     totalBudget: budgetVal,
@@ -211,6 +214,8 @@ export function SportsAuction() {
   const [loadingRegistrations, setLoadingRegistrations] = useState(false);
   const [showAddTeam, setShowAddTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamLogoUrl, setNewTeamLogoUrl] = useState<string | undefined>();
+  const [newTeamColorHex, setNewTeamColorHex] = useState("#D4A017");
   const [selectedOwnerId, setSelectedOwnerId] = useState<number | null>(null);
   const [newTeamBudget, setNewTeamBudget] = useState(100000);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
@@ -665,17 +670,21 @@ export function SportsAuction() {
     
     setIsCreatingTeam(true);
     try {
+      if (newTeamLogoUrl) {
+        setCachedTeamLogo(newTeamName.trim(), newTeamLogoUrl);
+      }
       await auctionService.createTeam({
         configId: selectedConfigId,
         teamName: newTeamName,
         ownerName: owner?.name || "Unknown",
         ownerUserId: selectedOwnerId,
         totalBudget: newTeamBudget,
-        colorHex: '#D4A017' // Default gold
+        colorHex: newTeamColorHex || '#D4A017'
       });
       toast.success("Team created successfully!");
       setShowAddTeam(false);
       setNewTeamName("");
+      setNewTeamLogoUrl(undefined);
       setSelectedOwnerId(null);
       // Refresh teams list
       const updatedTeams = await auctionService.getTeamsSummary(selectedConfigId);
@@ -2182,8 +2191,20 @@ export function SportsAuction() {
             </div>
 
             {showAddTeam && (
-              <div className="card card-gold mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="card card-gold mb-4 sm:mb-6 p-4 sm:p-6 space-y-4">
                 <div className="sec-title">Create New Team</div>
+                <div className="max-w-md">
+                  <TeamImageUploader
+                    imageUrl={newTeamLogoUrl}
+                    colorHex={newTeamColorHex}
+                    teamName={newTeamName}
+                    communityId={communityUsers[0]?.communityId}
+                    onChange={(meta) => {
+                      setNewTeamLogoUrl(meta.imageUrl);
+                      if (meta.colorHex) setNewTeamColorHex(meta.colorHex);
+                    }}
+                  />
+                </div>
                 <div className="create-team-grid grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 sm:gap-4 items-end">
                   <div className="fgrp">
                     <div className="flabel">Team Name</div>
@@ -2225,12 +2246,24 @@ export function SportsAuction() {
                   const pct = budget > 0 ? Math.round((rem / budget) * 100) : 0;
                   return (
                     <div key={team.id} className="card !mb-0 bg-white rounded-[14px]" style={{ borderLeft: `4px solid ${team.color || 'var(--gold)'}` }}>
-                      <div className="flex justify-between mb-2.5 sm:mb-3">
-                        <div>
-                           <div className="font-extrabold text-[15px] sm:text-base text-slate-900">{team.name}</div>
-                           <div className="text-xs text-[var(--muted)] mt-0.5 font-medium">Captain: {team.ownerName || 'Not Assigned'}</div>
+                      <div className="flex justify-between items-center mb-2.5 sm:mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center font-bold text-white shadow-xs shrink-0"
+                            style={{ background: team.color || 'var(--gold)' }}
+                          >
+                            {(team as any).logoUrl ? (
+                              <img src={(team as any).logoUrl} alt={team.name} className="w-full h-full object-cover" />
+                            ) : (
+                              (team as any).emoji || (team.name || 'T')[0].toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-extrabold text-[15px] sm:text-base text-slate-900 truncate">{team.name}</div>
+                            <div className="text-xs text-[var(--muted)] mt-0.5 font-medium truncate">Captain: {team.ownerName || 'Not Assigned'}</div>
+                          </div>
                         </div>
-                        <div className="tag tag-gold h-fit">Team #{idx + 1}</div>
+                        <div className="tag tag-gold h-fit shrink-0">Team #{idx + 1}</div>
                       </div>
                       <div className="flex flex-wrap gap-3 sm:gap-5 mb-2.5">
                         <div><div className="font-extrabold text-base sm:text-lg text-slate-900">₹{(rem || 0).toLocaleString('en-IN')}</div><div className="text-xs text-[var(--muted)] uppercase font-bold">Remaining</div></div>

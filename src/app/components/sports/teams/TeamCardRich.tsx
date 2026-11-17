@@ -11,6 +11,7 @@ import {
   Building,
 } from 'lucide-react';
 import type { TeamProfile } from './TeamHubTypes';
+import { getCachedTeamLogo } from './teamImageUtils';
 
 interface TeamCardRichProps {
   team: TeamProfile;
@@ -30,6 +31,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
   const budget = team.totalBudget;
   const remaining = team.remainingBudget ?? (budget != null && spent != null ? Math.max(0, budget - spent) : undefined);
   const spentPct = budget != null && budget > 0 && spent != null ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+  const teamLogo = team.logoUrl || getCachedTeamLogo(team.name);
 
   // Role counters
   const batsmenCount = squad.filter((p) => p.role === 'BATSMAN').length;
@@ -56,12 +58,20 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
           <div className="flex items-center gap-3 min-w-0">
             {/* Team Logo / Badge */}
             <div
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-md shrink-0 transition-transform group-hover:scale-105"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-md shrink-0 transition-transform group-hover:scale-105 overflow-hidden"
               style={{
                 background: `linear-gradient(135deg, ${color}, ${team.secondaryColor || color}dd)`,
               }}
             >
-              {team.emoji || team.name.slice(0, 2).toUpperCase()}
+              {teamLogo ? (
+                <img
+                  src={teamLogo}
+                  alt={team.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                team.emoji || team.name.slice(0, 2).toUpperCase()
+              )}
             </div>
 
             <div className="min-w-0">

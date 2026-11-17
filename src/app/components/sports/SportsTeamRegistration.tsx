@@ -5,6 +5,8 @@ import { playerCategoryService } from "../../../services/sports/playerCategorySe
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { UserResponse, PlayerCategory } from "../../../types/api";
+import { TeamImageUploader } from "./teams/TeamImageUploader";
+import { setCachedTeamLogo } from "./teams/teamImageUtils";
 
 interface SportsEvent {
   id: number;
@@ -21,12 +23,12 @@ interface Props {
   onSuccess?: () => void;
 }
 
-const TEAM_EMOJIS = ["🏏", "⚡", "🔥", "🦁", "🐯", "🦅", "🐍", "🎯", "💪", "🏆", "⭐", "🌟", "🎖️", "🛡️", "⚔️", "🐺"];
-
 export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: Props) {
   const { user } = useAuth();
   const [teamName, setTeamName] = useState("");
   const [logoEmoji, setLogoEmoji] = useState("🏏");
+  const [logoUrl, setLogoUrl] = useState<string | undefined>();
+  const [colorHex, setColorHex] = useState("#4f46e5");
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,6 +87,9 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
 
     setSubmitting(true);
     try {
+      if (logoUrl) {
+        setCachedTeamLogo(teamName.trim(), logoUrl);
+      }
       await sportsEventService.registerTeam({
         eventId,
         categoryId,
@@ -105,12 +110,16 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
   if (success) {
     return (
       <div style={{ padding: 32, textAlign: "center" }}>
-        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-          <Check size={28} color="#16a34a" />
+        <div style={{ width: 64, height: 64, borderRadius: 18, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", background: logoUrl ? "#0f172a" : colorHex }}>
+          {logoUrl ? (
+            <img src={logoUrl} alt={teamName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <span style={{ fontSize: 32 }}>{logoEmoji}</span>
+          )}
         </div>
         <h3 className="text-xs" style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>Team Registered!</h3>
         <p style={{ fontSize: 14, color: "#64748b" }}>
-          {logoEmoji} <strong>{teamName}</strong> with {selectedMembers.length} members has been registered.
+          <strong>{teamName}</strong> with {selectedMembers.length} members has been registered.
         </p>
         {onClose && (
           <button
@@ -144,33 +153,33 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
         )}
       </div>
 
-      {/* Team Name + Emoji */}
+      {/* Team Badge & Logo Uploader */}
+      <div style={{ marginBottom: 16 }}>
+        <TeamImageUploader
+          imageUrl={logoUrl}
+          emoji={logoEmoji}
+          colorHex={colorHex}
+          teamName={teamName}
+          communityId={(user as any)?.communityId ?? event?.communityId}
+          eventId={eventId}
+          onChange={(meta) => {
+            setLogoUrl(meta.imageUrl);
+            if (meta.emoji) setLogoEmoji(meta.emoji);
+            if (meta.colorHex) setColorHex(meta.colorHex);
+          }}
+        />
+      </div>
+
+      {/* Team Name */}
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Team Name</label>
-        <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              style={{ width: 42, height: 42, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-            >
-              {logoEmoji}
-            </button>
-            {showEmojiPicker && (
-              <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 50, background: "#fff", borderRadius: 10, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", padding: 8, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginTop: 4 }}>
-                {TEAM_EMOJIS.map((e) => (
-                  <button key={e} onClick={() => { setLogoEmoji(e); setShowEmojiPicker(false); }} style={{ width: 36, height: 36, borderRadius: 6, border: e === logoEmoji ? "2px solid #6366f1" : "1px solid transparent", background: e === logoEmoji ? "#eef2ff" : "transparent", fontSize: 20, cursor: "pointer" }}>{e}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <input
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-            placeholder="Enter team name"
-            maxLength={100}
-            style={{ flex: 1, height: 42, borderRadius: 10, border: "1px solid #e2e8f0", padding: "0 12px", fontSize: 14, outline: "none" }}
-          />
-        </div>
+        <input
+          value={teamName}
+          onChange={(e) => setTeamName(e.target.value)}
+          placeholder="Enter team name"
+          maxLength={100}
+          style={{ width: "100%", height: 42, borderRadius: 10, border: "1px solid #e2e8f0", padding: "0 12px", fontSize: 14, outline: "none" }}
+        />
       </div>
 
       {/* Category */}

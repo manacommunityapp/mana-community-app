@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock } from "lucide-react";
+import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock, Sliders, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState } from "../../../../services/sports/tournamentService";
+import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState, type ScoringConfig, type TossDecision } from "../../../../services/sports/tournamentService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { apiClient, getStoredUser } from "../../../../services/common/apiClient";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -12,6 +12,9 @@ import { GenericLiveMatchView } from "../../sports/GenericLiveMatchView";
 import { LiveScoringPanel } from "../../sports/LiveScoringPanel";
 import { GenericLiveScoringPanel, isIndividualSport } from "../../sports/GenericLiveScoringPanel";
 import { RaceScoringPanel } from "../../sports/RaceScoringPanel";
+import { MatchScoringRulesModal } from "../../sports/MatchScoringRulesModal";
+import { MatchScoringSetupModal } from "../../sports/MatchScoringSetupModal";
+import type { HouseRulesConfig } from "../../sports/utils/cricketUtils";
 import { getSportType, isCricketSport, isTimeSport } from "../../sports/utils/sportScoringConstants";
 
 const POLL_MS = 30_000;
@@ -42,6 +45,23 @@ function getSportEmoji(sport?: string): string {
   if (s.includes("pickleball")) return "🏓";
   if (s.includes("swimming")) return "🏊";
   return "🏆";
+}
+
+function getRoundStageLabel(roundName?: string | null): string | null {
+  if (!roundName?.trim()) return null;
+  const value = roundName.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (/THIRD_PLACE|3RD_PLACE/.test(value)) return "3RD PLACE";
+  if (/(^|_)GRAND_FINAL($|_)/.test(value)) return "GRAND FINAL";
+  if (/(^|_)SUPER_FINAL($|_)/.test(value)) return "SUPER FINAL";
+  if (/(^|_)ELIMINATOR($|_)/.test(value)) return "ELIMINATOR";
+  const qualifierMatch = value.match(/(^|_)QUALIFIER_?(\d)?($|_)/);
+  if (qualifierMatch) return qualifierMatch[2] ? `QUALIFIER ${qualifierMatch[2]}` : "QUALIFIER";
+  if (/SEMI.?FINAL|(^|_)SF($|_)/.test(value)) return "SEMI-FINAL";
+  if (/QUARTER.?FINAL|(^|_)QF($|_)/.test(value)) return "QUARTER-FINAL";
+  if (/(^|_)FINAL($|_)/.test(value) || value === "F") return "FINAL";
+  const roundMatch = value.match(/ROUND_OF_(\d+)|^R(\d+)$/);
+  if (roundMatch) return `ROUND OF ${roundMatch[1] || roundMatch[2]}`;
+  return null;
 }
 
 function formatCompletedTime(iso?: string | null): string {
@@ -204,11 +224,11 @@ function getMatchContextNarrative(m: FeedLiveMatch, isLive: boolean): { text: st
 
   // Badminton / Tennis / Table Tennis / Pickleball
   if (/badminton|tennis|pickleball|table|squash/i.test(m.sportName || "")) {
-    return { text: "Live Rally · Real-time Scorecard", highlight: true };
+    return { text: "", highlight: false };
   }
 
   // Football / Basketball / Volleyball
-  return { text: m.roundName || "Live Action", highlight: false };
+  return { text: "", highlight: false };
 }
 
 export function LiveMatchesStrip() {
@@ -219,6 +239,11 @@ export function LiveMatchesStrip() {
   const [dismissed, setDismissed] = useState<number[]>(loadDismissed);
   const [watching, setWatching] = useState<FeedLiveMatch | null>(null);
   const [scoringMatch, setScoringMatch] = useState<FeedLiveMatch | null>(null);
+  const [scoreSetupMatch, setScoreSetupMatch] = useState<FeedLiveMatch | null>(null);
+  const [scoreSetupConfig, setScoreSetupConfig] = useState<ScoringConfig | null>(null);
+  const [scoreSetupConfigSource, setScoreSetupConfigSource] = useState<"match" | "default" | null>(null);
+  const [scoreSetupNeedsCricketConfig, setScoreSetupNeedsCricketConfig] = useState(false);
+  const [showScoreRules, setShowScoreRules] = useState(false);
   const [startingMatchId, setStartingMatchId] = useState<number | null>(null);
   const [allMatchesModalOpen, setAllMatchesModalOpen] = useState(false);
   const [modalSearch, setModalSearch] = useState("");
@@ -231,6 +256,7 @@ export function LiveMatchesStrip() {
   const [recentSportFilter, setRecentSportFilter] = useState("ALL");
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isFetchingRef = useRef(false);
   const [flashingMatchIds, setFlashingMatchIds] = useState<Record<number, "score" | "wicket">>({});
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -273,16 +299,115 @@ export function LiveMatchesStrip() {
   const handleScoreMatch = async (match: FeedLiveMatch) => {
     setStartingMatchId(match.matchId);
     try {
+      const sportName = match.sportName || match.eventName || "Sports";
+      const sportType = getSportType(sportName) || "DEFAULT";
+      const [matchConfig, defaultConfig] = await Promise.all([
+        tournamentService.getMatchScoringConfig(match.matchId).catch(() => null),
+        tournamentService.getDefaultScoringConfig(sportType).catch(() => null),
+      ]);
+      const isCricketMatch = isCricketSport(sportName);
+      // The service's match-config endpoint returns a response even when it had to
+      // construct an empty/default config. For cricket, an innings-over value is the
+      // signal that a tournament or match format was actually configured.
+      const effectiveConfig = isCricketMatch
+        ? (matchConfig?.oversPerInnings && matchConfig.oversPerInnings > 0 ? matchConfig : null)
+        : matchConfig || defaultConfig;
+      const supportsScoringRules = isCricketSport(sportName) || isTimeSport(sportName) || [
+        "BADMINTON", "TENNIS", "TABLE_TENNIS", "PICKLEBALL", "SQUASH", "VOLLEYBALL", "BEACH_VOLLEYBALL", "GRASS_VOLLEYBALL", "THROWBALL",
+        "CARROM", "FOOSBALL", "DART", "POOL", "BILLIARDS", "SNOOKER",
+      ].includes(sportType);
+
+      // Sports with configurable rules must resolve an effective configuration before
+      // scoring starts. Keep the fixture scheduled if configuration cannot be loaded.
+      if (supportsScoringRules && !effectiveConfig && !isCricketMatch) {
+        throw new Error("Scoring rules could not be loaded. The match has not been started.");
+      }
+
+      setScoreSetupConfig(effectiveConfig);
+      setScoreSetupConfigSource(effectiveConfig ? (matchConfig ? "match" : "default") : null);
+      setScoreSetupNeedsCricketConfig(isCricketMatch && !effectiveConfig);
+      setShowScoreRules(false);
+      setScoreSetupMatch(match);
+    } catch (error: any) {
+      toast.error(error?.message || "Could not load scoring rules. The match has not been started.");
+    } finally {
+      setStartingMatchId(null);
+    }
+  };
+
+  const handleConfirmScoreSetup = async (params: {
+    oversLimit?: number;
+    ballsPerOver?: number;
+    maxOversPerBowler?: number;
+    houseRules?: HouseRulesConfig;
+    tossWinnerTeamId?: number;
+    tossDecision?: TossDecision;
+  }) => {
+    if (!scoreSetupMatch) return;
+    const match = scoreSetupMatch;
+    setStartingMatchId(match.matchId);
+    try {
+      const sportName = match.sportName || match.eventName || "Sports";
+      if (isCricketSport(sportName)) {
+        const overs = params.oversLimit || 20;
+        const bowlerMax = params.maxOversPerBowler || Math.ceil(overs / 5);
+        const balls = params.ballsPerOver || 6;
+
+        // 1. Save match config override to backend
+        const savedConfig = await tournamentService.updateMatchConfigOverride(match.matchId, {
+          sportType: "CRICKET",
+          periodsCount: 2,
+          mustWinByTwo: false,
+          hasOvertime: false,
+          hasPenaltyShootout: false,
+          oversPerInnings: overs,
+          maxOversPerBowler: bowlerMax,
+          ballsPerOver: balls,
+          noExtraRuns: params.houseRules?.enabled !== false && !!params.houseRules?.noExtraRuns,
+          noFreeHits: params.houseRules?.enabled !== false && !!params.houseRules?.noFreeHits,
+        });
+        setScoreSetupConfig(savedConfig);
+        setScoreSetupConfigSource("match");
+        setScoreSetupNeedsCricketConfig(false);
+
+        // 2. Save house rules to localStorage
+        if (params.houseRules && typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem(
+              `mc-match-${match.matchId}-house-rules`,
+              JSON.stringify(params.houseRules)
+            );
+          } catch {}
+        }
+      }
+
+      // 3. Record toss if selected
+      if (params.tossWinnerTeamId && params.tossDecision) {
+        try {
+          await tournamentService.recordMatchToss(match.matchId, {
+            tossWinnerTeamId: params.tossWinnerTeamId,
+            tossDecision: params.tossDecision,
+          });
+        } catch {
+          // Non-blocking if toss API fails
+        }
+      }
+
+      // 4. Promote match to live
       await promoteMatchToLive(match);
+      setScoreSetupMatch(null);
+      setShowScoreRules(false);
       setScoringMatch({ ...match, status: "LIVE" });
     } catch (error: any) {
-      toast.error(error?.message || "Could not open scoring for this match.");
+      toast.error(error?.message || "Could not start scoring for this match.");
     } finally {
       setStartingMatchId(null);
     }
   };
 
   const load = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       const user = getStoredUser();
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
@@ -318,11 +443,17 @@ export function LiveMatchesStrip() {
         // Continue below
       }
 
-      // 2. ALWAYS query tournament schedule configs to discover any active live & upcoming matches in tournaments
+      // 2. Query tournament schedule configs to discover any active live & upcoming matches in tournaments
       try {
         const configs = await tournamentService.getConfigs().catch(() => []);
-        if (Array.isArray(configs) && configs.length > 0) {
-          const matchPromises = configs.map(async (cfg) => {
+        const relevantConfigs = Array.isArray(configs)
+          ? configs.filter((c) => {
+              const st = String(c?.status || "").toUpperCase();
+              return ["PUBLISHED", "ACTIVE", "LIVE", "IN_PROGRESS", "COMPLETED"].includes(st);
+            })
+          : [];
+        if (relevantConfigs.length > 0) {
+          const matchPromises = relevantConfigs.map(async (cfg) => {
             try {
               const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
               if (!Array.isArray(cfgMatches)) return [];
@@ -390,6 +521,8 @@ export function LiveMatchesStrip() {
       setMatches(Array.from(combinedMap.values()));
     } catch {
       // The strip is optional; fail silently and keep the last known state.
+    } finally {
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -625,9 +758,20 @@ export function LiveMatchesStrip() {
       if (combined.size === 0) {
         try {
           const configs = await tournamentService.getConfigs().catch(() => []);
-          if (Array.isArray(configs)) {
-            for (const cfg of configs) {
-              const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id).catch(() => []);
+          const relevantConfigs = Array.isArray(configs)
+            ? configs.filter((c) => {
+                const st = String(c?.status || "").toUpperCase();
+                return ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(st);
+              })
+            : [];
+          if (relevantConfigs.length > 0) {
+            const nested = await Promise.all(
+              relevantConfigs.map((cfg) =>
+                tournamentService.getMatchesByConfigId(cfg.id).catch(() => [] as any[])
+              )
+            );
+            nested.forEach((cfgMatches, idx) => {
+              const cfg = relevantConfigs[idx];
               if (Array.isArray(cfgMatches)) {
                 cfgMatches
                   .filter((m: any) => m && m.status === "COMPLETED")
@@ -656,7 +800,7 @@ export function LiveMatchesStrip() {
                     }
                   });
               }
-            }
+            });
           }
         } catch {
           // Ignore fallback errors
@@ -828,6 +972,20 @@ export function LiveMatchesStrip() {
             const isCricketMatch = isCricket(m);
             const narrative = getMatchContextNarrative(m, live);
             const flashType = flashingMatchIds[m.matchId];
+            const roundStageLabel = getRoundStageLabel(m.roundName);
+
+            const isTeamAWinner = Boolean(
+              isCompleted &&
+              m.winnerName &&
+              (m.winnerName.toLowerCase() === m.teamAName.toLowerCase() ||
+               m.winnerName.toLowerCase().includes(m.teamAName.toLowerCase()))
+            );
+            const isTeamBWinner = Boolean(
+              isCompleted &&
+              m.winnerName &&
+              (m.winnerName.toLowerCase() === m.teamBName.toLowerCase() ||
+               m.winnerName.toLowerCase().includes(m.teamBName.toLowerCase()))
+            );
 
             return (
               <div
@@ -848,18 +1006,34 @@ export function LiveMatchesStrip() {
                     ? "border-rose-400 bg-rose-50/40 shadow-rose-100 ring-2 ring-rose-400"
                     : flashType === "score"
                     ? "border-emerald-400 bg-emerald-50/40 shadow-emerald-100 ring-2 ring-emerald-400"
+                    : isCompleted
+                    ? "border-amber-300/80 bg-gradient-to-br from-amber-50/40 via-white to-emerald-50/30 hover:border-amber-400 hover:shadow-md hover:-translate-y-0.5"
                     : isUpcoming
                     ? "border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5"
                     : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
-                } p-3 sm:p-3.5 shadow-2xs`}
+                } p-2.5 sm:p-3.5 shadow-2xs`}
               >
                 <div>
                   {/* Top Line: Sport, Status Badge, Dismiss */}
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[140px]">
-                      <span>{getSportEmoji(m.sportName ?? undefined)}</span>
-                      <span className="truncate">{m.sportName || "Sports"}</span>
-                    </span>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                        <span>{getSportEmoji(m.sportName ?? undefined)}</span>
+                        <span className="truncate">{m.sportName || "Sports"}</span>
+                      </span>
+                      {roundStageLabel && (
+                        <span
+                          title={roundStageLabel}
+                          className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                            roundStageLabel === "FINAL"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-violet-200 bg-violet-50 text-violet-800"
+                          }`}
+                        >
+                          {roundStageLabel}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {live ? (
@@ -867,8 +1041,8 @@ export function LiveMatchesStrip() {
                           <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                         </span>
                       ) : isCompleted ? (
-                        <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                          FINAL
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-900 bg-gradient-to-r from-amber-100 to-yellow-100 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs">
+                          <Trophy className="w-2.5 h-2.5 text-amber-600 fill-amber-500" /> FINAL
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
@@ -892,16 +1066,23 @@ export function LiveMatchesStrip() {
                   </div>
 
                   {/* Tournament / Event subtitle */}
-                  <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
-                    {[m.tournamentName, m.eventName, m.roundName].filter(Boolean).join(" · ")}
+                  <p className="mb-1 truncate text-[10px] font-medium text-slate-400 sm:mb-1.5 sm:text-[11px]">
+                    {[m.tournamentName, m.eventName, roundStageLabel ? null : m.roundName].filter(Boolean).join(" · ")}
                   </p>
 
-                  {/* Teams & Scores (Cricbuzz Bold Layout) */}
-                  <div className="space-y-1.5 bg-slate-50/90 group-hover:bg-indigo-50/30 rounded-xl p-2.5 border border-slate-100 group-hover:border-indigo-100 transition-colors">
+                  {/* Teams & Scores (Cricbuzz Bold Layout with Winner Accent) */}
+                  <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/90 p-2 group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-colors sm:space-y-1.5 sm:p-2.5">
                     {/* Team A */}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                      isTeamAWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
+                    }`}>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-950 truncate">
+                        {isTeamAWinner && (
+                          <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                        )}
+                        <span className={`text-xs truncate ${
+                          isTeamAWinner ? "font-black text-slate-900" : "font-bold text-slate-900 group-hover:text-indigo-950"
+                        }`}>
                           {m.teamAName}
                         </span>
                         {m.teamAFlat && (
@@ -910,17 +1091,28 @@ export function LiveMatchesStrip() {
                           </span>
                         )}
                       </div>
-                      <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
-                        flashType ? "text-emerald-600 font-extrabold scale-105" : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900")
+                      <span className={`text-xs sm:text-sm font-mono tracking-tight shrink-0 transition-colors ${
+                        isTeamAWinner
+                          ? "text-emerald-700 font-black scale-105"
+                          : flashType
+                          ? "text-emerald-600 font-extrabold scale-105"
+                          : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900 font-black")
                       }`}>
                         {isUpcoming ? "—" : (isCricketMatch ? formatCricketScore(m.scoreTeamA) : (m.scoreTeamA || "0"))}
                       </span>
                     </div>
 
                     {/* Team B */}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                      isTeamBWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
+                    }`}>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-950 truncate">
+                        {isTeamBWinner && (
+                          <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                        )}
+                        <span className={`text-xs truncate ${
+                          isTeamBWinner ? "font-black text-slate-900" : "font-bold text-slate-900 group-hover:text-indigo-950"
+                        }`}>
                           {m.teamBName}
                         </span>
                         {m.teamBFlat && (
@@ -929,8 +1121,12 @@ export function LiveMatchesStrip() {
                           </span>
                         )}
                       </div>
-                      <span className={`text-xs sm:text-sm font-mono font-black tracking-tight shrink-0 transition-colors ${
-                        flashType ? "text-emerald-600 font-extrabold scale-105" : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900")
+                      <span className={`text-xs sm:text-sm font-mono tracking-tight shrink-0 transition-colors ${
+                        isTeamBWinner
+                          ? "text-emerald-700 font-black scale-105"
+                          : flashType
+                          ? "text-emerald-600 font-extrabold scale-105"
+                          : (isUpcoming ? "text-slate-400 font-semibold" : "text-slate-900 font-black")
                       }`}>
                         {isUpcoming ? "—" : (isCricketMatch ? formatCricketScore(m.scoreTeamB) : (m.scoreTeamB || "0"))}
                       </span>
@@ -939,15 +1135,17 @@ export function LiveMatchesStrip() {
                 </div>
 
                 {/* Cricbuzz-Style Contextual Dynamic Narrative & Action CTA */}
-                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className={`text-[11px] truncate font-medium ${
+                    <p className={`truncate text-[10px] font-medium sm:text-[11px] ${
                       isUpcoming
                         ? "text-blue-700 font-semibold"
+                        : isCompleted
+                        ? "text-emerald-700 font-black"
                         : (narrative.highlight ? "text-indigo-600 font-bold" : "text-slate-500")
                     }`}>
-                      {isUpcoming ? `🗓️ ${formatScheduledDateTime(m.scheduledAt)}` : narrative.text}
-                      {m.venueName && <span className="font-normal text-slate-400"> · 📍 {m.venueName}</span>}
+                      {isUpcoming ? `🗓️ ${formatScheduledDateTime(m.scheduledAt)}` : (isCompleted ? `🏆 ${narrative.text}` : narrative.text)}
+                      {m.venueName && <span className="font-normal text-slate-400">{narrative.text ? " · " : ""}📍 {m.venueName}</span>}
                     </p>
                   </div>
 
@@ -1016,6 +1214,36 @@ export function LiveMatchesStrip() {
         ) : (
           <GenericLiveMatchView matchId={watching.matchId} onClose={() => setWatching(null)} />
         ))}
+
+      {scoreSetupMatch && (
+        <MatchScoringSetupModal
+          isOpen={Boolean(scoreSetupMatch)}
+          onClose={() => {
+            setScoreSetupMatch(null);
+            setShowScoreRules(false);
+          }}
+          match={scoreSetupMatch}
+          initialConfig={scoreSetupConfig}
+          configSource={scoreSetupConfigSource}
+          isStarting={startingMatchId === scoreSetupMatch.matchId}
+          onConfirmStart={handleConfirmScoreSetup}
+          onOpenRulesModal={() => setShowScoreRules(true)}
+        />
+      )}
+
+      {scoreSetupMatch && (
+        <MatchScoringRulesModal
+          isOpen={showScoreRules}
+          onClose={() => setShowScoreRules(false)}
+          matchId={scoreSetupMatch.matchId}
+          sportType={getSportType(scoreSetupMatch.sportName || scoreSetupMatch.eventName || "Sports") || "DEFAULT"}
+          matchName={`${scoreSetupMatch.teamAName} vs ${scoreSetupMatch.teamBName}`}
+          onSaved={(updatedConfig) => {
+            setScoreSetupConfig(updatedConfig);
+            setScoreSetupConfigSource("match");
+          }}
+        />
+      )}
 
       {scoringMatch && (() => {
         const sportName = scoringMatch.sportName || scoringMatch.eventName || "Sports";
@@ -1231,10 +1459,27 @@ export function LiveMatchesStrip() {
                     const live = isLiveStatus(m.status);
                     const isCompleted = m.status === "COMPLETED";
                     const isUpcoming = !live && !isCompleted;
+                    const isModalTeamAWinner = Boolean(
+                      isCompleted &&
+                      m.winnerName &&
+                      (m.winnerName.toLowerCase() === m.teamAName.toLowerCase() ||
+                       m.winnerName.toLowerCase().includes(m.teamAName.toLowerCase()))
+                    );
+                    const isModalTeamBWinner = Boolean(
+                      isCompleted &&
+                      m.winnerName &&
+                      (m.winnerName.toLowerCase() === m.teamBName.toLowerCase() ||
+                       m.winnerName.toLowerCase().includes(m.teamBName.toLowerCase()))
+                    );
+
                     return (
                       <div
                         key={m.matchId}
-                        className="rounded-xl border border-slate-200/90 bg-white p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                        className={`rounded-xl border p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between ${
+                          isCompleted
+                            ? "border-amber-300/80 bg-gradient-to-br from-amber-50/40 via-white to-emerald-50/30"
+                            : "border-slate-200/90 bg-white"
+                        }`}
                       >
                         <div>
                           {/* Card Header: Sport, Status */}
@@ -1249,8 +1494,8 @@ export function LiveMatchesStrip() {
                                 <span className="w-1.5 h-1.5 rounded-full bg-white" /> LIVE
                               </span>
                             ) : isCompleted ? (
-                              <span className="inline-flex items-center text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                                FINAL
+                              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-900 bg-gradient-to-r from-amber-100 to-yellow-100 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs">
+                                <Trophy className="w-2.5 h-2.5 text-amber-600 fill-amber-500" /> FINAL
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
@@ -1266,30 +1511,52 @@ export function LiveMatchesStrip() {
 
                           {/* Teams & Scores */}
                           <div className="space-y-1.5 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                              isModalTeamAWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
+                            }`}>
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-xs font-bold text-slate-900 truncate">{m.teamAName}</span>
+                                {isModalTeamAWinner && (
+                                  <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                                )}
+                                <span className={`text-xs truncate ${
+                                  isModalTeamAWinner ? "font-black text-slate-900" : "font-bold text-slate-900"
+                                }`}>
+                                  {m.teamAName}
+                                </span>
                                 {m.teamAFlat && (
                                   <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
                                     {m.teamAFlat}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
+                              <span className={`text-xs sm:text-sm font-mono tracking-tight shrink-0 ${
+                                isModalTeamAWinner ? "text-emerald-700 font-black scale-105" : "text-slate-900 font-bold"
+                              }`}>
                                 {isUpcoming ? "—" : (m.scoreTeamA || "0")}
                               </span>
                             </div>
 
-                            <div className="flex items-center justify-between gap-2">
+                            <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                              isModalTeamBWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
+                            }`}>
                               <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="text-xs font-bold text-slate-900 truncate">{m.teamBName}</span>
+                                {isModalTeamBWinner && (
+                                  <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                                )}
+                                <span className={`text-xs truncate ${
+                                  isModalTeamBWinner ? "font-black text-slate-900" : "font-bold text-slate-900"
+                                }`}>
+                                  {m.teamBName}
+                                </span>
                                 {m.teamBFlat && (
                                   <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1 py-0.2 rounded shrink-0">
                                     {m.teamBFlat}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-xs sm:text-sm font-mono font-black text-slate-900 tracking-tight shrink-0">
+                              <span className={`text-xs sm:text-sm font-mono tracking-tight shrink-0 ${
+                                isModalTeamBWinner ? "text-emerald-700 font-black scale-105" : "text-slate-900 font-bold"
+                              }`}>
                                 {isUpcoming ? "—" : (m.scoreTeamB || "0")}
                               </span>
                             </div>
@@ -1299,8 +1566,8 @@ export function LiveMatchesStrip() {
                         {/* Bottom line: Watch Button */}
                         <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                           {!live && m.winnerName ? (
-                            <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 truncate max-w-[150px]">
-                              <Trophy className="w-3.5 h-3.5 shrink-0" />
+                            <span className="text-[11px] font-black text-emerald-700 flex items-center gap-1 truncate max-w-[150px]">
+                              <Trophy className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
                               <span className="truncate">{m.winnerName}</span>
                             </span>
                           ) : isUpcoming ? (
@@ -1540,6 +1807,8 @@ export function LiveMatchesStrip() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {filteredRecentMatches.map((m) => {
                     const isCricketMatch = isCricket(m);
+                    const roundStageLabel = getRoundStageLabel(m.roundName);
+                    const isChampionshipFinal = ["FINAL", "GRAND FINAL", "SUPER FINAL"].includes(roundStageLabel || "");
                     const isTeamAWinner = Boolean(
                       m.winnerName &&
                       (m.winnerName.toLowerCase() === m.teamAName.toLowerCase() ||
@@ -1575,9 +1844,16 @@ export function LiveMatchesStrip() {
                           </div>
 
                           {/* Tournament / Event subtitle */}
-                          <p className="text-[11px] font-medium text-slate-400 truncate mb-2">
-                            {[m.tournamentName, m.eventName, m.roundName].filter(Boolean).join(" · ")}
-                          </p>
+                          <div className="mb-2 flex min-w-0 items-center gap-1.5">
+                            <p className="m-0 min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400">
+                              {[m.tournamentName, m.eventName, isChampionshipFinal ? null : m.roundName].filter(Boolean).join(" · ")}
+                            </p>
+                            {isChampionshipFinal && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800">
+                                <Sparkles className="h-3 w-3 animate-pulse motion-reduce:animate-none" /> Championship Final
+                              </span>
+                            )}
+                          </div>
 
                           {/* Teams & Scores */}
                           <div className="space-y-1.5 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100">
@@ -1586,9 +1862,14 @@ export function LiveMatchesStrip() {
                               isTeamAWinner ? "bg-emerald-50/80" : ""
                             }`}>
                               <div className="flex items-center gap-1.5 min-w-0">
-                                {isTeamAWinner && (
+                                {isTeamAWinner && (isChampionshipFinal ? (
+                                  <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-label="Final winner">
+                                    <Trophy className="h-4 w-4 animate-[bounce_2.4s_ease-in-out_infinite] text-amber-500 motion-reduce:animate-none" />
+                                    <Sparkles className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse text-yellow-400 motion-reduce:animate-none" />
+                                  </span>
+                                ) : (
                                   <Trophy className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                )}
+                                ))}
                                 <span className={`text-xs truncate ${
                                   isTeamAWinner ? "font-black text-slate-900" : "font-medium text-slate-600"
                                 }`}>
@@ -1612,9 +1893,14 @@ export function LiveMatchesStrip() {
                               isTeamBWinner ? "bg-emerald-50/80" : ""
                             }`}>
                               <div className="flex items-center gap-1.5 min-w-0">
-                                {isTeamBWinner && (
+                                {isTeamBWinner && (isChampionshipFinal ? (
+                                  <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center" aria-label="Final winner">
+                                    <Trophy className="h-4 w-4 animate-[bounce_2.4s_ease-in-out_infinite] text-amber-500 motion-reduce:animate-none" />
+                                    <Sparkles className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse text-yellow-400 motion-reduce:animate-none" />
+                                  </span>
+                                ) : (
                                   <Trophy className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                )}
+                                ))}
                                 <span className={`text-xs truncate ${
                                   isTeamBWinner ? "font-black text-slate-900" : "font-medium text-slate-600"
                                 }`}>
@@ -1639,11 +1925,11 @@ export function LiveMatchesStrip() {
                         <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                           {m.winnerName ? (
                             <span
-                              className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1 truncate max-w-[170px]"
+                              className={`flex max-w-[170px] items-center gap-1 truncate text-[11px] font-extrabold ${isChampionshipFinal ? "text-amber-800" : "text-emerald-700"}`}
                               title={`Winner: ${m.winnerName}`}
                             >
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-100/70 text-emerald-800 text-[10px] font-black uppercase">
-                                WON
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-black uppercase ${isChampionshipFinal ? "bg-amber-100 text-amber-900" : "bg-emerald-100/70 text-emerald-800"}`}>
+                                {isChampionshipFinal ? "CHAMPION" : "WON"}
                               </span>
                               <span className="truncate">{m.winnerName}</span>
                             </span>

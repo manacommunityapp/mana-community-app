@@ -1,4 +1,4 @@
-﻿import { apiClient } from "../common/apiClient";
+import { apiClient } from "../common/apiClient";
 import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
 
@@ -561,6 +561,25 @@ export interface RaceResult {
   notes?: string;
 }
 
+// Module-level caches for /tournament/{configId}/matches
+const inFlightMatchesPromises = new Map<number, Promise<any[]>>();
+interface MatchesCacheEntry {
+  data: any[];
+  timestamp: number;
+}
+const matchesCache = new Map<number, MatchesCacheEntry>();
+const MATCHES_CACHE_TTL_MS = 5000;
+
+export function invalidateMatchesCache(configId?: number): void {
+  if (configId != null) {
+    matchesCache.delete(configId);
+    inFlightMatchesPromises.delete(configId);
+  } else {
+    matchesCache.clear();
+    inFlightMatchesPromises.clear();
+  }
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -697,11 +716,13 @@ export const tournamentService = {
 
   /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
   async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
+    invalidateMatchesCache();
     return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
   },
 
   /** POST /api/tournament/{configId}/matches/batch-reschedule - Batch reschedule / time-shift remaining uncompleted matches */
   async batchRescheduleMatches(configId: number, data: BatchRescheduleRequest): Promise<BatchRescheduleResponse> {
+    invalidateMatchesCache(configId);
     return apiClient.post<BatchRescheduleResponse>(`/tournament/${configId}/matches/batch-reschedule`, data);
   },
 
@@ -712,6 +733,7 @@ export const tournamentService = {
 
   /** POST /api/tournament/{configId}/matches/bulk - Save all generated matches */
   async saveMatchesBulk(configId: number, matches: any[]): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.post<any>(`/tournament/${configId}/matches/bulk`, { matches });
   },
 
@@ -724,34 +746,92 @@ export const tournamentService = {
     }
   },
 
-  /** GET /api/tournament/{configId}/matches - Fetch all matches for a config */
-  async getMatchesByConfigId(configId: number): Promise<any[]> {
-    try {
-      const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
-      return Array.isArray(data) ? data : [];
-    } catch (_err) {
-      return [];
-    }
+  /** Invalidate in-memory matches cache for a config or all configs */
+  invalidateMatchesCache(configId?: number): void {
+    invalidateMatchesCache(configId);
   },
 
-  /** Strict analytics read; getMatchesByConfigId intentionally hides errors for legacy callers. */
-  async getMatchesByConfigIdForAnalytics(configId: number): Promise<any[]> {
-    const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
-    return Array.isArray(data) ? data : [];
+  /** GET /api/tournament/{configId}/matches - Fetch all matches for a config with in-flight deduplication and short TTL caching */
+  async getMatchesByConfigId(configId: number, forceRefresh = false): Promise<any[]> {
+    if (!configId) return [];
+
+    // 1. Check TTL cache if not forcing refresh
+    if (!forceRefresh) {
+      const cached = matchesCache.get(configId);
+      if (cached && Date.now() - cached.timestamp < MATCHES_CACHE_TTL_MS) {
+        return [...cached.data];
+      }
+    }
+
+    // 2. In-flight request deduplication: return existing promise if already in-flight
+    const existingPromise = inFlightMatchesPromises.get(configId);
+    if (existingPromise && !forceRefresh) {
+      return existingPromise;
+    }
+
+    // 3. Dispatch HTTP request and store in-flight promise
+    const fetchPromise = (async () => {
+      try {
+        const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+        const result = Array.isArray(data) ? data : [];
+        matchesCache.set(configId, { data: result, timestamp: Date.now() });
+        return result;
+      } catch (_err) {
+        return [];
+      } finally {
+        inFlightMatchesPromises.delete(configId);
+      }
+    })();
+
+    inFlightMatchesPromises.set(configId, fetchPromise);
+    return fetchPromise;
+  },
+
+  /** Strict analytics read; shares the same deduplication and short TTL cache. */
+  async getMatchesByConfigIdForAnalytics(configId: number, forceRefresh = false): Promise<any[]> {
+    if (!configId) return [];
+
+    if (!forceRefresh) {
+      const cached = matchesCache.get(configId);
+      if (cached && Date.now() - cached.timestamp < MATCHES_CACHE_TTL_MS) {
+        return [...cached.data];
+      }
+    }
+
+    const existingPromise = inFlightMatchesPromises.get(configId);
+    if (existingPromise && !forceRefresh) {
+      return existingPromise;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+        const result = Array.isArray(data) ? data : [];
+        matchesCache.set(configId, { data: result, timestamp: Date.now() });
+        return result;
+      } finally {
+        inFlightMatchesPromises.delete(configId);
+      }
+    })();
+
+    inFlightMatchesPromises.set(configId, fetchPromise);
+    return fetchPromise;
   },
 
   /** Alias for getMatchesByConfigId */
-  async getSavedMatchesByConfigId(configId: number): Promise<any[]> {
-    return this.getMatchesByConfigId(configId);
+  async getSavedMatchesByConfigId(configId: number, forceRefresh = false): Promise<any[]> {
+    return this.getMatchesByConfigId(configId, forceRefresh);
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Update status of all matches */
   async updateMatchesStatus(configId: number, status: 'SCHEDULED' | 'DRAFT' | 'PUBLISHED'): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.put<any>(`/tournament/${configId}/matches/status`, { status });
   },
 
   /** DELETE /api/tournament/{configId}/matches - Delete all matches for a config */
   async deleteMatchesByConfigId(configId: number): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.delete<any>(`/tournament/${configId}/matches`);
   },
 
@@ -771,6 +851,7 @@ export const tournamentService = {
     config: any;
     matches: any[];
   }): Promise<{ config: ConfigInfo; savedMatches: number }> {
+    invalidateMatchesCache(payload.configId ?? undefined);
     try {
       return await apiClient.post<{ config: ConfigInfo; savedMatches: number }>(
         "/tournament/schedule/save",
@@ -803,11 +884,13 @@ export const tournamentService = {
 
   /** POST /api/tournament/match/result — basic result (scores + winner) */
   async recordResult(data: MatchResultRequestData): Promise<any> {
+    invalidateMatchesCache();
     return apiClient.post<any>("/tournament/match/result", data);
   },
 
   /** POST /api/tournament/match/result/detail — detailed result with scorecard */
   async recordDetailedResult(data: MatchResultDetailRequestData): Promise<MatchDetailData> {
+    invalidateMatchesCache();
     return apiClient.post<MatchDetailData>("/tournament/match/result/detail", data);
   },
 
@@ -818,6 +901,7 @@ export const tournamentService = {
 
   /** PUT /api/tournament/match/{matchId}/toss — save cricket toss before scoring */
   async recordMatchToss(matchId: number, data: MatchTossRequestData): Promise<MatchDetailData> {
+    invalidateMatchesCache();
     return apiClient.put<MatchDetailData>(`/tournament/match/${matchId}/toss`, data);
   },
 
