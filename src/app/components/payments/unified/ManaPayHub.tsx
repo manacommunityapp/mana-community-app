@@ -31,6 +31,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { manaPayService } from '../../../../services/payments/manaPayService';
+import { unifiedPaymentService } from '../../../../services/payments/unifiedPaymentService';
 import { ManaPayReceiptModal } from './ManaPayReceiptModal';
 import { ManaPayCheckoutModal } from './ManaPayCheckoutModal';
 import type {
@@ -124,6 +125,7 @@ export const ManaPayHub: React.FC = () => {
 
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [activeCheckoutOrder, setActiveCheckoutOrder] = useState<CreateManaPaymentIntentRequest | null>(null);
+  const [hubManaPayOrderId, setHubManaPayOrderId] = useState<number | undefined>(undefined);
 
   const loadData = async () => {
     setLoading(true);
@@ -244,6 +246,30 @@ export const ManaPayHub: React.FC = () => {
       ],
     };
     setActiveCheckoutOrder(req);
+
+    // Create a unified payment order before opening the modal so server-side verification is possible.
+    const domainToRefType: Record<string, string> = {
+      MAINTENANCE_BILL: 'MAINTENANCE_BILL',
+      EVENT_BOOKING: 'EVENT_REGISTRATION',
+      POOJA_BOOKING: 'POOJA_BOOKING',
+      SPORTS_FEE: 'SPORTS_REGISTRATION',
+      MARKETPLACE_ORDER: 'MARKETPLACE_ORDER',
+      TRIP_BOOKING: 'TRIP_SETTLEMENT',
+      MANA_HEALTH: 'HEALTH_BOOKING',
+    };
+    try {
+      const payOrder = await unifiedPaymentService.createOrder({
+        communityId: (user as any)?.communityId,
+        gateway: 'MANA_PAY',
+        referenceType: (domainToRefType[card.domain] ?? 'MANUAL') as any,
+        referenceId: 0, // hub demo flow — real screens pass the actual entity id
+        amount,
+      });
+      setHubManaPayOrderId(payOrder.id);
+    } catch {
+      setHubManaPayOrderId(undefined);
+    }
+
     setCheckoutModalOpen(true);
   };
 
@@ -644,6 +670,7 @@ export const ManaPayHub: React.FC = () => {
         <ManaPayCheckoutModal
           isOpen={checkoutModalOpen}
           onClose={() => setCheckoutModalOpen(false)}
+          paymentOrderId={hubManaPayOrderId}
           order={activeCheckoutOrder}
           onPaymentSuccess={() => {
             loadData();

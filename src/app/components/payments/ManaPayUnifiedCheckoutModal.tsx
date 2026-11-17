@@ -57,49 +57,44 @@ export function ManaPayUnifiedCheckoutModal({
   const handlePay = async () => {
     setIsProcessing(true);
     try {
-      // 1. Create canonical order through shared Mana Pay infrastructure
+      // 1. Create canonical payment intent on the backend
       const intent = await manaPayService.createPaymentIntent({
-        domain: (domainSource === 'MANA_TRIPS' ? 'TRIP_BOOKING' : domainSource === 'MY_MONEY' ? 'MAINTENANCE_BILL' : 'MAINTENANCE_BILL') as any,
+        domain: (domainSource === 'MANA_TRIPS' ? 'TRIP_BOOKING' : 'MAINTENANCE_BILL') as any,
         orderReferenceId: String(referenceId),
         title,
         totalAmount: finalPayable,
         payer: {
-          name: 'Sandeep Sharma',
-          unit: 'Flat 302',
+          name: '',
+          unit: '',
         },
-        idempotencyKey: manaPayService.generateIdempotencyKey('MAINTENANCE_BILL', String(referenceId), finalPayable),
+        idempotencyKey: manaPayService.generateIdempotencyKey(
+          domainSource === 'MANA_TRIPS' ? 'TRIP_BOOKING' : 'MAINTENANCE_BILL',
+          String(referenceId),
+          finalPayable
+        ),
       });
 
-      // 2. Perform verified confirmation
-      setTimeout(async () => {
-        const confirmed = await manaPayService.confirmPayment(
-          {
-            intentId: intent.intentId,
-            rail: selectedMethod === 'UPI' ? 'UPI_INTENT' : selectedMethod === 'NET_BANKING' ? 'GATEWAY_CARD_NETBANKING' : selectedMethod === 'WALLET' ? 'WALLET' : 'GATEWAY_CARD_NETBANKING',
-            gatewayPaymentId: `pay_${Date.now()}_verified`,
-          },
-          {
-            title,
-            amount: finalPayable,
-            orderReferenceId: String(referenceId),
-          }
-        );
+      // 2. Confirm payment — backend verifies the debit/gateway response.
+      // No setTimeout or auto-confirm: this call runs synchronously after the user
+      // explicitly clicks the Pay button. The backend is the source of truth.
+      const confirmed = await manaPayService.confirmPayment({
+        intentId: intent.intentId,
+        rail: selectedMethod === 'UPI'
+          ? 'UPI_INTENT'
+          : selectedMethod === 'NET_BANKING'
+          ? 'GATEWAY_CARD_NETBANKING'
+          : selectedMethod === 'WALLET'
+          ? 'WALLET'
+          : 'GATEWAY_CARD_NETBANKING',
+      });
 
-        setIsProcessing(false);
-        showSuccess(`Payment of ₹${finalPayable.toLocaleString("en-IN")} confirmed via Mana Pay!`);
-        onPaymentSuccess?.({
-          id: 1,
-          razorpayOrderId: intent.gatewayOrderId || 'order_mock',
-          currency: 'INR',
-          amount: finalPayable,
-          status: 'PAID',
-          paymentMethod: selectedMethod,
-        } as any);
-        onClose();
-      }, 1000);
+      showSuccess(`Payment of ₹${finalPayable.toLocaleString("en-IN")} confirmed via Mana Pay!`);
+      onPaymentSuccess?.(confirmed as any);
+      onClose();
     } catch (err: any) {
+      showError(err?.message || "Payment authorization failed");
+    } finally {
       setIsProcessing(false);
-      showError(err.message || "Payment authorization failed");
     }
   };
 
