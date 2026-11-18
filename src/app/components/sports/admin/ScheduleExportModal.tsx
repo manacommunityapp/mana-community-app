@@ -17,6 +17,8 @@ import {
   exportScheduleToCSV,
   exportScheduleToExcel,
   exportScheduleToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
 } from '../../../../utils/sportsExportUtils';
 import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
 import { isPlaceholderOrTbd } from '../../../../utils/sportsValidationUtils';
@@ -36,6 +38,7 @@ export interface StageOption {
   key: TournamentStageKey;
   label: string;
   count: number;
+  byes?: number;
 }
 
 /** Determines which tournament stage a match belongs to. */
@@ -150,8 +153,27 @@ export function getMatchStage(m: any): TournamentStageKey {
 
 /** Extracts date and 12-hour AM/PM time from match object. */
 export function extractDateTime(m: any): { date: string; time: string } {
+  const isBye =
+    String(m?.status || '').toUpperCase() === 'AUTO_ADVANCED' ||
+    String(m?.status || '').toUpperCase() === 'BYE' ||
+    String(m?.home?.id || '').toLowerCase() === 'bye' ||
+    String(m?.away?.id || '').toLowerCase() === 'bye' ||
+    String(m?.team1 || m?.homeName || '').trim().toUpperCase() === 'BYE' ||
+    String(m?.team2 || m?.awayName || '').trim().toUpperCase() === 'BYE';
+
+  if (isBye) {
+    return { date: '', time: '' };
+  }
+
   let date = m.date || m.matchDate || '';
   let time = m.time || m.matchTime || m.scheduledTime || m.startTime || '';
+
+  // If date contains 'T', split clean date and extract time if time is empty
+  if (typeof date === 'string' && date.includes('T')) {
+    const [datePart, rawTime] = date.trim().split('T');
+    date = datePart || '';
+    if (!time && rawTime) time = rawTime;
+  }
 
   // Some saved match payloads store the date and time together in a time field.
   if (typeof time === 'string' && time.includes('T')) {
@@ -248,6 +270,7 @@ export function extractTeamNames(m: any): { team1: string; team2: string } {
 
 /** Extracts venue and court string. */
 export function extractVenueCourt(m: any): string {
+  if (isByeMatch(m)) return '—';
   const venue = m.venueName || m.venue || '';
   const court = m.courtName || m.courtId || '';
   if (venue && court) {
@@ -302,28 +325,28 @@ export function prepareExportableMatches(
         return stage === stageFilter;
       });
 
-  const maxSavedMatchNumber = filtered.reduce((max, match) => {
-    const number = Number(match.matchNumber);
-    return Number.isFinite(number) && number > max ? number : max;
-  }, 0);
   const ordered = filtered
     .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
     .sort((a, b) => {
       const hasNumberA = Number.isFinite(a.number) && a.number > 0;
       const hasNumberB = Number.isFinite(b.number) && b.number > 0;
+      if (hasNumberA && hasNumberB && a.number !== b.number) return a.number - b.number;
+
+      const slotA = Number(a.match.bracketSlot ?? a.match.slotIndex ?? -1);
+      const slotB = Number(b.match.bracketSlot ?? b.match.slotIndex ?? -1);
+      if (slotA >= 0 && slotB >= 0 && slotA !== slotB) return slotA - slotB;
+
       if (hasNumberA !== hasNumberB) return hasNumberA ? -1 : 1;
-      const numberA = hasNumberA ? a.number : a.index;
-      const numberB = hasNumberB ? b.number : b.index;
-      return numberA - numberB || a.index - b.index;
+      return a.index - b.index;
     });
 
-  let nextFallbackMatchNumber = maxSavedMatchNumber;
-  return ordered.map(({ match: m }) => {
+  return ordered.map(({ match: m }, idx) => {
     const { team1, team2 } = extractTeamNames(m);
     const { team1Flat, team2Flat } = extractFlatDetails(m);
     const { date, time } = extractDateTime(m);
     const venueCourt = extractVenueCourt(m);
     const stageKey = getMatchStage(m);
+    const isBye = isByeMatch(m);
 
     const stageLabel =
       stageKey === 'GROUP' ? (m.groupName || 'Group Stage') :
@@ -337,7 +360,7 @@ export function prepareExportableMatches(
 
     const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
     const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
-    const score = s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—';
+    const score = isBye ? '—' : (s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—');
 
     const detectedSport =
       m.sport ||
@@ -351,27 +374,28 @@ export function prepareExportableMatches(
       'Tournament';
 
     return {
-      matchNumber: Number(m.matchNumber) > 0 ? Number(m.matchNumber) : ++nextFallbackMatchNumber,
+      matchNumber: idx + 1,
       round: stageLabel,
       roundName: stageLabel,
       stage: stageLabel,
       sport: detectedSport,
       sportName: detectedSport,
-      date,
-      time,
-      venue: venueCourt,
-      courtName: venueCourt,
+      date: isBye ? '' : date,
+      time: isBye ? '' : time,
+      venue: isBye ? '—' : venueCourt,
+      courtName: isBye ? '—' : venueCourt,
       team1,
       team2,
-      team1Flat,
-      team2Flat,
-      homeFlat: team1Flat,
-      awayFlat: team2Flat,
-      home: { name: team1, flatNumber: team1Flat },
-      away: { name: team2, flatNumber: team2Flat },
+      team1Flat: isBye && team1 === 'BYE' ? '—' : team1Flat,
+      team2Flat: isBye && team2 === 'BYE' ? '—' : team2Flat,
+      homeFlat: isBye && team1 === 'BYE' ? '—' : team1Flat,
+      awayFlat: isBye && team2 === 'BYE' ? '—' : team2Flat,
+      home: { name: team1, flatNumber: isBye && team1 === 'BYE' ? '—' : team1Flat },
+      away: { name: team2, flatNumber: isBye && team2 === 'BYE' ? '—' : team2Flat },
       score,
-      status: m.status || 'SCHEDULED',
-      winnerName: m.winnerName || m.winner || '—',
+      status: isBye ? 'AUTO_ADVANCED' : (m.status || 'SCHEDULED'),
+      winnerName: isBye ? (team1 === 'BYE' ? team2 : team1) : (m.winnerName || m.winner || '—'),
+      isBye,
     };
   });
 }
@@ -383,6 +407,7 @@ export interface ScheduleExportModalProps {
   matches: any[];
   defaultStage?: TournamentStageKey;
   sportName?: string;
+  isTeamEvent?: boolean;
 }
 
 export function ScheduleExportModal({
@@ -392,17 +417,30 @@ export function ScheduleExportModal({
   matches,
   defaultStage = 'ALL',
   sportName,
+  isTeamEvent,
 }: ScheduleExportModalProps) {
   const [selectedStage, setSelectedStage] = useState<TournamentStageKey>(defaultStage);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [isExporting, setIsExporting] = useState(false);
 
   const resolvedSport = sportName || detectSportName(tournamentName);
+  const isTeam = isTeamBasedSchedule(matches, tournamentName, isTeamEvent);
 
-  // Group matches by stage
+  // Group matches by stage and count playable vs byes
   const stageStats = useMemo(() => {
     const counts: Record<TournamentStageKey, number> = {
-      ALL: matches.length,
+      ALL: 0,
+      GROUP: 0,
+      ROUND_OF_64: 0,
+      ROUND_OF_32: 0,
+      ROUND_OF_16: 0,
+      QUARTER_FINAL: 0,
+      SEMI_FINAL: 0,
+      FINAL: 0,
+      THIRD_PLACE: 0,
+    };
+    const byeCounts: Record<TournamentStageKey, number> = {
+      ALL: 0,
       GROUP: 0,
       ROUND_OF_64: 0,
       ROUND_OF_32: 0,
@@ -413,22 +451,38 @@ export function ScheduleExportModal({
       THIRD_PLACE: 0,
     };
 
-    matches.forEach(m => {
+    const validMatches = matches.filter(m => {
+      if (String(m?.status || '').toUpperCase() === 'PENDING_SLOT') return false;
+      const { team1, team2 } = extractTeamNames(m);
+      const homeBye = (team1 || '').trim().toUpperCase() === 'BYE'
+        || String(m?.home?.id || '').toLowerCase() === 'bye';
+      const awayBye = (team2 || '').trim().toUpperCase() === 'BYE'
+        || String(m?.away?.id || '').toLowerCase() === 'bye';
+      return !((homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1)));
+    });
+
+    validMatches.forEach(m => {
       const stage = getMatchStage(m);
       counts[stage] = (counts[stage] || 0) + 1;
+      counts.ALL++;
+      if (isByeMatch(m)) {
+        byeCounts[stage] = (byeCounts[stage] || 0) + 1;
+        byeCounts.ALL++;
+      }
     });
 
     const finalsCount = counts.FINAL + counts.THIRD_PLACE;
+    const finalsByes = byeCounts.FINAL + byeCounts.THIRD_PLACE;
 
     const list: StageOption[] = [
-      { key: 'ALL', label: 'All Stages', count: counts.ALL },
-      { key: 'GROUP', label: 'Group Stages', count: counts.GROUP },
-      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64 }] : []),
-      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32 }] : []),
-      ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16 }] : []),
-      { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL },
-      { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL },
-      { key: 'FINAL', label: 'Finals', count: finalsCount },
+      { key: 'ALL', label: 'All Stages', count: counts.ALL, byes: byeCounts.ALL },
+      { key: 'GROUP', label: 'Group Stages', count: counts.GROUP, byes: byeCounts.GROUP },
+      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64, byes: byeCounts.ROUND_OF_64 }] : []),
+      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32, byes: byeCounts.ROUND_OF_32 }] : []),
+      ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16, byes: byeCounts.ROUND_OF_16 }] : []),
+      { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL, byes: byeCounts.QUARTER_FINAL },
+      { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL, byes: byeCounts.SEMI_FINAL },
+      { key: 'FINAL', label: 'Finals', count: finalsCount, byes: finalsByes },
     ];
 
     return list;
@@ -437,6 +491,8 @@ export function ScheduleExportModal({
   if (!isOpen) return null;
 
   const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport);
+  const currentPlayableCount = currentStageMatches.filter(m => !m.isBye).length;
+  const currentByesCount = currentStageMatches.filter(m => m.isBye).length;
 
   const getStageFileName = (stageKey: TournamentStageKey): string => {
     const base = tournamentName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -461,14 +517,16 @@ export function ScheduleExportModal({
 
     const fileName = getStageFileName(selectedStage);
     if (exportFormat === 'csv') {
-      exportScheduleToCSV(currentStageMatches, fileName);
+      exportScheduleToCSV(currentStageMatches, fileName, isTeam);
     } else if (exportFormat === 'excel') {
-      exportScheduleToExcel(currentStageMatches, fileName);
+      exportScheduleToExcel(currentStageMatches, fileName, isTeam);
     } else {
-      exportScheduleToPDF(currentStageMatches, fileName);
+      exportScheduleToPDF(currentStageMatches, fileName, 'Community Sports', isTeam);
     }
 
-    showSuccess(`Exported ${currentStageMatches.length} matches (${exportFormat.toUpperCase()})`);
+    showSuccess(
+      `Exported ${currentPlayableCount} match${currentPlayableCount !== 1 ? 'es' : ''}${currentByesCount > 0 ? ` (+${currentByesCount} byes)` : ''} (${exportFormat.toUpperCase()})`
+    );
     onClose();
   };
 
@@ -491,11 +549,11 @@ export function ScheduleExportModal({
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {
-            exportScheduleToCSV(stageList, fileName);
+            exportScheduleToCSV(stageList, fileName, isTeam);
           } else if (exportFormat === 'excel') {
-            exportScheduleToExcel(stageList, fileName);
+            exportScheduleToExcel(stageList, fileName, isTeam);
           } else {
-            exportScheduleToPDF(stageList, fileName);
+            exportScheduleToPDF(stageList, fileName, 'Community Sports', isTeam);
           }
           exportedCount++;
           // Small delay to allow sequential browser downloads without getting blocked
@@ -540,13 +598,18 @@ export function ScheduleExportModal({
                 Select Stage to Export:
               </span>
               <span className="text-[11px] font-normal text-slate-500">
-                {currentStageMatches.length} match{currentStageMatches.length !== 1 ? 'es' : ''}
+                {currentPlayableCount} match{currentPlayableCount !== 1 ? 'es' : ''}
+                {currentByesCount > 0 && (
+                  <span className="text-amber-600 font-medium"> (+{currentByesCount} {currentByesCount === 1 ? 'bye' : 'byes'})</span>
+                )}
               </span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {stageStats.map(s => {
                 const isSelected = selectedStage === s.key;
                 const isDisabled = s.count === 0 && s.key !== 'ALL';
+                const playable = s.count - (s.byes || 0);
+                const hasByes = Boolean(s.byes && s.byes > 0);
                 return (
                   <button
                     key={s.key}
@@ -563,7 +626,10 @@ export function ScheduleExportModal({
                   >
                     <span className="text-xs font-semibold">{s.label}</span>
                     <span className={`text-[10px] mt-1 font-mono ${isDisabled ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {s.count} match{s.count !== 1 ? 'es' : ''}
+                      {playable} match{playable !== 1 ? 'es' : ''}
+                      {hasByes && (
+                        <span className="text-amber-600 font-medium"> (+{s.byes} {s.byes === 1 ? 'bye' : 'byes'})</span>
+                      )}
                     </span>
                   </button>
                 );

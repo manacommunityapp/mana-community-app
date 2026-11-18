@@ -34,7 +34,10 @@ import {
   exportUmpireScorecardsPDF,
   exportBracketToPDF,
   exportListViewToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
 } from '../../../utils/sportsExportUtils';
+import { isTeamSport } from '../sports/utils/sportsConstants';
 import type { ExportableMatch } from '../../../utils/sportsExportUtils';
 import {
   applyPlayoffOverrides,
@@ -332,6 +335,7 @@ export function computePlayoffRoundMatches(
     roundDates,
     roundTimes,
     roundDurations,
+    roundModes = {},
     globalDuration,
     breakMins,
     breaks = [],
@@ -359,6 +363,7 @@ export function computePlayoffRoundMatches(
     .sort()[0];
   const scheduledEndByMatch = new Map<string, number>();
   const courtAvailableAt = new Map<string, number>();
+  const roundSeqAvailableAt = new Map<string, number>();
   const scheduledTimes = new Map<string, { date: string; time: string }>();
   const dayMs = 24 * 60 * 60 * 1000;
 
@@ -418,12 +423,17 @@ export function computePlayoffRoundMatches(
       ? `${m.venueId ?? ''}:${m.courtId}`
       : `unassigned:${numCourts > 1 ? index % numCourts : 0}`;
     const courtReadyAt = courtAvailableAt.get(courtKey) ?? roundStart;
-    const candidate = Math.max(roundStart, feederReadyAt, courtReadyAt);
+    const mode = roundModes[m.round] || 'sequential';
+    const roundSeqReady = mode === 'sequential' ? (roundSeqAvailableAt.get(m.round) ?? roundStart) : roundStart;
+    const candidate = Math.max(roundStart, feederReadyAt, courtReadyAt, roundSeqReady);
     const start = placeAfterBreaks(candidate, duration);
     const scheduled = formatAbsoluteMinute(start);
     scheduledTimes.set(m.id, scheduled);
     scheduledEndByMatch.set(m.id, start + duration);
     courtAvailableAt.set(courtKey, start + duration + breakMins);
+    if (mode === 'sequential') {
+      roundSeqAvailableAt.set(m.round, start + duration + breakMins);
+    }
   });
 
   return matches.map(m => {
@@ -2651,6 +2661,8 @@ export function SetupSchedule({
 
     if (!eventId) return allMatches;
 
+    let matchCounter = 1;
+
     // Collect group stage or round robin matches
     if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
@@ -2666,7 +2678,7 @@ export function SetupSchedule({
             round: isRoundRobin ? 'LEAGUE_MATCH' : 'GROUP_STAGE',
             roundNumber: 1,
             bracketSlot: mIdx,
-            matchNumber: mIdx + 1,
+            matchNumber: matchCounter++,
             homeName: match.home.name,
             homeId: match.home.id,
             homeFlat,
@@ -2716,7 +2728,7 @@ export function SetupSchedule({
           round: match.round || (isGroupKnockout ? 'SEMI_FINAL' : ((match.roundIndex ?? 0) === 0 ? 'ROUND_OF_16' : 'QUARTER_FINAL')),
           roundNumber: (match.roundIndex !== undefined ? match.roundIndex + 1 : 1),
           bracketSlot: idx,
-          matchNumber: idx + 1,
+          matchNumber: matchCounter++,
           homeName,
           homeId,
           homeFlat,
@@ -2725,7 +2737,7 @@ export function SetupSchedule({
           awayId,
           awayFlat,
           teamBFlat: awayFlat,
-          matchDate: match.date,
+          matchDate: isByeMatch ? '' : match.date,
           matchTime: isByeMatch ? '' : to24HourTime(match.time),
           duration: match.duration,
           venueId: isByeMatch ? null : match.venueId,
@@ -3251,23 +3263,30 @@ export function SetupSchedule({
     const list = collectExportableMatches();
     if (list.length === 0) { showWarning('No matches to export'); return; }
     const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToCSV(list, `${ev?.name || 'Tournament'}_Schedule`);
-    showSuccess(`Schedule exported as CSV (${list.length} matches)`);
+    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
+    exportScheduleToCSV(list, `${ev?.name || 'Tournament'}_Schedule`, isTeam);
+    const playable = list.filter(m => !isByeMatch(m)).length;
+    const byes = list.length - playable;
+    showSuccess(`Schedule exported as CSV (${playable} matches${byes > 0 ? ` + ${byes} byes` : ''})`);
   };
 
   const handleExportExcel = () => {
     const list = collectExportableMatches();
     if (list.length === 0) { showWarning('No matches to export'); return; }
     const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToExcel(list, `${ev?.name || 'Tournament'}_Schedule`);
-    showSuccess(`Schedule exported as Excel (${list.length} matches)`);
+    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
+    exportScheduleToExcel(list, `${ev?.name || 'Tournament'}_Schedule`, isTeam);
+    const playable = list.filter(m => !isByeMatch(m)).length;
+    const byes = list.length - playable;
+    showSuccess(`Schedule exported as Excel (${playable} matches${byes > 0 ? ` + ${byes} byes` : ''})`);
   };
 
   const handleExportPDF = () => {
     const list = collectExportableMatches();
     if (list.length === 0) { showWarning('No matches to export'); return; }
     const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToPDF(list, `${ev?.name || 'Tournament'} Schedule`);
+    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
+    exportScheduleToPDF(list, `${ev?.name || 'Tournament'} Schedule`, 'Community Sports', isTeam);
   };
 
   const handleExportScorecards = () => {
@@ -6656,6 +6675,7 @@ export function SetupSchedule({
           tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
           matches={collectExportableMatches()}
           sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
+          isTeamEvent={isTeamSport(events.find(e => e.id.toString() === selectedEvent)?.sportName || '')}
         />
       )}
     </div>

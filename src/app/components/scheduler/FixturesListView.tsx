@@ -26,20 +26,33 @@ export interface FixturesListViewProps {
   onEditMatch: (fixture: FixtureTableRow) => void;
   onExportPDF?: () => void;
   sportName?: string;
+  isTeamEvent?: boolean;
 }
 
 const DEFAULT_AVATAR =
   'https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media';
 
 function formatDateSafely(dateStr: string): string {
+  if (!dateStr) return '—';
   try {
-    const parts = dateStr.split('-');
+    let clean = String(dateStr).trim();
+    if (clean.includes('T')) {
+      clean = clean.split('T')[0];
+    }
+    const parts = clean.split('-');
     if (parts.length === 3) {
-      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      return format(d, 'dd MMM yyyy (EEE)');
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const dt = new Date(y, m, d);
+        if (!isNaN(dt.getTime())) {
+          return format(dt, 'dd MMM yyyy (EEE)');
+        }
+      }
     }
     const parsed = parseISO(dateStr);
-    return isNaN(parsed.getTime()) ? dateStr : format(parsed, 'dd MMM yyyy (EEE)');
+    return isNaN(parsed.getTime()) ? clean : format(parsed, 'dd MMM yyyy (EEE)');
   } catch {
     return dateStr;
   }
@@ -601,6 +614,16 @@ export function FixturesListView({
       {groupedByStage.map(([stageName, stageMatches]) => {
         const theme = getRoundTheme(stageName);
         const stageDates = Array.from(new Set(stageMatches.map(m => m.date).filter(Boolean)));
+        const stagePlayable = stageMatches.filter(m => {
+          const isBye =
+            m.home?.id === 'bye' ||
+            m.away?.id === 'bye' ||
+            m.home?.name?.trim().toUpperCase() === 'BYE' ||
+            m.away?.name?.trim().toUpperCase() === 'BYE' ||
+            (m.rawMatch as any)?.status === 'AUTO_ADVANCED';
+          return !isBye;
+        });
+        const stageByes = stageMatches.length - stagePlayable.length;
 
         return (
           <div key={stageName} className="flex flex-col gap-3">
@@ -614,7 +637,8 @@ export function FixturesListView({
                       {stageName}
                     </h3>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${theme.badgeBg} ${theme.badgeText} ${theme.badgeBorder}`}>
-                      {stageMatches.length} {stageMatches.length === 1 ? 'Match' : 'Matches'}
+                      {stagePlayable.length} {stagePlayable.length === 1 ? 'Match' : 'Matches'}
+                      {stageByes > 0 && <span className="opacity-80 font-medium"> · {stageByes} Auto-Advanced</span>}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -677,7 +701,9 @@ export function FixturesListView({
                         <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-slate-400" />
-                            <span className="font-semibold text-slate-700">{formatDateSafely(m.date)}</span>
+                            <span className="font-semibold text-slate-700">
+                              {isBye ? <span className="text-slate-400 italic">Auto-Advanced</span> : formatDateSafely(m.date)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-right truncate max-w-[50%]" title={isBye ? 'No court required (BYE)' : courtDisplay}>
                             <MapPin className="w-3 h-3 text-indigo-500 shrink-0" />
