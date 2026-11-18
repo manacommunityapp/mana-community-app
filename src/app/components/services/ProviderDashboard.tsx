@@ -49,9 +49,30 @@ import type {
   CreateOfferingRequest,
   CspWorkOrderStatus,
 } from "../../../types/api";
+import { InteriorDesignerLeads } from "./InteriorDesignerLeads";
+import { InteriorWorkOrderWorkspace } from "./InteriorWorkOrderWorkspace";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+function portfolioText(value?: string | null): string {
+  if (!value) return "";
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.flatMap((item) => item && typeof item === "object" && typeof (item as { imageUrl?: unknown }).imageUrl === "string"
+        ? [(item as { imageUrl: string }).imageUrl]
+        : []).join("\n");
+    }
+  } catch {
+    return value;
+  }
+  return "";
+}
+
+function portfolioJson(value?: string): string {
+  return JSON.stringify((value ?? "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean).slice(0, 12).map((imageUrl) => ({ title: "Interior project", imageUrl })));
 }
 
 const VERIFICATION_STYLES: Record<string, string> = {
@@ -119,6 +140,9 @@ export function ProviderDashboard() {
         <TabsTrigger value="requests" className="gap-1.5">
           <ClipboardList className="w-4 h-4" /> Assigned Requests
         </TabsTrigger>
+      <TabsTrigger value="interior-leads" className="gap-1.5">
+        <ClipboardList className="w-4 h-4" /> Interior Leads
+      </TabsTrigger>
         <TabsTrigger value="work-orders" className="gap-1.5">
           <Hammer className="w-4 h-4" /> Work Orders
         </TabsTrigger>
@@ -132,6 +156,9 @@ export function ProviderDashboard() {
       </TabsContent>
       <TabsContent value="requests">
         <AssignedRequestsTab />
+      </TabsContent>
+      <TabsContent value="interior-leads">
+        <InteriorDesignerLeads />
       </TabsContent>
       <TabsContent value="work-orders">
         <WorkOrdersTab />
@@ -151,6 +178,7 @@ function RegistrationCard({ onRegistered }: { onRegistered: (p: ServiceProviderR
     email: "",
     bio: "",
     serviceAreas: "",
+    portfolio: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -161,7 +189,7 @@ function RegistrationCard({ onRegistered }: { onRegistered: (p: ServiceProviderR
     }
     setSubmitting(true);
     try {
-      const result = await serviceProviderService.register(form);
+      const result = await serviceProviderService.register({ ...form, portfolio: portfolioJson(form.portfolio) });
       toast.success("Registered as a service provider!");
       setOpen(false);
       onRegistered(result);
@@ -224,6 +252,10 @@ function RegistrationCard({ onRegistered }: { onRegistered: (p: ServiceProviderR
               <Input placeholder="e.g. Block A, Block B" value={form.serviceAreas ?? ""} onChange={(e) => setForm({ ...form, serviceAreas: e.target.value })} />
             </div>
             <div className="space-y-1">
+              <Label>Portfolio image URLs</Label>
+              <Textarea rows={3} placeholder="Add one public image URL per line" value={form.portfolio ?? ""} onChange={(e) => setForm({ ...form, portfolio: e.target.value })} />
+            </div>
+            <div className="space-y-1">
               <Label>Certifications (optional)</Label>
               <Input value={form.certifications ?? ""} onChange={(e) => setForm({ ...form, certifications: e.target.value })} />
             </div>
@@ -258,6 +290,7 @@ function ProfileTab({
     bio: provider.bio ?? undefined,
     serviceAreas: provider.serviceAreas ?? undefined,
     certifications: provider.certifications ?? undefined,
+    portfolio: portfolioText(provider.portfolio),
     profileImageUrl: provider.profileImageUrl ?? undefined,
   });
   const [saving, setSaving] = useState(false);
@@ -273,6 +306,7 @@ function ProfileTab({
         bio: form.bio,
         serviceAreas: form.serviceAreas,
         certifications: form.certifications,
+        portfolio: portfolioJson(form.portfolio),
         profileImageUrl: form.profileImageUrl,
       };
       const updated = await serviceProviderService.updateMyProfile(updateData);
@@ -335,6 +369,11 @@ function ProfileTab({
             <Input value={form.serviceAreas ?? ""} onChange={(e) => setForm({ ...form, serviceAreas: e.target.value })} />
           </div>
           <div className="space-y-1">
+            <Label>Portfolio image URLs</Label>
+            <Textarea rows={4} placeholder="Add one public image URL per line" value={form.portfolio ?? ""} onChange={(e) => setForm({ ...form, portfolio: e.target.value })} />
+            <p className="text-xs text-slate-500">Use images you have permission to share. Up to 12 public image links.</p>
+          </div>
+          <div className="space-y-1">
             <Label>Certifications</Label>
             <Input value={form.certifications ?? ""} onChange={(e) => setForm({ ...form, certifications: e.target.value })} />
           </div>
@@ -375,6 +414,12 @@ function ProfileTab({
             <div>
               <span className="text-xs text-slate-500">Certifications</span>
               <p className="text-slate-700 dark:text-slate-300">{provider.certifications}</p>
+            </div>
+          )}
+          {portfolioText(provider.portfolio) && (
+            <div className="col-span-2">
+              <span className="text-xs text-slate-500">Portfolio</span>
+              <p className="text-slate-700 dark:text-slate-300">{portfolioText(provider.portfolio).split("\n").length} project images</p>
             </div>
           )}
         </div>
@@ -803,6 +848,7 @@ function WorkOrdersTab() {
                 </Button>
               )}
             </div>
+            <InteriorWorkOrderWorkspace workOrder={wo} onSaved={() => { void load(); }} />
           </div>
         );
       })}
