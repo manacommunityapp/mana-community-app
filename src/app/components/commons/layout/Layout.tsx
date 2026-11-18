@@ -423,8 +423,12 @@ export function Layout() {
     "Community Calendar": "CALENDAR",
     "Vehicle Care": "HOME_SERVICES",
     "Property OS (CPOS)": "CPOS",
-    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Food & Dining": "FOOD_OS",
+    "Fresh Kitchen": "FOOD_OS",
+    "Daily Basket": "FOOD_OS",
+    "Wellness Nutrition": ["FOOD_OS", "HEALTH"],
+    "Kitty & Social Circles": "KITTY_PARTY",
+    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Fixed Deposits": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Digital Gold": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Mutual Funds": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
@@ -554,11 +558,11 @@ export function Layout() {
   };
 
   /**
-   * Hybrid visibility check — three-tier logic:
-   * 1. If the link has a menuKey AND user.menuPermissions[] is populated (backend-driven):
-   *    → use hasMenuPermission(menuKey, "view") — fully dynamic, no code changes needed for new items
-   * 2. Else fall back to the legacy label-based module + permission check (old behaviour)
-   * 3. SuperAdmin always sees everything
+   * Hybrid visibility check:
+   * 1. SuperAdmin always sees everything
+   * 2. Community module gate: If the module is disabled for this community, hide the link regardless of role
+   * 3. Dynamic menuPermissions from backend (populated after /users/me)
+   * 4. Legacy hardcoded permission check (fallback)
    */
   const isLinkVisible = (label: string, menuKey?: string) => {
     if (loadingPermissions) return true;
@@ -566,20 +570,18 @@ export function Layout() {
     // SuperAdmin bypass
     if (isSuperAdmin) return true;
 
+    // Community module gate: If the community has this module disabled, nobody (except SuperAdmin) should see it
+    const moduleConfig = labelToModule[label];
+    if (moduleConfig && !isModuleEnabled(moduleConfig)) {
+      return false;
+    }
+
     // Tier 1: dynamic menuPermissions from backend (populated after /users/me)
     if (menuKey && user?.menuPermissions && user.menuPermissions.length > 0) {
       return hasMenuPermission(menuKey, "view");
     }
 
-    // Tier 2: legacy module-enablement check
-    const moduleConfig = labelToModule[label];
-    if (moduleConfig) {
-      if (!isModuleEnabled(moduleConfig)) {
-        return false;
-      }
-    }
-
-    // Tier 3: legacy hardcoded permission check (fallback)
+    // Tier 2: legacy hardcoded permission check (fallback)
     if (label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
     if (label === "Mana Pay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || permissions.includes(VIEW_ADMIN) || isAnyAdmin;
@@ -618,10 +620,11 @@ export function Layout() {
     if (label === "Vehicle Care") return true;
     if (label === "Property OS (CPOS)") return true;
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
-    if (label === "Food & Dining") return true;
-    if (label === "Fresh Kitchen") return true;
-    if (label === "Daily Basket") return true;
-    if (label === "Wellness Nutrition") return true;
+    if (label === "Food & Dining") return isModuleEnabled("FOOD_OS");
+    if (label === "Fresh Kitchen") return isModuleEnabled("FOOD_OS");
+    if (label === "Daily Basket") return isModuleEnabled("FOOD_OS");
+    if (label === "Wellness Nutrition") return isModuleEnabled(["FOOD_OS", "HEALTH"]);
+    if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
     if (label === "Mutual Funds") return true;

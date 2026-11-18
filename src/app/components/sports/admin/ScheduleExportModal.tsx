@@ -306,7 +306,8 @@ export function detectSportName(text?: string | null): string | undefined {
 export function prepareExportableMatches(
   matches: any[],
   stageFilter: TournamentStageKey = 'ALL',
-  defaultSportName?: string
+  defaultSportName?: string,
+  includeAutoAdvanced = true
 ): any[] {
   const scheduleMatches = matches.filter(m => {
     if (String(m?.status || '').toUpperCase() === 'PENDING_SLOT') return false;
@@ -317,13 +318,14 @@ export function prepareExportableMatches(
       || String(m?.away?.id || '').toLowerCase() === 'bye';
     return !((homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1)));
   });
-  const filtered = stageFilter === 'ALL'
+  const stageMatches = stageFilter === 'ALL'
     ? scheduleMatches
     : scheduleMatches.filter(m => {
         const stage = getMatchStage(m);
         if (stageFilter === 'FINAL') return stage === 'FINAL' || stage === 'THIRD_PLACE';
         return stage === stageFilter;
       });
+  const filtered = includeAutoAdvanced ? stageMatches : stageMatches.filter(m => !isByeMatch(m));
 
   const ordered = filtered
     .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
@@ -406,6 +408,7 @@ export interface ScheduleExportModalProps {
   tournamentName: string;
   matches: any[];
   defaultStage?: TournamentStageKey;
+  defaultFormat?: 'csv' | 'excel' | 'pdf';
   sportName?: string;
   isTeamEvent?: boolean;
 }
@@ -416,12 +419,14 @@ export function ScheduleExportModal({
   tournamentName,
   matches,
   defaultStage = 'ALL',
+  defaultFormat = 'csv',
   sportName,
   isTeamEvent,
 }: ScheduleExportModalProps) {
   const [selectedStage, setSelectedStage] = useState<TournamentStageKey>(defaultStage);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>(defaultFormat);
   const [isExporting, setIsExporting] = useState(false);
+  const [includeAutoAdvanced, setIncludeAutoAdvanced] = useState(false);
 
   const resolvedSport = sportName || detectSportName(tournamentName);
   const isTeam = isTeamBasedSchedule(matches, tournamentName, isTeamEvent);
@@ -490,9 +495,11 @@ export function ScheduleExportModal({
 
   if (!isOpen) return null;
 
-  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport);
+  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport, includeAutoAdvanced);
   const currentPlayableCount = currentStageMatches.filter(m => !m.isBye).length;
   const currentByesCount = currentStageMatches.filter(m => m.isBye).length;
+  const availableByesCount = prepareExportableMatches(matches, selectedStage, resolvedSport, true)
+    .filter(m => m.isBye).length;
 
   const getStageFileName = (stageKey: TournamentStageKey): string => {
     const base = tournamentName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -545,7 +552,7 @@ export function ScheduleExportModal({
     let exportedCount = 0;
     try {
       for (const stg of stagesToExport) {
-        const stageList = prepareExportableMatches(matches, stg, resolvedSport);
+        const stageList = prepareExportableMatches(matches, stg, resolvedSport, includeAutoAdvanced);
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {
@@ -636,6 +643,31 @@ export function ScheduleExportModal({
               })}
             </div>
           </div>
+
+          {/* Optional BYE / auto-advanced rows */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeAutoAdvanced}
+            onClick={() => setIncludeAutoAdvanced(value => !value)}
+            className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+              includeAutoAdvanced
+                ? 'border-amber-300 bg-amber-50/80'
+                : 'border-slate-200 bg-white hover:bg-slate-50'
+            }`}
+          >
+            <span>
+              <span className="block text-xs font-bold text-slate-800">Include BYE / Auto-Advanced matches</span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">
+                {includeAutoAdvanced
+                  ? 'These entries will be included without a scheduled date or time.'
+                  : `Omit ${availableByesCount} auto-advanced entr${availableByesCount === 1 ? 'y' : 'ies'} and renumber matches.`}
+              </span>
+            </span>
+            <span className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${includeAutoAdvanced ? 'bg-amber-500' : 'bg-slate-300'}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${includeAutoAdvanced ? 'translate-x-4' : 'translate-x-0'}`} />
+            </span>
+          </button>
 
           {/* 2. Format Selection */}
           <div>

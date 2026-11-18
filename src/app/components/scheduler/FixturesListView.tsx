@@ -27,6 +27,8 @@ export interface FixturesListViewProps {
   onExportPDF?: () => void;
   sportName?: string;
   isTeamEvent?: boolean;
+  showAutoAdvanced?: boolean;
+  onToggleAutoAdvanced?: () => void;
 }
 
 const DEFAULT_AVATAR =
@@ -375,7 +377,12 @@ export function FixturesListView({
   onEditMatch,
   onExportPDF,
   sportName = 'Match',
+  showAutoAdvanced,
+  onToggleAutoAdvanced,
 }: FixturesListViewProps) {
+  const [localShowAutoAdvanced, setLocalShowAutoAdvanced] = useState(true);
+  const shouldShowAutoAdvanced = showAutoAdvanced ?? localShowAutoAdvanced;
+  const toggleAutoAdvanced = onToggleAutoAdvanced || (() => setLocalShowAutoAdvanced(value => !value));
   const handleDownloadPDF = () => {
     if (onExportPDF) {
       onExportPDF();
@@ -393,8 +400,15 @@ export function FixturesListView({
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
 
   const displayFixtures = useMemo(
-    () => fixtures.filter(fixture => !isPlaceholderAutoAdvance(fixture)),
-    [fixtures]
+    () => fixtures
+      .filter(fixture => !isPlaceholderAutoAdvance(fixture))
+      .filter(fixture => shouldShowAutoAdvanced || !(
+        fixture.home?.id?.toLowerCase() === 'bye' || fixture.away?.id?.toLowerCase() === 'bye' ||
+        fixture.home?.name?.trim().toUpperCase() === 'BYE' || fixture.away?.name?.trim().toUpperCase() === 'BYE' ||
+        ['BYE', 'AUTO_ADVANCED'].includes(String(fixture.rawMatch?.status || '').trim().toUpperCase())
+      ))
+      .map((fixture, index) => ({ ...fixture, matchNumber: index + 1 })),
+    [fixtures, shouldShowAutoAdvanced]
   );
 
   // Distinct Stages in tournament order
@@ -498,8 +512,26 @@ export function FixturesListView({
             </button>
           </div>
 
-          {/* Layout Mode Toggle: Cards vs Rows */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={toggleAutoAdvanced}
+              aria-pressed={shouldShowAutoAdvanced}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                shouldShowAutoAdvanced
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              title={shouldShowAutoAdvanced ? 'Hide BYE and auto-advanced matches' : 'Show BYE and auto-advanced matches'}
+            >
+              <span className={`inline-flex h-4 w-7 items-center rounded-full p-0.5 transition ${shouldShowAutoAdvanced ? 'bg-amber-500' : 'bg-slate-300'}`}>
+                <span className={`h-3 w-3 rounded-full bg-white shadow transition-transform ${shouldShowAutoAdvanced ? 'translate-x-3' : 'translate-x-0'}`} />
+              </span>
+              <span>BYEs {shouldShowAutoAdvanced ? 'On' : 'Off'}</span>
+            </button>
+
+            {/* Layout Mode Toggle: Cards vs Rows */}
+            <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-600 hidden sm:inline">Layout:</span>
             <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
               <button
@@ -526,6 +558,7 @@ export function FixturesListView({
                 <List className="w-3.5 h-3.5" />
                 <span>Compact Rows</span>
               </button>
+            </div>
             </div>
           </div>
         </div>

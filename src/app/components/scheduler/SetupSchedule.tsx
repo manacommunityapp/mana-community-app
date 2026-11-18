@@ -2952,7 +2952,9 @@ export function SetupSchedule({
 
     // Playoff matches
     if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
-      const pMatches = getPlayoffMatches();
+      // Keep the complete bracket in the view model; presentation toggles filter
+      // BYEs without destroying the entries needed when the user turns them back on.
+      const pMatches = getPlayoffMatches(undefined, true);
       pMatches.forEach(m => {
         list.push({
           key: m.id,
@@ -3195,16 +3197,26 @@ export function SetupSchedule({
     return rows;
   }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft]);
 
-  const visibleFixturesTableRows = useMemo(
+  const allVisibleFixturesTableRows = useMemo(
     () => allFixturesTableRows.filter(row => !isPlaceholderBracketSlot(row.rawMatch)),
     [allFixturesTableRows]
   );
+  const visibleFixturesTableRows = useMemo(() => {
+    const rows = showByesInBracket
+      ? allVisibleFixturesTableRows
+      : allVisibleFixturesTableRows.filter(row => {
+          const match = row.rawMatch as any;
+          return !isByeParticipant(match?.home) && !isByeParticipant(match?.away) &&
+            !['AUTO_ADVANCED', 'BYE'].includes(String(match?.status || '').trim().toUpperCase());
+        });
+    return rows.map((row, index) => ({ ...row, matchNumber: index + 1 }));
+  }, [allVisibleFixturesTableRows, showByesInBracket]);
 
   const totalConflictsCount = useMemo(() => {
     return Object.values(scheduleConflicts).reduce((acc, msgs) => acc + (msgs.length > 0 ? 1 : 0), 0);
   }, [scheduleConflicts]);
 
-  const collectExportableMatches = (): ExportableMatch[] => {
+  const collectExportableMatches = (includeAutoAdvanced = showByesInBracket): ExportableMatch[] => {
     const ev = events.find(e => e.id.toString() === selectedEvent);
     const sportName = ev?.sportName || detectSportName(ev?.name) || 'Tournament';
     const list: ExportableMatch[] = [];
@@ -3287,7 +3299,10 @@ export function SetupSchedule({
       });
     }
 
-    return list;
+    const exportRows = includeAutoAdvanced
+      ? list
+      : list.filter(match => match.status !== 'AUTO_ADVANCED' && match.status !== 'BYE');
+    return exportRows.map((match, index) => ({ ...match, matchNumber: index + 1 }));
   };
 
   const handleExportCSV = () => {
@@ -5352,10 +5367,12 @@ export function SetupSchedule({
           {scheduleViewMode === 'list' && (
             <div className="mt-4">
               <FixturesListView
-                fixtures={visibleFixturesTableRows}
+                fixtures={allVisibleFixturesTableRows}
                 breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
+                showAutoAdvanced={showByesInBracket}
+                onToggleAutoAdvanced={() => setShowByesInBracket(value => !value)}
               />
             </div>
           )}
@@ -6704,7 +6721,7 @@ export function SetupSchedule({
           isOpen={showStageExportModal}
           onClose={() => setShowStageExportModal(false)}
           tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
-          matches={collectExportableMatches()}
+          matches={collectExportableMatches(true)}
           sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
           isTeamEvent={isTeamSport(events.find(e => e.id.toString() === selectedEvent)?.sportName || '')}
         />
