@@ -10,7 +10,15 @@ import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 import { getPartnerDetails } from "../sports/admin/sportsPartnerUtils";
-import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF, exportBracketToPDF } from "../../../utils/sportsExportUtils";
+import {
+  exportScheduleToCSV,
+  exportScheduleToExcel,
+  exportScheduleToPDF,
+  exportBracketToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
+} from "../../../utils/sportsExportUtils";
+import { isTeamSport } from "../sports/utils/sportsConstants";
 import {
   ScheduleExportModal,
   prepareExportableMatches,
@@ -781,9 +789,11 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
             <div className="mt-1 text-sm font-semibold text-slate-800">{value || "Not set"}</div>
           </div>
         );
+        const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
+        const isTeamEventTournament = isTeamBasedSchedule(viewMatches, viewingConfig.tournamentName || event?.name || viewingConfig.eventName, isTeamSport(resolvedSport));
+
         const handleExport = (formatType: "csv" | "excel" | "pdf", stageFilter: TournamentStageKey = "ALL") => {
           if (viewMatches.length === 0) return;
-          const resolvedSport = viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName) || "Tournament";
           const exportData = prepareExportableMatches(viewMatches, stageFilter, resolvedSport);
           if (exportData.length === 0) {
             showToast(`No matches found for stage: ${stageFilter}`, "error");
@@ -798,15 +808,28 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
             stageFilter === "SEMI_FINAL" ? "Semi_Finals" :
             stageFilter === "FINAL" ? "Finals" : stageFilter;
           const title = `${viewingConfig.tournamentName || "Tournament"}_${stageSuffix}`;
-          if (formatType === "csv") exportScheduleToCSV(exportData, title);
-          else if (formatType === "excel") exportScheduleToExcel(exportData, title);
-          else if (formatType === "pdf") exportScheduleToPDF(exportData, `${viewingConfig.tournamentName || "Tournament Schedule"} - ${stageSuffix.replace(/_/g, " ")}`);
-          showToast(`Exported ${exportData.length} ${stageSuffix.replace(/_/g, " ")} matches as ${formatType.toUpperCase()}`);
+          if (formatType === "csv") exportScheduleToCSV(exportData, title, isTeamEventTournament);
+          else if (formatType === "excel") exportScheduleToExcel(exportData, title, isTeamEventTournament);
+          else if (formatType === "pdf") exportScheduleToPDF(exportData, `${viewingConfig.tournamentName || "Tournament Schedule"} - ${stageSuffix.replace(/_/g, " ")}`, "Community Sports", isTeamEventTournament);
+          const playable = exportData.filter(m => !m.isBye).length;
+          const byes = exportData.filter(m => m.isBye).length;
+          showToast(`Exported ${playable} ${stageSuffix.replace(/_/g, " ")} match${playable !== 1 ? 'es' : ''}${byes > 0 ? ` (+${byes} byes)` : ''} as ${formatType.toUpperCase()}`);
         };
 
-        // Calculate available stages from matches
+        // Calculate available stages from matches including playable matches and byes
         const stageCounts: Record<TournamentStageKey, number> = {
-          ALL: viewMatches.length,
+          ALL: 0,
+          GROUP: 0,
+          ROUND_OF_64: 0,
+          ROUND_OF_32: 0,
+          ROUND_OF_16: 0,
+          QUARTER_FINAL: 0,
+          SEMI_FINAL: 0,
+          FINAL: 0,
+          THIRD_PLACE: 0,
+        };
+        const stageByeCounts: Record<TournamentStageKey, number> = {
+          ALL: 0,
           GROUP: 0,
           ROUND_OF_64: 0,
           ROUND_OF_32: 0,
@@ -819,18 +842,23 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
         viewMatches.forEach(m => {
           const s = getMatchStage(m);
           stageCounts[s] = (stageCounts[s] || 0) + 1;
+          stageCounts.ALL++;
+          if (isByeMatch(m)) {
+            stageByeCounts[s] = (stageByeCounts[s] || 0) + 1;
+            stageByeCounts.ALL++;
+          }
         });
 
-        const availableStages: { key: TournamentStageKey; label: string; count: number }[] = [
-          { key: "ALL", label: "Full Tournament", count: stageCounts.ALL },
-          ...(stageCounts.GROUP > 0 ? [{ key: "GROUP" as const, label: "Group Stage", count: stageCounts.GROUP }] : []),
-          ...(stageCounts.ROUND_OF_64 > 0 ? [{ key: "ROUND_OF_64" as const, label: "Round of 64", count: stageCounts.ROUND_OF_64 }] : []),
-          ...(stageCounts.ROUND_OF_32 > 0 ? [{ key: "ROUND_OF_32" as const, label: "Round of 32", count: stageCounts.ROUND_OF_32 }] : []),
-          ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: "ROUND_OF_16" as const, label: "Round of 16", count: stageCounts.ROUND_OF_16 }] : []),
-          ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: "QUARTER_FINAL" as const, label: "Quarter-Finals", count: stageCounts.QUARTER_FINAL }] : []),
-          ...(stageCounts.SEMI_FINAL > 0 ? [{ key: "SEMI_FINAL" as const, label: "Semi-Finals", count: stageCounts.SEMI_FINAL }] : []),
+        const availableStages: { key: TournamentStageKey; label: string; count: number; byes: number }[] = [
+          { key: "ALL", label: "Full Tournament", count: stageCounts.ALL, byes: stageByeCounts.ALL },
+          ...(stageCounts.GROUP > 0 ? [{ key: "GROUP" as const, label: "Group Stage", count: stageCounts.GROUP, byes: stageByeCounts.GROUP }] : []),
+          ...(stageCounts.ROUND_OF_64 > 0 ? [{ key: "ROUND_OF_64" as const, label: "Round of 64", count: stageCounts.ROUND_OF_64, byes: stageByeCounts.ROUND_OF_64 }] : []),
+          ...(stageCounts.ROUND_OF_32 > 0 ? [{ key: "ROUND_OF_32" as const, label: "Round of 32", count: stageCounts.ROUND_OF_32, byes: stageByeCounts.ROUND_OF_32 }] : []),
+          ...(stageCounts.ROUND_OF_16 > 0 ? [{ key: "ROUND_OF_16" as const, label: "Round of 16", count: stageCounts.ROUND_OF_16, byes: stageByeCounts.ROUND_OF_16 }] : []),
+          ...(stageCounts.QUARTER_FINAL > 0 ? [{ key: "QUARTER_FINAL" as const, label: "Quarter-Finals", count: stageCounts.QUARTER_FINAL, byes: stageByeCounts.QUARTER_FINAL }] : []),
+          ...(stageCounts.SEMI_FINAL > 0 ? [{ key: "SEMI_FINAL" as const, label: "Semi-Finals", count: stageCounts.SEMI_FINAL, byes: stageByeCounts.SEMI_FINAL }] : []),
           ...(stageCounts.FINAL > 0 || stageCounts.THIRD_PLACE > 0
-            ? [{ key: "FINAL" as const, label: "Finals & 3rd Place", count: stageCounts.FINAL + stageCounts.THIRD_PLACE }]
+            ? [{ key: "FINAL" as const, label: "Finals & 3rd Place", count: stageCounts.FINAL + stageCounts.THIRD_PLACE, byes: stageByeCounts.FINAL + stageByeCounts.THIRD_PLACE }]
             : []),
         ];
 
@@ -890,7 +918,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
         );
         const normalizedPlayoffMatches = sanitizePlayoffMatches(playoffMatchesForBracket, true);
         const normalizedPlayoffById = new Map(normalizedPlayoffMatches.map(match => [String(match.id), match]));
-        const displayFixturesTableRows = fixturesTableRows.flatMap(row => {
+        const rawDisplayFixturesTableRows = fixturesTableRows.flatMap(row => {
           if (!row.isPlayoff) return [row];
           const normalizedMatch = normalizedPlayoffById.get(String(row.id));
           if (!normalizedMatch || isPlaceholderBracketSlot(normalizedMatch)) return [];
@@ -909,6 +937,10 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
             rawMatch: normalizedMatch,
           }];
         });
+        const displayFixturesTableRows = rawDisplayFixturesTableRows.map((row, rIdx) => ({
+          ...row,
+          matchNumber: rIdx + 1,
+        }));
 
         const bracketRoundsForDisplay = displayPlayoffMatchesForBracket.filter(m => m.round !== 'THIRD_PLACE');
         const earliestPlayoffRound = bracketRoundsForDisplay.length > 0
@@ -1110,7 +1142,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-slate-800">{stage.label}</span>
                                     <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                                      {stage.count} match{stage.count !== 1 ? "es" : ""}
+                                      {stage.count - stage.byes} match{stage.count - stage.byes !== 1 ? "es" : ""}
+                                      {stage.byes > 0 && <span className="text-amber-600 font-medium"> (+{stage.byes} byes)</span>}
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-3 gap-1">
@@ -1215,7 +1248,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                               <FixturesListView
                                 fixtures={displayFixturesTableRows.filter(f => f.isPlayoff)}
                                 onEditMatch={() => {}}
-                                sportName={event?.sportName || "Tournament"}
+                                sportName={resolvedSport}
+                                isTeamEvent={isTeamEventTournament}
                               />
                             ) : (
                               <div className="flex min-h-[50vh] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
@@ -1237,7 +1271,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                         <FixturesListView
                           fixtures={displayFixturesTableRows}
                           onEditMatch={() => {}}
-                          sportName={event?.sportName || "Tournament"}
+                          sportName={resolvedSport}
+                          isTeamEvent={isTeamEventTournament}
                         />
                       </div>
                     )}
@@ -1251,6 +1286,8 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
                           onExportCSV={() => handleExport("csv", "ALL")}
                           onExportExcel={() => handleExport("excel", "ALL")}
                           onExportPDF={() => handleExport("pdf", "ALL")}
+                          sportName={resolvedSport}
+                          isTeamEvent={isTeamEventTournament}
                         />
                       </div>
                     )}
@@ -1339,6 +1376,7 @@ export function TournamentScheduler({ onEditSchedule }: TournamentSchedulerProps
               matches={viewMatches}
               defaultStage={stageModalDefaultStage}
               sportName={viewingConfig.sportName || event?.sportName || detectSportName(viewingConfig.tournamentName) || detectSportName(viewingConfig.eventName)}
+              isTeamEvent={isTeamEventTournament}
             />
           )}
         </>

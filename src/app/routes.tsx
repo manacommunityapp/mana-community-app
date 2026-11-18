@@ -437,6 +437,9 @@ import { MyRequests } from "./components/services/MyRequests";
 import { ProviderDashboard } from "./components/services/ProviderDashboard";
 import { AdminServices } from "./components/services/AdminServices";
 import { InstaHelp } from "./components/services/InstaHelp";
+import { InteriorsMarketplace } from "./components/services/InteriorsMarketplace";
+import { InteriorProjects } from "./components/services/InteriorProjects";
+  import { InteriorVendors } from "./components/services/InteriorVendors";
 // Home Services (Community Help) pages
 import { HomeServicesLayout } from "./components/home-services/HomeServicesLayout";
 import { HomeServicesDashboard } from "./components/home-services/HomeServicesDashboard";
@@ -892,6 +895,10 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><ServicesLayout /></PermissionGuard>,
         children: [
           { index: true, Component: ServiceBrowse },
+          { path: "interiors", Component: InteriorsMarketplace },
+            { path: "interiors/vendors", Component: InteriorVendors },
+          { path: "interiors/projects", Component: InteriorProjects },
+          { path: "interiors/projects/:id", Component: InteriorProjects },
           {
             path: "requests",
             element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,

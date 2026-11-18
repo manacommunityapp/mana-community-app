@@ -429,13 +429,74 @@ describe('reconstructKnockoutByes', () => {
     expect(result).toHaveLength(input.length);
   });
 
-  it('returns original matches untouched for non-knockout stage or group stages', () => {
-    const groupMatches = [
-      { matchId: 'g1', stage: 'GROUP', roundIndex: 0, roundType: 'ROUND_1', team1: 'A', team2: 'B' },
-      { matchId: 'g2', stage: 'GROUP', roundIndex: 0, roundType: 'ROUND_1', team1: 'C', team2: 'D' },
+  it('correctly reconstructs 13-player knockout draw where 3 players have BYEs and QF has winners', () => {
+    // 5 real R16 matches from PDF
+    const r16Matches = [
+      { id: '101', matchId: 101, matchNumber: 2, round: 'ROUND_OF_16', team1: 'Shreyansh Pola', team2: 'Gautham sai', scheduledAt: '2026-11-15T18:00:00' },
+      { id: '102', matchId: 102, matchNumber: 3, round: 'ROUND_OF_16', team1: 'Krithik', team2: 'Srikarthik K', scheduledAt: '2026-11-15T18:25:00' },
+      { id: '103', matchId: 103, matchNumber: 4, round: 'ROUND_OF_16', team1: 'Vijay L', team2: 'Rohan Kancharla', scheduledAt: '2026-11-15T18:50:00' },
+      { id: '104', matchId: 104, matchNumber: 5, round: 'ROUND_OF_16', team1: 'Shreyansh', team2: 'Abhinav', scheduledAt: '2026-11-15T19:15:00' },
+      { id: '105', matchId: 105, matchNumber: 7, round: 'ROUND_OF_16', team1: 'Shamik Gunda', team2: 'Rohith Surakasula', scheduledAt: '2026-11-15T19:40:00' },
     ];
-    const result = reconstructKnockoutByes(groupMatches, { tournamentType: 'ROUND_ROBIN' });
-    expect(result).toEqual(groupMatches);
+
+    // QF matches from PDF
+    const qfMatches = [
+      { id: '201', matchId: 201, matchNumber: 9, round: 'QUARTER_FINAL', team1: 'Veera Sushanth Reddy', team2: 'Round of 16 Match 2 (Winner)', scheduledAt: '2026-12-13T14:00:00' },
+      { id: '202', matchId: 202, matchNumber: 10, round: 'QUARTER_FINAL', team1: 'Round of 16 Match 3 (Winner)', team2: 'Round of 16 Match 4 (Winner)', scheduledAt: '2026-12-13T14:25:00' },
+      { id: '203', matchId: 203, matchNumber: 11, round: 'QUARTER_FINAL', team1: 'Prazwal Tekumoori', team2: 'Round of 16 Match 6 (Winner)', scheduledAt: '2026-12-13T14:50:00' },
+      { id: '204', matchId: 204, matchNumber: 12, round: 'QUARTER_FINAL', team1: 'CH. Shourya', team2: 'Round of 16 Match 8 (Winner)', scheduledAt: '2026-12-13T15:15:00' },
+    ];
+
+    const input = [...r16Matches, ...qfMatches];
+    const reconstructed = reconstructKnockoutByes(input, { totalTeams: 13, tournamentType: 'KNOCKOUT' });
+    const r16After = reconstructed.filter((m: any) => m.round === 'ROUND_OF_16');
+    expect(r16After).toHaveLength(8);
+
+    // Verify all 8 slots match the complete binary tree
+    expect(r16After[0].team1).toBe('Veera Sushanth Reddy');
+    expect(r16After[0].team2).toBe('BYE');
+    expect(r16After[0].status).toBe('AUTO_ADVANCED');
+
+    expect(r16After[1].team1).toBe('Shreyansh Pola');
+    expect(r16After[1].team2).toBe('Gautham sai');
+
+    expect(r16After[2].team1).toBe('Krithik');
+    expect(r16After[2].team2).toBe('Srikarthik K');
+
+    expect(r16After[3].team1).toBe('Vijay L');
+    expect(r16After[3].team2).toBe('Rohan Kancharla');
+
+    expect(r16After[4].team1).toBe('Prazwal Tekumoori');
+    expect(r16After[4].team2).toBe('BYE');
+    expect(r16After[4].status).toBe('AUTO_ADVANCED');
+
+    expect(r16After[5].team1).toBe('Shreyansh');
+    expect(r16After[5].team2).toBe('Abhinav');
+
+    expect(r16After[6].team1).toBe('CH. Shourya');
+    expect(r16After[6].team2).toBe('BYE');
+    expect(r16After[6].status).toBe('AUTO_ADVANCED');
+
+    expect(r16After[7].team1).toBe('Shamik Gunda');
+    expect(r16After[7].team2).toBe('Rohith Surakasula');
+
+    // Build draft and verify feeder match linkage
+    const draft = buildPlayoffDraftFromSavedMatches(input, { totalTeams: 13, tournamentType: 'KNOCKOUT' });
+    expect(draft.filter(m => m.round === 'ROUND_OF_16')).toHaveLength(8);
+    const draftQf = draft.filter(m => m.round === 'QUARTER_FINAL');
+    expect(draftQf).toHaveLength(4);
+
+    // QF 1: home = Veera Sushanth Reddy, away = winner of R16 slot 1
+    expect(draftQf[0].home.name).toBe('Veera Sushanth Reddy');
+    expect(draftQf[0].away.id).toContain('winner');
+
+    // QF 3: home = Prazwal Tekumoori, away = winner of R16 slot 5 (Shreyansh vs Abhinav)
+    expect(draftQf[2].home.name).toBe('Prazwal Tekumoori');
+    expect(draftQf[2].away.id).toContain('winner');
+
+    // QF 4: home = CH. Shourya, away = winner of R16 slot 7 (Shamik vs Rohith)
+    expect(draftQf[3].home.name).toBe('CH. Shourya');
+    expect(draftQf[3].away.id).toContain('winner');
   });
 });
 
