@@ -2003,6 +2003,7 @@ export interface ServiceProviderResponse {
   totalJobsCompleted: number | null;
   serviceAreas: string | null;
   certifications: string | null;
+  portfolio?: string | null;
   offerings: ServiceOfferingResponse[];
   createdAt: string;
   updatedAt: string;
@@ -2127,6 +2128,7 @@ export interface RegisterProviderRequest {
   profileImageUrl?: string;
   serviceAreas?: string;
   certifications?: string;
+  portfolio?: string;
   vendorId?: number;
 }
 
@@ -2168,4 +2170,14 @@ export interface UpdateWorkOrderStatusRequest {
   materialsUsed?: string;
   beforePhotos?: string;
   afterPhotos?: string;
+}
+
+export interface UpdateWorkOrderProgressRequest {
+  notes?: string;
+  checklistItems?: string;
+  materialsUsed?: string;
+  beforePhotos?: string;
+  afterPhotos?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
 }

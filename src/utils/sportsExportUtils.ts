@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { escapeHtml } from "./sanitize";
 import type { UniqueTournamentPlayer } from "../services/sports/tournamentPaymentService";
 import { formatFlatLabel } from "./sportsValidationUtils";
+import { isTeamSport } from "../app/components/sports/utils/sportsConstants";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -382,6 +383,8 @@ export interface ExportableMatch {
   awayTeamName?: string;
   team1Flat?: string;
   team2Flat?: string;
+  team1Phone?: string;
+  team2Phone?: string;
   homeFlat?: string;
   awayFlat?: string;
   home?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
@@ -405,20 +408,171 @@ function getExportVenueCourt(match: ExportableMatch): string {
   return venueName || (courtName ? (String(courtName).toLowerCase().startsWith("court") ? courtName : `Court ${courtName}`) : "Main Arena");
 }
 
-function sortExportMatches(matches: ExportableMatch[]): ExportableMatch[] {
-  return matches
-    .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
-    .sort((a, b) => {
-      const numberA = Number.isFinite(a.number) && a.number > 0 ? a.number : a.index + 1;
-      const numberB = Number.isFinite(b.number) && b.number > 0 ? b.number : b.index + 1;
-      return numberA - numberB || a.index - b.index;
-    })
-    .map(({ match }) => match);
+export function isByeMatch(match: any): boolean {
+  if (!match) return false;
+  const status = String(match.status || '').toUpperCase();
+  if (status === 'AUTO_ADVANCED' || status === 'BYE') return true;
+  const t1 = String(match.team1 || match.team1Name || match.homeTeamName || (typeof match.home === 'string' ? match.home : match.home?.name) || '').trim().toUpperCase();
+  const t2 = String(match.team2 || match.team2Name || match.awayTeamName || (typeof match.away === 'string' ? match.away : match.away?.name) || '').trim().toUpperCase();
+  const homeId = String(match.home?.id || match.homeId || '').toLowerCase();
+  const awayId = String(match.away?.id || match.awayId || '').toLowerCase();
+  return t1 === 'BYE' || t2 === 'BYE' || homeId === 'bye' || awayId === 'bye';
 }
 
+export function isTeamBasedSchedule(matches?: ExportableMatch[], title?: string, isTeamEventOption?: boolean): boolean {
+  if (typeof isTeamEventOption === 'boolean') return isTeamEventOption;
+  if (matches && matches.length > 0) {
+    if (matches.some(m => (m as any).isTeamEvent === true || (m as any).isTeam === true || (m as any).matchFormat === 'TEAM' || ((m as any).teamSize && (m as any).teamSize > 1))) {
+      return true;
+    }
+    if (matches.some(m => (m as any).isTeamEvent === false || (m as any).matchFormat === 'SINGLES')) {
+      return false;
+    }
+    if (matches.some(m => {
+      const t1 = m.team1 || m.team1Name || (typeof m.home === 'string' ? m.home : m.home?.name) || '';
+      const t2 = m.team2 || m.team2Name || (typeof m.away === 'string' ? m.away : m.away?.name) || '';
+      return t1.includes(' / ') || t2.includes(' / ');
+    })) {
+      return true;
+    }
+    const detectedSport = matches.find(m => m.sport || m.sportName)?.sport || matches.find(m => m.sport || m.sportName)?.sportName;
+    if (detectedSport) {
+      return isTeamSport(detectedSport);
+    }
+  }
+  if (title) {
+    const t = title.toLowerCase();
+    if (t.includes('singles')) return false;
+    if (t.includes('doubles') || t.includes('team')) return true;
+    return isTeamSport(title);
+  }
+  return false;
+}
 
-export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule") {
+export function formatExportDate(dateVal: any): string {
+  if (!dateVal || dateVal === "—") return "—";
+  try {
+    if (dateVal instanceof Date) {
+      return isNaN(dateVal.getTime()) ? "—" : format(dateVal, "dd-MMM-yyyy");
+    }
+    const s = String(dateVal).trim();
+    if (!s || s === "—") return "—";
+    const datePart = s.includes("T") ? s.split("T")[0] : s;
+    const parts = datePart.split("-");
+    if (parts.length === 3) {
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return format(new Date(y, m, d), "dd-MMM-yyyy");
+      }
+    }
+    const parsed = new Date(s);
+    return isNaN(parsed.getTime()) ? s : format(parsed, "dd-MMM-yyyy");
+  } catch {
+    return String(dateVal);
+  }
+}
+
+export function formatExportTime(timeVal: any, dateVal?: any): string {
+  if (timeVal && timeVal !== "—") {
+    let t = String(timeVal).trim();
+    if (t.includes("T")) {
+      t = t.split("T")[1] || "";
+    }
+    if (t) {
+      if (t.toUpperCase().includes("AM") || t.toUpperCase().includes("PM")) {
+        return t;
+      }
+      const match = t.match(/^(\d{1,2}):(\d{2})/);
+      if (match) {
+        const h = parseInt(match[1], 10);
+        const min = match[2];
+        const ampm = h >= 12 ? "PM" : "AM";
+        let h12 = h % 12;
+        if (h12 === 0) h12 = 12;
+        return `${String(h12).padStart(2, "0")}:${min} ${ampm}`;
+      }
+      return t;
+    }
+  }
+  if (dateVal && typeof dateVal === "string" && dateVal.includes("T")) {
+    const rawTime = dateVal.split("T")[1];
+    if (rawTime) {
+      const match = rawTime.match(/^(\d{1,2}):(\d{2})/);
+      if (match) {
+        const h = parseInt(match[1], 10);
+        const min = match[2];
+        const ampm = h >= 12 ? "PM" : "AM";
+        let h12 = h % 12;
+        if (h12 === 0) h12 = 12;
+        return `${String(h12).padStart(2, "0")}:${min} ${ampm}`;
+      }
+    }
+  }
+  return "—";
+}
+
+const STAGE_SORT_ORDER: Record<string, number> = {
+  GROUP: 10,
+  ROUND_ROBIN: 10,
+  ROUND_OF_64: 20,
+  ROUND_OF_32: 30,
+  ROUND_OF_16: 40,
+  QUARTER_FINAL: 50,
+  SEMI_FINAL: 60,
+  THIRD_PLACE: 70,
+  FINAL: 80,
+};
+
+function getExportStageOrder(m: ExportableMatch): number {
+  const stage = String(m.stage || m.round || m.roundName || '').toUpperCase().replace(/\s+/g, '_');
+  if (STAGE_SORT_ORDER[stage] !== undefined) return STAGE_SORT_ORDER[stage];
+  if (stage.includes('GROUP') || stage.includes('POOL') || stage.includes('LEAGUE')) return 10;
+  if (stage.includes('64')) return 20;
+  if (stage.includes('32')) return 30;
+  if (stage.includes('16')) return 40;
+  if (stage.includes('QUARTER') || stage.includes('QF')) return 50;
+  if (stage.includes('SEMI') || stage.includes('SF')) return 60;
+  if (stage.includes('THIRD') || stage.includes('BRONZE') || stage.includes('3RD')) return 70;
+  if (stage.includes('FINAL')) return 80;
+  return 99;
+}
+
+function sortExportMatches(matches: ExportableMatch[]): ExportableMatch[] {
+  const cloned = [...matches];
+  cloned.sort((a, b) => {
+    const stgA = getExportStageOrder(a);
+    const stgB = getExportStageOrder(b);
+    if (stgA !== stgB) return stgA - stgB;
+
+    const slotA = Number((a as any).bracketSlot);
+    const slotB = Number((b as any).bracketSlot);
+    const hasSlotA = Number.isFinite(slotA);
+    const hasSlotB = Number.isFinite(slotB);
+    if (hasSlotA && hasSlotB && slotA !== slotB) return slotA - slotB;
+
+    const numberA = Number(a.matchNumber);
+    const numberB = Number(b.matchNumber);
+    const hasNumA = Number.isFinite(numberA) && numberA > 0;
+    const hasNumB = Number.isFinite(numberB) && numberB > 0;
+    if (hasNumA && hasNumB && numberA !== numberB) return numberA - numberB;
+
+    return 0;
+  });
+
+  return cloned.map((m, idx) => ({
+    ...m,
+    matchNumber: idx + 1,
+  }));
+}
+
+export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
+  const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
+  const t1Header = isTeam ? "Team 1" : "Player 1";
+  const t2Header = isTeam ? "Team 2" : "Player 2";
+  const contactHeaders = includeContactNumbers ? [`${t1Header} Contact`, `${t2Header} Contact`] : [];
   const headers = [
     "Match #",
     "Round / Stage",
@@ -426,31 +580,35 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     "Date",
     "Time",
     "Venue / Court",
-    "Team 1 / Player 1",
-    "Team 1 Flat",
-    "Team 2 / Player 2",
-    "Team 2 Flat",
+    t1Header,
+    `${t1Header} Flat`,
+    t2Header,
+    `${t2Header} Flat`,
+    ...contactHeaders,
     "Score",
     "Status",
     "Winner",
   ];
 
   const rows = orderedMatches.map((m, idx) => {
-    const matchNum = m.matchNumber ?? (idx + 1);
+    const matchNum = idx + 1;
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
-    const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
-    const mTime = m.time || m.scheduledTime || "—";
-    const venue = getExportVenueCourt(m);
+    const isBye = isByeMatch(m);
+    const mDate = isBye ? "—" : formatExportDate(m.date);
+    const mTime = isBye ? "—" : formatExportTime(m.time || m.scheduledTime, m.date);
+    const venue = isBye ? "—" : getExportVenueCourt(m);
     const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
     const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
+    const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+    const t2Phone = isBye ? "—" : (m.team2Phone || "—");
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
-    const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
-    const status = m.status || "SCHEDULED";
-    const winner = m.winnerName || "—";
+    const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : (isBye ? "BYE" : "—");
+    const status = isBye ? "AUTO_ADVANCED" : (m.status || "SCHEDULED");
+    const winner = m.winnerName || (isBye ? (t1.toUpperCase() !== 'BYE' ? t1 : t2) : "—");
 
     return [
       matchNum,
@@ -463,6 +621,7 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
       escapeCSV(t1Flat),
       escapeCSV(t2),
       escapeCSV(t2Flat),
+      ...(includeContactNumbers ? [escapeCSV(t1Phone), escapeCSV(t2Phone)] : []),
       escapeCSV(score),
       escapeCSV(status),
       escapeCSV(winner),
@@ -761,8 +920,12 @@ export function getRoundExportTheme(stageName: string): RoundExportTheme {
   };
 }
 
-export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule") {
+export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
+  const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
+  const t1Label = isTeam ? "Team 1" : "Player 1";
+  const t2Label = isTeam ? "Team 2" : "Player 2";
+  const contactHeaders = includeContactNumbers ? [`${t1Label} Contact`, `${t2Label} Contact`] : [];
   const headers = [
     "Match #",
     "Stage / Round",
@@ -770,14 +933,19 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     "Match Date",
     "Time",
     "Venue / Court",
-    "Team 1 / Player 1",
-    "Team 1 Flat",
-    "Team 2 / Player 2",
-    "Team 2 Flat",
+    t1Label,
+    `${t1Label} Flat`,
+    t2Label,
+    `${t2Label} Flat`,
+    ...contactHeaders,
     "Score",
     "Status",
     "Winner",
   ];
+
+  const playableCount = orderedMatches.filter(m => !isByeMatch(m)).length;
+  const byesCount = orderedMatches.length - playableCount;
+  const countSummary = byesCount > 0 ? `${playableCount} (${byesCount} Byes)` : `${orderedMatches.length}`;
 
   let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -792,27 +960,30 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
 </head>
 <body>
 <table>
-  <tr><td colspan="13" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
-  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${orderedMatches.length}</td></tr>
+  <tr><td colspan="${headers.length}" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
+  <tr><td colspan="${headers.length}">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${countSummary}</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
   orderedMatches.forEach((m, idx) => {
-    const matchNum = m.matchNumber ?? (idx + 1);
+    const matchNum = idx + 1;
     const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "League Match");
     const sport = m.sport || m.sportName || "—";
-    const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "yyyy-MM-dd")) : "—";
-    const mTime = m.time || m.scheduledTime || "—";
-    const venue = getExportVenueCourt(m);
+    const isBye = isByeMatch(m);
+    const mDate = isBye ? "—" : formatExportDate(m.date);
+    const mTime = isBye ? "—" : formatExportTime(m.time || m.scheduledTime, m.date);
+    const venue = isBye ? "—" : getExportVenueCourt(m);
     const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
     const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
+    const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+    const t2Phone = isBye ? "—" : (m.team2Phone || "—");
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
-    const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : "—";
-    const status = m.status || "SCHEDULED";
-    const winner = m.winnerName || "—";
+    const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : (isBye ? "BYE" : "—");
+    const status = isBye ? "AUTO_ADVANCED" : (m.status || "SCHEDULED");
+    const winner = m.winnerName || (isBye ? (t1.toUpperCase() !== 'BYE' ? t1 : t2) : "—");
 
     html += `<tr>
       <td>${matchNum}</td>
@@ -825,6 +996,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
       <td class="flat-cell">${t1Flat !== "—" ? t1Flat : "—"}</td>
       <td><b>${t2}</b></td>
       <td class="flat-cell">${t2Flat !== "—" ? t2Flat : "—"}</td>
+      ${includeContactNumbers ? `<td>${escapeHtml(t1Phone)}</td><td>${escapeHtml(t2Phone)}</td>` : ""}
       <td>${score}</td>
       <td>${status}</td>
       <td>${winner}</td>
@@ -837,7 +1009,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
   triggerDownload(html, `${sanitizedTitle}_${format(new Date(), "yyyyMMdd")}.xls`, "application/vnd.ms-excel");
 }
 
-export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports") {
+export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
@@ -845,37 +1017,55 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
     return;
   }
 
+  const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
+  const team1Header = isTeam ? "TEAM 1" : "PLAYER 1";
+  const team2Header = isTeam ? "TEAM 2" : "PLAYER 2";
+  const contactHeaders = includeContactNumbers
+    ? `<th style="text-align:left;">${team1Header} CONTACT</th><th style="text-align:left;">${team2Header} CONTACT</th>`
+    : "";
+
+  const playableCount = orderedMatches.filter(m => !isByeMatch(m)).length;
+  const byesCount = orderedMatches.length - playableCount;
+  const countText = byesCount > 0
+    ? `${playableCount} Matches (${byesCount} Auto-Advanced BYE${byesCount !== 1 ? 's' : ''})`
+    : `${orderedMatches.length} Matches`;
+
   const rowsHtml = orderedMatches
     .map((m, idx) => {
-      const matchNum = m.matchNumber ?? (idx + 1);
+      const matchNum = idx + 1;
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
-      const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
-      const mTime = m.time || m.scheduledTime || "—";
-      const venue = getExportVenueCourt(m);
+      const isBye = isByeMatch(m);
+      const mDate = isBye ? "—" : formatExportDate(m.date);
+      const mTime = isBye ? "—" : formatExportTime(m.time || m.scheduledTime, m.date);
+      const venue = isBye ? "—" : getExportVenueCourt(m);
       const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "TBD";
       const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
       const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
       const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
+      const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+      const t2Phone = isBye ? "—" : (m.team2Phone || "—");
       const s1 = m.score1 ?? m.homeScore;
       const s2 = m.score2 ?? m.awayScore;
-      const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} : ${s2}` : "vs";
+      const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} : ${s2}` : (isBye ? "BYE" : "vs");
 
       return `
       <tr>
         <td style="text-align:center; font-weight:bold; color:#64748b;">#${escapeHtml(matchNum)}</td>
         <td style="font-weight:600; color:#4f46e5;">${escapeHtml(round)}</td>
-        <td><b>${escapeHtml(mDate)}</b><br><span style="color:#64748b; font-size:10px;">${escapeHtml(mTime)}</span></td>
-        <td>${escapeHtml(venue)}</td>
+        <td>${isBye ? `<span style="color:#94a3b8; font-style:italic;">—</span>` : `<b>${escapeHtml(mDate)}</b><br><span style="color:#64748b; font-size:10px;">${escapeHtml(mTime)}</span>`}</td>
+        <td>${isBye ? `<span style="color:#94a3b8; font-style:italic;">—</span>` : escapeHtml(venue)}</td>
         <td style="text-align:right; font-size:12px;">
           <div style="font-weight:bold;">${escapeHtml(t1)}</div>
           ${t1Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t1Flat)}</div>` : ""}
         </td>
-        <td style="text-align:center; font-weight:bold; color:#e11d48; background:#fff1f2; padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
+        ${includeContactNumbers ? `<td style="font-size:10px;">${escapeHtml(t1Phone)}</td>` : ""}
+        <td style="text-align:center; font-weight:bold; color:${isBye ? '#64748b; background:#f8fafc;' : '#e11d48; background:#fff1f2;'} padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
         <td style="text-align:left; font-size:12px;">
           <div style="font-weight:bold;">${escapeHtml(t2)}</div>
           ${t2Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t2Flat)}</div>` : ""}
         </td>
-        <td style="text-align:center;"><span class="badge badge-scheduled">${escapeHtml(m.status || "SCHEDULED")}</span></td>
+        ${includeContactNumbers ? `<td style="font-size:10px;">${escapeHtml(t2Phone)}</td>` : ""}
+        <td style="text-align:center;"><span class="badge" style="${isBye ? 'background:#f1f5f9; color:#64748b;' : 'background:#e0e7ff; color:#4338ca;'}">${escapeHtml(isBye ? 'AUTO_ADVANCED' : (m.status || 'SCHEDULED'))}</span></td>
       </tr>`;
     })
     .join("");
@@ -896,7 +1086,6 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
     td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
     tr:nth-child(even) { background-color: #fafafa; }
     .badge { padding: 3px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; }
-    .badge-scheduled { background: #e0e7ff; color: #4338ca; }
     .footer { margin-top: 25px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; padding-top: 10px; border-top: 1px solid #e2e8f0; }
     @media print {
       body { padding: 0; }
@@ -911,10 +1100,10 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
   <div class="header">
     <div>
       <h1>📅 ${escapeHtml(title)}</h1>
-      <div class="subtitle">${escapeHtml(communityName)} · Official Tournament Schedule & Fixtures</div>
+      <div class="subtitle">${escapeHtml(communityName)} · Official Tournament Schedule & Fixtures · <b>${countText}</b></div>
     </div>
     <div style="text-align:right; font-size:11px; color:#64748b;">
-      Generated: <b>${format(new Date(), "dd-MMM-yyyy HH:mm")}</b>
+      Generated: <b>${format(new Date(), "dd-MMM-yyyy HH:mm")}</b> · Total: <b>${orderedMatches.length} Fixtures</b>
     </div>
   </div>
 
@@ -925,9 +1114,11 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
         <th>Round / Stage</th>
         <th>Date & Time</th>
         <th>Venue / Court</th>
-        <th style="text-align:right;">Team 1 / Player 1</th>
+        <th style="text-align:right;">${team1Header}</th>
+        ${includeContactNumbers ? `<th style="text-align:left;">${team1Header} CONTACT</th>` : ""}
         <th style="width:60px; text-align:center;">Score</th>
-        <th style="text-align:left;">Team 2 / Player 2</th>
+        <th style="text-align:left;">${team2Header}</th>
+        ${includeContactNumbers ? `<th style="text-align:left;">${team2Header} CONTACT</th>` : ""}
         <th style="text-align:center;">Status</th>
       </tr>
     </thead>
@@ -951,23 +1142,27 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
   }, 350);
 }
 
-export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "Match Scorecards") {
-  const orderedMatches = sortExportMatches(matches);
+export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "Match Scorecards", isTeamEvent?: boolean) {
+  const playableMatches = matches.filter(m => !isByeMatch(m));
+  const orderedMatches = sortExportMatches(playableMatches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
     alert("Please allow popups to print/export PDF");
     return;
   }
 
+  const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
+  const competitorHeader = isTeam ? "Team" : "Player / Competitor";
+
   const cardsHtml = orderedMatches
     .map((m, idx) => {
-      const matchNum = m.matchNumber ?? (idx + 1);
+      const matchNum = idx + 1;
       const round = m.name || m.roundName || m.stage || (m.roundNumber ? `Round ${m.roundNumber}` : "Match");
-      const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "—";
-      const mTime = m.time || m.scheduledTime || "—";
+      const mDate = formatExportDate(m.date);
+      const mTime = formatExportTime(m.time || m.scheduledTime, m.date);
       const venue = getExportVenueCourt(m);
-      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || "Team A";
-      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "Team B";
+      const t1 = m.team1 || m.team1Name || m.homeTeamName || (typeof m.home === 'string' ? m.home : m.home?.name) || (isTeam ? "Team A" : "Player 1");
+      const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || (isTeam ? "Team B" : "Player 2");
       const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
       const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
 
@@ -986,7 +1181,7 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
         <table class="score-table">
           <thead>
             <tr>
-              <th style="width: 45%;">Team / Competitor</th>
+              <th style="width: 45%;">${competitorHeader}</th>
               <th style="width: 10%;">Set 1</th>
               <th style="width: 10%;">Set 2</th>
               <th style="width: 10%;">Set 3</th>
@@ -1468,7 +1663,7 @@ export function exportBracketToPDF(
   });
 
   const firstRoundMatches = roundIndices.length > 0 ? (roundsMatches[roundIndices[0]] || []) : [];
-  const baseSpacing = firstRoundMatches.length > 8 ? 120 : 160;
+  const baseSpacing = firstRoundMatches.length <= 4 ? 120 : firstRoundMatches.length <= 8 ? 74 : 54;
   const matchTops: Record<string, number> = {};
 
   function findParentMatchId(participantId: string | undefined, prevMatches: ExportableBracketMatch[]): string | undefined {
@@ -1482,7 +1677,7 @@ export function exportBracketToPDF(
   // First round spacing
   if (roundIndices.length > 0) {
     firstRoundMatches.forEach((m, idx) => {
-      matchTops[m.id] = 50 + idx * baseSpacing;
+      matchTops[m.id] = 40 + idx * baseSpacing;
     });
   }
 
@@ -1512,14 +1707,14 @@ export function exportBracketToPDF(
       } else if (awayTop !== undefined) {
         matchTops[m.id] = awayTop;
       } else {
-        matchTops[m.id] = 50 + idx * (baseSpacing * Math.pow(2, c));
+        matchTops[m.id] = 40 + idx * (baseSpacing * Math.pow(2, c));
       }
     });
   }
 
   const allTops = Object.values(matchTops);
   const maxMatchTop = allTops.length > 0 ? Math.max(...allTops) : 300;
-  const bracketHeight = Math.max(maxMatchTop + 180, 520);
+  const bracketHeight = Math.max(maxMatchTop + 130, 480);
 
   function getRoundHeader(roundName: string): string {
     if (roundName === "FINAL") return "Final";
@@ -1531,23 +1726,26 @@ export function exportBracketToPDF(
     return roundName.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
   }
 
+  const colWidth = 215;
+  const colGap = 32;
+  const cardWidth = 195;
+  const cardLeft = 10;
+  const cardCenterYOffset = 38;
+
+  const svgPaths: string[] = [];
+
   let columnsHtml = "";
   roundIndices.forEach((rIndex, colIdx) => {
     const rMatches = roundsMatches[rIndex] || [];
     if (rMatches.length === 0) return;
     const header = getRoundHeader(rMatches[0].round);
-    const isLastRound = colIdx === roundIndices.length - 1;
 
-    let cardsHtml = "";
-    rMatches.forEach((m, idx) => {
-      const top = matchTops[m.id] ?? (50 + idx * baseSpacing);
-      let showConnector = false;
-      let connectorHeight = 0;
-      let connectorTop = 0;
+    // Build SVG tree connectors from previous round
+    if (colIdx > 0) {
+      const prevRoundIdx = roundIndices[colIdx - 1];
+      const prevMatches = roundsMatches[prevRoundIdx] || [];
 
-      if (colIdx > 0) {
-        const prevRoundIdx = roundIndices[colIdx - 1];
-        const prevMatches = roundsMatches[prevRoundIdx] || [];
+      rMatches.forEach((m, idx) => {
         let homeParentId = findParentMatchId(m.home?.id, prevMatches);
         let awayParentId = findParentMatchId(m.away?.id, prevMatches);
 
@@ -1556,26 +1754,37 @@ export function exportBracketToPDF(
           awayParentId = prevMatches[idx * 2 + 1]?.id;
         }
 
+        const xChildLeft = colIdx * (colWidth + colGap) + cardLeft;
+        const xParentRight = (colIdx - 1) * (colWidth + colGap) + cardLeft + cardWidth;
+        const xMid = Math.round((xParentRight + xChildLeft) / 2);
+        const yChild = (matchTops[m.id] ?? 40) + cardCenterYOffset;
+
         const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
         const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
 
         if (homeTop !== undefined && awayTop !== undefined) {
-          showConnector = true;
-          connectorHeight = Math.abs(awayTop - homeTop);
-          connectorTop = Math.min(homeTop, awayTop) - top;
+          const yHome = homeTop + cardCenterYOffset;
+          const yAway = awayTop + cardCenterYOffset;
+          svgPaths.push(
+            `<path d="M ${xParentRight} ${yHome} H ${xMid} V ${yAway} H ${xParentRight} M ${xMid} ${yChild} H ${xChildLeft}" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />`
+          );
         } else if (homeTop !== undefined) {
-          showConnector = true;
-          connectorHeight = Math.abs(homeTop - top);
-          connectorTop = Math.min(homeTop, top) - top;
+          const yHome = homeTop + cardCenterYOffset;
+          svgPaths.push(
+            `<path d="M ${xParentRight} ${yHome} H ${xMid} V ${yChild} H ${xChildLeft}" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />`
+          );
         } else if (awayTop !== undefined) {
-          showConnector = true;
-          connectorHeight = Math.abs(awayTop - top);
-          connectorTop = Math.min(awayTop, top) - top;
+          const yAway = awayTop + cardCenterYOffset;
+          svgPaths.push(
+            `<path d="M ${xParentRight} ${yAway} H ${xMid} V ${yChild} H ${xChildLeft}" stroke="#818cf8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />`
+          );
         }
-      }
+      });
+    }
 
-      const showMergerRight = !isLastRound;
-      const showMergerLeft = colIdx > 0;
+    let cardsHtml = "";
+    rMatches.forEach((m, idx) => {
+      const top = matchTops[m.id] ?? (40 + idx * baseSpacing);
       const isHomeBye = m.home?.id === 'bye' || m.home?.name?.trim().toUpperCase() === 'BYE';
       const isAwayBye = m.away?.id === 'bye' || m.away?.name?.trim().toUpperCase() === 'BYE';
       const isPendingSlot = m.status === 'PENDING_SLOT';
@@ -1603,9 +1812,6 @@ export function exportBracketToPDF(
               <span class="p-name ${isAwayBye ? 'bye-name' : ''}">${escapeHtml(m.away?.name || "TBD")}</span>
               ${m.away?.flatNumber ? `<span class="p-flat">${escapeHtml(m.away.flatNumber)}</span>` : ""}
             </div>
-            ${showConnector ? `<div class="connector" style="height:${connectorHeight}px; transform:translateY(${connectorTop}px);"></div>` : ""}
-            ${showMergerRight ? `<div class="merger-right"></div>` : ""}
-            ${showMergerLeft ? `<div class="merger-left"></div>` : ""}
           </div>
           ${!isByeMatch && !isPendingSlot ? `<div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>` : ""}
         </div>
@@ -1625,16 +1831,26 @@ export function exportBracketToPDF(
   // Final match podium
   const finalRoundIdx = roundIndices[roundIndices.length - 1];
   const finalMatch = finalRoundIdx !== undefined ? (roundsMatches[finalRoundIdx] || [])[0] : undefined;
-  const finalMatchTop = finalMatch ? (matchTops[finalMatch.id] ?? 160) : 160;
+  const finalMatchTop = finalMatch ? (matchTops[finalMatch.id] ?? 120) : 120;
 
   let podiumHtml = "";
   if (finalMatch) {
+    const xFinalRight = (roundIndices.length - 1) * (colWidth + colGap) + cardLeft + cardWidth;
+    const xPodiumLeft = roundIndices.length * (colWidth + colGap) + cardLeft;
+    const xPodiumMid = Math.round((xFinalRight + xPodiumLeft) / 2);
+    const yFinal = finalMatchTop + cardCenterYOffset;
+    const yPodium = finalMatchTop + 24 + 40;
+
+    svgPaths.push(
+      `<path d="M ${xFinalRight} ${yFinal} H ${xPodiumMid} V ${yPodium} H ${xPodiumLeft}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" fill="none" stroke-linecap="round" stroke-linejoin="round" />`
+    );
+
     podiumHtml = `
       <section class="round-col results-col">
         <div class="round-header results-header">
           <h5>🏆 Results</h5>
         </div>
-        <div class="results-box" style="top:${finalMatchTop + 30}px;">
+        <div class="results-box" style="top:${finalMatchTop + 24}px;">
           <div class="winner-box">
             <div class="trophy-icon">🏆</div>
             <div class="podium-title">Champion / Winner</div>
@@ -1650,19 +1866,22 @@ export function exportBracketToPDF(
     `;
   }
 
+  const numCols = roundIndices.length + (finalMatch ? 1 : 0);
+  const totalBracketWidth = numCols * (colWidth + colGap);
+
   let thirdPlaceHtml = "";
   if (thirdPlace.length > 0) {
     thirdPlaceHtml = `
-      <div style="margin-top: 30px; padding: 16px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; display: inline-block;">
-        <h5 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; color: #9f1239; text-transform: uppercase;">🥉 Third Place Playoff</h5>
+      <div style="margin-top: 20px; padding: 12px 16px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; display: inline-block;">
+        <h5 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 700; color: #9f1239; text-transform: uppercase;">🥉 Third Place Playoff</h5>
         ${thirdPlace.map(m => {
           const venueCourt = [m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD";
           return `
-            <div style="display:flex; align-items:center; gap:12px; font-size:12px;">
+            <div style="display:flex; align-items:center; gap:12px; font-size:11px;">
               <span style="font-weight:700; color:#1e293b;">${escapeHtml(m.home?.name || "TBD")}</span>
               <span style="font-weight:800; color:#e11d48;">VS</span>
               <span style="font-weight:700; color:#1e293b;">${escapeHtml(m.away?.name || "TBD")}</span>
-              <span style="color:#64748b; font-size:11px;">(${escapeHtml(m.date)} ${escapeHtml(m.time)} · ${escapeHtml(venueCourt)})</span>
+              <span style="color:#64748b; font-size:10px;">(${escapeHtml(m.date)} ${escapeHtml(m.time)} · ${escapeHtml(venueCourt)})</span>
             </div>
           `;
         }).join("")}
@@ -1676,51 +1895,71 @@ export function exportBracketToPDF(
   <meta charset="utf-8">
   <title>${escapeHtml(title)} — Knockout Bracket</title>
   <style>
-    @page { size: A3 landscape; margin: 10mm; }
+    @page { size: landscape; margin: 6mm; }
     @media print {
-      body { margin: 0; padding: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        overflow: hidden !important;
+      }
       .no-print { display: none !important; }
+      .bracket-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .bracket-container {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      .top-bar { display: none !important; }
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #f8fafc;
       color: #0f172a;
       margin: 0;
-      padding: 24px;
+      padding: 16px;
     }
     .top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
       border-bottom: 2px solid #e2e8f0;
     }
     .brand-title {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 800;
       color: #1e1b4b;
-      margin: 0 0 4px 0;
+      margin: 0 0 2px 0;
     }
     .sub-title {
-      font-size: 13px;
+      font-size: 12px;
       color: #64748b;
     }
     .btn-print {
-      padding: 9px 18px;
+      padding: 8px 16px;
       background: #4f46e5;
       color: white;
       font-weight: bold;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
     }
     .bracket-wrapper {
       background: white;
       border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 24px;
+      border-radius: 12px;
+      padding: 16px;
       overflow-x: auto;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
@@ -1728,26 +1967,28 @@ export function exportBracketToPDF(
       position: relative;
       display: flex;
       flex-direction: row;
-      gap: 32px;
-      min-width: max-content;
+      gap: ${colGap}px;
+      width: ${totalBracketWidth}px;
+      min-width: ${totalBracketWidth}px;
       height: ${bracketHeight}px;
+      transform-origin: top left;
     }
     .round-col {
-      width: 260px;
+      width: ${colWidth}px;
       position: relative;
       flex-shrink: 0;
     }
     .round-header {
       background: #f1f5f9;
       border: 1px solid #cbd5e1;
-      padding: 6px 12px;
-      border-radius: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
       text-align: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .round-header h5 {
       margin: 0;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: #334155;
       text-transform: uppercase;
@@ -1755,35 +1996,43 @@ export function exportBracketToPDF(
     }
     .matchup {
       position: absolute;
-      width: 240px;
-      left: 10px;
+      width: ${cardWidth}px;
+      left: ${cardLeft}px;
+      z-index: 2;
     }
     .match-meta {
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 700;
       color: #64748b;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       text-transform: uppercase;
+      height: 14px;
+      line-height: 14px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
     .match-box {
       position: relative;
       background: white;
       border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-      padding: 4px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      padding: 3px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
     }
     .participant-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
+      gap: 5px;
+      padding: 3px 6px;
       background: #f8fafc;
-      border-radius: 5px;
-      font-size: 11px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      height: 20px;
+      box-sizing: border-box;
       position: relative;
     }
     .participant-row.bye-row {
@@ -1800,7 +2049,7 @@ export function exportBracketToPDF(
     }
     .p-accent {
       width: 3px;
-      height: 14px;
+      height: 12px;
       background: #10b981;
       border-radius: 2px;
       flex-shrink: 0;
@@ -1814,43 +2063,20 @@ export function exportBracketToPDF(
       text-overflow: ellipsis;
     }
     .p-flat {
-      font-size: 9px;
+      font-size: 8.5px;
       color: #64748b;
     }
     .court-tag {
-      font-size: 9px;
+      font-size: 8.5px;
       color: #4f46e5;
       font-weight: 600;
-      margin-top: 3px;
+      margin-top: 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .connector {
-      position: absolute;
-      left: -16px;
-      top: 50%;
-      border-left: 2px solid #818cf8;
-      pointer-events: none;
-    }
-    .merger-right {
-      position: absolute;
-      right: -16px;
-      bottom: 50%;
-      width: 16px;
-      border-bottom: 2px solid #818cf8;
-      pointer-events: none;
-    }
-    .merger-left {
-      position: absolute;
-      left: -16px;
-      bottom: 50%;
-      width: 16px;
-      border-bottom: 2px solid #818cf8;
-      pointer-events: none;
-    }
     .results-col {
-      width: 220px;
+      width: 190px;
     }
     .results-header {
       background: #fef3c7;
@@ -1861,36 +2087,37 @@ export function exportBracketToPDF(
     }
     .results-box {
       position: absolute;
-      width: 200px;
-      left: 10px;
+      width: 180px;
+      left: 5px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       text-align: center;
+      z-index: 2;
     }
     .winner-box, .runnerup-box {
       background: #faf5ff;
       border: 1px solid #e9d5ff;
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 10px;
     }
     .winner-box {
       background: #fffbeb;
       border-color: #fde68a;
     }
     .trophy-icon, .medal-icon {
-      font-size: 24px;
-      margin-bottom: 4px;
+      font-size: 20px;
+      margin-bottom: 2px;
     }
     .podium-title {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       text-transform: uppercase;
       color: #92400e;
       letter-spacing: 0.5px;
     }
     .podium-name {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: #1e1b4b;
       margin-top: 2px;
@@ -1911,12 +2138,35 @@ export function exportBracketToPDF(
 
   <div class="bracket-wrapper">
     <div class="bracket-container">
+      <svg style="position:absolute; top:0; left:0; width:${totalBracketWidth}px; height:${bracketHeight}px; pointer-events:none; z-index:1;">
+        ${svgPaths.join('')}
+      </svg>
       ${columnsHtml}
       ${podiumHtml}
     </div>
   </div>
 
   ${thirdPlaceHtml}
+
+  <script>
+    function fitBracketToPage() {
+      var container = document.querySelector('.bracket-container');
+      if (!container) return;
+      var availW = (window.innerWidth && window.innerWidth > 200 ? window.innerWidth : 1100) - 30;
+      var availH = (window.innerHeight && window.innerHeight > 200 ? window.innerHeight : 700) - 40;
+      var w = container.offsetWidth || ${totalBracketWidth};
+      var h = container.offsetHeight || ${bracketHeight};
+      var scaleW = w > availW ? (availW / w) : 1;
+      var scaleH = h > availH ? (availH / h) : 1;
+      var scale = Math.min(scaleW, scaleH, 1);
+      if (scale < 0.98) {
+        container.style.transform = 'scale(' + scale + ')';
+        container.style.transformOrigin = 'top left';
+      }
+    }
+    window.addEventListener('beforeprint', fitBracketToPage);
+    window.addEventListener('load', fitBracketToPage);
+  </script>
 </body>
 </html>`;
 

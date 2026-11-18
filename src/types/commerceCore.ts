@@ -37,6 +37,7 @@ export interface CommerceOrder {
   id: number;
   orderNumber: string;
   channel: CommerceChannel;
+  channelReferenceId?: string;
   buyerId: number;
   sellerId: number;
   sellerType: string;

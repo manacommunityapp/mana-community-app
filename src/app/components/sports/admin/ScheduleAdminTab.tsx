@@ -7,11 +7,9 @@ import { venueService } from "../../../../services/bookings/venueService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type { Venue } from "../../../../types/api";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
-import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF } from "../../../../utils/sportsExportUtils";
 import {
   ScheduleExportModal,
   getMatchStage,
-  prepareExportableMatches,
   detectSportName,
   type TournamentStageKey,
 } from "./ScheduleExportModal";
@@ -30,6 +28,10 @@ interface MatchRow {
   awayName?: string;
   teamAFlat?: string;
   teamBFlat?: string;
+  teamAPhone?: string;
+  teamBPhone?: string;
+  homePhone?: string;
+  awayPhone?: string;
   homeFlat?: string;
   awayFlat?: string;
   scheduledAt: string;
@@ -117,6 +119,7 @@ export function ScheduleAdminTab() {
     matches: MatchRow[];
     defaultStage?: TournamentStageKey;
     sportName?: string;
+    defaultFormat?: 'csv' | 'excel' | 'pdf';
   } | null>(null);
   const [batchRescheduleModalState, setBatchRescheduleModalState] = useState<{
     isOpen: boolean;
@@ -449,22 +452,14 @@ export function ScheduleAdminTab() {
 
                   const handleExportQuick = (format: 'csv' | 'excel' | 'pdf') => {
                     const resolvedSport = cfg.sportName || detectSportName(cfg.tournamentName) || detectSportName(cfg.eventName) || 'Tournament';
-                    const exportData = prepareExportableMatches(cfgMatches, activeStage, resolvedSport);
-                    const stageName = activeStage === 'ALL' ? 'Full_Schedule' :
-                      activeStage === 'GROUP' ? 'Group_Stage' :
-                      activeStage === 'ROUND_OF_64' ? 'Round_of_64' :
-                      activeStage === 'ROUND_OF_32' ? 'Round_of_32' :
-                      activeStage === 'ROUND_OF_16' ? 'Round_of_16' :
-                      activeStage === 'QUARTER_FINAL' ? 'Quarter_Finals' :
-                      activeStage === 'SEMI_FINAL' ? 'Semi_Finals' :
-                      activeStage === 'FINAL' ? 'Finals' : 'Stage';
-                    const baseTitle = `${cfg.tournamentName || 'Tournament'}_${stageName}`;
-
-                    if (format === 'csv') exportScheduleToCSV(exportData, baseTitle);
-                    else if (format === 'excel') exportScheduleToExcel(exportData, baseTitle);
-                    else if (format === 'pdf') exportScheduleToPDF(exportData, `${cfg.tournamentName || 'Tournament'} - ${stageName.replace(/_/g, ' ')}`);
-
-                    showSuccess(`Exported ${exportData.length} ${stageName.replace(/_/g, ' ')} match(es) as ${format.toUpperCase()}`);
+                    setExportModalState({
+                      isOpen: true,
+                      tournamentName: cfg.tournamentName || 'Tournament',
+                      matches: cfgMatches,
+                      defaultStage: activeStage,
+                      sportName: resolvedSport,
+                      defaultFormat: format,
+                    });
                   };
 
                   return (
@@ -1034,6 +1029,7 @@ export function ScheduleAdminTab() {
           matches={exportModalState.matches}
           defaultStage={exportModalState.defaultStage || 'ALL'}
           sportName={exportModalState.sportName}
+          defaultFormat={exportModalState.defaultFormat}
         />
       )}
 

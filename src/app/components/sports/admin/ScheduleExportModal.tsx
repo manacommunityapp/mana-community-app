@@ -17,6 +17,8 @@ import {
   exportScheduleToCSV,
   exportScheduleToExcel,
   exportScheduleToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
 } from '../../../../utils/sportsExportUtils';
 import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
 import { isPlaceholderOrTbd } from '../../../../utils/sportsValidationUtils';
@@ -36,6 +38,7 @@ export interface StageOption {
   key: TournamentStageKey;
   label: string;
   count: number;
+  byes?: number;
 }
 
 /** Determines which tournament stage a match belongs to. */
@@ -150,8 +153,27 @@ export function getMatchStage(m: any): TournamentStageKey {
 
 /** Extracts date and 12-hour AM/PM time from match object. */
 export function extractDateTime(m: any): { date: string; time: string } {
+  const isBye =
+    String(m?.status || '').toUpperCase() === 'AUTO_ADVANCED' ||
+    String(m?.status || '').toUpperCase() === 'BYE' ||
+    String(m?.home?.id || '').toLowerCase() === 'bye' ||
+    String(m?.away?.id || '').toLowerCase() === 'bye' ||
+    String(m?.team1 || m?.homeName || '').trim().toUpperCase() === 'BYE' ||
+    String(m?.team2 || m?.awayName || '').trim().toUpperCase() === 'BYE';
+
+  if (isBye) {
+    return { date: '', time: '' };
+  }
+
   let date = m.date || m.matchDate || '';
   let time = m.time || m.matchTime || m.scheduledTime || m.startTime || '';
+
+  // If date contains 'T', split clean date and extract time if time is empty
+  if (typeof date === 'string' && date.includes('T')) {
+    const [datePart, rawTime] = date.trim().split('T');
+    date = datePart || '';
+    if (!time && rawTime) time = rawTime;
+  }
 
   // Some saved match payloads store the date and time together in a time field.
   if (typeof time === 'string' && time.includes('T')) {
@@ -227,6 +249,20 @@ export function extractFlatDetails(m: any): { team1Flat: string; team2Flat: stri
   };
 }
 
+/** Extracts participant contact numbers from the common API/export match shapes. */
+export function extractContactDetails(m: any): { team1Phone: string; team2Phone: string } {
+  const getPhone = (side: 'home' | 'away', team: 'team1' | 'team2') => {
+    const matchSide = side === 'home' ? 'A' : 'B';
+    const player = m?.[side];
+    const value = m?.[`${team}Phone`] ?? m?.[`team${matchSide}Phone`] ?? m?.[`${side}Phone`] ??
+      m?.[`team${matchSide}`]?.phone ?? m?.[`team${matchSide}`]?.user?.phone ??
+      (typeof player === 'object' ? player?.phone ?? player?.user?.phone ?? player?.contactNumber : undefined) ??
+      m?.[`${team}ContactNumber`] ?? m?.[`team${matchSide}ContactNumber`];
+    return value == null ? '' : String(value).trim();
+  };
+  return { team1Phone: getPhone('home', 'team1'), team2Phone: getPhone('away', 'team2') };
+}
+
 /** Extracts names for both teams/players. */
 export function extractTeamNames(m: any): { team1: string; team2: string } {
   const team1 =
@@ -248,6 +284,7 @@ export function extractTeamNames(m: any): { team1: string; team2: string } {
 
 /** Extracts venue and court string. */
 export function extractVenueCourt(m: any): string {
+  if (isByeMatch(m)) return '—';
   const venue = m.venueName || m.venue || '';
   const court = m.courtName || m.courtId || '';
   if (venue && court) {
@@ -283,7 +320,8 @@ export function detectSportName(text?: string | null): string | undefined {
 export function prepareExportableMatches(
   matches: any[],
   stageFilter: TournamentStageKey = 'ALL',
-  defaultSportName?: string
+  defaultSportName?: string,
+  includeAutoAdvanced = true
 ): any[] {
   const scheduleMatches = matches.filter(m => {
     if (String(m?.status || '').toUpperCase() === 'PENDING_SLOT') return false;
@@ -294,36 +332,38 @@ export function prepareExportableMatches(
       || String(m?.away?.id || '').toLowerCase() === 'bye';
     return !((homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1)));
   });
-  const filtered = stageFilter === 'ALL'
+  const stageMatches = stageFilter === 'ALL'
     ? scheduleMatches
     : scheduleMatches.filter(m => {
         const stage = getMatchStage(m);
         if (stageFilter === 'FINAL') return stage === 'FINAL' || stage === 'THIRD_PLACE';
         return stage === stageFilter;
       });
+  const filtered = includeAutoAdvanced ? stageMatches : stageMatches.filter(m => !isByeMatch(m));
 
-  const maxSavedMatchNumber = filtered.reduce((max, match) => {
-    const number = Number(match.matchNumber);
-    return Number.isFinite(number) && number > max ? number : max;
-  }, 0);
   const ordered = filtered
     .map((match, index) => ({ match, index, number: Number(match.matchNumber) }))
     .sort((a, b) => {
       const hasNumberA = Number.isFinite(a.number) && a.number > 0;
       const hasNumberB = Number.isFinite(b.number) && b.number > 0;
+      if (hasNumberA && hasNumberB && a.number !== b.number) return a.number - b.number;
+
+      const slotA = Number(a.match.bracketSlot ?? a.match.slotIndex ?? -1);
+      const slotB = Number(b.match.bracketSlot ?? b.match.slotIndex ?? -1);
+      if (slotA >= 0 && slotB >= 0 && slotA !== slotB) return slotA - slotB;
+
       if (hasNumberA !== hasNumberB) return hasNumberA ? -1 : 1;
-      const numberA = hasNumberA ? a.number : a.index;
-      const numberB = hasNumberB ? b.number : b.index;
-      return numberA - numberB || a.index - b.index;
+      return a.index - b.index;
     });
 
-  let nextFallbackMatchNumber = maxSavedMatchNumber;
-  return ordered.map(({ match: m }) => {
+  return ordered.map(({ match: m }, idx) => {
     const { team1, team2 } = extractTeamNames(m);
     const { team1Flat, team2Flat } = extractFlatDetails(m);
+    const { team1Phone, team2Phone } = extractContactDetails(m);
     const { date, time } = extractDateTime(m);
     const venueCourt = extractVenueCourt(m);
     const stageKey = getMatchStage(m);
+    const isBye = isByeMatch(m);
 
     const stageLabel =
       stageKey === 'GROUP' ? (m.groupName || 'Group Stage') :
@@ -337,7 +377,7 @@ export function prepareExportableMatches(
 
     const s1 = m.scoreTeamA ?? m.score1 ?? m.homeScore;
     const s2 = m.scoreTeamB ?? m.score2 ?? m.awayScore;
-    const score = s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—';
+    const score = isBye ? '—' : (s1 != null && s2 != null && (s1 !== '' || s2 !== '') ? `${s1} - ${s2}` : '—');
 
     const detectedSport =
       m.sport ||
@@ -351,27 +391,30 @@ export function prepareExportableMatches(
       'Tournament';
 
     return {
-      matchNumber: Number(m.matchNumber) > 0 ? Number(m.matchNumber) : ++nextFallbackMatchNumber,
+      matchNumber: idx + 1,
       round: stageLabel,
       roundName: stageLabel,
       stage: stageLabel,
       sport: detectedSport,
       sportName: detectedSport,
-      date,
-      time,
-      venue: venueCourt,
-      courtName: venueCourt,
+      date: isBye ? '' : date,
+      time: isBye ? '' : time,
+      venue: isBye ? '—' : venueCourt,
+      courtName: isBye ? '—' : venueCourt,
       team1,
       team2,
-      team1Flat,
-      team2Flat,
-      homeFlat: team1Flat,
-      awayFlat: team2Flat,
-      home: { name: team1, flatNumber: team1Flat },
-      away: { name: team2, flatNumber: team2Flat },
+      team1Phone: isBye ? '' : team1Phone,
+      team2Phone: isBye ? '' : team2Phone,
+      team1Flat: isBye && team1 === 'BYE' ? '—' : team1Flat,
+      team2Flat: isBye && team2 === 'BYE' ? '—' : team2Flat,
+      homeFlat: isBye && team1 === 'BYE' ? '—' : team1Flat,
+      awayFlat: isBye && team2 === 'BYE' ? '—' : team2Flat,
+      home: { name: team1, flatNumber: isBye && team1 === 'BYE' ? '—' : team1Flat },
+      away: { name: team2, flatNumber: isBye && team2 === 'BYE' ? '—' : team2Flat },
       score,
-      status: m.status || 'SCHEDULED',
-      winnerName: m.winnerName || m.winner || '—',
+      status: isBye ? 'AUTO_ADVANCED' : (m.status || 'SCHEDULED'),
+      winnerName: isBye ? (team1 === 'BYE' ? team2 : team1) : (m.winnerName || m.winner || '—'),
+      isBye,
     };
   });
 }
@@ -382,7 +425,9 @@ export interface ScheduleExportModalProps {
   tournamentName: string;
   matches: any[];
   defaultStage?: TournamentStageKey;
+  defaultFormat?: 'csv' | 'excel' | 'pdf';
   sportName?: string;
+  isTeamEvent?: boolean;
 }
 
 export function ScheduleExportModal({
@@ -391,18 +436,34 @@ export function ScheduleExportModal({
   tournamentName,
   matches,
   defaultStage = 'ALL',
+  defaultFormat = 'csv',
   sportName,
+  isTeamEvent,
 }: ScheduleExportModalProps) {
   const [selectedStage, setSelectedStage] = useState<TournamentStageKey>(defaultStage);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>(defaultFormat);
   const [isExporting, setIsExporting] = useState(false);
+  const [includeAutoAdvanced, setIncludeAutoAdvanced] = useState(false);
+  const [includeContactNumbers, setIncludeContactNumbers] = useState(false);
 
   const resolvedSport = sportName || detectSportName(tournamentName);
+  const isTeam = isTeamBasedSchedule(matches, tournamentName, isTeamEvent);
 
-  // Group matches by stage
+  // Group matches by stage and count playable vs byes
   const stageStats = useMemo(() => {
     const counts: Record<TournamentStageKey, number> = {
-      ALL: matches.length,
+      ALL: 0,
+      GROUP: 0,
+      ROUND_OF_64: 0,
+      ROUND_OF_32: 0,
+      ROUND_OF_16: 0,
+      QUARTER_FINAL: 0,
+      SEMI_FINAL: 0,
+      FINAL: 0,
+      THIRD_PLACE: 0,
+    };
+    const byeCounts: Record<TournamentStageKey, number> = {
+      ALL: 0,
       GROUP: 0,
       ROUND_OF_64: 0,
       ROUND_OF_32: 0,
@@ -413,22 +474,38 @@ export function ScheduleExportModal({
       THIRD_PLACE: 0,
     };
 
-    matches.forEach(m => {
+    const validMatches = matches.filter(m => {
+      if (String(m?.status || '').toUpperCase() === 'PENDING_SLOT') return false;
+      const { team1, team2 } = extractTeamNames(m);
+      const homeBye = (team1 || '').trim().toUpperCase() === 'BYE'
+        || String(m?.home?.id || '').toLowerCase() === 'bye';
+      const awayBye = (team2 || '').trim().toUpperCase() === 'BYE'
+        || String(m?.away?.id || '').toLowerCase() === 'bye';
+      return !((homeBye && isPlaceholderOrTbd(team2)) || (awayBye && isPlaceholderOrTbd(team1)));
+    });
+
+    validMatches.forEach(m => {
       const stage = getMatchStage(m);
       counts[stage] = (counts[stage] || 0) + 1;
+      counts.ALL++;
+      if (isByeMatch(m)) {
+        byeCounts[stage] = (byeCounts[stage] || 0) + 1;
+        byeCounts.ALL++;
+      }
     });
 
     const finalsCount = counts.FINAL + counts.THIRD_PLACE;
+    const finalsByes = byeCounts.FINAL + byeCounts.THIRD_PLACE;
 
     const list: StageOption[] = [
-      { key: 'ALL', label: 'All Stages', count: counts.ALL },
-      { key: 'GROUP', label: 'Group Stages', count: counts.GROUP },
-      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64 }] : []),
-      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32 }] : []),
-      ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16 }] : []),
-      { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL },
-      { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL },
-      { key: 'FINAL', label: 'Finals', count: finalsCount },
+      { key: 'ALL', label: 'All Stages', count: counts.ALL, byes: byeCounts.ALL },
+      { key: 'GROUP', label: 'Group Stages', count: counts.GROUP, byes: byeCounts.GROUP },
+      ...(counts.ROUND_OF_64 > 0 ? [{ key: 'ROUND_OF_64' as const, label: 'Round of 64', count: counts.ROUND_OF_64, byes: byeCounts.ROUND_OF_64 }] : []),
+      ...(counts.ROUND_OF_32 > 0 ? [{ key: 'ROUND_OF_32' as const, label: 'Round of 32', count: counts.ROUND_OF_32, byes: byeCounts.ROUND_OF_32 }] : []),
+      ...(counts.ROUND_OF_16 > 0 ? [{ key: 'ROUND_OF_16' as const, label: 'Round of 16', count: counts.ROUND_OF_16, byes: byeCounts.ROUND_OF_16 }] : []),
+      { key: 'QUARTER_FINAL', label: 'Quarter-Finals', count: counts.QUARTER_FINAL, byes: byeCounts.QUARTER_FINAL },
+      { key: 'SEMI_FINAL', label: 'Semi-Finals', count: counts.SEMI_FINAL, byes: byeCounts.SEMI_FINAL },
+      { key: 'FINAL', label: 'Finals', count: finalsCount, byes: finalsByes },
     ];
 
     return list;
@@ -436,7 +513,11 @@ export function ScheduleExportModal({
 
   if (!isOpen) return null;
 
-  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport);
+  const currentStageMatches = prepareExportableMatches(matches, selectedStage, resolvedSport, includeAutoAdvanced);
+  const currentPlayableCount = currentStageMatches.filter(m => !m.isBye).length;
+  const currentByesCount = currentStageMatches.filter(m => m.isBye).length;
+  const availableByesCount = prepareExportableMatches(matches, selectedStage, resolvedSport, true)
+    .filter(m => m.isBye).length;
 
   const getStageFileName = (stageKey: TournamentStageKey): string => {
     const base = tournamentName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -461,14 +542,16 @@ export function ScheduleExportModal({
 
     const fileName = getStageFileName(selectedStage);
     if (exportFormat === 'csv') {
-      exportScheduleToCSV(currentStageMatches, fileName);
+      exportScheduleToCSV(currentStageMatches, fileName, isTeam, includeContactNumbers);
     } else if (exportFormat === 'excel') {
-      exportScheduleToExcel(currentStageMatches, fileName);
+      exportScheduleToExcel(currentStageMatches, fileName, isTeam, includeContactNumbers);
     } else {
-      exportScheduleToPDF(currentStageMatches, fileName);
+      exportScheduleToPDF(currentStageMatches, fileName, 'Community Sports', isTeam, includeContactNumbers);
     }
 
-    showSuccess(`Exported ${currentStageMatches.length} matches (${exportFormat.toUpperCase()})`);
+    showSuccess(
+      `Exported ${currentPlayableCount} match${currentPlayableCount !== 1 ? 'es' : ''}${currentByesCount > 0 ? ` (+${currentByesCount} byes)` : ''} (${exportFormat.toUpperCase()})`
+    );
     onClose();
   };
 
@@ -487,15 +570,15 @@ export function ScheduleExportModal({
     let exportedCount = 0;
     try {
       for (const stg of stagesToExport) {
-        const stageList = prepareExportableMatches(matches, stg, resolvedSport);
+        const stageList = prepareExportableMatches(matches, stg, resolvedSport, includeAutoAdvanced);
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {
-            exportScheduleToCSV(stageList, fileName);
+            exportScheduleToCSV(stageList, fileName, isTeam, includeContactNumbers);
           } else if (exportFormat === 'excel') {
-            exportScheduleToExcel(stageList, fileName);
+            exportScheduleToExcel(stageList, fileName, isTeam, includeContactNumbers);
           } else {
-            exportScheduleToPDF(stageList, fileName);
+            exportScheduleToPDF(stageList, fileName, 'Community Sports', isTeam, includeContactNumbers);
           }
           exportedCount++;
           // Small delay to allow sequential browser downloads without getting blocked
@@ -540,13 +623,18 @@ export function ScheduleExportModal({
                 Select Stage to Export:
               </span>
               <span className="text-[11px] font-normal text-slate-500">
-                {currentStageMatches.length} match{currentStageMatches.length !== 1 ? 'es' : ''}
+                {currentPlayableCount} match{currentPlayableCount !== 1 ? 'es' : ''}
+                {currentByesCount > 0 && (
+                  <span className="text-amber-600 font-medium"> (+{currentByesCount} {currentByesCount === 1 ? 'bye' : 'byes'})</span>
+                )}
               </span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {stageStats.map(s => {
                 const isSelected = selectedStage === s.key;
                 const isDisabled = s.count === 0 && s.key !== 'ALL';
+                const playable = s.count - (s.byes || 0);
+                const hasByes = Boolean(s.byes && s.byes > 0);
                 return (
                   <button
                     key={s.key}
@@ -563,13 +651,62 @@ export function ScheduleExportModal({
                   >
                     <span className="text-xs font-semibold">{s.label}</span>
                     <span className={`text-[10px] mt-1 font-mono ${isDisabled ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {s.count} match{s.count !== 1 ? 'es' : ''}
+                      {playable} match{playable !== 1 ? 'es' : ''}
+                      {hasByes && (
+                        <span className="text-amber-600 font-medium"> (+{s.byes} {s.byes === 1 ? 'bye' : 'byes'})</span>
+                      )}
                     </span>
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {/* Optional BYE / auto-advanced rows */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeAutoAdvanced}
+            onClick={() => setIncludeAutoAdvanced(value => !value)}
+            className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+              includeAutoAdvanced
+                ? 'border-amber-300 bg-amber-50/80'
+                : 'border-slate-200 bg-white hover:bg-slate-50'
+            }`}
+          >
+            <span>
+              <span className="block text-xs font-bold text-slate-800">Include BYE / Auto-Advanced matches</span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">
+                {includeAutoAdvanced
+                  ? 'These entries will be included without a scheduled date or time.'
+                  : `Omit ${availableByesCount} auto-advanced entr${availableByesCount === 1 ? 'y' : 'ies'} and renumber matches.`}
+              </span>
+            </span>
+            <span className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${includeAutoAdvanced ? 'bg-amber-500' : 'bg-slate-300'}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${includeAutoAdvanced ? 'translate-x-4' : 'translate-x-0'}`} />
+            </span>
+          </button>
+
+          {/* Optional participant contact numbers */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeContactNumbers}
+            onClick={() => setIncludeContactNumbers(value => !value)}
+            className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+              includeContactNumbers
+                ? 'border-indigo-300 bg-indigo-50/80'
+                : 'border-slate-200 bg-white hover:bg-slate-50'
+            }`}
+          >
+            <span>
+              <span className="block text-xs font-bold text-slate-800">Include contact numbers</span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">Add each player or team contact to the downloaded schedule.</span>
+            </span>
+            <span className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${includeContactNumbers ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${includeContactNumbers ? 'translate-x-4' : 'translate-x-0'}`} />
+            </span>
+          </button>
 
           {/* 2. Format Selection */}
           <div>
