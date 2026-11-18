@@ -118,7 +118,7 @@ function MatchCard({
       id={`WB-match-${match.id}`}
       style={{ top, zIndex: 2 }}
     >
-      <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
+      <div className="relative mb-2 flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
         {isPendingSlot ? (
           <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-slate-400">
             Awaiting bracket slot
@@ -128,9 +128,9 @@ function MatchCard({
             <span>BYE • Advances to R2</span>
           </div>
         ) : (
-          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#6b7094]">
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-indigo-100 bg-indigo-50/80 px-2 py-1 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-indigo-800">
             <span>{formatBracketDateOnly(match.date)}</span>
-            <span className="opacity-40">|</span>
+            <span className="text-indigo-300">·</span>
             <span>{match.time}</span>
           </div>
         )}
@@ -155,11 +155,11 @@ function MatchCard({
 
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
-        <div className="flex flex-row items-center justify-between gap-1 mt-1">
-          <div className="flex flex-row gap-1.5 items-center min-w-0">
-            <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
-            <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, assignedCourt].filter(Boolean).join(' , ')}>
-              {[venueName, assignedCourt].filter(Boolean).join(' , ') || 'TBD'}
+        <div className="flex flex-row items-center justify-between gap-1 mt-3 pt-2 border-t border-slate-100">
+          <div className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
+            <MapPin className="w-3 h-3 text-indigo-600 shrink-0" />
+            <span className="font-bold text-slate-600 text-[11px] line-clamp-1" title={[venueName, assignedCourt].filter(Boolean).join(' · ')}>
+              {[venueName, assignedCourt].filter(Boolean).join(' · ') || 'TBD'}
             </span>
           </div>
           {match.conflicts && match.conflicts.length > 0 && (
@@ -249,7 +249,8 @@ export function PlayoffBracketView({
   const firstRoundIdx = roundIndices[0];
   const firstRoundMatches = roundsMatches[firstRoundIdx] || [];
   const M0 = firstRoundMatches.length;
-  const baseSpacing = M0 <= 4 ? 140 : M0 <= 8 ? 96 : 80;
+  // Give each match card enough vertical room for its time, players, and venue row.
+  const baseSpacing = 148;
 
   // 1. Initialize first round tops
   firstRoundMatches.forEach((m, idx) => {
@@ -299,7 +300,7 @@ export function PlayoffBracketView({
   const colWidth = 278;
   const cardLeft = 8;
   const cardWidth = 248;
-  const cardCenterYOffset = 48;
+  const cardCenterYOffset = 72;
 
   interface ConnectorPath {
     d: string;
