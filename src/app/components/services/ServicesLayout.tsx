@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Search, ClipboardList, Wrench, Shield, Zap } from "lucide-react";
+import { Search, ClipboardList, Wrench, Shield, Zap, House, Store } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SERVICE_REQUESTS,
@@ -19,6 +19,8 @@ export function ServicesLayout() {
 
   const tabs = [
     { id: "browse", label: "Browse", path: "/services", icon: Search, exact: true },
+    { id: "interiors", label: "Interiors", path: "/services/interiors", icon: House, exact: false },
+    { id: "interior-vendors", label: "Home Vendors", path: "/services/interiors/vendors", icon: Store, exact: false },
     ...(hasPermission(VIEW_SERVICE_REQUESTS)
       ? [{ id: "requests", label: "My Requests", path: "/services/requests", icon: ClipboardList, exact: false }]
       : []),
@@ -30,6 +32,8 @@ export function ServicesLayout() {
   ];
 
   const isTabActive = (tab: (typeof tabs)[0]) => {
+    if (tab.id === "interiors") return location.pathname === tab.path || location.pathname.startsWith(`${tab.path}/projects`);
+    if (tab.id === "interior-vendors") return location.pathname === tab.path;
     if (tab.exact) {
       return location.pathname === tab.path;
     }

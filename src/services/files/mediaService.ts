@@ -11,7 +11,8 @@ export type MediaModule =
   | "FINANCE"
   | "COMPLAINT"
   | "ANNOUNCEMENT"
-  | "DOCUMENT";
+  | "DOCUMENT"
+  | "INTERIORS";
 
 export type MediaType = "IMAGE" | "VIDEO" | "DOCUMENT" | "AUDIO" | "CERTIFICATE" | "QR_CODE";
 

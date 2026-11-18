@@ -15,6 +15,7 @@ import type {
   CreateServiceRequestDto,
   AssignProviderRequest,
   UpdateWorkOrderStatusRequest,
+  UpdateWorkOrderProgressRequest,
 } from "../../types/api";
 
 const BASE = "/service-platform";
@@ -128,6 +129,9 @@ export const serviceProviderService = {
   },
   async updateWorkOrderStatus(id: number, data: UpdateWorkOrderStatusRequest): Promise<CspWorkOrderResponse> {
     return apiClient.patch<CspWorkOrderResponse>(`${BASE}/providers/me/work-orders/${id}/status`, data);
+  },
+  async updateWorkOrderProgress(id: number, data: UpdateWorkOrderProgressRequest): Promise<CspWorkOrderResponse> {
+    return apiClient.patch<CspWorkOrderResponse>(`${BASE}/providers/me/work-orders/${id}/progress`, data);
   },
   async signoffWorkOrder(id: number): Promise<CspWorkOrderResponse> {
     return apiClient.patch<CspWorkOrderResponse>(`${BASE}/work-orders/${id}/signoff`);
