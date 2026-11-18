@@ -249,6 +249,20 @@ export function extractFlatDetails(m: any): { team1Flat: string; team2Flat: stri
   };
 }
 
+/** Extracts participant contact numbers from the common API/export match shapes. */
+export function extractContactDetails(m: any): { team1Phone: string; team2Phone: string } {
+  const getPhone = (side: 'home' | 'away', team: 'team1' | 'team2') => {
+    const matchSide = side === 'home' ? 'A' : 'B';
+    const player = m?.[side];
+    const value = m?.[`${team}Phone`] ?? m?.[`team${matchSide}Phone`] ?? m?.[`${side}Phone`] ??
+      m?.[`team${matchSide}`]?.phone ?? m?.[`team${matchSide}`]?.user?.phone ??
+      (typeof player === 'object' ? player?.phone ?? player?.user?.phone ?? player?.contactNumber : undefined) ??
+      m?.[`${team}ContactNumber`] ?? m?.[`team${matchSide}ContactNumber`];
+    return value == null ? '' : String(value).trim();
+  };
+  return { team1Phone: getPhone('home', 'team1'), team2Phone: getPhone('away', 'team2') };
+}
+
 /** Extracts names for both teams/players. */
 export function extractTeamNames(m: any): { team1: string; team2: string } {
   const team1 =
@@ -345,6 +359,7 @@ export function prepareExportableMatches(
   return ordered.map(({ match: m }, idx) => {
     const { team1, team2 } = extractTeamNames(m);
     const { team1Flat, team2Flat } = extractFlatDetails(m);
+    const { team1Phone, team2Phone } = extractContactDetails(m);
     const { date, time } = extractDateTime(m);
     const venueCourt = extractVenueCourt(m);
     const stageKey = getMatchStage(m);
@@ -388,6 +403,8 @@ export function prepareExportableMatches(
       courtName: isBye ? '—' : venueCourt,
       team1,
       team2,
+      team1Phone: isBye ? '' : team1Phone,
+      team2Phone: isBye ? '' : team2Phone,
       team1Flat: isBye && team1 === 'BYE' ? '—' : team1Flat,
       team2Flat: isBye && team2 === 'BYE' ? '—' : team2Flat,
       homeFlat: isBye && team1 === 'BYE' ? '—' : team1Flat,
@@ -427,6 +444,7 @@ export function ScheduleExportModal({
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>(defaultFormat);
   const [isExporting, setIsExporting] = useState(false);
   const [includeAutoAdvanced, setIncludeAutoAdvanced] = useState(false);
+  const [includeContactNumbers, setIncludeContactNumbers] = useState(false);
 
   const resolvedSport = sportName || detectSportName(tournamentName);
   const isTeam = isTeamBasedSchedule(matches, tournamentName, isTeamEvent);
@@ -524,11 +542,11 @@ export function ScheduleExportModal({
 
     const fileName = getStageFileName(selectedStage);
     if (exportFormat === 'csv') {
-      exportScheduleToCSV(currentStageMatches, fileName, isTeam);
+      exportScheduleToCSV(currentStageMatches, fileName, isTeam, includeContactNumbers);
     } else if (exportFormat === 'excel') {
-      exportScheduleToExcel(currentStageMatches, fileName, isTeam);
+      exportScheduleToExcel(currentStageMatches, fileName, isTeam, includeContactNumbers);
     } else {
-      exportScheduleToPDF(currentStageMatches, fileName, 'Community Sports', isTeam);
+      exportScheduleToPDF(currentStageMatches, fileName, 'Community Sports', isTeam, includeContactNumbers);
     }
 
     showSuccess(
@@ -556,11 +574,11 @@ export function ScheduleExportModal({
         if (stageList.length > 0) {
           const fileName = getStageFileName(stg);
           if (exportFormat === 'csv') {
-            exportScheduleToCSV(stageList, fileName, isTeam);
+            exportScheduleToCSV(stageList, fileName, isTeam, includeContactNumbers);
           } else if (exportFormat === 'excel') {
-            exportScheduleToExcel(stageList, fileName, isTeam);
+            exportScheduleToExcel(stageList, fileName, isTeam, includeContactNumbers);
           } else {
-            exportScheduleToPDF(stageList, fileName, 'Community Sports', isTeam);
+            exportScheduleToPDF(stageList, fileName, 'Community Sports', isTeam, includeContactNumbers);
           }
           exportedCount++;
           // Small delay to allow sequential browser downloads without getting blocked
@@ -666,6 +684,27 @@ export function ScheduleExportModal({
             </span>
             <span className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${includeAutoAdvanced ? 'bg-amber-500' : 'bg-slate-300'}`}>
               <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${includeAutoAdvanced ? 'translate-x-4' : 'translate-x-0'}`} />
+            </span>
+          </button>
+
+          {/* Optional participant contact numbers */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeContactNumbers}
+            onClick={() => setIncludeContactNumbers(value => !value)}
+            className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+              includeContactNumbers
+                ? 'border-indigo-300 bg-indigo-50/80'
+                : 'border-slate-200 bg-white hover:bg-slate-50'
+            }`}
+          >
+            <span>
+              <span className="block text-xs font-bold text-slate-800">Include contact numbers</span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">Add each player or team contact to the downloaded schedule.</span>
+            </span>
+            <span className={`inline-flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${includeContactNumbers ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+              <span className={`h-4 w-4 rounded-full bg-white shadow transition-transform ${includeContactNumbers ? 'translate-x-4' : 'translate-x-0'}`} />
             </span>
           </button>
 

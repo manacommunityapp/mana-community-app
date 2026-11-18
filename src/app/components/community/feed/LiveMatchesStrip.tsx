@@ -1011,7 +1011,7 @@ export function LiveMatchesStrip() {
                     : isUpcoming
                     ? "border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5"
                     : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
-                } p-2.5 sm:p-3.5 shadow-2xs`}
+                } p-2 sm:p-3 shadow-2xs`}
               >
                 <div>
                   {/* Top Line: Sport, Status Badge, Dismiss */}
@@ -1066,14 +1066,14 @@ export function LiveMatchesStrip() {
                   </div>
 
                   {/* Tournament / Event subtitle */}
-                  <p className="mb-1 truncate text-[10px] font-medium text-slate-400 sm:mb-1.5 sm:text-[11px]">
+                  <p className="mb-0.5 truncate text-[10px] font-medium text-slate-400 sm:mb-1 sm:text-[11px]">
                     {[m.tournamentName, m.eventName, roundStageLabel ? null : m.roundName].filter(Boolean).join(" · ")}
                   </p>
 
                   {/* Teams & Scores (Cricbuzz Bold Layout with Winner Accent) */}
-                  <div className="space-y-1 rounded-xl border border-slate-100 bg-slate-50/90 p-2 group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-colors sm:space-y-1.5 sm:p-2.5">
+                  <div className="space-y-0.5 rounded-lg border border-slate-100 bg-slate-50/90 p-1.5 group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-colors sm:space-y-1 sm:rounded-xl sm:p-2">
                     {/* Team A */}
-                    <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                    <div className={`flex items-center justify-between gap-1.5 p-0.5 rounded-md transition-colors ${
                       isTeamAWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
                     }`}>
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -1103,7 +1103,7 @@ export function LiveMatchesStrip() {
                     </div>
 
                     {/* Team B */}
-                    <div className={`flex items-center justify-between gap-2 p-1 rounded-lg transition-colors ${
+                    <div className={`flex items-center justify-between gap-1.5 p-0.5 rounded-md transition-colors ${
                       isTeamBWinner ? "bg-amber-100/70 border border-amber-300/60" : ""
                     }`}>
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -1135,7 +1135,7 @@ export function LiveMatchesStrip() {
                 </div>
 
                 {/* Cricbuzz-Style Contextual Dynamic Narrative & Action CTA */}
-                <div className="border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="mt-1 border-t border-slate-100 pt-1 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className={`truncate text-[10px] font-medium sm:text-[11px] ${
                       isUpcoming

@@ -697,23 +697,23 @@ export const router = createBrowserRouter([
           },
           {
             path: "badges",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
           },
           {
             path: "feed",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsFeed /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsFeed /></PermissionGuard>
           },
           {
             path: "find-players",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMatchmaking /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsMatchmaking /></PermissionGuard>
           },
           {
             path: "messages",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
           },
           {
             path: "insurance",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
           },
           {
             path: "my-auctions",
@@ -745,7 +745,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "trainers",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "venues",
