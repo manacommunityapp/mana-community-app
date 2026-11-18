@@ -335,7 +335,6 @@ export function computePlayoffRoundMatches(
     roundDates,
     roundTimes,
     roundDurations,
-    roundModes = {},
     globalDuration,
     breakMins,
     breaks = [],
@@ -363,8 +362,8 @@ export function computePlayoffRoundMatches(
     .sort()[0];
   const scheduledEndByMatch = new Map<string, number>();
   const courtAvailableAt = new Map<string, number>();
-  const roundSeqAvailableAt = new Map<string, number>();
   const scheduledTimes = new Map<string, { date: string; time: string }>();
+  const scheduledCourts = new Map<string, string>();
   const dayMs = 24 * 60 * 60 * 1000;
 
   const dayOrdinal = (date: string) => Math.floor(Date.parse(`${date}T00:00:00Z`) / dayMs);
@@ -389,52 +388,76 @@ export function computePlayoffRoundMatches(
     return start;
   };
 
-  // Schedule in bracket order, but keep availability per court. A downstream match
-  // is eligible as soon as its feeder matches are complete; it does not wait for
-  // every other match in the round. Breaks are applied only before reusing that court.
-  orderedMatches.forEach((m, index) => {
-    const roundDate = roundDates[m.round] || defaultScheduleDate || m.date;
-    const adjustedRoundDate = usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && roundDate
-      ? advanceDateToAllowedDay(roundDate, playoffDays)
-      : roundDate;
-    const fallbackDate = adjustedRoundDate || defaultScheduleDate || m.date || '1970-01-01';
-    const configuredStart = roundTimes[m.round] || globalStartTime || m.time || '08:00 AM';
-    const roundStart = absoluteMinute(fallbackDate, configuredStart);
-    const roundDurationStr = roundDurations[m.round];
-    const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
-
-    const feederIds = [m.home?.id, m.away?.id]
-      .filter((id): id is string => !!id)
-      .map(id => {
-        const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
-        return suffix ? id.slice(0, -suffix.length) : '';
-      })
-      .filter(id => id && matchById.has(id));
-    const feederReadyAt = feederIds.reduce((readyAt, id) =>
-      Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
-
-    // BYEs advance immediately and consume neither a court nor a time slot.
-    if (!m.time) {
-      scheduledEndByMatch.set(m.id, roundStart);
-      return;
-    }
-
-    const courtKey = m.courtId != null
-      ? `${m.venueId ?? ''}:${m.courtId}`
-      : `unassigned:${numCourts > 1 ? index % numCourts : 0}`;
-    const courtReadyAt = courtAvailableAt.get(courtKey) ?? roundStart;
-    const mode = roundModes[m.round] || 'sequential';
-    const roundSeqReady = mode === 'sequential' ? (roundSeqAvailableAt.get(m.round) ?? roundStart) : roundStart;
-    const candidate = Math.max(roundStart, feederReadyAt, courtReadyAt, roundSeqReady);
-    const start = placeAfterBreaks(candidate, duration);
-    const scheduled = formatAbsoluteMinute(start);
-    scheduledTimes.set(m.id, scheduled);
-    scheduledEndByMatch.set(m.id, start + duration);
-    courtAvailableAt.set(courtKey, start + duration + breakMins);
-    if (mode === 'sequential') {
-      roundSeqAvailableAt.set(m.round, start + duration + breakMins);
-    }
+  // Allocate each round across courts by earliest availability. A round cannot
+  // start until the previous round's played matches finish; BYEs are immediate
+  // advances and consume no court, duration, or rest interval.
+  const rounds = new Map<string, typeof orderedMatches>();
+  orderedMatches.forEach(match => {
+    const key = `${match.round}:${match.roundIndex}`;
+    rounds.set(key, [...(rounds.get(key) || []), match]);
   });
+  let previousRoundEnd = Number.NEGATIVE_INFINITY;
+
+  for (const roundMatches of rounds.values()) {
+    const representative = roundMatches[0];
+    const configuredDate = roundDates[representative.round] || defaultScheduleDate || representative.date;
+    const adjustedDate = usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && configuredDate
+      ? advanceDateToAllowedDay(configuredDate, playoffDays)
+      : configuredDate;
+    const fallbackDate = adjustedDate || defaultScheduleDate || representative.date || '1970-01-01';
+    const configuredStart = roundTimes[representative.round] || globalStartTime || representative.time || '08:00 AM';
+    const roundStart = Math.max(absoluteMinute(fallbackDate, configuredStart), previousRoundEnd);
+    const roundDurationStr = roundDurations[representative.round];
+    const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
+    const roundRealMatches = roundMatches.filter(match =>
+      !isByeParticipant(match.home) && !isByeParticipant(match.away) && match.status !== 'AUTO_ADVANCED' && match.status !== 'BYE'
+    );
+    let roundEnd = roundStart;
+
+    roundMatches.forEach(match => {
+      const isBye = isByeParticipant(match.home) || isByeParticipant(match.away) ||
+        match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
+      if (isBye) {
+        scheduledEndByMatch.set(match.id, roundStart);
+        return;
+      }
+
+      const feederIds = [match.home?.id, match.away?.id]
+        .filter((id): id is string => !!id)
+        .map(id => {
+          const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
+          return suffix ? id.slice(0, -suffix.length) : '';
+        })
+        .filter(id => id && matchById.has(id));
+      const feederReadyAt = feederIds.reduce((readyAt, id) =>
+        Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
+
+      const venueKey = String(match.venueId ?? '');
+      const venueCourts = Array.from(new Set(matches
+        .filter(candidate => String(candidate.venueId ?? '') === venueKey && candidate.courtId != null &&
+          !isByeParticipant(candidate.home) && !isByeParticipant(candidate.away) &&
+          candidate.status !== 'AUTO_ADVANCED' && candidate.status !== 'BYE')
+        .map(candidate => String(candidate.courtId))));
+      const courtPool = venueCourts.length > 0
+        ? venueCourts
+        : Array.from({ length: Math.max(1, numCourts) }, (_, courtIndex) => `unassigned:${courtIndex}`);
+      const availableSlots = courtPool.map(courtId => {
+        const courtKey = `${venueKey}:${courtId}`;
+        const readyAt = Math.max(roundStart, feederReadyAt, courtAvailableAt.get(courtKey) ?? roundStart);
+        return { courtId, courtKey, start: placeAfterBreaks(readyAt, duration) };
+      });
+      const { courtId, courtKey, start } = availableSlots.reduce((best, slot) =>
+        slot.start < best.start ? slot : best);
+      const scheduled = formatAbsoluteMinute(start);
+      scheduledTimes.set(match.id, scheduled);
+      if (!courtId.startsWith('unassigned:')) scheduledCourts.set(match.id, courtId);
+      scheduledEndByMatch.set(match.id, start + duration);
+      courtAvailableAt.set(courtKey, start + duration + breakMins);
+      roundEnd = Math.max(roundEnd, start + duration);
+    });
+
+    if (roundRealMatches.length > 0) previousRoundEnd = roundEnd;
+  }
 
   return matches.map(m => {
     const roundDate = roundDates[m.round];
@@ -442,6 +465,13 @@ export function computePlayoffRoundMatches(
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
 
     let updated: PlayoffMatchDraft = { ...m, duration };
+
+    if (isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED' || m.status === 'BYE') {
+      updated.time = '';
+      updated.venueId = null;
+      updated.courtId = null;
+      return updated;
+    }
 
     if (roundDate) {
       updated.date = roundDate;
@@ -454,6 +484,7 @@ export function computePlayoffRoundMatches(
     if (scheduled) {
       updated.date = scheduled.date;
       updated.time = scheduled.time;
+      updated.courtId = scheduledCourts.get(m.id) ?? updated.courtId;
     }
 
     return updated;
