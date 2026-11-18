@@ -823,7 +823,7 @@ export function NotificationBell() {
         }}
         title="Notifications & Alerts"
         className={cn(
-          "p-1.5 sm:p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl border border-border bg-card shadow-xs relative transition-all cursor-pointer active:scale-95 flex items-center justify-center",
+          "relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card p-0 text-muted-foreground shadow-xs transition-all hover:bg-muted/50 hover:text-foreground active:scale-95 sm:h-10 sm:w-10",
           unreadCount > 0 && "border-amber-400/80 bg-amber-50/40 text-amber-600 shadow-sm ring-2 ring-amber-300/60",
           isBlinking && "animate-pulse ring-4 ring-rose-400/90 bg-rose-50 text-rose-600 border-rose-400"
         )}

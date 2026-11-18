@@ -24,7 +24,17 @@ interface GenericLiveMatchViewProps {
 }
 
 const isSetBased = (sport: string) =>
-  ["BADMINTON", "VOLLEYBALL", "TENNIS", "TABLE_TENNIS"].includes(sport);
+  [
+    "BADMINTON",
+    "VOLLEYBALL",
+    "BEACH_VOLLEYBALL",
+    "GRASS_VOLLEYBALL",
+    "THROWBALL",
+    "TENNIS",
+    "TABLE_TENNIS",
+    "PICKLEBALL",
+    "SQUASH",
+  ].includes(sport);
 
 export function GenericLiveMatchView({
   matchId,

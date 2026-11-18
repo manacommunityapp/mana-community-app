@@ -4,6 +4,7 @@ import {
   Star, Clock, MapPin, Phone, ChevronLeft, Plus, Minus, ShoppingCart,
   UtensilsCrossed, Leaf, X, Tag, Info, MessageSquare, Percent
 } from "lucide-react";
+import { FoodCheckoutModal } from "./FoodCheckoutModal";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -66,6 +67,7 @@ export function RestaurantDetail() {
   const [activeCategory, setActiveCategory] = useState<number>(1);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -270,10 +272,40 @@ export function RestaurantDetail() {
             <p className="text-sm font-bold">{cartCount} item{cartCount > 1 ? "s" : ""}</p>
             <p className="text-xs opacity-80">{formatPrice(cartTotal)}</p>
           </div>
-          <Button size="sm" className="bg-white text-orange-600 hover:bg-orange-50 font-bold">
+          <Button
+            size="sm"
+            className="bg-white text-orange-600 hover:bg-orange-50 font-bold"
+            onClick={() => setShowCheckout(true)}
+          >
             View Cart
           </Button>
         </div>
+      )}
+
+      {showCheckout && (
+        <FoodCheckoutModal
+          isOpen={showCheckout}
+          onClose={() => setShowCheckout(false)}
+          onOrderComplete={(orderId) => {
+            setCart([]);
+            setShowCheckout(false);
+            navigate(`/food/orders?highlight=${orderId}`);
+          }}
+          orderRequest={{
+            providerId: restaurant?.id ?? 1,
+            providerType: "RESTAURANT",
+            orderType: "DELIVERY",
+            items: cart.map((c) => ({ itemId: c.item.id!, quantity: c.quantity })),
+          }}
+          cartItems={cart.map((c) => ({
+            itemId: c.item.id!,
+            name: c.item.name ?? "",
+            quantity: c.quantity,
+            unitPrice: c.item.price ?? 0,
+          }))}
+          restaurantName={restaurant?.name ?? "Restaurant"}
+          estimatedTotal={cartTotal}
+        />
       )}
     </div>
   );

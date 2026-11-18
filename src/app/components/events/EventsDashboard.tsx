@@ -36,6 +36,7 @@ import { eventDonationService } from "../../../services/events/eventDonationServ
 import { eventExpenseService, type EventExpenseResponse } from "../../../services/events/eventExpenseService";
 import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
 import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1653,12 +1654,7 @@ export function EventsDashboard() {
                                 {r.bookingFee > 0 ? `₹${r.bookingFee.toLocaleString('en-IN')}` : 'Free'}
                               </td>
                               <td className="px-3 py-2">
-                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap border ${
-                                  r.paymentStatus==='PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                  r.paymentStatus==='FREE' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                                  r.paymentStatus==='REFUNDED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                  'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}>{r.paymentStatus}</span>
+                                <PaymentStatusBadge status={r.paymentStatus} />
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap border ${

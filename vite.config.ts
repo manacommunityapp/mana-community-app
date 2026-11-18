@@ -4,6 +4,10 @@ import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // ── Build / deployment metadata (injected at build time) ──────────────────
 // Shown on the Architecture Docs page so each deployment reports its version,
@@ -29,6 +33,14 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8080';
 
   return {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    optimizeDeps: {
+      include: ['@tanstack/react-query'],
+    },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
       __GIT_BRANCH__: JSON.stringify(gitBranch),

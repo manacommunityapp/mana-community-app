@@ -10,6 +10,7 @@ import { automationService } from "../../../../services/automation/automationSer
 import { showSuccess, showError, showInfo } from "../../../../utils/ToastUtils";
 import type { SportsTournament, AuctionTeam, EventRegistration, SportsEvent } from "../../../../types/api";
 import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
+import { getCachedTeamLogo } from "../teams/teamImageUtils";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -61,6 +62,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
   const spent = team.spent ?? 0;
   const budget = team.totalBudget ?? 0;
   const spentPct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+  const teamLogo = (team as any).logoUrl || getCachedTeamLogo(team.teamName || team.name);
 
   return (
     <div
@@ -72,12 +74,16 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
         className="flex items-center gap-3 p-3 cursor-pointer select-none"
         onClick={() => setExpanded(e => !e)}
       >
-        {/* Color swatch / emoji */}
+        {/* Color swatch / emoji / uploaded logo */}
         <div
-          className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold text-white shadow-sm"
+          className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold text-white shadow-sm overflow-hidden"
           style={{ background: color }}
         >
-          {team.emoji || (team.teamName || team.name || "T")[0].toUpperCase()}
+          {teamLogo ? (
+            <img src={teamLogo} alt={team.teamName || team.name} className="w-full h-full object-cover" />
+          ) : (
+            team.emoji || (team.teamName || team.name || "T")[0].toUpperCase()
+          )}
         </div>
 
         <div className="flex-1 min-w-0 text-left">

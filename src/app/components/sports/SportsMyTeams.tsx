@@ -5,6 +5,7 @@ import type { AuctionConfigResponse, AuctionTeam } from "../../../types/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { getCachedTeamLogo } from "./teams/teamImageUtils";
 
 interface TeamWithConfig {
   team: AuctionTeam;
@@ -89,15 +90,25 @@ export function SportsMyTeams() {
               onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/* Team color badge */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, fontSize: 18,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: team.colorHex ? `${team.colorHex}20` : "rgba(148,163,184,0.1)",
-                  border: `2px solid ${team.colorHex || "rgba(148,163,184,0.2)"}`,
-                }}>
-                  {team.emoji || "🏏"}
-                </div>
+                {/* Team color badge / logo */}
+                {(() => {
+                  const teamLogo = (team as any).logoUrl || getCachedTeamLogo(team.teamName || team.name);
+                  return (
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10, fontSize: 18,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: team.colorHex ? `${team.colorHex}20` : "rgba(148,163,184,0.1)",
+                      border: `2px solid ${team.colorHex || "rgba(148,163,184,0.2)"}`,
+                      overflow: "hidden",
+                    }}>
+                      {teamLogo ? (
+                        <img src={teamLogo} alt={team.teamName || team.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        team.emoji || "🏏"
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>

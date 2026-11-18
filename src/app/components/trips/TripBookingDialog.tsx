@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
   MapPin,
   Bed,
   QrCode,
+  Loader2,
 } from "lucide-react";
 import {
   tripService,
@@ -29,8 +30,10 @@ import {
   type TripBooking,
 } from "../../../services/trips/tripService";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
-import { manaPayService } from "../../../services/payments/manaPayService";
-import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../../types/manaPay";
+import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
+import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface TripBookingDialogProps {
   trip: Trip | null;
@@ -65,10 +68,21 @@ export function TripBookingDialog({
   const [selectedPickup, setSelectedPickup] = useState<string>(
     trip?.pickupStops?.[0] || trip?.departurePoint || "Society Main Gate"
   );
-  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "NETBANKING">("UPI");
+  const { user } = useAuth();
+  const { options: checkoutOptions, loading: optionsLoading } = useCheckoutOptions();
+  const [selectedGateway, setSelectedGateway] = useState<string>("");
+  const [selectedManualMode, setSelectedManualMode] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway && !selectedGateway) {
+      setSelectedGateway(checkoutOptions.defaultGateway);
+    }
+  }, [checkoutOptions]);
+  const [pendingOrder, setPendingOrder] = useState<PaymentOrder | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<TripBooking | null>(null);
   const [showManaPayModal, setShowManaPayModal] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   if (!trip) return null;
 
@@ -102,27 +116,65 @@ export function TripBookingDialog({
     setPassengers(updated);
   };
 
-  const handlePayAndConfirm = () => {
-    setShowManaPayModal(true);
+  const handlePayAndConfirm = async () => {
+    if (!user?.communityId) return;
+    setIsProcessing(true);
+    setPayError(null);
+    const gateway = selectedGateway;
+    try {
+      const order = await unifiedPaymentService.createOrder({
+        referenceType: "TRIP_SETTLEMENT",
+        referenceId: trip.id,
+        gateway: gateway as any,
+        communityId: user.communityId,
+        amount: totalPayable,
+      });
+      setPendingOrder(order);
+      if (gateway === "MANA_PAY") {
+        setShowManaPayModal(true);
+      } else if (gateway === "MANUAL") {
+        // Manual payment — admin confirms later; still record the booking
+        const booking = tripService.bookTrip(
+          trip.id,
+          { passengers, selectedRoomType, selectedPickupPoint: selectedPickup, paymentMethod: "MANUAL" as any },
+          currentUser
+        );
+        setConfirmedBooking(booking);
+        onBookingComplete(booking);
+      } else {
+        // Cashfree/Razorpay: SDK would launch here with order.gatewayOrderId
+        await handleVerifyAndBook(order.id);
+      }
+    } catch (err: any) {
+      setPayError(err?.message ?? "Payment initiation failed");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleManaPaySuccess = (record: ManaPaymentRecord) => {
+  const handleVerifyAndBook = async (orderId: number) => {
     try {
-      const booking = tripService.bookTrip(
-        trip.id,
-        {
-          passengers,
-          selectedRoomType,
-          selectedPickupPoint: selectedPickup,
-          paymentMethod: record.paymentRail as any,
-        },
-        currentUser
-      );
-      setConfirmedBooking(booking);
-      onBookingComplete(booking);
-    } catch (err: any) {
-      alert(err.message || "Failed to book trip");
+      const verified = await unifiedPaymentService.verifyPayment(orderId);
+      if (verified.status === "SUCCESS") {
+        const booking = tripService.bookTrip(
+          trip.id,
+          { passengers, selectedRoomType, selectedPickupPoint: selectedPickup, paymentMethod: "ONLINE" as any },
+          currentUser
+        );
+        setConfirmedBooking(booking);
+        onBookingComplete(booking);
+      } else {
+        setPayError("Payment verification failed. Please try again.");
+      }
+    } catch {
+      setPayError("Payment verification failed. Please try again.");
     }
+  };
+
+  const handleManaPaySuccess = async () => {
+    if (!pendingOrder) return;
+    await handleVerifyAndBook(pendingOrder.id);
+    setShowManaPayModal(false);
   };
 
   return (
@@ -331,59 +383,59 @@ export function TripBookingDialog({
                 </div>
               </div>
 
-              <div className="pt-2 border-t flex gap-2">
-                {(["UPI", "CARD", "NETBANKING"] as const).map((method) => (
-                  <Button
-                    key={method}
-                    type="button"
-                    size="sm"
-                    variant={paymentMethod === method ? "default" : "outline"}
-                    className={`flex-1 text-xs font-bold ${
-                      paymentMethod === method ? "bg-indigo-600 text-white" : ""
-                    }`}
-                    onClick={() => setPaymentMethod(method)}
-                  >
-                    {method}
-                  </Button>
-                ))}
-              </div>
+              {optionsLoading ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading payment options...
+                </div>
+              ) : checkoutOptions ? (
+                <div className="pt-2 border-t">
+                  <PaymentGatewaySelector
+                    options={checkoutOptions}
+                    selectedGateway={selectedGateway}
+                    selectedManualMode={selectedManualMode}
+                    onChange={(gw, mode) => { setSelectedGateway(gw); setSelectedManualMode(mode); }}
+                    orderAmount={totalPayable}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         )}
 
         {!confirmedBooking && (
-          <DialogFooter className="flex gap-2 pt-2 border-t">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={isProcessing}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 font-bold gap-1.5"
-              onClick={handlePayAndConfirm}
-              disabled={isProcessing}
-            >
-              {isProcessing ? "Processing Payment..." : `Pay ₹${totalPayable.toLocaleString()} & Confirm`}
-            </Button>
+          <DialogFooter className="flex flex-col gap-2 pt-2 border-t">
+            {payError && (
+              <p className="text-xs text-red-600 text-center w-full">{payError}</p>
+            )}
+            <div className="flex gap-2 w-full justify-end">
+              <Button variant="outline" size="sm" onClick={onClose} disabled={isProcessing}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 font-bold gap-1.5"
+                onClick={handlePayAndConfirm}
+                disabled={isProcessing || !selectedGateway || optionsLoading}
+              >
+                {isProcessing ? "Processing Payment..." : `Pay ₹${totalPayable.toLocaleString()} & Confirm`}
+              </Button>
+            </div>
           </DialogFooter>
         )}
       </DialogContent>
     </Dialog>
 
-    {showManaPayModal && (
+    {showManaPayModal && pendingOrder && (
       <ManaPayCheckoutModal
         isOpen={showManaPayModal}
-        onClose={() => setShowManaPayModal(false)}
+        onClose={() => { setShowManaPayModal(false); setPendingOrder(null); }}
+        paymentOrderId={pendingOrder.id}
         order={{
-          idempotencyKey: manaPayService.generateIdempotencyKey(
-            "TRIP_BOOKING",
-            `${trip.id}-${currentUser.id || "guest"}-${passengers.length}`,
-            totalPayable
-          ),
           domain: "TRIP_BOOKING",
-          orderReferenceId: `TRIP-${trip.id}-${Date.now().toString().slice(-4)}`,
-          title: `Trip Registration: ${trip.title}`,
-          description: `${passengers.length} Passenger(s) · ${selectedRoomType} · Pickup: ${selectedPickup}`,
-          totalAmount: totalPayable,
+          orderReferenceId: `TRIP-${trip.id}`,
+          title: `Trip: ${trip.title}`,
+          description: `${passengers.length} Passenger(s) · ${selectedRoomType}`,
+          totalAmount: pendingOrder.grossAmount,
           payer: {
             name: currentUser.fullName || "Primary Traveler",
             phone: currentUser.phone,
@@ -394,7 +446,7 @@ export function TripBookingDialog({
               title: `${trip.title} (x${passengers.length} seats)`,
               quantity: passengers.length,
               unitPrice: trip.pricePerPerson,
-              amount: totalPayable,
+              amount: pendingOrder.grossAmount,
             },
           ],
         }}

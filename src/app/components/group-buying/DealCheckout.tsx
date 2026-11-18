@@ -7,6 +7,8 @@ import { groupBuyingService, type GroupDeal, type FulfillmentType, type PaymentM
 import { useAuth } from "../../../contexts/AuthContext";
 import { useCashfree } from "../../../hooks/useCashfree";
 import CashfreeCheckout from "../payments/CashfreeCheckout";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
 
 export function DealCheckout() {
   const { dealId } = useParams<{ dealId: string }>();
@@ -16,7 +18,10 @@ export function DealCheckout() {
   const [quantity, setQuantity] = useState(1);
   const [fulfillment, setFulfillment] = useState<FulfillmentType>("PICKUP");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
+  const [selectedGateway, setSelectedGateway] = useState<string>("");
+  const [selectedManualMode, setSelectedManualMode] = useState<string | undefined>();
   const [pickupPoint, setPickupPoint] = useState("");
+  const { options: checkoutOptions, loading: checkoutLoading, error: checkoutError, retry: retryCheckout } = useCheckoutOptions();
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -97,12 +102,6 @@ export function DealCheckout() {
     </div>
   );
 
-  const PAYMENTS: { method: PaymentMethod; label: string; icon: typeof CreditCard; desc: string }[] = [
-    { method: "UPI", label: "UPI", icon: Wallet, desc: "GPay, PhonePe, Paytm" },
-    { method: "ESCROW", label: "Escrow", icon: Shield, desc: "Release on delivery" },
-    { method: "CARD", label: "Card", icon: CreditCard, desc: "Debit / Credit card" },
-  ];
-
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "24px 16px" }}>
       <button onClick={() => navigate(-1)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: "var(--text)", fontSize: 13, fontWeight: 600, marginBottom: 20 }}>
@@ -162,21 +161,30 @@ export function DealCheckout() {
       {/* Payment */}
       <div style={{ background: "var(--card)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.1)", padding: 18, marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>Payment Method</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {PAYMENTS.map(p => (
-            <button key={p.method} onClick={() => setPaymentMethod(p.method)} style={{
-              display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-              border: `1.5px solid ${paymentMethod === p.method ? "#3b82f6" : "rgba(148,163,184,0.15)"}`,
-              background: paymentMethod === p.method ? "rgba(59,130,246,0.06)" : "transparent",
-            }}>
-              <p.icon size={18} style={{ color: paymentMethod === p.method ? "#3b82f6" : "var(--muted)" }} />
-              <div style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: paymentMethod === p.method ? "#3b82f6" : "var(--text)" }}>{p.label}</div>
-                <div style={{ fontSize: 10, color: "var(--muted)" }}>{p.desc}</div>
-              </div>
-            </button>
-          ))}
-        </div>
+        {checkoutLoading ? (
+          <div className="flex items-center gap-2 py-3 text-sm text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+            Loading payment options…
+          </div>
+        ) : checkoutError || !checkoutOptions ? (
+          <div className="text-sm text-red-600">
+            {checkoutError ?? "Unable to load payment options"}
+            <button type="button" onClick={retryCheckout} className="ml-2 underline text-violet-600 cursor-pointer">Retry</button>
+          </div>
+        ) : (
+          <PaymentGatewaySelector
+            options={checkoutOptions}
+            selectedGateway={selectedGateway}
+            selectedManualMode={selectedManualMode}
+            onChange={(gw, mode) => {
+              setSelectedGateway(gw);
+              setSelectedManualMode(mode);
+              // Map gateway to legacy paymentMethod for the existing flow
+              if (gw === "MANUAL") setPaymentMethod("CASH" as PaymentMethod);
+              else setPaymentMethod("UPI" as PaymentMethod);
+            }}
+          />
+        )}
       </div>
 
       {/* Price Breakdown */}

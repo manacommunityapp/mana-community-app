@@ -46,6 +46,8 @@ export function AdminBillingDashboard() {
       const res = await communityFinanceService.generateMonthlyCycle(communityId, selectedMonth, selectedYear);
       setGenSuccess(`Batch generated ${res.generatedCount} invoices for ${selectedMonth}/${selectedYear} (Total: ₹${res.totalBilled.toLocaleString("en-IN")}) with idempotency lock!`);
       communityFinanceService.getSummary(communityId).then(setSummary).catch(() => {});
+    } catch {
+      setGenSuccess("Failed to generate billing cycle. Please try again.");
     } finally {
       setIsGenerating(false);
     }

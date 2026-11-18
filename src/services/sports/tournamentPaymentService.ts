@@ -1,8 +1,12 @@
+// Admin mark-paid/unpaid methods below are manual override flows (cash, cheque, waiver).
+// For online gateway payments use unifiedPaymentService.createGatewayPayment() instead.
 import { apiClient } from "../common/apiClient";
 import { safeStorage } from "../../utils/storage";
 import type { DashboardEventCard } from "./sportsDashboardService";
 import type { TournamentRegistration } from "../../types/api";
 import { formatFlatLabel } from "../../utils/sportsValidationUtils";
+import { unifiedPaymentService } from "../payments/unifiedPaymentService";
+import type { PaymentOrder } from "../payments/unifiedPaymentService";
 
 export interface TournamentPlayerPayment {
   id?: number | string;
@@ -678,4 +682,22 @@ export const tournamentPaymentService = {
       await apiClient.put(`/sports/tournaments/${tournamentId}`, payload);
     }
   },
+
+  /**
+   * Create a gateway payment order for a sports registration.
+   * Use this for online payments (UPI, card, netbanking).
+   * The admin mark-paid flow above is for cash/cheque/waiver overrides only.
+   */
+  createGatewayPayment: (
+    communityId: number,
+    tournamentId: number,
+    amount: number
+  ): Promise<PaymentOrder> =>
+    unifiedPaymentService.createOrder({
+      communityId,
+      gateway: "CASHFREE",
+      referenceType: "SPORTS_REGISTRATION",
+      referenceId: tournamentId,
+      amount,
+    }),
 };

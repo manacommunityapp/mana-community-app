@@ -296,6 +296,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
   const [loading, setLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(initialConfigId ?? null);
   const [bracketMatches, setBracketMatches] = useState<any[]>([]);
+  const lastLoadedConfigIdRef = useRef<number | null>(null);
 
   const visibleConfigs = useMemo(() => {
     return isAdmin ? tournamentConfigs : tournamentConfigs.filter(c => c.status !== "DRAFT");
@@ -311,6 +312,8 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
 
   useEffect(() => {
     if (selectedConfigId) {
+      if (lastLoadedConfigIdRef.current === selectedConfigId) return;
+      lastLoadedConfigIdRef.current = selectedConfigId;
       setLoading(true);
       tournamentService.getMatchesByConfigId(selectedConfigId)
         .then(matches => {
@@ -1454,52 +1457,66 @@ export function SportsSchedule() {
         .then(async (configs) => {
           const matchFixtures: any[] = [];
           let failedConfigReads = 0;
-          for (const cfg of configs || []) {
-            const configIsPublished = ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(cfg.status || "").toUpperCase());
-            try {
-              const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
-              const propagatedMatches = propagateByeAdvancements(matches);
-              for (const m of propagatedMatches) {
-                const matchStatus = String(m.status || "").toUpperCase();
-                if (matchStatus === "BYE" || matchStatus === "DRAFT" || isByeMatch(m)) continue;
-                const matchIsPublished = ["PUBLISHED", "COMPLETED", "IN_PROGRESS", "LIVE"].includes(matchStatus);
-                if (!configIsPublished && !matchIsPublished) continue;
-                const scheduledAt = m.scheduledAt ? parseISO(m.scheduledAt) : null;
-                const hasValidScheduledAt = scheduledAt != null && !Number.isNaN(scheduledAt.getTime());
-                const scheduledDate = hasValidScheduledAt ? format(scheduledAt, "yyyy-MM-dd") : "";
-                const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
-                const scheduledTime = (hasValidScheduledAt && hasExplicit) ? format(scheduledAt, "hh:mm a") : "";
+          const candidateConfigs = (configs || []).filter(cfg => {
+            const configStatus = String(cfg.status || "").toUpperCase();
+            return isAdmin || ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(configStatus);
+          });
 
-                matchFixtures.push({
-                  id: -(m.matchId ?? 0),
-                  matchId: m.matchId,
-                  configId: cfg.id,
-                  tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
-                  teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
-                  teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
-                  name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
-                  sport: cfg.sportName || cfg.eventName || "Tournament",
-                  venue: m.venueName || "TBD",
-                  date: scheduledDate,
-                  time: scheduledTime,
-                  scheduledAt: hasValidScheduledAt ? m.scheduledAt : undefined,
-                  publishedSchedule: configIsPublished || matchIsPublished,
-                  status: String(m.status || "SCHEDULED").toUpperCase() === "COMPLETED"
-                    ? "COMPLETED"
-                    : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
-                      ? "LIVE"
-                      : "SCHEDULED",
-                  team1: m.teamAName || m.homeName || m.teamA?.name || "TBD",
-                  team2: m.teamBName || m.awayName || m.teamB?.name || "TBD",
-                  team1Flat: m.teamAFlat || m.homeFlat,
-                  team2Flat: m.teamBFlat || m.awayFlat,
-                  score1: m.scoreTeamA || "",
-                  score2: m.scoreTeamB || "",
-                  rawStartDate: m.scheduledAt || cfg.startDate,
-                  rawEndDate: cfg.endDate,
-                });
+          const matchResults = await Promise.all(
+            candidateConfigs.map(async (cfg) => {
+              try {
+                const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
+                return { cfg, matches };
+              } catch (_e) {
+                failedConfigReads += 1;
+                return { cfg, matches: [] };
               }
-            } catch (_e) { failedConfigReads += 1; }
+            })
+          );
+
+          for (const { cfg, matches } of matchResults) {
+            const configIsPublished = ["PUBLISHED", "ACTIVE", "COMPLETED"].includes(String(cfg.status || "").toUpperCase());
+            const propagatedMatches = propagateByeAdvancements(matches);
+            for (const m of propagatedMatches) {
+              const matchStatus = String(m.status || "").toUpperCase();
+              if (matchStatus === "BYE" || matchStatus === "DRAFT" || isByeMatch(m)) continue;
+              const matchIsPublished = ["PUBLISHED", "COMPLETED", "IN_PROGRESS", "LIVE"].includes(matchStatus);
+              if (!configIsPublished && !matchIsPublished) continue;
+              const scheduledAt = m.scheduledAt ? parseISO(m.scheduledAt) : null;
+              const hasValidScheduledAt = scheduledAt != null && !Number.isNaN(scheduledAt.getTime());
+              const scheduledDate = hasValidScheduledAt ? format(scheduledAt, "yyyy-MM-dd") : "";
+              const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
+              const scheduledTime = (hasValidScheduledAt && hasExplicit) ? format(scheduledAt, "hh:mm a") : "";
+
+              matchFixtures.push({
+                id: -(m.matchId ?? 0),
+                matchId: m.matchId,
+                configId: cfg.id,
+                tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
+                teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
+                teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
+                name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
+                sport: cfg.sportName || cfg.eventName || "Tournament",
+                venue: m.venueName || "TBD",
+                date: scheduledDate,
+                time: scheduledTime,
+                scheduledAt: hasValidScheduledAt ? m.scheduledAt : undefined,
+                publishedSchedule: configIsPublished || matchIsPublished,
+                status: String(m.status || "SCHEDULED").toUpperCase() === "COMPLETED"
+                  ? "COMPLETED"
+                  : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
+                    ? "LIVE"
+                    : "SCHEDULED",
+                team1: m.teamAName || m.homeName || m.teamA?.name || "TBD",
+                team2: m.teamBName || m.awayName || m.teamB?.name || "TBD",
+                team1Flat: m.teamAFlat || m.homeFlat,
+                team2Flat: m.teamBFlat || m.awayFlat,
+                score1: m.scoreTeamA || "",
+                score2: m.scoreTeamB || "",
+                rawStartDate: m.scheduledAt || cfg.startDate,
+                rawEndDate: cfg.endDate,
+              });
+            }
           }
 
           setFixturesList(matchFixtures);

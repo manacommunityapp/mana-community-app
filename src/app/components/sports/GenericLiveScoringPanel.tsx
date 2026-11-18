@@ -1,5 +1,23 @@
-﻿import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, AlertTriangle, ChevronDown, Radio, Send, Check, Sliders, Crown, Zap, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  X,
+  Loader2,
+  Undo2,
+  AlertTriangle,
+  ChevronDown,
+  Radio,
+  Send,
+  Check,
+  Sliders,
+  Crown,
+  Zap,
+  RefreshCw,
+  ArrowLeftRight,
+  Trophy,
+  Sparkles,
+  CheckCircle2,
+} from "lucide-react";
+import { ConfettiCanvas } from "./utils/ConfettiCanvas";
 import {
   tournamentService,
   type GenericMatchState,
@@ -99,6 +117,10 @@ export function GenericLiveScoringPanel({
   const [showRulesModal, setShowRulesModal] = useState<boolean>(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState<boolean>(false);
   const [showTossModal, setShowTossModal] = useState<boolean>(false);
+  const [servingSide, setServingSide] = useState<"A" | "B">("A");
+  const [isCourtSwapped, setIsCourtSwapped] = useState<boolean>(false);
+  const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const [completingMatch, setCompletingMatch] = useState<boolean>(false);
 
   const isCarrom = (sportType || "").toUpperCase().replace(/[\s-]/g, "_") === "CARROM";
   const [carromMode, setCarromMode] = useState<"BOARD" | "STROKE">("BOARD");
@@ -160,6 +182,18 @@ export function GenericLiveScoringPanel({
     };
   }, [fetchState, matchId]);
 
+  // Sync serving side from toss decision if available
+  useEffect(() => {
+    if (state?.tossWinnerTeamId) {
+      const isWinnerA = state.tossWinnerTeamId === teamA.id;
+      if (state.tossDecision === "RECEIVE") {
+        setServingSide(isWinnerA ? "B" : "A");
+      } else {
+        setServingSide(isWinnerA ? "A" : "B");
+      }
+    }
+  }, [state?.tossWinnerTeamId, state?.tossDecision, teamA.id]);
+
   const isIndividual = isIndividualSport(sportType);
   const defaultSideAName = isIndividual ? "Player 1" : "Team A";
   const defaultSideBName = isIndividual ? "Player 2" : "Team B";
@@ -212,6 +246,11 @@ export function GenericLiveScoringPanel({
         toast.error(`Both ${isIndividual ? "players" : "teams"} must be assigned to this match before scoring.`);
         return;
       }
+      const currentSet = state.periods?.find((p) => p.periodNumber === state.currentPeriod);
+      if (isSetBased(sportType) && currentSet && checkSetWon(currentSet.scoreTeamA, currentSet.scoreTeamB, sportType, state.scoringConfig)) {
+        toast.error(`${currentPeriodLabel} is already won! Click "End ${currentPeriodLabel}" to proceed.`);
+        return;
+      }
       const targetTeamId = teamId || (teamA.name === state?.teamAName ? teamA.id : teamB.id) || 1;
 
       // 1. Optimistic snapshot for rollback
@@ -223,6 +262,7 @@ export function GenericLiveScoringPanel({
         if (!prev) return prev;
         const newScoreA = isTeamA ? prev.scoreTeamA + points : prev.scoreTeamA;
         const newScoreB = !isTeamA ? prev.scoreTeamB + points : prev.scoreTeamB;
+        setServingSide(isTeamA ? "A" : "B");
         const updatedPeriods = prev.periods?.map((p) => {
           if (p.periodNumber === prev.currentPeriod) {
             return {
@@ -289,6 +329,47 @@ export function GenericLiveScoringPanel({
       setSaving(false);
     }
   }, [state, saving, matchId, fetchState]);
+
+  const declareMatchCompleted = async () => {
+    if (!state || saving || completingMatch) return;
+    setCompletingMatch(true);
+    try {
+      const winnerTeamId = computedSetsWonA > computedSetsWonB ? teamA.id : teamB.id;
+      const winnerName = computedSetsWonA > computedSetsWonB ? teamA.name : teamB.name;
+      const winnerSide = computedSetsWonA > computedSetsWonB ? "A" : "B";
+      const setsScoreSummary = state.periods.map((p) => `${p.scoreTeamA}-${p.scoreTeamB}`).join(", ");
+
+      const resultDetail = {
+        matchId,
+        winnerTeamId,
+        resultType: "WIN",
+        scoreTeamA: String(computedSetsWonA),
+        scoreTeamB: String(computedSetsWonB),
+        matchSummary: `${winnerName} won ${Math.max(computedSetsWonA, computedSetsWonB)}-${Math.min(computedSetsWonA, computedSetsWonB)} (${setsScoreSummary})`,
+      };
+
+      try {
+        await tournamentService.recordDetailedResult(resultDetail);
+      } catch {
+        await tournamentService.recordResult({
+          ...resultDetail,
+          winnerName,
+          winnerSide,
+        });
+      }
+
+      setState((prev) => (prev ? { ...prev, status: "COMPLETED" } : null));
+      setShowConfetti(true);
+      toast.success(`🎉 Match completed! ${winnerName} won ${Math.max(computedSetsWonA, computedSetsWonB)}-${Math.min(computedSetsWonA, computedSetsWonB)}!`);
+      if (stompClient.connected) {
+        stompClient.publish("/topic/sports/live", { type: "REFRESH" });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to finalize match completion");
+    } finally {
+      setCompletingMatch(false);
+    }
+  };
 
   const handleCompletePeriod = useCallback(async () => {
     if (!state || saving) return;
@@ -483,6 +564,33 @@ export function GenericLiveScoringPanel({
     (teamBHasGamePoint && computedSetsWonB + 1 >= setsToWin);
 
   // Sort events from last point of time (most recent first)
+  const currentPeriodScore = state.periods.find(
+    (p) => p.periodNumber === state.currentPeriod
+  );
+  const currentSetScoreA = currentPeriodScore ? currentPeriodScore.scoreTeamA : 0;
+  const currentSetScoreB = currentPeriodScore ? currentPeriodScore.scoreTeamB : 0;
+  const isCurrentSetWon =
+    isSetBased(sportType) &&
+    checkSetWon(currentSetScoreA, currentSetScoreB, sportType, state.scoringConfig);
+  const currentSetWinnerName = currentSetScoreA > currentSetScoreB ? teamA.name : teamB.name;
+  const isMatchWon =
+    isSetBased(sportType) &&
+    (computedSetsWonA >= setsToWin || computedSetsWonB >= setsToWin);
+  const matchWinnerName = computedSetsWonA >= setsToWin ? teamA.name : teamB.name;
+  const is11PointInterval =
+    sportType === "BADMINTON" &&
+    !isCurrentSetWon &&
+    !isCompleted &&
+    (currentSetScoreA === 11 || currentSetScoreB === 11);
+  const isGoldenPoint =
+    sportType === "BADMINTON" &&
+    currentSetScoreA === 29 &&
+    currentSetScoreB === 29;
+
+  const serverScore = servingSide === "A" ? currentSetScoreA : currentSetScoreB;
+  const serviceCourtBox =
+    serverScore % 2 === 0 ? "Right Box (Even)" : "Left Box (Odd)";
+
   const sortedEvents = [...state.recentEvents].reverse().sort((a, b) => {
     if (a.timestamp && b.timestamp) {
       const timeA = new Date(a.timestamp).getTime();
@@ -618,7 +726,11 @@ export function GenericLiveScoringPanel({
           {!state.tossWinnerTeamId && state.status !== "COMPLETED" && !isUnassigned && (
             <div className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 mb-3 border border-amber-200 dark:border-amber-800">
               <span className="flex items-center gap-2">
-                <span>🪙</span>
+                <img
+                  src="/coin-tails.png"
+                  alt="Toss Coin"
+                  className="w-5 h-5 rounded-full object-cover shrink-0 shadow-xs ring-1 ring-amber-400"
+                />
                 <span>Toss not recorded yet — record who starts the game</span>
               </span>
               <button
@@ -626,14 +738,18 @@ export function GenericLiveScoringPanel({
                 onClick={() => setShowTossModal(true)}
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition shrink-0 cursor-pointer shadow-xs"
               >
-                Set Toss
+                Set Toss 🪙
               </button>
             </div>
           )}
           {state.tossWinnerTeamId && state.status !== "COMPLETED" && (
             <div className="flex items-center justify-between gap-2 text-xs px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 mb-3 border border-emerald-200 dark:border-emerald-800">
               <span className="flex items-center gap-1.5">
-                <span>🪙</span>
+                <img
+                  src="/coin-tails.png"
+                  alt="Toss Coin"
+                  className="w-5 h-5 rounded-full object-cover shrink-0 shadow-xs ring-1 ring-emerald-400"
+                />
                 <span className="font-semibold">
                   {state.tossWinnerTeamId === teamA.id ? teamA.name : teamB.name} won toss
                   {state.tossDecision ? ` · ${state.tossDecision.replace(/_/g, " ")}` : ""}
@@ -704,7 +820,9 @@ export function GenericLiveScoringPanel({
                 ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200"
                 : "bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-200"
             }`} role="status" aria-live="polite">
-              {isDeuce
+              {isGoldenPoint
+                ? `⚡ GOLDEN POINT · 29-29 · First to 30 points wins! (No 2-pt lead needed)`
+                : isDeuce
                 ? `DEUCE · ${scoreA}-${scoreB} · Win by 2 points`
                 : `${isMatchPoint ? "MATCH POINT" : sportType === "TENNIS" ? "SET POINT" : "GAME POINT"} · ${teamAHasGamePoint ? teamA.name : teamB.name}`}
             </div>
@@ -1080,79 +1198,184 @@ export function GenericLiveScoringPanel({
           </div>
         )}
 
-        {/* Action buttons grid (Standard or Carrom Stroke mode) */}
-        {!isCompleted && (!isCarrom || carromMode === "STROKE") && (
-          <div className="px-4 pb-3">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Team A column */}
-              <div className="space-y-2">
-                <p
-                  className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
-                  style={{
-                    color: teamA.color || "#6366f1",
-                    backgroundColor: `${teamA.color || "#6366f1"}15`,
-                  }}
-                >
-                  {teamA.name}
-                </p>
-                {eventTypes.map((evt) => (
-                  <button
-                    key={evt.eventType}
-                    disabled={saving || isUnassigned}
-                    onClick={() =>
-                      handleScore(
-                        teamA.id || 1,
-                        evt.eventType,
-                        evt.points,
-                        selectedPlayerA
-                      )
-                    }
-                    className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
-                      COLOR_MAP[evt.color] || COLOR_MAP.green
-                    }`}
-                  >
-                    {evt.label}
-                    {evt.points > 0 && (
-                      <span className="ml-1 opacity-80">+{evt.points}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+        {/* Badminton Service Indicator & Court Swap Row */}
+        {isSetBased(sportType) && !isCompleted && (
+          <div className="px-4 pb-2.5 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <span className="text-sm">🏸</span>
+              <span>Serving:</span>
+              <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                {servingSide === "A" ? teamA.name : teamB.name}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 font-extrabold border border-indigo-200 dark:border-indigo-800">
+                {serviceCourtBox}
+              </span>
+              <button
+                type="button"
+                onClick={() => setServingSide((prev) => (prev === "A" ? "B" : "A"))}
+                className="text-[10px] text-slate-500 hover:text-indigo-600 underline cursor-pointer ml-0.5"
+                title="Switch server manually"
+              >
+                Switch
+              </button>
+            </div>
 
-              {/* Team B column */}
-              <div className="space-y-2">
-                <p
-                  className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
-                  style={{
-                    color: teamB.color || "#f97316",
-                    backgroundColor: `${teamB.color || "#f97316"}15`,
-                  }}
-                >
-                  {teamB.name}
-                </p>
-                {eventTypes.map((evt) => (
-                  <button
-                    key={evt.eventType}
-                    disabled={saving || isUnassigned}
-                    onClick={() =>
-                      handleScore(
-                        teamB.id || 2,
-                        evt.eventType,
-                        evt.points,
-                        selectedPlayerB
-                      )
-                    }
-                    className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 ${
-                      COLOR_MAP[evt.color] || COLOR_MAP.green
-                    }`}
-                  >
-                    {evt.label}
-                    {evt.points > 0 && (
-                      <span className="ml-1 opacity-80">+{evt.points}</span>
-                    )}
-                  </button>
-                ))}
+            <button
+              type="button"
+              onClick={() => setIsCourtSwapped((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer ${
+                isCourtSwapped
+                  ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-300 shadow-xs"
+                  : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+              }`}
+              title="Flip umpire scoring columns to match physical court ends"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>{isCourtSwapped ? "Ends Swapped" : "Swap Court View"}</span>
+            </button>
+          </div>
+        )}
+
+        {/* 11-Point Technical Interval Pill */}
+        {is11PointInterval && (
+          <div className="mx-4 mb-3 rounded-xl border border-blue-200 bg-blue-50/90 dark:bg-blue-950/40 dark:border-blue-800 p-2.5 text-center text-xs font-bold text-blue-800 dark:text-blue-200 flex items-center justify-center gap-2">
+            <span>⏱️</span>
+            <span>11-Point Technical Interval · 60-second break allowed by BWF</span>
+          </div>
+        )}
+
+        {/* Set Won Banner & Next Set Prompt */}
+        {isCurrentSetWon && !isCompleted && !isMatchWon && (
+          <div className="mx-4 mb-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 p-3.5 text-center space-y-2 shadow-xs animate-fade-in">
+            <div className="text-xs font-extrabold text-emerald-900 dark:text-emerald-200">
+              🎉 {currentPeriodLabel} Won by {currentSetWinnerName} ({currentSetScoreA} - {currentSetScoreB})!
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleCompletePeriod}
+              className="w-full min-h-12 py-2.5 px-4 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Complete {currentPeriodLabel} & Proceed to Set {state.currentPeriod + 1} →</span>
+            </button>
+          </div>
+        )}
+
+        {/* Match Victory Banner & Finalize Button */}
+        {isMatchWon && !isCompleted && (
+          <div className="mx-4 mb-3 rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 dark:from-amber-950/50 dark:to-slate-900 p-4 text-center space-y-2.5 shadow-lg animate-fade-in">
+            <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
+              <Trophy className="w-6 h-6 animate-bounce" />
+              <span className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                Match Victory!
+              </span>
+            </div>
+            <p className="text-xs font-extrabold text-slate-700 dark:text-slate-200 m-0">
+              {matchWinnerName} won {Math.max(computedSetsWonA, computedSetsWonB)} - {Math.min(computedSetsWonA, computedSetsWonB)} Sets!
+            </p>
+            <button
+              type="button"
+              disabled={completingMatch || saving}
+              onClick={declareMatchCompleted}
+              className="w-full min-h-12 py-3 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {completingMatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />}
+              <span>🏆 Declare Winner & Complete Match</span>
+            </button>
+          </div>
+        )}
+
+        {/* Action buttons grid (Standard or Carrom Stroke mode) */}
+        {!isCompleted && (!isCarrom || carromMode === "STROKE") && (!isCurrentSetWon || isCarrom) && (
+          <div className="px-4 pb-3">
+            {isCourtSwapped && (
+              <div className="mb-2 text-[10px] font-bold text-center text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 py-1 rounded-lg">
+                ⇄ Umpire Court View: Ends Swapped ({teamB.name} on Left · {teamA.name} on Right)
               </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left Column (Team A or Team B if court swapped) */}
+              {(() => {
+                const leftTeam = isCourtSwapped ? teamB : teamA;
+                const leftPlayerId = isCourtSwapped ? selectedPlayerB : selectedPlayerA;
+                return (
+                  <div className="space-y-2">
+                    <p
+                      className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
+                      style={{
+                        color: leftTeam.color || "#6366f1",
+                        backgroundColor: `${leftTeam.color || "#6366f1"}15`,
+                      }}
+                    >
+                      {leftTeam.name}
+                    </p>
+                    {eventTypes.map((evt) => (
+                      <button
+                        key={evt.eventType}
+                        disabled={saving || isUnassigned}
+                        onClick={() =>
+                          handleScore(
+                            leftTeam.id || 1,
+                            evt.eventType,
+                            evt.points,
+                            leftPlayerId
+                          )
+                        }
+                        className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 cursor-pointer ${
+                          COLOR_MAP[evt.color] || COLOR_MAP.green
+                        }`}
+                      >
+                        {evt.label}
+                        {evt.points > 0 && (
+                          <span className="ml-1 opacity-80">+{evt.points}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Right Column (Team B or Team A if court swapped) */}
+              {(() => {
+                const rightTeam = isCourtSwapped ? teamA : teamB;
+                const rightPlayerId = isCourtSwapped ? selectedPlayerA : selectedPlayerB;
+                return (
+                  <div className="space-y-2">
+                    <p
+                      className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
+                      style={{
+                        color: rightTeam.color || "#f97316",
+                        backgroundColor: `${rightTeam.color || "#f97316"}15`,
+                      }}
+                    >
+                      {rightTeam.name}
+                    </p>
+                    {eventTypes.map((evt) => (
+                      <button
+                        key={evt.eventType}
+                        disabled={saving || isUnassigned}
+                        onClick={() =>
+                          handleScore(
+                            rightTeam.id || 2,
+                            evt.eventType,
+                            evt.points,
+                            rightPlayerId
+                          )
+                        }
+                        className={`w-full min-h-12 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 cursor-pointer ${
+                          COLOR_MAP[evt.color] || COLOR_MAP.green
+                        }`}
+                      >
+                        {evt.label}
+                        {evt.points > 0 && (
+                          <span className="ml-1 opacity-80">+{evt.points}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1318,7 +1541,31 @@ export function GenericLiveScoringPanel({
             }}
           />
         )}
+
+        {/* Interactive 3D Coin Toss Modal */}
+        {showTossModal && (
+          <TossSetupModal
+            isOpen={showTossModal}
+            onClose={() => setShowTossModal(false)}
+            matchId={matchId}
+            teamAId={teamA.id}
+            teamBId={teamB.id}
+            teamAName={teamA.name}
+            teamBName={teamB.name}
+            onSaved={() => {
+              fetchState();
+              setShowTossModal(false);
+            }}
+            sportType={sportType}
+          />
+        )}
       </div>
+      {showConfetti && (
+        <ConfettiCanvas
+          primaryColor={computedSetsWonA > computedSetsWonB ? (teamA.color || "#6366f1") : (teamB.color || "#f97316")}
+          onComplete={() => setShowConfetti(false)}
+        />
+      )}
     </div>
   );
 }
