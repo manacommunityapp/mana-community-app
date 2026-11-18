@@ -744,7 +744,7 @@ export function SportsSchedule() {
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; winnerTeamId?: number; winnerName?: string; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -1271,7 +1271,8 @@ export function SportsSchedule() {
       ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
       score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
       status: "COMPLETED",
-      winnerName: scoreWinnerName || (/badminton/i.test(f.sport || "") ? (badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length > badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length ? f.team1 : f.team2) : undefined),
+      winnerTeamId: scoreResultType === "WIN" ? (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.teamAId : f.teamBId : winnerId ?? undefined) : undefined,
+      winnerName: scoreResultType === "WIN" ? (scoreWinnerName || (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.team1 : f.team2 : winnerId === f.teamAId ? f.team1 : winnerId === f.teamBId ? f.team2 : undefined)) : undefined,
     } : f));
     setShowScoreModal(false);
     setScoringFixtureId(null);
@@ -1495,6 +1496,8 @@ export function SportsSchedule() {
                 tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
                 teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
                 teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
+                winnerTeamId: m.winnerTeamId ?? undefined,
+                winnerName: m.winnerName || m.winnerTeamName || undefined,
                 name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
                 sport: cfg.sportName || cfg.eventName || "Tournament",
                 venue: m.venueName || "TBD",
@@ -2481,6 +2484,12 @@ export function SportsSchedule() {
               const sportStyle = getSportColor(fixture.sport);
               const isLive = fixture.status === "LIVE";
               const isCompleted = fixture.status === "COMPLETED";
+              const winnerIsTeam1 = isCompleted && (fixture.winnerTeamId != null && fixture.teamAId != null
+                ? String(fixture.winnerTeamId) === String(fixture.teamAId)
+                : Boolean(fixture.winnerName && fixture.winnerName === fixture.team1));
+              const winnerIsTeam2 = isCompleted && (fixture.winnerTeamId != null && fixture.teamBId != null
+                ? String(fixture.winnerTeamId) === String(fixture.teamBId)
+                : Boolean(fixture.winnerName && fixture.winnerName === fixture.team2));
 
               return (
                 <div
@@ -2535,9 +2544,10 @@ export function SportsSchedule() {
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex min-w-0 items-center justify-between gap-1">
                           <div className="min-w-0">
-                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${winnerIsTeam1 ? "text-emerald-700 font-extrabold" : "text-slate-600"}`}>
                               {fixture.team1}
                             </span>
+                            {winnerIsTeam1 && <span className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700"><Trophy className="h-2.5 w-2.5" />Winner</span>}
                             {fixture.team1Flat && (
                               <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team1Flat}</span>
                             )}
@@ -2550,9 +2560,10 @@ export function SportsSchedule() {
                         </div>
                         <div className="flex min-w-0 items-center justify-between gap-1">
                           <div className="min-w-0">
-                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                            <span className={`text-[11px] sm:text-xs font-semibold block truncate ${winnerIsTeam2 ? "text-emerald-700 font-extrabold" : "text-slate-600"}`}>
                               {fixture.team2}
                             </span>
+                            {winnerIsTeam2 && <span className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700"><Trophy className="h-2.5 w-2.5" />Winner</span>}
                             {fixture.team2Flat && (
                               <span className="text-[9px] sm:text-[10px] text-slate-400 font-normal block truncate">🏠 {fixture.team2Flat}</span>
                             )}
