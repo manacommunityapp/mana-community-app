@@ -383,6 +383,8 @@ export interface ExportableMatch {
   awayTeamName?: string;
   team1Flat?: string;
   team2Flat?: string;
+  team1Phone?: string;
+  team2Phone?: string;
   homeFlat?: string;
   awayFlat?: string;
   home?: string | { id?: string | number; name?: string; flatNumber?: string; [key: string]: any };
@@ -565,11 +567,12 @@ function sortExportMatches(matches: ExportableMatch[]): ExportableMatch[] {
   }));
 }
 
-export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean) {
+export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
   const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
   const t1Header = isTeam ? "Team 1" : "Player 1";
   const t2Header = isTeam ? "Team 2" : "Player 2";
+  const contactHeaders = includeContactNumbers ? [`${t1Header} Contact`, `${t2Header} Contact`] : [];
   const headers = [
     "Match #",
     "Round / Stage",
@@ -581,6 +584,7 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     `${t1Header} Flat`,
     t2Header,
     `${t2Header} Flat`,
+    ...contactHeaders,
     "Score",
     "Status",
     "Winner",
@@ -598,6 +602,8 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
     const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
+    const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+    const t2Phone = isBye ? "—" : (m.team2Phone || "—");
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : (isBye ? "BYE" : "—");
@@ -615,6 +621,7 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
       escapeCSV(t1Flat),
       escapeCSV(t2),
       escapeCSV(t2Flat),
+      ...(includeContactNumbers ? [escapeCSV(t1Phone), escapeCSV(t2Phone)] : []),
       escapeCSV(score),
       escapeCSV(status),
       escapeCSV(winner),
@@ -913,11 +920,12 @@ export function getRoundExportTheme(stageName: string): RoundExportTheme {
   };
 }
 
-export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean) {
+export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
   const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
   const t1Label = isTeam ? "Team 1" : "Player 1";
   const t2Label = isTeam ? "Team 2" : "Player 2";
+  const contactHeaders = includeContactNumbers ? [`${t1Label} Contact`, `${t2Label} Contact`] : [];
   const headers = [
     "Match #",
     "Stage / Round",
@@ -929,6 +937,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     `${t1Label} Flat`,
     t2Label,
     `${t2Label} Flat`,
+    ...contactHeaders,
     "Score",
     "Status",
     "Winner",
@@ -951,8 +960,8 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
 </head>
 <body>
 <table>
-  <tr><td colspan="13" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
-  <tr><td colspan="13">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${countSummary}</td></tr>
+  <tr><td colspan="${headers.length}" class="title-row">${title} — Official Match Schedule & Fixtures</td></tr>
+  <tr><td colspan="${headers.length}">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total Matches: ${countSummary}</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
@@ -968,6 +977,8 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
     const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
     const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined) || "—";
     const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined) || "—";
+    const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+    const t2Phone = isBye ? "—" : (m.team2Phone || "—");
     const s1 = m.score1 ?? m.homeScore;
     const s2 = m.score2 ?? m.awayScore;
     const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} - ${s2}` : (isBye ? "BYE" : "—");
@@ -985,6 +996,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
       <td class="flat-cell">${t1Flat !== "—" ? t1Flat : "—"}</td>
       <td><b>${t2}</b></td>
       <td class="flat-cell">${t2Flat !== "—" ? t2Flat : "—"}</td>
+      ${includeContactNumbers ? `<td>${t1Phone}</td><td>${t2Phone}</td>` : ""}
       <td>${score}</td>
       <td>${status}</td>
       <td>${winner}</td>
@@ -997,7 +1009,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
   triggerDownload(html, `${sanitizedTitle}_${format(new Date(), "yyyyMMdd")}.xls`, "application/vnd.ms-excel");
 }
 
-export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports", isTeamEvent?: boolean) {
+export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournament Fixtures", communityName = "Community Sports", isTeamEvent?: boolean, includeContactNumbers = false) {
   const orderedMatches = sortExportMatches(matches);
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) {
@@ -1008,6 +1020,9 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
   const isTeam = isTeamBasedSchedule(orderedMatches, title, isTeamEvent);
   const team1Header = isTeam ? "TEAM 1" : "PLAYER 1";
   const team2Header = isTeam ? "TEAM 2" : "PLAYER 2";
+  const contactHeaders = includeContactNumbers
+    ? `<th style="text-align:left;">${team1Header} CONTACT</th><th style="text-align:left;">${team2Header} CONTACT</th>`
+    : "";
 
   const playableCount = orderedMatches.filter(m => !isByeMatch(m)).length;
   const byesCount = orderedMatches.length - playableCount;
@@ -1027,6 +1042,8 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
       const t2 = m.team2 || m.team2Name || m.awayTeamName || (typeof m.away === 'string' ? m.away : m.away?.name) || "TBD";
       const t1Flat = m.team1Flat || m.homeFlat || (typeof m.home === 'object' ? m.home?.flatNumber : undefined);
       const t2Flat = m.team2Flat || m.awayFlat || (typeof m.away === 'object' ? m.away?.flatNumber : undefined);
+      const t1Phone = isBye ? "—" : (m.team1Phone || "—");
+      const t2Phone = isBye ? "—" : (m.team2Phone || "—");
       const s1 = m.score1 ?? m.homeScore;
       const s2 = m.score2 ?? m.awayScore;
       const score = s1 != null && s2 != null && (s1 !== "" || s2 !== "") ? `${s1} : ${s2}` : (isBye ? "BYE" : "vs");
@@ -1041,11 +1058,13 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
           <div style="font-weight:bold;">${escapeHtml(t1)}</div>
           ${t1Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t1Flat)}</div>` : ""}
         </td>
+        ${includeContactNumbers ? `<td style="font-size:10px;">${escapeHtml(t1Phone)}</td>` : ""}
         <td style="text-align:center; font-weight:bold; color:${isBye ? '#64748b; background:#f8fafc;' : '#e11d48; background:#fff1f2;'} padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
         <td style="text-align:left; font-size:12px;">
           <div style="font-weight:bold;">${escapeHtml(t2)}</div>
           ${t2Flat ? `<div style="font-size:10px; color:#4f46e5; font-weight:600; margin-top:2px;">🏠 ${escapeHtml(t2Flat)}</div>` : ""}
         </td>
+        ${includeContactNumbers ? `<td style="font-size:10px;">${escapeHtml(t2Phone)}</td>` : ""}
         <td style="text-align:center;"><span class="badge" style="${isBye ? 'background:#f1f5f9; color:#64748b;' : 'background:#e0e7ff; color:#4338ca;'}">${escapeHtml(isBye ? 'AUTO_ADVANCED' : (m.status || 'SCHEDULED'))}</span></td>
       </tr>`;
     })
@@ -1096,8 +1115,10 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
         <th>Date & Time</th>
         <th>Venue / Court</th>
         <th style="text-align:right;">${team1Header}</th>
+        ${includeContactNumbers ? `<th style="text-align:left;">${team1Header} CONTACT</th>` : ""}
         <th style="width:60px; text-align:center;">Score</th>
         <th style="text-align:left;">${team2Header}</th>
+        ${includeContactNumbers ? `<th style="text-align:left;">${team2Header} CONTACT</th>` : ""}
         <th style="text-align:center;">Status</th>
       </tr>
     </thead>

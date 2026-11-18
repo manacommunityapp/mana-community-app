@@ -28,9 +28,6 @@ import {
   getRegistrationPlayerName,
 } from './doublesPairingUtils';
 import {
-  exportScheduleToCSV,
-  exportScheduleToExcel,
-  exportScheduleToPDF,
   exportUmpireScorecardsPDF,
   exportBracketToPDF,
   exportListViewToPDF,
@@ -774,6 +771,7 @@ export function SetupSchedule({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showDisplayExportMenu, setShowDisplayExportMenu] = useState(false);
   const [showStageExportModal, setShowStageExportModal] = useState(false);
+  const [stageExportFormat, setStageExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -789,13 +787,13 @@ export function SetupSchedule({
   const [currentConfigStatus, setCurrentConfigStatus] = useState<string>('');
   const [generatedGroups, setGeneratedGroups] = useState<Array<{
     name: string;
-    participants: Array<{ id: string; name: string; flatNumber?: string }>;
+    participants: Array<{ id: string; name: string; flatNumber?: string; phone?: string }>;
     rounds: string;
     proceeders: string;
     limitMatches: boolean;
     maxMatches: string;
   }>>([]);
-  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string }>>([]);
+  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string; phone?: string }>>([]);
   const [confirmedRegistrations, setConfirmedRegistrations] = useState<EventRegistration[]>([]);
   const [allPlayersConfirmed, setAllPlayersConfirmed] = useState(true);
   const [openPoolPairs, setOpenPoolPairs] = useState<DoublesTeamPair[]>([]);
@@ -1625,13 +1623,14 @@ export function SetupSchedule({
     setParticipants(String(totalTeams));
 
     const allDoublesTeams = [...fixedPairs, ...pairedTeams];
-    const newParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+    const newParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
     for (let i = 0; i < totalTeams; i++) {
       const team = allDoublesTeams[i];
       newParts.push({
         id: `P${i + 1}`,
         name: team.name,
         flatNumber: team.flatNumber,
+        phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
         rating: team.rating,
       });
     }
@@ -1900,8 +1899,8 @@ export function SetupSchedule({
   const buildParticipantList = (
     count: number,
     orderOverride?: PlayoffSeedingOrder
-  ): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+  ): Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
     const customLines = useCustomNames
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
       : [];
@@ -1930,6 +1929,7 @@ export function SetupSchedule({
             id: `P${i + 1}`,
             name: team.name,
             flatNumber: team.flatNumber,
+            phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
             rating: team.rating ?? null,
           });
         } else {
@@ -1961,6 +1961,7 @@ export function SetupSchedule({
           id: `P${i + 1}`,
           name: displayName,
           flatNumber: flatDisplay,
+          phone: reg.phone || reg.user?.phone || '',
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
         });
       } else {
@@ -3228,8 +3229,12 @@ export function SetupSchedule({
           const v = venues.find(ven => ven.id === m.venueId);
           const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
           const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
-          const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
-          const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
+          const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+          const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+          const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+          const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+          const homePhone = m.home?.phone || homeParticipant?.phone;
+          const awayPhone = m.away?.phone || awayParticipant?.phone;
           list.push({
             id: `G${gIdx + 1}-M${mIdx + 1}`,
             matchNumber: list.length + 1,
@@ -3248,6 +3253,8 @@ export function SetupSchedule({
             team2: m.away.name,
             team1Flat: homeFlat,
             team2Flat: awayFlat,
+            team1Phone: homePhone,
+            team2Phone: awayPhone,
             homeTeamName: m.home.name,
             awayTeamName: m.away.name,
             homeFlat,
@@ -3268,8 +3275,12 @@ export function SetupSchedule({
         const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
         const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
         const roundFormatted = (m.round || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
-        const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
-        const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
+        const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+        const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+        const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+        const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+        const homePhone = m.home?.phone || homeParticipant?.phone;
+        const awayPhone = m.away?.phone || awayParticipant?.phone;
         list.push({
           id: `KO-${m.id}`,
           matchNumber: list.length + 1,
@@ -3288,6 +3299,8 @@ export function SetupSchedule({
           team2: m.away?.name || 'TBD',
           team1Flat: homeFlat,
           team2Flat: awayFlat,
+          team1Phone: homePhone,
+          team2Phone: awayPhone,
           homeTeamName: m.home?.name || 'TBD',
           awayTeamName: m.away?.name || 'TBD',
           homeFlat,
@@ -3306,33 +3319,21 @@ export function SetupSchedule({
   };
 
   const handleExportCSV = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
-    exportScheduleToCSV(list, `${ev?.name || 'Tournament'}_Schedule`, isTeam);
-    const playable = list.filter(m => !isByeMatch(m)).length;
-    const byes = list.length - playable;
-    showSuccess(`Schedule exported as CSV (${playable} matches${byes > 0 ? ` + ${byes} byes` : ''})`);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('csv');
+    setShowStageExportModal(true);
   };
 
   const handleExportExcel = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
-    exportScheduleToExcel(list, `${ev?.name || 'Tournament'}_Schedule`, isTeam);
-    const playable = list.filter(m => !isByeMatch(m)).length;
-    const byes = list.length - playable;
-    showSuccess(`Schedule exported as Excel (${playable} matches${byes > 0 ? ` + ${byes} byes` : ''})`);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('excel');
+    setShowStageExportModal(true);
   };
 
   const handleExportPDF = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    const isTeam = isTeamBasedSchedule(list, ev?.name, isTeamSport(ev?.sportName || ''));
-    exportScheduleToPDF(list, `${ev?.name || 'Tournament'} Schedule`, 'Community Sports', isTeam);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('pdf');
+    setShowStageExportModal(true);
   };
 
   const handleExportScorecards = () => {
@@ -6720,6 +6721,7 @@ export function SetupSchedule({
         <ScheduleExportModal
           isOpen={showStageExportModal}
           onClose={() => setShowStageExportModal(false)}
+          defaultFormat={stageExportFormat}
           tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
           matches={collectExportableMatches(true)}
           sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
