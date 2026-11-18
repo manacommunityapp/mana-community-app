@@ -9,6 +9,7 @@ import {
   type EventVolunteerResponse,
 } from "../../../services/events/eventVolunteerService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
 
 type PassType = "VOLUNTEER" | "DEVOTEE";
 
@@ -567,7 +568,7 @@ export function EventsGatePass() {
                     <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-slate-400">
                       <span>Pass: {dev.activityTitle}</span>
                       {dev.phone && <span>Phone: {dev.phone}</span>}
-                      <span>Payment: {dev.paymentStatus}</span>
+                      <PaymentStatusBadge status={dev.paymentStatus} />
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">

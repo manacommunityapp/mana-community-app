@@ -1,6 +1,6 @@
-﻿import { useCallback, useRef } from "react";
+import { useCallback, useRef } from "react";
 
-type SoundType = "four" | "six" | "wicket" | "dot";
+type SoundType = "four" | "six" | "wicket" | "dot" | "run" | "over" | "freeHit" | "win";
 
 function beep(ctx: AudioContext, freq: number, dur: number, type: OscillatorType = "sine", vol = 0.3) {
   try {
@@ -41,6 +41,27 @@ function playDot(ctx: AudioContext) {
   beep(ctx, 330, 0.07, "square", 0.08);
 }
 
+function playRun(ctx: AudioContext) {
+  beep(ctx, 440, 0.08, "triangle", 0.15);
+}
+
+function playOver(ctx: AudioContext) {
+  beep(ctx, 587, 0.14, "triangle", 0.25);
+  setTimeout(() => beep(ctx, 880, 0.25, "triangle", 0.3), 130);
+}
+
+function playFreeHit(ctx: AudioContext) {
+  beep(ctx, 659, 0.1, "sawtooth", 0.25);
+  setTimeout(() => beep(ctx, 880, 0.18, "sawtooth", 0.3), 90);
+}
+
+function playWin(ctx: AudioContext) {
+  beep(ctx, 523, 0.12, "triangle", 0.25);
+  setTimeout(() => beep(ctx, 659, 0.12, "triangle", 0.25), 110);
+  setTimeout(() => beep(ctx, 784, 0.12, "triangle", 0.3), 220);
+  setTimeout(() => beep(ctx, 1047, 0.4, "triangle", 0.35), 330);
+}
+
 export function useCricketSounds() {
   const ctxRef = useRef<AudioContext | null>(null);
 
@@ -61,10 +82,14 @@ export function useCricketSounds() {
   const play = useCallback((type: SoundType) => {
     const ctx = getCtx();
     if (!ctx) return;
-    if (type === "four")   playFour(ctx);
-    else if (type === "six")    playSix(ctx);
-    else if (type === "wicket") playWicket(ctx);
-    else if (type === "dot")    playDot(ctx);
+    if (type === "four")     playFour(ctx);
+    else if (type === "six")      playSix(ctx);
+    else if (type === "wicket")   playWicket(ctx);
+    else if (type === "dot")      playDot(ctx);
+    else if (type === "run")      playRun(ctx);
+    else if (type === "over")     playOver(ctx);
+    else if (type === "freeHit")  playFreeHit(ctx);
+    else if (type === "win")      playWin(ctx);
   }, [getCtx]);
 
   return { play };

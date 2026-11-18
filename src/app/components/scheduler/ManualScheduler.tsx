@@ -163,6 +163,7 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
   const [savingGroups, setSavingGroups] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [draggedTeamId, setDraggedTeamId] = useState<string | null>(null);
+  const lastLoadedCfgIdRef = useRef<number | null>(null);
 
   // Forms State
   const [groupMatchForm, setGroupMatchForm] = useState({
@@ -474,6 +475,8 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
 
   useEffect(() => {
     if (selectedConfigId) {
+      if (lastLoadedCfgIdRef.current === selectedConfigId) return;
+      lastLoadedCfgIdRef.current = selectedConfigId;
       loadConfigData(selectedConfigId);
     }
   }, [selectedConfigId, loadConfigData]);

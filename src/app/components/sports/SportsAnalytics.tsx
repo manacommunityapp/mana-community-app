@@ -42,6 +42,7 @@ import { analyticsService } from "../../../services/admin/analyticsService";
 import type { AnalyticsData } from "../../../services/admin/analyticsService";
 import { CricketAnalyticsSection } from "./CricketAnalyticsCharts";
 import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
 
 // ── Tooltip styles (shared across all charts) ────────────────────────────────
 const TOOLTIP_STYLE = {
@@ -1139,7 +1140,7 @@ export function SportsAnalytics() {
                   <td className="px-4 py-3"><p className="m-0 font-semibold text-foreground">{payment.paymentMode}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.transactionRef || "No reference"}</p></td>
                   <td className="px-4 py-3 text-muted-foreground">{payment.paidAt && !Number.isNaN(Date.parse(payment.paidAt)) ? new Date(payment.paidAt).toLocaleString() : "—"}</td>
                   <td className="px-4 py-3 font-bold text-foreground">{payment.source !== "SERVER" ? `Unverified · ${formatINR(payment.amount)}` : payment.paymentStatus === "PAID" ? formatINR(payment.amount) : `Waived · ${formatINR(payment.amount)}`}</td>
-                  <td className="px-4 py-3"><div className="flex items-center gap-1.5"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${payment.paymentStatus === "PAID" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{payment.paymentStatus}</span>{payment.source !== "SERVER" && <span title="Includes a browser-local payment record" className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold text-slate-600">Local</span>}</div></td>
+                  <td className="px-4 py-3"><div className="flex items-center gap-1.5"><PaymentStatusBadge status={payment.paymentStatus} />{payment.source !== "SERVER" && <span title="Includes a browser-local payment record" className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold text-slate-600">Local</span>}</div></td>
                 </tr>)}
               </tbody>
             </table>

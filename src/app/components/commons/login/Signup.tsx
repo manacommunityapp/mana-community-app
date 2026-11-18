@@ -969,11 +969,11 @@ export function Signup() {
   ];
 
   const inputBase =
-    "w-full h-9 sm:h-10 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 rounded-lg sm:rounded-xl text-foreground placeholder:text-muted-foreground/45 focus:ring-3 focus:ring-primary/15 focus:border-primary outline-none transition-all duration-200 text-xs font-medium shadow-2xs";
-  const labelCls = "block text-[10.5px] sm:text-[11px] font-bold text-foreground/85 mb-1 tracking-tight";
+    "w-full h-12 sm:h-14 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 rounded-xl text-foreground placeholder:text-muted-foreground/55 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all duration-200 text-sm font-medium shadow-2xs";
+  const labelCls = "block text-[11px] sm:text-xs font-bold text-foreground/85 mb-1.5 tracking-tight";
 
   return (
-    <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
+    <div className="h-[100dvh] w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       {/* Left Brand Showcase Panel (Desktop Browser) */}
       <div className="lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0">
         <BrandPanel />
@@ -988,26 +988,26 @@ export function Signup() {
         <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-primary/5 rounded-full blur-[130px] pointer-events-none -z-0" />
 
         {/* Mobile top header branding */}
-        <div className="lg:hidden px-3.5 py-1.5 flex items-center gap-2 border-b border-border bg-card/60 backdrop-blur-sm shrink-0">
-          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-primary text-white shadow-xs shadow-primary/25">
-            <ShieldCheck className="w-3 h-3" />
+        <div className="lg:hidden px-4 py-2.5 flex items-center gap-2.5 border-b border-border bg-card/60 backdrop-blur-sm shrink-0">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary text-white shadow-xs shadow-primary/25">
+            <ShieldCheck className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-[11px] font-bold text-foreground leading-tight">Mana Community</p>
-            <p className="text-[9px] text-muted-foreground">Resident Registration</p>
+            <p className="text-xs font-bold text-foreground leading-tight">Mana Community</p>
+            <p className="text-[10px] text-muted-foreground">Resident Registration</p>
           </div>
         </div>
 
         {/* Form Container */}
-        <div className="px-3.5 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-3 max-w-[660px] xl:max-w-[720px] 2xl:max-w-[780px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center my-auto">
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-5 max-w-[660px] xl:max-w-[720px] 2xl:max-w-[780px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center my-auto">
           {step < 3 ? (
             <>
               {/* Header Title & Subtitle */}
-              <div className="mb-2">
-                <h2 className="text-base sm:text-lg font-black text-foreground tracking-tight mb-0.5">
+              <div className="mb-3">
+                <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight mb-1">
                   {STEP_HEADINGS[step - 1].title}
                 </h2>
-                <p className="text-[11px] sm:text-xs text-muted-foreground font-medium">
+                <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                   {STEP_HEADINGS[step - 1].sub}
                 </p>
               </div>
@@ -1025,14 +1025,14 @@ export function Signup() {
                     advance();
                   }
                 }}
-                className="space-y-2.5 sm:space-y-3"
+                className="space-y-4 sm:space-y-5"
               >
                 {/* ── STEP 1: Personal Details, Verification & Password ──── */}
                 {step === 1 && (
-                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
-                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-2.5 sm:space-y-3 shadow-lg shadow-black/5">
+                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
+                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-border/80 space-y-4 shadow-lg shadow-black/5">
                       {/* Full Name & Phone Number */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <label htmlFor="fullName" className={labelCls}>
                             Full Name <span className="text-primary">*</span>
@@ -1124,8 +1124,8 @@ export function Signup() {
                       </div>
 
                       {/* Email & OTP Verification */}
-                      <div className="space-y-2 p-2.5 bg-primary/5 border border-primary/15 rounded-xl">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                      <div className="space-y-3 p-3 sm:p-4 bg-primary/5 border border-primary/15 rounded-2xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                           <div>
                             <label htmlFor="signup-email" className={labelCls}>
                               Email Address <span className="text-primary">*</span>
@@ -1195,7 +1195,7 @@ export function Signup() {
                       </div>
 
                       {/* Password & Confirm Password */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                           <div className="flex items-center justify-between mb-0.5">
                             <label htmlFor="signup-password" className={labelCls}>
@@ -1510,7 +1510,7 @@ export function Signup() {
                               setShowFlatSearchMenu(true);
                             }}
                             placeholder="Type flat number (e.g. 102, C-204, 305)..."
-                            className="w-full h-8 px-2.5 pl-7 bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-lg text-[11px] placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none font-medium transition-all"
+                            className="w-full h-12 px-3 pl-9 bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-xl text-sm placeholder:text-muted-foreground/55 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none font-medium transition-all"
                           />
                           <Search className="w-3 h-3 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           {flatSearchQuery && (
@@ -1641,12 +1641,12 @@ export function Signup() {
                 )}
 
                 {/* ── Navigation Actions (Back / Continue / Submit) ── */}
-                <div className="flex items-center gap-2.5 pt-1.5">
+                <div className="flex items-center gap-3 pt-2">
                   {step > 1 && (
                     <button
                       type="button"
                       onClick={back}
-                      className="h-9 sm:h-10 flex items-center gap-1 px-3.5 sm:px-4 rounded-lg sm:rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card text-xs font-bold text-foreground hover:bg-muted/50 transition-all cursor-pointer shadow-2xs"
+                      className="min-h-12 sm:min-h-14 flex items-center gap-1.5 px-4 sm:px-5 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card text-sm font-bold text-foreground hover:bg-muted/50 transition-all cursor-pointer shadow-2xs"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" /> Back
                     </button>
@@ -1657,7 +1657,7 @@ export function Signup() {
                       type="button"
                       onClick={advance}
                       disabled={isSendingSignupOtp}
-                      className="flex-1 h-9 sm:h-10 flex items-center justify-center gap-1.5 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs rounded-lg sm:rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed"
+                      className="flex-1 min-h-12 sm:min-h-14 flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed"
                     >
                       {isSendingSignupOtp ? (
                         <>
@@ -1676,7 +1676,7 @@ export function Signup() {
                       type="submit"
                       id="signup-submit-btn"
                       disabled={isSubmitting}
-                      className="flex-1 h-9 sm:h-10 flex items-center justify-center gap-1.5 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs rounded-lg sm:rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 disabled:opacity-65 disabled:cursor-not-allowed cursor-pointer"
+                      className="flex-1 min-h-12 sm:min-h-14 flex items-center justify-center gap-2 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 disabled:opacity-65 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>

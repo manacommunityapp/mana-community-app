@@ -1,7 +1,8 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { X } from "lucide-react";
 import { tournamentService, type TossDecision } from "../../../services/sports/tournamentService";
 import { toast } from "sonner";
+import { TossCoin3D } from "./utils/TossCoin3D";
 
 // Sport-specific toss terminology
 interface SportTossConfig {
@@ -83,7 +84,7 @@ export function TossSetupModal({
   teamAId, teamBId, teamAName, teamBName, onSaved, sportType,
 }: TossSetupModalProps) {
   const cfg = getSportConfig(sportType);
-  const [mode, setMode] = useState<TossMode>(null);
+  const [mode, setMode] = useState<TossMode>("coin");
   const [winnerSide, setWinnerSide] = useState<"A" | "B" | "">("");
   const [decision, setDecision] = useState<TossDecision | "">("");
   const [saving, setSaving] = useState(false);
@@ -92,7 +93,7 @@ export function TossSetupModal({
   if (!isOpen) return null;
 
   const handleBack = () => {
-    setMode(null);
+    setMode("coin");
     setWinnerSide("");
     setDecision("");
     reset();
@@ -122,8 +123,6 @@ export function TossSetupModal({
     save(winnerSide === "A" ? teamAId : teamBId, decision as TossDecision);
   };
 
-  const flipsEndsDeg = result === "tails" ? 1980 : 1800;
-
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
@@ -139,98 +138,59 @@ export function TossSetupModal({
             <h2 className="text-sm font-black text-slate-800">{cfg.modalTitle}</h2>
             <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[200px]">{teamAName} vs {teamBName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition cursor-pointer">
             <X className="w-4 h-4 text-slate-500" />
           </button>
         </div>
 
-        {/* Mode picker */}
-        {mode === null && (
-          <div className="p-5 space-y-2.5">
-            <p className="text-[11px] text-slate-400 text-center mb-3">How was the toss done?</p>
-
-            <button
-              onClick={() => setMode("coin")}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-300 transition text-left active:scale-[0.99]"
-            >
-              <span className="text-2xl leading-none">🪙</span>
-              <div>
-                <div className="text-sm font-bold text-amber-900">Flip a coin</div>
-                <div className="text-[11px] text-amber-700/80">Use the animated coin to decide now</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode("record")}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition text-left active:scale-[0.99]"
-            >
-              <span className="text-2xl leading-none">📋</span>
-              <div>
-                <div className="text-sm font-bold text-slate-800">Record toss</div>
-                <div className="text-[11px] text-slate-500">Toss already done — enter the result</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode("pick")}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition text-left active:scale-[0.99]"
-            >
-              <span className="text-2xl leading-none">⚡</span>
-              <div>
-                <div className="text-sm font-bold text-slate-800">Just pick who bats</div>
-                <div className="text-[11px] text-slate-500">Skip the formality — tap a team</div>
-              </div>
-            </button>
-
-            <button onClick={onClose} className="w-full pt-1 text-xs text-slate-400 hover:text-slate-600 transition">
-              Skip for now
-            </button>
-          </div>
-        )}
+        {/* Mode Switch Tabs */}
+        <div className="flex items-center justify-center gap-1.5 px-4 pt-3 pb-2 border-b border-slate-100 bg-slate-50/80">
+          <button
+            type="button"
+            onClick={() => setMode("coin")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              mode === "coin"
+                ? "bg-amber-500 text-slate-950 shadow-xs"
+                : "text-slate-600 hover:bg-slate-200/60"
+            }`}
+          >
+            <span>🪙 Coin Toss</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("record")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              mode === "record"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-slate-600 hover:bg-slate-200/60"
+            }`}
+          >
+            <span>📋 Manual</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("pick")}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              mode === "pick"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-slate-600 hover:bg-slate-200/60"
+            }`}
+          >
+            <span>⚡ Quick Pick</span>
+          </button>
+        </div>
 
         {/* Coin flip */}
         {mode === "coin" && (
-          <div className="p-5 text-center">
-            <div className="relative mx-auto w-28 h-28 my-3" style={{ perspective: "600px" }}>
-              <style>{`
-                @keyframes toss-coin-flip {
-                  0%   { transform: rotateY(0deg) translateY(0px); }
-                  25%  { transform: rotateY(540deg) translateY(-24px); }
-                  65%  { transform: rotateY(1260deg) translateY(-12px); }
-                  100% { transform: rotateY(${flipsEndsDeg}deg) translateY(0px); }
-                }
-              `}</style>
-              <div
-                className="w-full h-full"
-                style={{
-                  transformStyle: "preserve-3d",
-                  animation: coinState === "flipping" ? "toss-coin-flip 1.6s cubic-bezier(0.3,0.9,0.5,1) forwards" : "none",
-                  transform: coinState === "done"
-                    ? `rotateY(${flipsEndsDeg}deg)`
-                    : "rotateY(0deg)",
-                  transition: coinState === "idle" ? "transform 0.3s" : undefined,
-                }}
-              >
-                <div
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-yellow-500 flex items-center justify-center shadow-xl ring-4 ring-amber-600/20"
-                  style={{ backfaceVisibility: "hidden" }}
-                >
-                  <div className="text-center">
-                    <div className="text-4xl">🏏</div>
-                    <div className="text-[9px] font-black text-amber-900 uppercase tracking-widest mt-0.5">Heads</div>
-                  </div>
-                </div>
-                <div
-                  className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 via-slate-400 to-slate-500 flex items-center justify-center shadow-xl ring-4 ring-slate-600/20"
-                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-                >
-                  <div className="text-center">
-                    <div className="text-4xl">🏟️</div>
-                    <div className="text-[9px] font-black text-slate-800 uppercase tracking-widest mt-0.5">Tails</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="p-5 text-center space-y-3">
+            <TossCoin3D
+              isFlipping={coinState === "flipping"}
+              result={result}
+              onFlip={flip}
+              sportType={sportType}
+              size="md"
+              interactive={coinState !== "flipping"}
+            />
 
             {coinState === "idle" && (
               <div className="space-y-3 mt-2">

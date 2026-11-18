@@ -217,6 +217,10 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
   const ballsLeft = chasingTarget ? remainingBalls(state.innings2.totalOvers, effectiveMaxOvers) : 0;
   const rrr = chasingTarget ? requiredRunRate(state.target!, state.innings2.totalRuns, state.innings2.totalOvers, effectiveMaxOvers) : "-";
 
+  const tossWinnerName = state.tossWinnerTeamId
+    ? (state.tossWinnerTeamId === state.teamAId ? state.teamAName : state.teamBName)
+    : null;
+
   // Cricbuzz ball badge renderer
   const renderCricbuzzBall = (ball: string, key?: number | string) => {
     let bg = "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
@@ -418,6 +422,21 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               </div>
             </div>
           </div>
+
+          {/* Toss Result Banner */}
+          {tossWinnerName && (
+            <div className="mt-3 px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 flex items-center justify-between text-xs text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                  🪙 Toss
+                </span>
+                <span>
+                  <strong className="text-white font-semibold">{tossWinnerName}</strong> won the toss and elected to{" "}
+                  <strong className="text-amber-300 font-bold uppercase">{state.tossDecision === "BOWL" ? "bowl" : "bat"}</strong> first
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Equation Banner */}
           {chasingTarget && (

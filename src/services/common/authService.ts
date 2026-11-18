@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import { encryptPasswordPayload } from "../../utils/cryptoUtils";
 import type {
   AuthResponse,
   LoginRequest,
@@ -10,9 +11,78 @@ import type {
   ChangePasswordResponse,
 } from "../../types/api";
 
+interface PublicKeyResponse {
+  publicKey: string;
+  keyId: string;
+  algorithm: string;
+}
+
+let cachedPublicKey: string | null = null;
+let keyFetchPromise: Promise<string> | null = null;
+
 export const authService = {
-  /** POST /api/auth/login */
+  /** Fetches and caches active RSA public key for client-side password encryption */
+  async getPublicKey(): Promise<string> {
+    if (cachedPublicKey) return cachedPublicKey;
+    try {
+      const stored = sessionStorage.getItem("mana_auth_pubkey");
+      if (stored) {
+        cachedPublicKey = stored;
+        return stored;
+      }
+    } catch {}
+
+    if (!keyFetchPromise) {
+      keyFetchPromise = apiClient
+        .get<PublicKeyResponse>("/auth/public-key")
+        .then((res) => {
+          if (res && res.publicKey) {
+            cachedPublicKey = res.publicKey;
+            try {
+              sessionStorage.setItem("mana_auth_pubkey", res.publicKey);
+            } catch {}
+            return res.publicKey;
+          }
+          throw new Error("Invalid public key response from server");
+        })
+        .finally(() => {
+          keyFetchPromise = null;
+        });
+    }
+    return keyFetchPromise;
+  },
+
+  /** Clears cached public key to allow key rotation recovery */
+  clearCachedPublicKey(): void {
+    cachedPublicKey = null;
+    try {
+      sessionStorage.removeItem("mana_auth_pubkey");
+    } catch {}
+  },
+
+  /** POST /api/auth/login with client-side RSA-OAEP encryption to protect against cleartext payloads in DevTools / HAR / proxies */
   async login(data: LoginRequest): Promise<AuthResponse> {
+    // If encryptedPassword is provided already, pass directly
+    if (data.encryptedPassword) {
+      return apiClient.post<AuthResponse>("/auth/login", data);
+    }
+
+    if (data.password) {
+      try {
+        const pubKey = await this.getPublicKey();
+        const encrypted = await encryptPasswordPayload(data.password, pubKey);
+        // Dispatch with encryptedPassword ONLY so plaintext password is never visible in network payload
+        return await apiClient.post<AuthResponse>("/auth/login", {
+          identifier: data.identifier,
+          encryptedPassword: encrypted,
+        });
+      } catch (err: any) {
+        this.clearCachedPublicKey();
+        console.warn("Client-side encryption fell back to standard transport:", err?.message);
+        return apiClient.post<AuthResponse>("/auth/login", data);
+      }
+    }
+
     return apiClient.post<AuthResponse>("/auth/login", data);
   },
 

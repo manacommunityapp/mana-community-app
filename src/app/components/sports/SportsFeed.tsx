@@ -15,18 +15,21 @@ import {
   Send,
   ChevronDown,
   ChevronUp,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsSocialService } from "../../../services/sports/sportsSocialService";
 import type { SportsFeedPost, FeedComment, FeedPostType } from "../../../types/sportsSocial";
+import { WinnerScorecard } from "./WinnerScorecard";
+import { ConfettiCanvas } from "./utils/ConfettiCanvas";
 
 const POST_TYPE_META: Record<FeedPostType, { label: string; icon: typeof Trophy; color: string }> = {
-  SCORECARD: { label: "Scorecard", icon: Trophy, color: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400" },
+  SCORECARD: { label: "Match Done", icon: Trophy, color: "bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/60" },
   HIGHLIGHT: { label: "Highlight", icon: Sparkles, color: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400" },
   PHOTO: { label: "Photo", icon: Camera, color: "bg-pink-50 text-pink-600 dark:bg-pink-950 dark:text-pink-400" },
   MILESTONE: { label: "Milestone", icon: Star, color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400" },
   DISCUSSION: { label: "Discussion", icon: MessageSquare, color: "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400" },
-  MATCH_RESULT: { label: "Result", icon: Target, color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400" },
+  MATCH_RESULT: { label: "Winner Result", icon: Crown, color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-700/60" },
   TOURNAMENT_UPDATE: { label: "Tournament", icon: Megaphone, color: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400" },
 };
 
@@ -48,10 +51,15 @@ export function SportsFeed() {
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, FeedComment[]>>({});
   const [commentInput, setCommentInput] = useState("");
+  const [confettiActive, setConfettiActive] = useState<boolean>(false);
 
   useEffect(() => {
     setPosts(sportsSocialService.getFeed(sportFilter));
   }, [sportFilter]);
+
+  function handleCheerWinner() {
+    setConfettiActive(true);
+  }
 
   function handleLike(postId: string) {
     const updated = sportsSocialService.likePost(postId);
@@ -85,7 +93,15 @@ export function SportsFeed() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto">
+    <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto relative">
+      {/* Confetti Physics Burst for Winner Celebrations */}
+      {confettiActive && (
+        <ConfettiCanvas
+          durationMs={3500}
+          onComplete={() => setConfettiActive(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
@@ -120,7 +136,7 @@ export function SportsFeed() {
           const meta = POST_TYPE_META[post.type];
           const Icon = meta.icon;
           return (
-            <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+            <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs hover:shadow-xs transition-shadow">
               {/* Post Header */}
               <div className="flex items-center gap-3 px-4 pt-4 pb-2">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -142,30 +158,15 @@ export function SportsFeed() {
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{post.content}</p>
               </div>
 
-              {/* Scorecard (if present) */}
+              {/* Match Completed Winner Scorecard (if present) */}
               {post.scorecard && (
-                <div className="mx-4 mb-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/50 dark:to-violet-950/50 border border-indigo-100 dark:border-indigo-900">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-center flex-1">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">{post.scorecard.teamA}</div>
-                      <div className="text-lg font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{post.scorecard.scoreA}</div>
-                    </div>
-                    <div className="text-xs font-bold text-slate-400 px-3">vs</div>
-                    <div className="text-center flex-1">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">{post.scorecard.teamB}</div>
-                      <div className="text-lg font-black text-red-500 dark:text-red-400 tabular-nums">{post.scorecard.scoreB}</div>
-                    </div>
-                  </div>
-                  <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 text-center">{post.scorecard.result}</div>
-                  <div className="flex items-center justify-center gap-3 mt-1.5 text-[10px] text-slate-500">
-                    <span>{post.scorecard.venue}</span>
-                    {post.scorecard.playerOfMatch && (
-                      <span className="flex items-center gap-0.5">
-                        <Star className="w-3 h-3 text-amber-500" />
-                        {post.scorecard.playerOfMatch}
-                      </span>
-                    )}
-                  </div>
+                <div className="mx-4 mb-3">
+                  <WinnerScorecard
+                    scorecard={post.scorecard}
+                    sport={post.sport}
+                    onCheer={handleCheerWinner}
+                    onShare={() => handleShare(post.id)}
+                  />
                 </div>
               )}
 

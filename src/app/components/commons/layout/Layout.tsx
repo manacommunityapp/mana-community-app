@@ -111,7 +111,7 @@ function UserProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-xl border border-[#EBEFF2] bg-white hover:bg-[#F9FAFC] hover:border-[#A7F3D0] transition-all shadow-xs cursor-pointer active:scale-95 group select-none"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs transition-all hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 cursor-pointer group select-none sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1 sm:pl-1 sm:pr-2.5"
         title="Profile & Account Menu"
         aria-expanded={open}
       >
@@ -119,7 +119,7 @@ function UserProfileMenu({
           <img
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
-            className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0"
+            className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] transition-all shrink-0 group-hover:ring-2 group-hover:ring-[#00D09C]/30"
             onError={(e) => {
               const currentSrc = e.currentTarget.src;
               if (currentSrc && !currentSrc.includes("/api/files/")) {
@@ -142,7 +142,7 @@ function UserProfileMenu({
         </span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 text-[#7C7E8C] transition-transform duration-200 shrink-0",
+            "hidden h-3 w-3 shrink-0 text-[#7C7E8C] transition-transform duration-200 sm:block",
             open && "rotate-180 text-[#00D09C]"
           )}
         />
@@ -657,7 +657,7 @@ export function Layout() {
 
   return (
     <ChatProvider>
-      <div className="h-screen bg-background flex font-sans text-foreground overflow-hidden">
+      <div className="h-[100dvh] min-h-0 bg-background flex font-sans text-foreground overflow-hidden">
         {/* Mobile Backdrop */}
         {isMobileSidebarOpen && (
           <div
@@ -1247,8 +1247,8 @@ export function Layout() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F9FAFC]">
-          <header className="bg-white border-b border-[#EBEFF2] h-13 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-xs">
-            <div className="flex items-center gap-2 sm:gap-3">
+          <header style={{ paddingTop: "env(safe-area-inset-top, 0px)" }} className="sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-2 border-b border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-[0_4px_18px_rgba(15,23,42,0.045)] backdrop-blur-xl sm:min-h-16 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
               {/* Desktop Menu Toggle Button */}
               <button
                 type="button"
@@ -1261,9 +1261,11 @@ export function Layout() {
 
               <Link
                 to="/"
-                className="font-extrabold text-sm sm:text-base text-[#44475B] lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
+                aria-label="Mana Community home"
+                className="group flex items-center gap-2 lg:hidden"
               >
-                Mana Community
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D09C] to-[#00A87E] text-xs font-black text-white shadow-[0_4px_10px_rgba(0,208,156,0.25)] transition-transform group-hover:scale-[1.03]">M</span>
+                <span className="text-[15px] font-extrabold tracking-tight text-[#263746] sm:text-base">Mana</span>
               </Link>
             </div>
 
@@ -1283,7 +1285,7 @@ export function Layout() {
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5 lg:gap-3">
             <MobileHeaderActions onToggleSidebar={toggleSidebar} />
             <NotificationBell />
 
