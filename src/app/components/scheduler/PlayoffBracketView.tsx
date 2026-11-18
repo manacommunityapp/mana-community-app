@@ -11,7 +11,7 @@ type Props = {
   onEditMatch?: (match: PlayoffMatchDraft) => void;
   onDownloadBracket?: () => void;
   resolveVenueName?: (venueId: number | null) => string;
-  resolveCourtName?: (courtId: string | null) => string;
+  resolveCourtName?: (courtId: string | null, venueId?: number | null) => string;
   showByes?: boolean;
   onToggleShowByes?: () => void;
   totalDrawCount?: number;
@@ -110,6 +110,7 @@ function MatchCard({
   // A bye match has no real opponent, so date/time/venue/court are meaningless.
   const isByeMatch = isByeParticipant(match.home) || isByeParticipant(match.away);
   const isPendingSlot = match.status === 'PENDING_SLOT';
+  const assignedCourt = courtName || (match as any).courtName || match.courtId;
 
   return (
     <div
@@ -157,8 +158,8 @@ function MatchCard({
         <div className="flex flex-row items-center justify-between gap-1 mt-1">
           <div className="flex flex-row gap-1.5 items-center min-w-0">
             <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
-            <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
-              {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
+            <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, assignedCourt].filter(Boolean).join(' , ')}>
+              {[venueName, assignedCourt].filter(Boolean).join(' , ') || 'TBD'}
             </span>
           </div>
           {match.conflicts && match.conflicts.length > 0 && (
@@ -451,7 +452,7 @@ export function PlayoffBracketView({
                       top={top}
                       onEdit={onEditMatch ? () => onEditMatch(m) : undefined}
                       venueName={resolveVenueName ? resolveVenueName(m.venueId) : undefined}
-                      courtName={resolveCourtName ? resolveCourtName(m.courtId) : undefined}
+                      courtName={resolveCourtName ? resolveCourtName(m.courtId, m.venueId) : undefined}
                     />
                   );
                 })}

@@ -454,9 +454,10 @@ export function computePlayoffRoundMatches(
         pendingIndex: number;
       } | null = null;
 
-      pending.forEach((match, pendingIndex) => {
+      for (let pendingIndex = 0; pendingIndex < pending.length; pendingIndex++) {
+        const match = pending[pendingIndex];
         const feederIds = getFeederIds(match);
-        if (feederIds.some(id => !scheduledEndByMatch.has(id))) return;
+        if (feederIds.some(id => !scheduledEndByMatch.has(id))) continue;
         const feederReadyAt = feederIds.reduce((readyAt, id) =>
           Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
         const participantKeys = getParticipantKeys(match);
@@ -466,15 +467,15 @@ export function computePlayoffRoundMatches(
         const venueKey = String(match.venueId ?? '');
         const courtPool = venueCourtPools.get(venueKey) || [];
 
-        courtPool.forEach(courtId => {
+        for (const courtId of courtPool) {
           const courtKey = `${venueKey}:${courtId}`;
           const start = placeAfterBreaks(Math.max(readyAt, courtAvailableAt.get(courtKey) ?? roundStart), duration);
           if (!bestPlacement || start < bestPlacement.start ||
             (start === bestPlacement.start && pendingIndex < bestPlacement.pendingIndex)) {
             bestPlacement = { match, courtId, courtKey, start, participantKeys, pendingIndex };
           }
-        });
-      });
+        }
+      }
 
       // Break malformed or cyclic feeder references safely instead of leaving
       // a fixture unscheduled; valid brackets always take the ready path above.
@@ -1816,12 +1817,16 @@ export function SetupSchedule({
   const resolveVenueName = (venueId: number | null): string =>
     venueId ? (venues.find(v => v.id === venueId)?.name ?? '') : '';
 
-  /** Resolve a court id to its display name across all venues' courts. */
-  const resolveCourtName = (courtId: string | null): string => {
+  /** Resolve a court id against its venue first, since court IDs may repeat between venues. */
+  const resolveCourtName = (courtId: string | null, venueId?: number | null): string => {
     if (courtId == null) return '';
-    for (const v of venues) {
-      const c = v.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
-      if (c) return c.name;
+    if (venueId != null) {
+      const venue = venues.find(v => v.id === venueId);
+      return venue?.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId))?.name ?? '';
+    }
+    for (const venue of venues) {
+      const court = venue.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
+      if (court) return court.name;
     }
     return '';
   };
