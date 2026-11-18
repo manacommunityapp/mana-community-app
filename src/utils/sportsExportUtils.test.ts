@@ -3,6 +3,13 @@ import {
   exportTournamentPaymentsToCSV,
   exportTournamentPaymentsToExcel,
   exportTournamentPaymentsToPDF,
+  exportScheduleToCSV,
+  exportScheduleToExcel,
+  exportScheduleToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
+  formatExportDate,
+  formatExportTime,
 } from "./sportsExportUtils";
 import type { UniqueTournamentPlayer } from "../services/sports/tournamentPaymentService";
 
@@ -367,5 +374,207 @@ describe("sportsExportUtils - Schedule Exports with Flat Details", () => {
     const html = mockWrite.mock.calls[0][0];
     expect(html).toContain("🏠 Flat: Tower 1 - 402");
     expect(html).toContain("🏠 Flat: Tower 2 - 105");
+  });
+
+  it("exports bracket draw to PDF with SVG connectors, auto-fit, and landscape styling", async () => {
+    const mockPrint = vi.fn();
+    const mockWrite = vi.fn();
+    const mockClose = vi.fn();
+    const mockFocus = vi.fn();
+
+    (globalThis as any).window.open = vi.fn().mockReturnValue({
+      document: {
+        write: mockWrite,
+        close: mockClose,
+      },
+      focus: mockFocus,
+      print: mockPrint,
+    });
+
+    const { exportBracketToPDF } = await import("./sportsExportUtils");
+
+    const bracketMatches = [
+      {
+        id: "m1",
+        round: "SEMI_FINAL",
+        roundIndex: 0,
+        home: { id: "p1", name: "Player 1", flatNumber: "A-101" },
+        away: { id: "p2", name: "Player 2", flatNumber: "A-102" },
+        date: "2026-12-01",
+        time: "10:00 AM",
+      },
+      {
+        id: "m2",
+        round: "SEMI_FINAL",
+        roundIndex: 0,
+        home: { id: "p3", name: "Player 3", flatNumber: "B-201" },
+        away: { id: "p4", name: "Player 4", flatNumber: "B-202" },
+        date: "2026-12-01",
+        time: "10:30 AM",
+      },
+      {
+        id: "m3",
+        round: "FINAL",
+        roundIndex: 1,
+        home: { id: "m1-winner", name: "Semi-Final 1 (Winner)" },
+        away: { id: "m2-winner", name: "Semi-Final 2 (Winner)" },
+        date: "2026-12-01",
+        time: "11:30 AM",
+      },
+    ];
+
+    exportBracketToPDF(bracketMatches as any, "Test Tournament Draw", "Mana Community", "Badminton");
+
+    expect((globalThis as any).window.open).toHaveBeenCalled();
+    const html = mockWrite.mock.calls[0][0];
+
+    // Verify document structure & landscape print page size
+    expect(html).toContain("<title>Test Tournament Draw — Knockout Bracket</title>");
+    expect(html).toContain("@page { size: landscape; margin: 6mm; }");
+
+    // Verify SVG vector path connector layer is generated
+    expect(html).toContain("<svg style=");
+    expect(html).toContain("<path d=\"M");
+    expect(html).toContain("stroke=\"#818cf8\"");
+
+    // Verify auto-fit script
+    expect(html).toContain("fitBracketToPage");
+
+    // Verify matches and podium
+    expect(html).toContain("Player 1");
+    expect(html).toContain("Player 2");
+    expect(html).toContain("Semi-Finals");
+    expect(html).toContain("Final");
+    expect(html).toContain("Champion / Winner");
+  });
+
+  describe("Schedule Exports - Date/Time formatting, BYE blanks, Serial Numbers, and Dynamic Headers", () => {
+    it("formatExportDate and formatExportTime correctly parse ISO timestamps", () => {
+      expect(formatExportDate("2026-11-15T18:00")).toBe("15-Nov-2026");
+      expect(formatExportTime("", "2026-11-15T18:00")).toBe("06:00 PM");
+      expect(formatExportTime("18:30", "2026-11-15")).toBe("06:30 PM");
+      expect(formatExportTime("09:15 AM", "2026-11-15")).toBe("09:15 AM");
+    });
+
+    it("isByeMatch accurately detects BYE and AUTO_ADVANCED matches", () => {
+      expect(isByeMatch({ status: "AUTO_ADVANCED" })).toBe(true);
+      expect(isByeMatch({ team1: "BYE", team2: "Player 1" })).toBe(true);
+      expect(isByeMatch({ home: { id: "bye", name: "BYE" }, away: { id: "p1", name: "Player 1" } })).toBe(true);
+      expect(isByeMatch({ team1: "Player 1", team2: "Player 2", status: "SCHEDULED" })).toBe(false);
+    });
+
+    it("isTeamBasedSchedule detects Team sports vs Player individual sports", () => {
+      // Cricket -> Teams
+      expect(isTeamBasedSchedule([], "LEPL Cricket Championship", undefined)).toBe(true);
+      // Football -> Teams
+      expect(isTeamBasedSchedule([], "Society Football Cup", true)).toBe(true);
+      // Table Tennis -> Players
+      expect(isTeamBasedSchedule([], "LE Table Tennis Championship", undefined)).toBe(false);
+      // Badminton singles -> Players
+      expect(isTeamBasedSchedule([], "Badminton Singles Tournament", false)).toBe(false);
+    });
+
+    it("exportScheduleToCSV exports dynamic headers and blanks out BYE date/time/venue", () => {
+      const schedule = [
+        {
+          matchNumber: 1,
+          round: "Round of 16",
+          team1: "Veera",
+          team2: "BYE",
+          status: "AUTO_ADVANCED",
+          date: "2026-11-15T18:00",
+          time: "06:00 PM",
+          venue: "Clubhouse · Court 1",
+        },
+        {
+          matchNumber: 5,
+          round: "Round of 16",
+          team1: "Shreyansh",
+          team2: "Gautham",
+          status: "SCHEDULED",
+          date: "2026-11-15T18:30",
+          time: "06:30 PM",
+          venue: "Clubhouse · Court 2",
+        },
+      ];
+
+      // Export Table Tennis (individual players)
+      exportScheduleToCSV(schedule, "TT_Schedule", false);
+
+      expect(createdDownloadFilename).toContain("TT_Schedule");
+      // Dynamic header: Player 1 and Player 2, not Team 1
+      expect(createdBlobContent).toContain("Player 1");
+      expect(createdBlobContent).toContain("Player 2");
+      expect(createdBlobContent).not.toContain("Team 1");
+
+      // Match numbers must be sequential: 1 and 2 (not 1 and 5)
+      expect(createdBlobContent).toContain('1,"League Match"');
+      expect(createdBlobContent).toContain('2,"League Match"');
+
+      // Veera BYE: date, time, and venue must be "—"
+      expect(createdBlobContent).toContain('"—","—","—","Veera"');
+
+      // Shreyansh vs Gautham: date and time formatted cleanly
+      expect(createdBlobContent).toContain('"15-Nov-2026","06:30 PM","Clubhouse · Court 2"');
+    });
+
+    it("exportScheduleToPDF includes dynamic headers, count summary with byes, and blanks BYE match details", () => {
+      const mockWrite = vi.fn();
+      (globalThis as any).window.open = vi.fn().mockReturnValue({
+        document: {
+          write: mockWrite,
+          close: vi.fn(),
+        },
+        focus: vi.fn(),
+        print: vi.fn(),
+      });
+
+      const schedule = [
+        {
+          matchNumber: 1,
+          round: "Round of 16",
+          team1: "Veera",
+          team2: "BYE",
+          status: "AUTO_ADVANCED",
+          date: "2026-11-15T18:00",
+          time: "06:00 PM",
+          venue: "Clubhouse",
+        },
+        {
+          matchNumber: 5,
+          round: "Round of 16",
+          team1: "Shreyansh",
+          team2: "Gautham",
+          status: "SCHEDULED",
+          date: "2026-11-15T18:30",
+          time: "06:30 PM",
+          venue: "Clubhouse · Court 2",
+        },
+      ];
+
+      exportScheduleToPDF(schedule, "LE Table Tennis Championship", "Community Sports", false);
+
+      expect((globalThis as any).window.open).toHaveBeenCalled();
+      const html = mockWrite.mock.calls[0][0];
+
+      // Dynamic competitor header
+      expect(html).toContain("PLAYER 1");
+      expect(html).toContain("PLAYER 2");
+
+      // Subtitle summary with accurate playable count and byes (singular BYE for 1)
+      expect(html).toContain("1 Matches (1 Auto-Advanced BYE)");
+
+      // Serial match numbering
+      expect(html).toContain("#1");
+      expect(html).toContain("#2");
+
+      // Veera auto-advanced BYE shows "—" for date/time/court
+      expect(html).toContain("AUTO_ADVANCED");
+      expect(html).toContain("Veera");
+
+      // Regular match has formatted date & time
+      expect(html).toContain("15-Nov-2026");
+      expect(html).toContain("06:30 PM");
+    });
   });
 });

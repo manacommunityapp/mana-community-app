@@ -28,13 +28,13 @@ import {
   getRegistrationPlayerName,
 } from './doublesPairingUtils';
 import {
-  exportScheduleToCSV,
-  exportScheduleToExcel,
-  exportScheduleToPDF,
   exportUmpireScorecardsPDF,
   exportBracketToPDF,
   exportListViewToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
 } from '../../../utils/sportsExportUtils';
+import { isTeamSport } from '../sports/utils/sportsConstants';
 import type { ExportableMatch } from '../../../utils/sportsExportUtils';
 import {
   applyPlayoffOverrides,
@@ -359,7 +359,9 @@ export function computePlayoffRoundMatches(
     .sort()[0];
   const scheduledEndByMatch = new Map<string, number>();
   const courtAvailableAt = new Map<string, number>();
+  const participantAvailableAt = new Map<string, number>();
   const scheduledTimes = new Map<string, { date: string; time: string }>();
+  const scheduledCourts = new Map<string, string>();
   const dayMs = 24 * 60 * 60 * 1000;
 
   const dayOrdinal = (date: string) => Math.floor(Date.parse(`${date}T00:00:00Z`) / dayMs);
@@ -384,47 +386,118 @@ export function computePlayoffRoundMatches(
     return start;
   };
 
-  // Schedule in bracket order, but keep availability per court. A downstream match
-  // is eligible as soon as its feeder matches are complete; it does not wait for
-  // every other match in the round. Breaks are applied only before reusing that court.
-  orderedMatches.forEach((m, index) => {
-    const roundDate = roundDates[m.round] || defaultScheduleDate || m.date;
-    const adjustedRoundDate = usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && roundDate
-      ? advanceDateToAllowedDay(roundDate, playoffDays)
-      : roundDate;
-    const fallbackDate = adjustedRoundDate || defaultScheduleDate || m.date || '1970-01-01';
-    const configuredStart = roundTimes[m.round] || globalStartTime || m.time || '08:00 AM';
+  // Allocate each match across courts by earliest availability. Later-round
+  // matches can use free courts as soon as their own participants are ready;
+  // feeder links delay only the matches waiting for an earlier result. BYEs
+  // advance immediately and consume no court, duration, or rest interval.
+  const rounds = new Map<string, typeof orderedMatches>();
+  orderedMatches.forEach(match => {
+    const key = `${match.round}:${match.roundIndex}`;
+    rounds.set(key, [...(rounds.get(key) || []), match]);
+  });
+  for (const roundMatches of rounds.values()) {
+    const representative = roundMatches[0];
+    const configuredDate = roundDates[representative.round] || defaultScheduleDate || representative.date;
+    const adjustedDate = usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && configuredDate
+      ? advanceDateToAllowedDay(configuredDate, playoffDays)
+      : configuredDate;
+    const fallbackDate = adjustedDate || defaultScheduleDate || representative.date || '1970-01-01';
+    const configuredStart = roundTimes[representative.round] || globalStartTime || representative.time || '08:00 AM';
     const roundStart = absoluteMinute(fallbackDate, configuredStart);
-    const roundDurationStr = roundDurations[m.round];
+    const roundDurationStr = roundDurations[representative.round];
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
+    const isAutomaticAdvance = (match: PlayoffMatchDraft) =>
+      isByeParticipant(match.home) || isByeParticipant(match.away) ||
+      match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
+    const playableMatches = roundMatches.filter(match => !isAutomaticAdvance(match));
+    roundMatches.filter(isAutomaticAdvance).forEach(match => scheduledEndByMatch.set(match.id, roundStart));
 
-    const feederIds = [m.home?.id, m.away?.id]
+    const getFeederIds = (match: PlayoffMatchDraft) => [match.home?.id, match.away?.id]
       .filter((id): id is string => !!id)
       .map(id => {
         const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
         return suffix ? id.slice(0, -suffix.length) : '';
       })
       .filter(id => id && matchById.has(id));
-    const feederReadyAt = feederIds.reduce((readyAt, id) =>
-      Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
+    const getParticipantKeys = (match: PlayoffMatchDraft) => [match.home, match.away]
+      .filter(participant => !!participant && !isByeParticipant(participant))
+      .map(participant => participant.id || participant.name)
+      .filter(id => !!id && !id.endsWith('-winner') && !id.endsWith('-loser'))
+      .map(id => id.trim().toLowerCase());
 
-    // BYEs advance immediately and consume neither a court nor a time slot.
-    if (!m.time) {
-      scheduledEndByMatch.set(m.id, roundStart);
-      return;
+    const venueCourtPools = new Map<string, string[]>();
+    playableMatches.forEach(match => {
+      const venueKey = String(match.venueId ?? '');
+      if (!venueCourtPools.has(venueKey)) {
+        const venueCourts = Array.from(new Set(matches
+          .filter(candidate => String(candidate.venueId ?? '') === venueKey && candidate.courtId != null &&
+            !isByeParticipant(candidate.home) && !isByeParticipant(candidate.away) &&
+            candidate.status !== 'AUTO_ADVANCED' && candidate.status !== 'BYE')
+          .map(candidate => String(candidate.courtId))));
+        venueCourtPools.set(venueKey, venueCourts.length > 0
+          ? venueCourts
+          : Array.from({ length: Math.max(1, numCourts) }, (_, courtIndex) => `unassigned:${courtIndex}`));
+      }
+    });
+
+    // Re-evaluate all remaining matches after each placement. This lets ready
+    // matches claim the current free courts before a feeder-delayed match is
+    // assigned a later slot, while tracking each participant across rounds.
+    const pending = [...playableMatches];
+    while (pending.length > 0) {
+      let bestPlacement: {
+        match: PlayoffMatchDraft;
+        courtId: string;
+        courtKey: string;
+        start: number;
+        participantKeys: string[];
+        pendingIndex: number;
+      } | null = null;
+
+      for (let pendingIndex = 0; pendingIndex < pending.length; pendingIndex++) {
+        const match = pending[pendingIndex];
+        const feederIds = getFeederIds(match);
+        if (feederIds.some(id => !scheduledEndByMatch.has(id))) continue;
+        const feederReadyAt = feederIds.reduce((readyAt, id) =>
+          Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
+        const participantKeys = getParticipantKeys(match);
+        const participantReadyAt = participantKeys.reduce((readyAt, key) =>
+          Math.max(readyAt, participantAvailableAt.get(key) ?? roundStart), roundStart);
+        const readyAt = Math.max(roundStart, feederReadyAt, participantReadyAt);
+        const venueKey = String(match.venueId ?? '');
+        const courtPool = venueCourtPools.get(venueKey) || [];
+
+        for (const courtId of courtPool) {
+          const courtKey = `${venueKey}:${courtId}`;
+          const start = placeAfterBreaks(Math.max(readyAt, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+          if (!bestPlacement || start < bestPlacement.start ||
+            (start === bestPlacement.start && pendingIndex < bestPlacement.pendingIndex)) {
+            bestPlacement = { match, courtId, courtKey, start, participantKeys, pendingIndex };
+          }
+        }
+      }
+
+      // Break malformed or cyclic feeder references safely instead of leaving
+      // a fixture unscheduled; valid brackets always take the ready path above.
+      if (!bestPlacement) {
+        const match = pending[0];
+        const venueKey = String(match.venueId ?? '');
+        const courtId = (venueCourtPools.get(venueKey) || [])[0] || 'unassigned:0';
+        const courtKey = `${venueKey}:${courtId}`;
+        const start = placeAfterBreaks(Math.max(roundStart, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+        bestPlacement = { match, courtId, courtKey, start, participantKeys: getParticipantKeys(match), pendingIndex: 0 };
+      }
+
+      const { match, courtId, courtKey, start, participantKeys } = bestPlacement;
+      const scheduled = formatAbsoluteMinute(start);
+      scheduledTimes.set(match.id, scheduled);
+      if (!courtId.startsWith('unassigned:')) scheduledCourts.set(match.id, courtId);
+      scheduledEndByMatch.set(match.id, start + duration);
+      courtAvailableAt.set(courtKey, start + duration + breakMins);
+      participantKeys.forEach(key => participantAvailableAt.set(key, start + duration));
+      pending.splice(bestPlacement.pendingIndex, 1);
     }
-
-    const courtKey = m.courtId != null
-      ? `${m.venueId ?? ''}:${m.courtId}`
-      : `unassigned:${numCourts > 1 ? index % numCourts : 0}`;
-    const courtReadyAt = courtAvailableAt.get(courtKey) ?? roundStart;
-    const candidate = Math.max(roundStart, feederReadyAt, courtReadyAt);
-    const start = placeAfterBreaks(candidate, duration);
-    const scheduled = formatAbsoluteMinute(start);
-    scheduledTimes.set(m.id, scheduled);
-    scheduledEndByMatch.set(m.id, start + duration);
-    courtAvailableAt.set(courtKey, start + duration + breakMins);
-  });
+  }
 
   return matches.map(m => {
     const roundDate = roundDates[m.round];
@@ -432,6 +505,13 @@ export function computePlayoffRoundMatches(
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
 
     let updated: PlayoffMatchDraft = { ...m, duration };
+
+    if (isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED' || m.status === 'BYE') {
+      updated.time = '';
+      updated.venueId = null;
+      updated.courtId = null;
+      return updated;
+    }
 
     if (roundDate) {
       updated.date = roundDate;
@@ -444,6 +524,7 @@ export function computePlayoffRoundMatches(
     if (scheduled) {
       updated.date = scheduled.date;
       updated.time = scheduled.time;
+      updated.courtId = scheduledCourts.get(m.id) ?? updated.courtId;
     }
 
     return updated;
@@ -733,6 +814,7 @@ export function SetupSchedule({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showDisplayExportMenu, setShowDisplayExportMenu] = useState(false);
   const [showStageExportModal, setShowStageExportModal] = useState(false);
+  const [stageExportFormat, setStageExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -748,13 +830,13 @@ export function SetupSchedule({
   const [currentConfigStatus, setCurrentConfigStatus] = useState<string>('');
   const [generatedGroups, setGeneratedGroups] = useState<Array<{
     name: string;
-    participants: Array<{ id: string; name: string; flatNumber?: string }>;
+    participants: Array<{ id: string; name: string; flatNumber?: string; phone?: string }>;
     rounds: string;
     proceeders: string;
     limitMatches: boolean;
     maxMatches: string;
   }>>([]);
-  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string }>>([]);
+  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string; phone?: string }>>([]);
   const [confirmedRegistrations, setConfirmedRegistrations] = useState<EventRegistration[]>([]);
   const [allPlayersConfirmed, setAllPlayersConfirmed] = useState(true);
   const [openPoolPairs, setOpenPoolPairs] = useState<DoublesTeamPair[]>([]);
@@ -1584,13 +1666,14 @@ export function SetupSchedule({
     setParticipants(String(totalTeams));
 
     const allDoublesTeams = [...fixedPairs, ...pairedTeams];
-    const newParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+    const newParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
     for (let i = 0; i < totalTeams; i++) {
       const team = allDoublesTeams[i];
       newParts.push({
         id: `P${i + 1}`,
         name: team.name,
         flatNumber: team.flatNumber,
+        phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
         rating: team.rating,
       });
     }
@@ -1734,12 +1817,16 @@ export function SetupSchedule({
   const resolveVenueName = (venueId: number | null): string =>
     venueId ? (venues.find(v => v.id === venueId)?.name ?? '') : '';
 
-  /** Resolve a court id to its display name across all venues' courts. */
-  const resolveCourtName = (courtId: string | null): string => {
+  /** Resolve a court id against its venue first, since court IDs may repeat between venues. */
+  const resolveCourtName = (courtId: string | null, venueId?: number | null): string => {
     if (courtId == null) return '';
-    for (const v of venues) {
-      const c = v.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
-      if (c) return c.name;
+    if (venueId != null) {
+      const venue = venues.find(v => v.id === venueId);
+      return venue?.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId))?.name ?? '';
+    }
+    for (const venue of venues) {
+      const court = venue.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
+      if (court) return court.name;
     }
     return '';
   };
@@ -1859,8 +1946,8 @@ export function SetupSchedule({
   const buildParticipantList = (
     count: number,
     orderOverride?: PlayoffSeedingOrder
-  ): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+  ): Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
     const customLines = useCustomNames
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
       : [];
@@ -1889,6 +1976,7 @@ export function SetupSchedule({
             id: `P${i + 1}`,
             name: team.name,
             flatNumber: team.flatNumber,
+            phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
             rating: team.rating ?? null,
           });
         } else {
@@ -1920,6 +2008,7 @@ export function SetupSchedule({
           id: `P${i + 1}`,
           name: displayName,
           flatNumber: flatDisplay,
+          phone: reg.phone || reg.user?.phone || '',
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
         });
       } else {
@@ -2517,13 +2606,21 @@ export function SetupSchedule({
       return list.map(m => {
         let home = m.home;
         let away = m.away;
-        if (home && !home.flatNumber) {
+        if (home) {
           const found = allParticipantOptions.find(p => p.id === home.id || p.name === home.name);
-          if (found?.flatNumber) home = { ...home, flatNumber: found.flatNumber };
+          if (found && (!home.flatNumber || !(home as any).phone)) home = {
+            ...home,
+            flatNumber: home.flatNumber || found.flatNumber,
+            phone: (home as any).phone || found.phone,
+          } as typeof home;
         }
-        if (away && !away.flatNumber) {
+        if (away) {
           const found = allParticipantOptions.find(p => p.id === away.id || p.name === away.name);
-          if (found?.flatNumber) away = { ...away, flatNumber: found.flatNumber };
+          if (found && (!away.flatNumber || !(away as any).phone)) away = {
+            ...away,
+            flatNumber: away.flatNumber || found.flatNumber,
+            phone: (away as any).phone || found.phone,
+          } as typeof away;
         }
         return { ...m, home, away };
       });
@@ -2651,6 +2748,8 @@ export function SetupSchedule({
 
     if (!eventId) return allMatches;
 
+    let matchCounter = 1;
+
     // Collect group stage or round robin matches
     if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
@@ -2666,7 +2765,7 @@ export function SetupSchedule({
             round: isRoundRobin ? 'LEAGUE_MATCH' : 'GROUP_STAGE',
             roundNumber: 1,
             bracketSlot: mIdx,
-            matchNumber: mIdx + 1,
+            matchNumber: matchCounter++,
             homeName: match.home.name,
             homeId: match.home.id,
             homeFlat,
@@ -2716,7 +2815,7 @@ export function SetupSchedule({
           round: match.round || (isGroupKnockout ? 'SEMI_FINAL' : ((match.roundIndex ?? 0) === 0 ? 'ROUND_OF_16' : 'QUARTER_FINAL')),
           roundNumber: (match.roundIndex !== undefined ? match.roundIndex + 1 : 1),
           bracketSlot: idx,
-          matchNumber: idx + 1,
+          matchNumber: matchCounter++,
           homeName,
           homeId,
           homeFlat,
@@ -2725,7 +2824,7 @@ export function SetupSchedule({
           awayId,
           awayFlat,
           teamBFlat: awayFlat,
-          matchDate: match.date,
+          matchDate: isByeMatch ? '' : match.date,
           matchTime: isByeMatch ? '' : to24HourTime(match.time),
           duration: match.duration,
           venueId: isByeMatch ? null : match.venueId,
@@ -2909,7 +3008,9 @@ export function SetupSchedule({
 
     // Playoff matches
     if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
-      const pMatches = getPlayoffMatches();
+      // Keep the complete bracket in the view model; presentation toggles filter
+      // BYEs without destroying the entries needed when the user turns them back on.
+      const pMatches = getPlayoffMatches(undefined, true);
       pMatches.forEach(m => {
         list.push({
           key: m.id,
@@ -3152,16 +3253,26 @@ export function SetupSchedule({
     return rows;
   }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft]);
 
-  const visibleFixturesTableRows = useMemo(
+  const allVisibleFixturesTableRows = useMemo(
     () => allFixturesTableRows.filter(row => !isPlaceholderBracketSlot(row.rawMatch)),
     [allFixturesTableRows]
   );
+  const visibleFixturesTableRows = useMemo(() => {
+    const rows = showByesInBracket
+      ? allVisibleFixturesTableRows
+      : allVisibleFixturesTableRows.filter(row => {
+          const match = row.rawMatch as any;
+          return !isByeParticipant(match?.home) && !isByeParticipant(match?.away) &&
+            !['AUTO_ADVANCED', 'BYE'].includes(String(match?.status || '').trim().toUpperCase());
+        });
+    return rows.map((row, index) => ({ ...row, matchNumber: index + 1 }));
+  }, [allVisibleFixturesTableRows, showByesInBracket]);
 
   const totalConflictsCount = useMemo(() => {
     return Object.values(scheduleConflicts).reduce((acc, msgs) => acc + (msgs.length > 0 ? 1 : 0), 0);
   }, [scheduleConflicts]);
 
-  const collectExportableMatches = (): ExportableMatch[] => {
+  const collectExportableMatches = (includeAutoAdvanced = showByesInBracket): ExportableMatch[] => {
     const ev = events.find(e => e.id.toString() === selectedEvent);
     const sportName = ev?.sportName || detectSportName(ev?.name) || 'Tournament';
     const list: ExportableMatch[] = [];
@@ -3173,8 +3284,12 @@ export function SetupSchedule({
           const v = venues.find(ven => ven.id === m.venueId);
           const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
           const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
-          const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
-          const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
+          const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+          const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+          const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+          const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+          const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+          const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
           list.push({
             id: `G${gIdx + 1}-M${mIdx + 1}`,
             matchNumber: list.length + 1,
@@ -3193,6 +3308,8 @@ export function SetupSchedule({
             team2: m.away.name,
             team1Flat: homeFlat,
             team2Flat: awayFlat,
+            team1Phone: homePhone,
+            team2Phone: awayPhone,
             homeTeamName: m.home.name,
             awayTeamName: m.away.name,
             homeFlat,
@@ -3213,8 +3330,12 @@ export function SetupSchedule({
         const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
         const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
         const roundFormatted = (m.round || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
-        const homeFlat = m.home?.flatNumber || allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name)?.flatNumber;
-        const awayFlat = m.away?.flatNumber || allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name)?.flatNumber;
+        const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+        const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+        const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+        const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+        const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+        const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
         list.push({
           id: `KO-${m.id}`,
           matchNumber: list.length + 1,
@@ -3233,6 +3354,8 @@ export function SetupSchedule({
           team2: m.away?.name || 'TBD',
           team1Flat: homeFlat,
           team2Flat: awayFlat,
+          team1Phone: homePhone,
+          team2Phone: awayPhone,
           homeTeamName: m.home?.name || 'TBD',
           awayTeamName: m.away?.name || 'TBD',
           homeFlat,
@@ -3244,30 +3367,28 @@ export function SetupSchedule({
       });
     }
 
-    return list;
+    const exportRows = includeAutoAdvanced
+      ? list
+      : list.filter(match => match.status !== 'AUTO_ADVANCED' && match.status !== 'BYE');
+    return exportRows.map((match, index) => ({ ...match, matchNumber: index + 1 }));
   };
 
   const handleExportCSV = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToCSV(list, `${ev?.name || 'Tournament'}_Schedule`);
-    showSuccess(`Schedule exported as CSV (${list.length} matches)`);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('csv');
+    setShowStageExportModal(true);
   };
 
   const handleExportExcel = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToExcel(list, `${ev?.name || 'Tournament'}_Schedule`);
-    showSuccess(`Schedule exported as Excel (${list.length} matches)`);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('excel');
+    setShowStageExportModal(true);
   };
 
   const handleExportPDF = () => {
-    const list = collectExportableMatches();
-    if (list.length === 0) { showWarning('No matches to export'); return; }
-    const ev = events.find(e => e.id.toString() === selectedEvent);
-    exportScheduleToPDF(list, `${ev?.name || 'Tournament'} Schedule`);
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('pdf');
+    setShowStageExportModal(true);
   };
 
   const handleExportScorecards = () => {
@@ -5302,10 +5423,12 @@ export function SetupSchedule({
           {scheduleViewMode === 'list' && (
             <div className="mt-4">
               <FixturesListView
-                fixtures={visibleFixturesTableRows}
+                fixtures={allVisibleFixturesTableRows}
                 breaks={tournamentBreaks}
                 onEditMatch={handleEditFromTable}
                 sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
+                showAutoAdvanced={showByesInBracket}
+                onToggleAutoAdvanced={() => setShowByesInBracket(value => !value)}
               />
             </div>
           )}
@@ -6653,9 +6776,11 @@ export function SetupSchedule({
         <ScheduleExportModal
           isOpen={showStageExportModal}
           onClose={() => setShowStageExportModal(false)}
+          defaultFormat={stageExportFormat}
           tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
-          matches={collectExportableMatches()}
+          matches={collectExportableMatches(true)}
           sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
+          isTeamEvent={isTeamSport(events.find(e => e.id.toString() === selectedEvent)?.sportName || '')}
         />
       )}
     </div>

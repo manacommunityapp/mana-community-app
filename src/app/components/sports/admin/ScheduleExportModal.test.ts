@@ -372,6 +372,62 @@ describe('ScheduleExportModal Helpers', () => {
       expect(result[0].sport).toBe('Tournament');
       expect(result[0].sport).not.toBe('Badminton');
     });
+
+    it('clears date, time, and venue for BYE matches and renumbers serially', () => {
+      const matchesWithByes = [
+        {
+          matchNumber: 1,
+          round: 'ROUND_OF_16',
+          teamAName: 'Veera',
+          teamBName: 'BYE',
+          status: 'AUTO_ADVANCED',
+          scheduledAt: '2026-11-14T09:00:00',
+          venueName: 'Clubhouse',
+          courtName: 'Court 1',
+        },
+        {
+          matchNumber: 5,
+          round: 'ROUND_OF_16',
+          teamAName: 'Shreyansh',
+          teamBName: 'Gautham',
+          status: 'SCHEDULED',
+          scheduledAt: '2026-11-14T09:30:00',
+          venueName: 'Clubhouse',
+          courtName: 'Court 2',
+        },
+        {
+          matchNumber: 7,
+          round: 'ROUND_OF_16',
+          teamAName: 'Krithik',
+          teamBName: 'Srikarthik',
+          status: 'SCHEDULED',
+          scheduledAt: '2026-11-14T10:00:00',
+          venueName: 'Clubhouse',
+          courtName: 'Court 1',
+        },
+      ];
+
+      const prepared = prepareExportableMatches(matchesWithByes, 'ALL');
+      expect(prepared).toHaveLength(3);
+
+      // Match numbers must be sequential 1, 2, 3 instead of 1, 5, 7
+      expect(prepared[0].matchNumber).toBe(1);
+      expect(prepared[1].matchNumber).toBe(2);
+      expect(prepared[2].matchNumber).toBe(3);
+
+      // BYE match must have blank date, time, and '—' venue
+      expect(prepared[0].isBye).toBe(true);
+      expect(prepared[0].date).toBe('');
+      expect(prepared[0].time).toBe('');
+      expect(prepared[0].venue).toBe('—');
+      expect(prepared[0].winnerName).toBe('Veera');
+
+      // Regular match retains scheduled date, time, and venue
+      expect(prepared[1].isBye).toBe(false);
+      expect(prepared[1].date).toBe('2026-11-14');
+      expect(prepared[1].time).toBe('09:30 AM');
+      expect(prepared[1].venue).toBe('Clubhouse · Court 2');
+    });
   });
 
   describe('detectSportName', () => {

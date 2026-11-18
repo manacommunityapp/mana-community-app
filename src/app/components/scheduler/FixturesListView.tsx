@@ -26,20 +26,35 @@ export interface FixturesListViewProps {
   onEditMatch: (fixture: FixtureTableRow) => void;
   onExportPDF?: () => void;
   sportName?: string;
+  isTeamEvent?: boolean;
+  showAutoAdvanced?: boolean;
+  onToggleAutoAdvanced?: () => void;
 }
 
 const DEFAULT_AVATAR =
   'https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media';
 
 function formatDateSafely(dateStr: string): string {
+  if (!dateStr) return '—';
   try {
-    const parts = dateStr.split('-');
+    let clean = String(dateStr).trim();
+    if (clean.includes('T')) {
+      clean = clean.split('T')[0];
+    }
+    const parts = clean.split('-');
     if (parts.length === 3) {
-      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      return format(d, 'dd MMM yyyy (EEE)');
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const dt = new Date(y, m, d);
+        if (!isNaN(dt.getTime())) {
+          return format(dt, 'dd MMM yyyy (EEE)');
+        }
+      }
     }
     const parsed = parseISO(dateStr);
-    return isNaN(parsed.getTime()) ? dateStr : format(parsed, 'dd MMM yyyy (EEE)');
+    return isNaN(parsed.getTime()) ? clean : format(parsed, 'dd MMM yyyy (EEE)');
   } catch {
     return dateStr;
   }
@@ -362,7 +377,12 @@ export function FixturesListView({
   onEditMatch,
   onExportPDF,
   sportName = 'Match',
+  showAutoAdvanced,
+  onToggleAutoAdvanced,
 }: FixturesListViewProps) {
+  const [localShowAutoAdvanced, setLocalShowAutoAdvanced] = useState(true);
+  const shouldShowAutoAdvanced = showAutoAdvanced ?? localShowAutoAdvanced;
+  const toggleAutoAdvanced = onToggleAutoAdvanced || (() => setLocalShowAutoAdvanced(value => !value));
   const handleDownloadPDF = () => {
     if (onExportPDF) {
       onExportPDF();
@@ -380,8 +400,15 @@ export function FixturesListView({
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
 
   const displayFixtures = useMemo(
-    () => fixtures.filter(fixture => !isPlaceholderAutoAdvance(fixture)),
-    [fixtures]
+    () => fixtures
+      .filter(fixture => !isPlaceholderAutoAdvance(fixture))
+      .filter(fixture => shouldShowAutoAdvanced || !(
+        fixture.home?.id?.toLowerCase() === 'bye' || fixture.away?.id?.toLowerCase() === 'bye' ||
+        fixture.home?.name?.trim().toUpperCase() === 'BYE' || fixture.away?.name?.trim().toUpperCase() === 'BYE' ||
+        ['BYE', 'AUTO_ADVANCED'].includes(String(fixture.rawMatch?.status || '').trim().toUpperCase())
+      ))
+      .map((fixture, index) => ({ ...fixture, matchNumber: index + 1 })),
+    [fixtures, shouldShowAutoAdvanced]
   );
 
   // Distinct Stages in tournament order
@@ -485,8 +512,26 @@ export function FixturesListView({
             </button>
           </div>
 
-          {/* Layout Mode Toggle: Cards vs Rows */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={toggleAutoAdvanced}
+              aria-pressed={shouldShowAutoAdvanced}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                shouldShowAutoAdvanced
+                  ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              title={shouldShowAutoAdvanced ? 'Hide BYE and auto-advanced matches' : 'Show BYE and auto-advanced matches'}
+            >
+              <span className={`inline-flex h-4 w-7 items-center rounded-full p-0.5 transition ${shouldShowAutoAdvanced ? 'bg-amber-500' : 'bg-slate-300'}`}>
+                <span className={`h-3 w-3 rounded-full bg-white shadow transition-transform ${shouldShowAutoAdvanced ? 'translate-x-3' : 'translate-x-0'}`} />
+              </span>
+              <span>BYEs {shouldShowAutoAdvanced ? 'On' : 'Off'}</span>
+            </button>
+
+            {/* Layout Mode Toggle: Cards vs Rows */}
+            <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-600 hidden sm:inline">Layout:</span>
             <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
               <button
@@ -513,6 +558,7 @@ export function FixturesListView({
                 <List className="w-3.5 h-3.5" />
                 <span>Compact Rows</span>
               </button>
+            </div>
             </div>
           </div>
         </div>
@@ -601,6 +647,16 @@ export function FixturesListView({
       {groupedByStage.map(([stageName, stageMatches]) => {
         const theme = getRoundTheme(stageName);
         const stageDates = Array.from(new Set(stageMatches.map(m => m.date).filter(Boolean)));
+        const stagePlayable = stageMatches.filter(m => {
+          const isBye =
+            m.home?.id === 'bye' ||
+            m.away?.id === 'bye' ||
+            m.home?.name?.trim().toUpperCase() === 'BYE' ||
+            m.away?.name?.trim().toUpperCase() === 'BYE' ||
+            (m.rawMatch as any)?.status === 'AUTO_ADVANCED';
+          return !isBye;
+        });
+        const stageByes = stageMatches.length - stagePlayable.length;
 
         return (
           <div key={stageName} className="flex flex-col gap-3">
@@ -614,7 +670,8 @@ export function FixturesListView({
                       {stageName}
                     </h3>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${theme.badgeBg} ${theme.badgeText} ${theme.badgeBorder}`}>
-                      {stageMatches.length} {stageMatches.length === 1 ? 'Match' : 'Matches'}
+                      {stagePlayable.length} {stagePlayable.length === 1 ? 'Match' : 'Matches'}
+                      {stageByes > 0 && <span className="opacity-80 font-medium"> · {stageByes} Auto-Advanced</span>}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -677,7 +734,9 @@ export function FixturesListView({
                         <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-slate-400" />
-                            <span className="font-semibold text-slate-700">{formatDateSafely(m.date)}</span>
+                            <span className="font-semibold text-slate-700">
+                              {isBye ? <span className="text-slate-400 italic">Auto-Advanced</span> : formatDateSafely(m.date)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-right truncate max-w-[50%]" title={isBye ? 'No court required (BYE)' : courtDisplay}>
                             <MapPin className="w-3 h-3 text-indigo-500 shrink-0" />

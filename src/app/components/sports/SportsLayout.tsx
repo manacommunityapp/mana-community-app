@@ -17,7 +17,7 @@ import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
 } from "../../../constants/permissions";
 
-const sportsNav = [
+export const sportsNav = [
   { to: "/sports", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/sports/my-sports", label: "My Sports", icon: Medal },
   { to: "/sports/tournaments", label: "Tournaments", icon: Trophy },
@@ -34,63 +34,80 @@ const sportsNav = [
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
+export interface SportsNavFilterContext {
+  hasPermission: (perm: string) => boolean;
+  hasAnyPermission: (...perms: string[]) => boolean;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isSportsAdmin: boolean;
+}
+
+export function isSportsNavItemVisible(label: string, ctx: SportsNavFilterContext): boolean {
+  const canAccessAdminSportsTabs = ctx.isAdmin || ctx.isSuperAdmin || ctx.isSportsAdmin;
+  switch (label) {
+    case "Dashboard":
+      return ctx.hasPermission(VIEW_SPORTS_MAIN);
+    case "My Sports":
+      return canAccessAdminSportsTabs && ctx.hasPermission(VIEW_EVENT_REGISTRATIONS);
+    case "Tournaments":
+      return canAccessAdminSportsTabs && ctx.hasPermission(VIEW_SPORTS_MAIN);
+    case "Schedule":
+      return canAccessAdminSportsTabs || ctx.hasPermission(VIEW_SPORTS_MAIN);
+    case "My Teams":
+      return ctx.hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
+    case "Trainers":
+      return ctx.isSuperAdmin;
+    case "Badges":
+      return ctx.isSuperAdmin;
+    case "Auction":
+      return ctx.hasAnyPermission(
+        VIEW_AUCTION_CONFIG,
+        VIEW_LIVE_AUCTION,
+        VIEW_TEAMS_DASHBOARD,
+        VIEW_PLAYER_POOL,
+        VIEW_AUCTION_RESULTS
+      );
+    case "Admin":
+      return ctx.hasAnyPermission(
+        CREATE_EDIT_SPORTS_MAIN,
+        DELETE_SPORTS_MAIN,
+        CREATE_EDIT_AUCTION_CONFIG,
+        CREATE_EDIT_PLAYER_POOL,
+        CREATE_EDIT_EVENT_REGISTRATIONS
+      );
+    case "Feed":
+      return ctx.isSuperAdmin;
+    case "Find Players":
+      return ctx.isSuperAdmin;
+    case "Messages":
+      return ctx.isSuperAdmin;
+    case "Insurance":
+      return ctx.isSuperAdmin;
+    case "Analytics":
+      return canAccessAdminSportsTabs;
+    default:
+      return true;
+  }
+}
+
 export function SportsLayout() {
   const { hasPermission, hasAnyPermission, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const location = useLocation();
-
-  const canAccessAdminSportsTabs = isAdmin || isSuperAdmin || isSportsAdmin;
 
   // Current sports sub-section, for the breadcrumb trail (Home › Sports › …).
   const activeItem = sportsNav.find((item) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)
   );
 
-  const visibleNav = sportsNav.filter((nav) => {
-    switch (nav.label) {
-      case "Dashboard":
-        return hasPermission(VIEW_SPORTS_MAIN);
-      case "My Sports":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_EVENT_REGISTRATIONS);
-      case "Tournaments":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
-      case "Schedule":
-        return canAccessAdminSportsTabs || hasPermission(VIEW_SPORTS_MAIN);
-      case "My Teams":
-        return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
-      case "Trainers":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
-      case "Badges":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
-      case "Auction":
-        return hasAnyPermission(
-          VIEW_AUCTION_CONFIG,
-          VIEW_LIVE_AUCTION,
-          VIEW_TEAMS_DASHBOARD,
-          VIEW_PLAYER_POOL,
-          VIEW_AUCTION_RESULTS
-        );
-      case "Admin":
-        return hasAnyPermission(
-          CREATE_EDIT_SPORTS_MAIN,
-          DELETE_SPORTS_MAIN,
-          CREATE_EDIT_AUCTION_CONFIG,
-          CREATE_EDIT_PLAYER_POOL,
-          CREATE_EDIT_EVENT_REGISTRATIONS
-        );
-      case "Feed":
-        return hasPermission(VIEW_SPORTS_MAIN);
-      case "Find Players":
-        return hasPermission(VIEW_SPORTS_MAIN);
-      case "Messages":
-        return hasPermission(VIEW_SPORTS_MAIN);
-      case "Insurance":
-        return hasPermission(VIEW_SPORTS_MAIN);
-      case "Analytics":
-        return canAccessAdminSportsTabs;
-      default:
-        return true;
-    }
-  });
+  const visibleNav = sportsNav.filter((nav) =>
+    isSportsNavItemVisible(nav.label, {
+      hasPermission,
+      hasAnyPermission,
+      isAdmin,
+      isSuperAdmin,
+      isSportsAdmin,
+    })
+  );
 
   return (
     <div className="flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 text-xs sports-module">
