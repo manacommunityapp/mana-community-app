@@ -2,6 +2,7 @@ import {
   Building2, Calendar, Clock, Users, MapPin, Star, Search, Filter,
   ChevronLeft, ChevronRight, Plus, X, Loader2, QrCode, Ban,
   CheckCircle, AlertCircle, Timer, Bookmark, ArrowRight, Tag, Percent,
+  CreditCard,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
@@ -17,6 +18,12 @@ import type {
   WaitlistResponse,
 } from "../../../types/booking";
 import { formatIndianTime, formatIndianDate, getNowInIST } from "../../../utils/indianDateTimeUtils";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -981,6 +988,9 @@ function BookingModal({
   onClose: () => void;
   onBooked: () => void;
 }) {
+  const { user } = useAuth();
+  const communityId = user?.communityId as number;
+  const { options: checkoutOptions, loading: optionsLoading } = useCheckoutOptions();
   const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [slots, setSlots] = useState<TimeSlot[]>([]);
@@ -991,6 +1001,23 @@ function BookingModal({
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Payment state
+  const [selectedGateway, setSelectedGateway] = useState<string>("");
+  const [selectedManualMode, setSelectedManualMode] = useState<string | undefined>();
+  const [createdBookingId, setCreatedBookingId] = useState<number | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null);
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string>("");
+
+  const isPaidResource = (resource.pricePerSlot ?? 0) > 0;
+  const totalSteps = isPaidResource ? 4 : 3;
+
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway && !selectedGateway) {
+      setSelectedGateway(checkoutOptions.defaultGateway);
+    }
+  }, [checkoutOptions]);
 
   const maxDate = resource.advanceBookingDays
     ? addDays(todayStr(), resource.advanceBookingDays)
@@ -1016,11 +1043,11 @@ function BookingModal({
     };
   }, [resource.id, selectedDate, step]);
 
-  const handleSubmit = async () => {
+  const handleCreateBooking = async () => {
     setSaving(true);
     setError("");
     try {
-      await resourceBookingService.createBooking({
+      const booking = await resourceBookingService.createBooking({
         resourceId: resource.id,
         bookingDate: selectedDate,
         startTime: selectedSlot?.startTime ?? "",
@@ -1029,7 +1056,12 @@ function BookingModal({
         numberOfGuests: guests > 0 ? guests : undefined,
         couponCode: couponCode.trim() || undefined,
       });
-      onBooked();
+      if (isPaidResource) {
+        setCreatedBookingId(booking.id);
+        setStep(4);
+      } else {
+        onBooked();
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create booking";
       setError(msg);
@@ -1038,7 +1070,60 @@ function BookingModal({
     }
   };
 
-  const totalSteps = 3;
+  const handlePayBooking = async () => {
+    if (!selectedGateway || !communityId || !createdBookingId) return;
+    setSaving(true);
+    setPayError("");
+    try {
+      const order = await unifiedPaymentService.createOrder({
+        referenceType: "AMENITY_BOOKING",
+        referenceId: createdBookingId,
+        gateway: selectedGateway as any,
+        communityId,
+        amount: resource.pricePerSlot!,
+      });
+      setPaymentOrder(order);
+
+      if (selectedGateway === "MANA_PAY") {
+        setShowManaPayModal(true);
+        return;
+      }
+      if (selectedGateway === "MANUAL") {
+        setPaymentStatus("PENDING");
+        onBooked();
+        return;
+      }
+      // Cashfree/Razorpay: SDK would launch here with order.gatewayOrderId
+      const verified = await unifiedPaymentService.verifyPayment(order.id);
+      setPaymentStatus(verified.status);
+      if (verified.status === "SUCCESS") {
+        onBooked();
+      } else {
+        setPayError("Payment verification failed. Try again.");
+      }
+    } catch (err: any) {
+      setPayError(err?.message ?? "Payment failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleManaPaySuccess = async () => {
+    if (!paymentOrder) return;
+    try {
+      const verified = await unifiedPaymentService.verifyPayment(paymentOrder.id);
+      setPaymentStatus(verified.status);
+      setShowManaPayModal(false);
+      if (verified.status === "SUCCESS") {
+        onBooked();
+      } else {
+        setPayError("Payment verification failed.");
+      }
+    } catch {
+      setPayError("Payment verification failed.");
+      setShowManaPayModal(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
@@ -1269,6 +1354,53 @@ function BookingModal({
               </div>
             </div>
           )}
+
+          {/* Step 4: Payment (paid resources only) */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <CreditCard className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-bold text-foreground">Payment</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{resource.name}</span>
+                  <span className="font-black text-foreground">₹{resource.pricePerSlot}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {formatDate(selectedDate)}
+                  {selectedSlot && ` · ${formatTime(selectedSlot.startTime)}`}
+                </p>
+              </div>
+
+              {payError && (
+                <div className="flex items-center gap-2 text-red-600 text-xs font-medium bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {payError}
+                </div>
+              )}
+              {paymentStatus && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Payment status:</span>
+                  <PaymentStatusBadge status={paymentStatus} />
+                </div>
+              )}
+
+              {optionsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading payment options...
+                </div>
+              ) : checkoutOptions ? (
+                <PaymentGatewaySelector
+                  options={checkoutOptions}
+                  selectedGateway={selectedGateway}
+                  selectedManualMode={selectedManualMode}
+                  onChange={(gw, mode) => { setSelectedGateway(gw); setSelectedManualMode(mode); }}
+                  orderAmount={resource.pricePerSlot ?? undefined}
+                />
+              ) : null}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -1276,7 +1408,8 @@ function BookingModal({
           {step > 1 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className="px-4 py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted rounded-xl transition-colors cursor-pointer"
+              disabled={saving}
+              className="px-4 py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted rounded-xl transition-colors cursor-pointer disabled:opacity-50"
             >
               Back
             </button>
@@ -1289,7 +1422,7 @@ function BookingModal({
             </button>
           )}
 
-          {step < totalSteps ? (
+          {step < 3 ? (
             <button
               onClick={() => setStep((s) => s + 1)}
               disabled={step === 2 && !selectedSlot}
@@ -1298,19 +1431,55 @@ function BookingModal({
               Continue
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
-          ) : (
+          ) : step === 3 ? (
             <button
-              onClick={handleSubmit}
+              onClick={handleCreateBooking}
               disabled={saving}
               className="bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold cursor-pointer transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {saving ? "Booking..." : "Confirm Booking"}
+              {saving ? "Booking..." : isPaidResource ? "Continue to Payment" : "Confirm Booking"}
+              {!saving && <ArrowRight className="w-3.5 h-3.5" />}
+            </button>
+          ) : (
+            <button
+              onClick={handlePayBooking}
+              disabled={saving || !selectedGateway || optionsLoading}
+              className="bg-primary text-white rounded-xl px-5 py-2.5 text-sm font-bold cursor-pointer transition-all duration-200 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? "Processing..." : `Pay ₹${resource.pricePerSlot}`}
               {!saving && <CheckCircle className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
       </div>
+
+      {showManaPayModal && paymentOrder && (
+        <ManaPayCheckoutModal
+          isOpen={showManaPayModal}
+          onClose={() => { setShowManaPayModal(false); setPayError("Payment cancelled."); }}
+          paymentOrderId={paymentOrder.id}
+          order={{
+            domain: "AMENITY_BOOKING",
+            orderReferenceId: `BOOKING-${createdBookingId}`,
+            title: `Booking: ${resource.name}`,
+            description: `${formatDate(selectedDate)}${selectedSlot ? ` · ${formatTime(selectedSlot.startTime)}` : ""}`,
+            totalAmount: paymentOrder.grossAmount,
+            payer: {
+              name: user?.name ?? "Resident",
+              unit: user?.flatNo ? `Flat ${user.flatNo}` : undefined,
+            },
+            items: [{
+              title: resource.name,
+              quantity: 1,
+              unitPrice: resource.pricePerSlot!,
+              amount: paymentOrder.grossAmount,
+            }],
+          }}
+          onPaymentSuccess={handleManaPaySuccess}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Calendar,
@@ -8,10 +8,18 @@ import {
   AlertCircle,
   UserCheck,
   CheckCircle2,
-  HeartPulse
+  HeartPulse,
+  CreditCard,
+  Loader2,
 } from "lucide-react";
 import type { HealthCampDto, FamilyMemberDto, HealthCampRegistrationDto } from "../../../types/health";
 import { healthService } from "../../../services/healthService";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
+import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
 
 interface CampSlotBookingModalProps {
   camp: HealthCampDto;
@@ -26,6 +34,9 @@ export const CampSlotBookingModal: React.FC<CampSlotBookingModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { user } = useAuth();
+  const communityId = user?.communityId as number;
+  const { options: checkoutOptions, loading: optionsLoading } = useCheckoutOptions();
   const [selectedPatientId, setSelectedPatientId] = useState<string>(
     familyMembers[0]?.id || "fam-1"
   );
@@ -38,6 +49,23 @@ export const CampSlotBookingModal: React.FC<CampSlotBookingModalProps> = ({
   const [fastingAcknowledged, setFastingAcknowledged] = useState<boolean>(!camp.fastingInstructions);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Payment state — only used for paid camps
+  const [step, setStep] = useState<"form" | "payment">("form");
+  const [pendingReg, setPendingReg] = useState<HealthCampRegistrationDto | null>(null);
+  const [selectedGateway, setSelectedGateway] = useState<string>("");
+  const [selectedManualMode, setSelectedManualMode] = useState<string | undefined>();
+  const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null);
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
+
+  const isPaid = !camp.isFree && (camp.feePerResident ?? 0) > 0;
+
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway && !selectedGateway) {
+      setSelectedGateway(checkoutOptions.defaultGateway);
+    }
+  }, [checkoutOptions]);
 
   const selectedPatient = familyMembers.find(f => f.id === selectedPatientId);
 
@@ -64,12 +92,192 @@ export const CampSlotBookingModal: React.FC<CampSlotBookingModalProps> = ({
         flatNo,
         notes
       });
-      onSuccess(reg);
+
+      if (isPaid) {
+        // Paid camp — move to payment step
+        setPendingReg(reg);
+        setIsSubmitting(false);
+        setStep("payment");
+      } else {
+        onSuccess(reg);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to book camp slot. Please try again.");
       setIsSubmitting(false);
     }
   };
+
+  const handlePayRegistration = async () => {
+    if (!selectedGateway || !communityId || !pendingReg) return;
+    const registrationNumericId = parseInt(pendingReg.id, 10);
+    if (isNaN(registrationNumericId)) {
+      setErrorMsg("Cannot process payment: invalid registration ID format.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
+    try {
+      const order = await unifiedPaymentService.createOrder({
+        referenceType: "HEALTH_BOOKING",
+        referenceId: registrationNumericId,
+        gateway: selectedGateway as any,
+        communityId,
+        amount: camp.feePerResident!,
+      });
+      setPaymentOrder(order);
+
+      if (selectedGateway === "MANA_PAY") {
+        setShowManaPayModal(true);
+        return;
+      }
+      if (selectedGateway === "MANUAL") {
+        setPaymentStatus("PENDING");
+        onSuccess(pendingReg);
+        return;
+      }
+      // Cashfree/Razorpay: SDK would launch here
+      const verified = await unifiedPaymentService.verifyPayment(order.id);
+      setPaymentStatus(verified.status);
+      if (verified.status === "SUCCESS") {
+        onSuccess(pendingReg);
+      } else {
+        setErrorMsg("Payment verification failed. Please try again.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message ?? "Payment failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleManaPaySuccess = async () => {
+    if (!paymentOrder || !pendingReg) return;
+    try {
+      const verified = await unifiedPaymentService.verifyPayment(paymentOrder.id);
+      setPaymentStatus(verified.status);
+      setShowManaPayModal(false);
+      if (verified.status === "SUCCESS") {
+        onSuccess(pendingReg);
+      } else {
+        setErrorMsg("Payment verification failed.");
+      }
+    } catch {
+      setErrorMsg("Payment verification failed.");
+      setShowManaPayModal(false);
+    }
+  };
+
+  if (step === "payment" && pendingReg) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden my-8">
+            {/* Payment Header */}
+            <div className="bg-gradient-to-r from-teal-700 via-teal-800 to-emerald-900 p-6 text-white relative">
+              <button onClick={onClose} className="absolute top-5 right-5 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition" aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="w-4 h-4 text-emerald-300" />
+                <span className="bg-emerald-400 text-teal-950 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                  Payment Required
+                </span>
+              </div>
+              <h2 className="text-xl font-black leading-snug text-white pr-8">{camp.title}</h2>
+              <p className="text-teal-200 text-xs mt-1">
+                Slot reserved for <strong>{pendingReg.patientName}</strong> · Token #{pendingReg.tokenNumber}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {errorMsg && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  {errorMsg}
+                </div>
+              )}
+
+              {/* Fee summary */}
+              <div className="bg-teal-50 rounded-2xl p-4 flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-teal-700 font-semibold">Camp Registration Fee</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{pendingReg.slotTime} · {camp.venue}</p>
+                </div>
+                <span className="text-lg font-black text-teal-800">₹{camp.feePerResident}</span>
+              </div>
+
+              {paymentStatus && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Payment status:</span>
+                  <PaymentStatusBadge status={paymentStatus} />
+                </div>
+              )}
+
+              {optionsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading payment options...
+                </div>
+              ) : checkoutOptions ? (
+                <PaymentGatewaySelector
+                  options={checkoutOptions}
+                  selectedGateway={selectedGateway}
+                  selectedManualMode={selectedManualMode}
+                  onChange={(gw, mode) => { setSelectedGateway(gw); setSelectedManualMode(mode); }}
+                  orderAmount={camp.feePerResident ?? undefined}
+                />
+              ) : null}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStep("form")}
+                  disabled={isSubmitting}
+                  className="px-4 py-2.5 text-xs font-semibold text-gray-600 hover:text-gray-800 rounded-xl border border-gray-200 hover:bg-gray-100 transition"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePayRegistration}
+                  disabled={isSubmitting || !selectedGateway || optionsLoading}
+                  className="px-6 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" />Processing...</> : `Pay ₹${camp.feePerResident}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {showManaPayModal && paymentOrder && pendingReg && (
+          <ManaPayCheckoutModal
+            isOpen={showManaPayModal}
+            onClose={() => { setShowManaPayModal(false); setErrorMsg("Payment cancelled."); }}
+            paymentOrderId={paymentOrder.id}
+            order={{
+              domain: "HEALTH_BOOKING",
+              orderReferenceId: `HEALTH-${pendingReg.id}`,
+              title: `Health Camp: ${camp.title}`,
+              description: `${pendingReg.patientName} · ${pendingReg.slotTime}`,
+              totalAmount: paymentOrder.grossAmount,
+              payer: {
+                name: user?.name ?? "Resident",
+                unit: user?.flatNo ? `Flat ${user.flatNo}` : undefined,
+              },
+              items: [{
+                title: camp.title,
+                quantity: 1,
+                unitPrice: camp.feePerResident!,
+                amount: paymentOrder.grossAmount,
+              }],
+            }}
+            onPaymentSuccess={handleManaPaySuccess}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
