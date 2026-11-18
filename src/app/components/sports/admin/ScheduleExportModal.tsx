@@ -255,6 +255,7 @@ export function extractContactDetails(m: any): { team1Phone: string; team2Phone:
     const matchSide = side === 'home' ? 'A' : 'B';
     const player = m?.[side];
     const value = m?.[`${team}Phone`] ?? m?.[`team${matchSide}Phone`] ?? m?.[`${side}Phone`] ??
+      m?.[`team${matchSide}`]?.phone ?? m?.[`team${matchSide}`]?.user?.phone ??
       (typeof player === 'object' ? player?.phone ?? player?.user?.phone ?? player?.contactNumber : undefined) ??
       m?.[`${team}ContactNumber`] ?? m?.[`team${matchSide}ContactNumber`];
     return value == null ? '' : String(value).trim();

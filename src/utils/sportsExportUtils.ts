@@ -996,7 +996,7 @@ export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tourn
       <td class="flat-cell">${t1Flat !== "—" ? t1Flat : "—"}</td>
       <td><b>${t2}</b></td>
       <td class="flat-cell">${t2Flat !== "—" ? t2Flat : "—"}</td>
-      ${includeContactNumbers ? `<td>${t1Phone}</td><td>${t2Phone}</td>` : ""}
+      ${includeContactNumbers ? `<td>${escapeHtml(t1Phone)}</td><td>${escapeHtml(t2Phone)}</td>` : ""}
       <td>${score}</td>
       <td>${status}</td>
       <td>${winner}</td>

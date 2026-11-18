@@ -359,6 +359,7 @@ export function computePlayoffRoundMatches(
     .sort()[0];
   const scheduledEndByMatch = new Map<string, number>();
   const courtAvailableAt = new Map<string, number>();
+  const participantAvailableAt = new Map<string, number>();
   const scheduledTimes = new Map<string, { date: string; time: string }>();
   const scheduledCourts = new Map<string, string>();
   const dayMs = 24 * 60 * 60 * 1000;
@@ -385,16 +386,15 @@ export function computePlayoffRoundMatches(
     return start;
   };
 
-  // Allocate each round across courts by earliest availability. A round cannot
-  // start until the previous round's played matches finish; BYEs are immediate
-  // advances and consume no court, duration, or rest interval.
+  // Allocate each match across courts by earliest availability. Later-round
+  // matches can use free courts as soon as their own participants are ready;
+  // feeder links delay only the matches waiting for an earlier result. BYEs
+  // advance immediately and consume no court, duration, or rest interval.
   const rounds = new Map<string, typeof orderedMatches>();
   orderedMatches.forEach(match => {
     const key = `${match.round}:${match.roundIndex}`;
     rounds.set(key, [...(rounds.get(key) || []), match]);
   });
-  let previousRoundEnd = Number.NEGATIVE_INFINITY;
-
   for (const roundMatches of rounds.values()) {
     const representative = roundMatches[0];
     const configuredDate = roundDates[representative.round] || defaultScheduleDate || representative.date;
@@ -403,57 +403,99 @@ export function computePlayoffRoundMatches(
       : configuredDate;
     const fallbackDate = adjustedDate || defaultScheduleDate || representative.date || '1970-01-01';
     const configuredStart = roundTimes[representative.round] || globalStartTime || representative.time || '08:00 AM';
-    const roundStart = Math.max(absoluteMinute(fallbackDate, configuredStart), previousRoundEnd);
+    const roundStart = absoluteMinute(fallbackDate, configuredStart);
     const roundDurationStr = roundDurations[representative.round];
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
-    const roundRealMatches = roundMatches.filter(match =>
-      !isByeParticipant(match.home) && !isByeParticipant(match.away) && match.status !== 'AUTO_ADVANCED' && match.status !== 'BYE'
-    );
-    let roundEnd = roundStart;
+    const isAutomaticAdvance = (match: PlayoffMatchDraft) =>
+      isByeParticipant(match.home) || isByeParticipant(match.away) ||
+      match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
+    const playableMatches = roundMatches.filter(match => !isAutomaticAdvance(match));
+    roundMatches.filter(isAutomaticAdvance).forEach(match => scheduledEndByMatch.set(match.id, roundStart));
 
-    roundMatches.forEach(match => {
-      const isBye = isByeParticipant(match.home) || isByeParticipant(match.away) ||
-        match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
-      if (isBye) {
-        scheduledEndByMatch.set(match.id, roundStart);
-        return;
+    const getFeederIds = (match: PlayoffMatchDraft) => [match.home?.id, match.away?.id]
+      .filter((id): id is string => !!id)
+      .map(id => {
+        const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
+        return suffix ? id.slice(0, -suffix.length) : '';
+      })
+      .filter(id => id && matchById.has(id));
+    const getParticipantKeys = (match: PlayoffMatchDraft) => [match.home, match.away]
+      .filter(participant => !!participant && !isByeParticipant(participant))
+      .map(participant => participant.id || participant.name)
+      .filter(id => !!id && !id.endsWith('-winner') && !id.endsWith('-loser'))
+      .map(id => id.trim().toLowerCase());
+
+    const venueCourtPools = new Map<string, string[]>();
+    playableMatches.forEach(match => {
+      const venueKey = String(match.venueId ?? '');
+      if (!venueCourtPools.has(venueKey)) {
+        const venueCourts = Array.from(new Set(matches
+          .filter(candidate => String(candidate.venueId ?? '') === venueKey && candidate.courtId != null &&
+            !isByeParticipant(candidate.home) && !isByeParticipant(candidate.away) &&
+            candidate.status !== 'AUTO_ADVANCED' && candidate.status !== 'BYE')
+          .map(candidate => String(candidate.courtId))));
+        venueCourtPools.set(venueKey, venueCourts.length > 0
+          ? venueCourts
+          : Array.from({ length: Math.max(1, numCourts) }, (_, courtIndex) => `unassigned:${courtIndex}`));
+      }
+    });
+
+    // Re-evaluate all remaining matches after each placement. This lets ready
+    // matches claim the current free courts before a feeder-delayed match is
+    // assigned a later slot, while tracking each participant across rounds.
+    const pending = [...playableMatches];
+    while (pending.length > 0) {
+      let bestPlacement: {
+        match: PlayoffMatchDraft;
+        courtId: string;
+        courtKey: string;
+        start: number;
+        participantKeys: string[];
+        pendingIndex: number;
+      } | null = null;
+
+      pending.forEach((match, pendingIndex) => {
+        const feederIds = getFeederIds(match);
+        if (feederIds.some(id => !scheduledEndByMatch.has(id))) return;
+        const feederReadyAt = feederIds.reduce((readyAt, id) =>
+          Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
+        const participantKeys = getParticipantKeys(match);
+        const participantReadyAt = participantKeys.reduce((readyAt, key) =>
+          Math.max(readyAt, participantAvailableAt.get(key) ?? roundStart), roundStart);
+        const readyAt = Math.max(roundStart, feederReadyAt, participantReadyAt);
+        const venueKey = String(match.venueId ?? '');
+        const courtPool = venueCourtPools.get(venueKey) || [];
+
+        courtPool.forEach(courtId => {
+          const courtKey = `${venueKey}:${courtId}`;
+          const start = placeAfterBreaks(Math.max(readyAt, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+          if (!bestPlacement || start < bestPlacement.start ||
+            (start === bestPlacement.start && pendingIndex < bestPlacement.pendingIndex)) {
+            bestPlacement = { match, courtId, courtKey, start, participantKeys, pendingIndex };
+          }
+        });
+      });
+
+      // Break malformed or cyclic feeder references safely instead of leaving
+      // a fixture unscheduled; valid brackets always take the ready path above.
+      if (!bestPlacement) {
+        const match = pending[0];
+        const venueKey = String(match.venueId ?? '');
+        const courtId = (venueCourtPools.get(venueKey) || [])[0] || 'unassigned:0';
+        const courtKey = `${venueKey}:${courtId}`;
+        const start = placeAfterBreaks(Math.max(roundStart, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+        bestPlacement = { match, courtId, courtKey, start, participantKeys: getParticipantKeys(match), pendingIndex: 0 };
       }
 
-      const feederIds = [match.home?.id, match.away?.id]
-        .filter((id): id is string => !!id)
-        .map(id => {
-          const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
-          return suffix ? id.slice(0, -suffix.length) : '';
-        })
-        .filter(id => id && matchById.has(id));
-      const feederReadyAt = feederIds.reduce((readyAt, id) =>
-        Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
-
-      const venueKey = String(match.venueId ?? '');
-      const venueCourts = Array.from(new Set(matches
-        .filter(candidate => String(candidate.venueId ?? '') === venueKey && candidate.courtId != null &&
-          !isByeParticipant(candidate.home) && !isByeParticipant(candidate.away) &&
-          candidate.status !== 'AUTO_ADVANCED' && candidate.status !== 'BYE')
-        .map(candidate => String(candidate.courtId))));
-      const courtPool = venueCourts.length > 0
-        ? venueCourts
-        : Array.from({ length: Math.max(1, numCourts) }, (_, courtIndex) => `unassigned:${courtIndex}`);
-      const availableSlots = courtPool.map(courtId => {
-        const courtKey = `${venueKey}:${courtId}`;
-        const readyAt = Math.max(roundStart, feederReadyAt, courtAvailableAt.get(courtKey) ?? roundStart);
-        return { courtId, courtKey, start: placeAfterBreaks(readyAt, duration) };
-      });
-      const { courtId, courtKey, start } = availableSlots.reduce((best, slot) =>
-        slot.start < best.start ? slot : best);
+      const { match, courtId, courtKey, start, participantKeys } = bestPlacement;
       const scheduled = formatAbsoluteMinute(start);
       scheduledTimes.set(match.id, scheduled);
       if (!courtId.startsWith('unassigned:')) scheduledCourts.set(match.id, courtId);
       scheduledEndByMatch.set(match.id, start + duration);
       courtAvailableAt.set(courtKey, start + duration + breakMins);
-      roundEnd = Math.max(roundEnd, start + duration);
-    });
-
-    if (roundRealMatches.length > 0) previousRoundEnd = roundEnd;
+      participantKeys.forEach(key => participantAvailableAt.set(key, start + duration));
+      pending.splice(bestPlacement.pendingIndex, 1);
+    }
   }
 
   return matches.map(m => {
@@ -2559,13 +2601,21 @@ export function SetupSchedule({
       return list.map(m => {
         let home = m.home;
         let away = m.away;
-        if (home && !home.flatNumber) {
+        if (home) {
           const found = allParticipantOptions.find(p => p.id === home.id || p.name === home.name);
-          if (found?.flatNumber) home = { ...home, flatNumber: found.flatNumber };
+          if (found && (!home.flatNumber || !(home as any).phone)) home = {
+            ...home,
+            flatNumber: home.flatNumber || found.flatNumber,
+            phone: (home as any).phone || found.phone,
+          } as typeof home;
         }
-        if (away && !away.flatNumber) {
+        if (away) {
           const found = allParticipantOptions.find(p => p.id === away.id || p.name === away.name);
-          if (found?.flatNumber) away = { ...away, flatNumber: found.flatNumber };
+          if (found && (!away.flatNumber || !(away as any).phone)) away = {
+            ...away,
+            flatNumber: away.flatNumber || found.flatNumber,
+            phone: (away as any).phone || found.phone,
+          } as typeof away;
         }
         return { ...m, home, away };
       });
@@ -3233,8 +3283,8 @@ export function SetupSchedule({
           const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
           const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
           const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
-          const homePhone = m.home?.phone || homeParticipant?.phone;
-          const awayPhone = m.away?.phone || awayParticipant?.phone;
+          const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+          const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
           list.push({
             id: `G${gIdx + 1}-M${mIdx + 1}`,
             matchNumber: list.length + 1,
@@ -3279,8 +3329,8 @@ export function SetupSchedule({
         const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
         const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
         const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
-        const homePhone = m.home?.phone || homeParticipant?.phone;
-        const awayPhone = m.away?.phone || awayParticipant?.phone;
+        const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+        const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
         list.push({
           id: `KO-${m.id}`,
           matchNumber: list.length + 1,

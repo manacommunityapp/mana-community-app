@@ -28,6 +28,10 @@ interface MatchRow {
   awayName?: string;
   teamAFlat?: string;
   teamBFlat?: string;
+  teamAPhone?: string;
+  teamBPhone?: string;
+  homePhone?: string;
+  awayPhone?: string;
   homeFlat?: string;
   awayFlat?: string;
   scheduledAt: string;
