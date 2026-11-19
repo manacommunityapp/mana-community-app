@@ -27,6 +27,7 @@ export interface FixturesListViewProps {
   onExportPDF?: () => void;
   sportName?: string;
   isTeamEvent?: boolean;
+  showSeedRank?: boolean;
   showAutoAdvanced?: boolean;
   onToggleAutoAdvanced?: () => void;
 }
@@ -377,6 +378,7 @@ export function FixturesListView({
   onEditMatch,
   onExportPDF,
   sportName = 'Match',
+  showSeedRank = false,
   showAutoAdvanced,
   onToggleAutoAdvanced,
 }: FixturesListViewProps) {
@@ -761,9 +763,10 @@ export function FixturesListView({
                                   <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
-                                    {m.home.name}
-                                  </span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {showSeedRank && m.home.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.home.seedRank}</span>}
+                                    <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>{m.home.name}</span>
+                                  </div>
                                   {m.home.flatNumber && (
                                     <span className="text-[10px] text-slate-500 truncate">{m.home.flatNumber}</span>
                                   )}
@@ -788,9 +791,10 @@ export function FixturesListView({
                             ) : (
                               <>
                                 <div className="flex flex-col min-w-0 items-end">
-                                  <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
-                                    {m.away.name}
-                                  </span>
+                                  <div className="flex items-center gap-1 min-w-0 flex-row-reverse">
+                                    {showSeedRank && m.away.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.away.seedRank}</span>}
+                                    <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>{m.away.name}</span>
+                                  </div>
                                   {m.away.flatNumber && (
                                     <span className="text-[10px] text-slate-500 truncate">{m.away.flatNumber}</span>
                                   )}
@@ -816,7 +820,10 @@ export function FixturesListView({
                                   <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-slate-900 truncate">{m.home.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {showSeedRank && m.home.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.home.seedRank}</span>}
+                                    <span className="text-xs font-bold text-slate-900 truncate">{m.home.name}</span>
+                                  </div>
                                   {m.home.flatNumber && <span className="text-[10px] text-slate-500">{m.home.flatNumber}</span>}
                                 </div>
                               </>
@@ -838,7 +845,10 @@ export function FixturesListView({
                                   <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-slate-900 truncate">{m.away.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {showSeedRank && m.away.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.away.seedRank}</span>}
+                                    <span className="text-xs font-bold text-slate-900 truncate">{m.away.name}</span>
+                                  </div>
                                   {m.away.flatNumber && <span className="text-[10px] text-slate-500">{m.away.flatNumber}</span>}
                                 </div>
                               </>
@@ -947,9 +957,10 @@ export function FixturesListView({
                               <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
                                 <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
                               </div>
-                              <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>
-                                {m.home.name}
-                              </span>
+                              <div className="flex items-center gap-1 min-w-0">
+                                {showSeedRank && m.home.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.home.seedRank}</span>}
+                                <span className="text-xs font-bold text-slate-900 truncate" title={m.home.name}>{m.home.name}</span>
+                              </div>
                             </>
                           )}
                         </div>
@@ -965,9 +976,10 @@ export function FixturesListView({
                             </span>
                           ) : (
                             <>
-                              <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>
-                                {m.away.name}
-                              </span>
+                              <div className="flex items-center gap-1 min-w-0">
+                                {showSeedRank && m.away.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{m.away.seedRank}</span>}
+                                <span className="text-xs font-bold text-slate-900 truncate" title={m.away.name}>{m.away.name}</span>
+                              </div>
                               <div className="w-6 h-6 rounded-full bg-slate-800 overflow-hidden shrink-0">
                                 <img src={DEFAULT_AVATAR} alt="Avatar" className="w-full h-full object-cover" />
                               </div>
