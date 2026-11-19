@@ -551,6 +551,7 @@ import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDas
 import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
 import { FoodOpsHub } from "./components/food-ops/FoodOpsHub";
+import { HealthcareHub } from "./components/healthcare/HealthcareHub";
 import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
 import { StaffAttendance } from "./components/community-ops/StaffAttendance";
 import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
@@ -1633,6 +1634,8 @@ export const router = createBrowserRouter([
       { path: "commerce", element: <CommerceDashboard /> },
       // ── Food & Grocery Operations ────────────────────────────────────────
       { path: "food", element: <FoodOpsHub /> },
+      // ── Healthcare Operations ─────────────────────────────────────────────
+      { path: "healthcare", element: <HealthcareHub /> },
       // ── Community Operations ─────────────────────────────────────────────
       { path: "ops/control-room", element: <OpsControlRoom /> },
       { path: "ops/attendance", element: <StaffAttendance /> },
