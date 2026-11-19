@@ -15,6 +15,7 @@ type Props = {
   showByes?: boolean;
   onToggleShowByes?: () => void;
   totalDrawCount?: number;
+  showSeedRank?: boolean;
 };
 
 function formatBracketDateOnly(dateStr: string): string {
@@ -50,7 +51,7 @@ function isPlaceholder(id: string, name: string): boolean {
   );
 }
 
-function ParticipantRow({ participant }: { participant: PlayoffParticipantRef }) {
+function ParticipantRow({ participant, showSeedRank = false }: { participant: PlayoffParticipantRef; showSeedRank?: boolean }) {
   const { id, name, flatNumber } = participant;
   const isPlace = isPlaceholder(id, name);
   const isBye = isByeParticipant(participant);
@@ -76,9 +77,12 @@ function ParticipantRow({ participant }: { participant: PlayoffParticipantRef })
         )}
       </div>
       <div className="flex flex-col min-w-0 text-left leading-tight">
-        <p className={`text-[10.5px] font-bold capitalize truncate ${isBye ? 'text-[#6b7094] italic' : 'text-[#0d0d2b]'}`} title={name}>
-          {name}
-        </p>
+        <div className="flex items-center gap-1 min-w-0">
+          {showSeedRank && participant.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[8px] font-extrabold text-indigo-700">S{participant.seedRank}</span>}
+          <p className={`text-[10.5px] font-bold capitalize truncate ${isBye ? 'text-[#6b7094] italic' : 'text-[#0d0d2b]'}`} title={name}>
+            {name}
+          </p>
+        </div>
         {!isPlace && flatNumber && (
           <span className="text-[8px] text-[#6b7094] truncate mt-0.5">{flatNumber}</span>
         )}
@@ -89,6 +93,7 @@ function ParticipantRow({ participant }: { participant: PlayoffParticipantRef })
 
 type MatchCardProps = {
   match: PlayoffMatchDraft;
+  showSeedRank?: boolean;
   top: number;
   showConnector?: boolean;
   connectorTop?: number;
@@ -102,6 +107,7 @@ type MatchCardProps = {
 
 function MatchCard({
   match,
+  showSeedRank = false,
   top,
   onEdit,
   venueName,
@@ -148,8 +154,8 @@ function MatchCard({
 
       <div className="relative flex items-stretch">
         <div className="flex flex-col gap-1 w-full">
-          <ParticipantRow participant={match.home} />
-          <ParticipantRow participant={match.away} />
+          <ParticipantRow participant={match.home} showSeedRank={showSeedRank} />
+          <ParticipantRow participant={match.away} showSeedRank={showSeedRank} />
         </div>
       </div>
 
@@ -230,6 +236,7 @@ export function PlayoffBracketView({
   showByes,
   onToggleShowByes,
   totalDrawCount,
+  showSeedRank = false,
 }: Props) {
   if (matches.length === 0) return null;
 
@@ -450,6 +457,7 @@ export function PlayoffBracketView({
                     <MatchCard
                       key={m.id}
                       match={m}
+                      showSeedRank={showSeedRank}
                       top={top}
                       onEdit={onEditMatch ? () => onEditMatch(m) : undefined}
                       venueName={resolveVenueName ? resolveVenueName(m.venueId) : undefined}
@@ -474,6 +482,7 @@ export function PlayoffBracketView({
                 <MatchCard
                   key={m.id}
                   match={m}
+                  showSeedRank={showSeedRank}
                   top={finalMatchTop + 180 + idx * baseSpacing}
                   onEdit={onEditMatch ? () => onEditMatch(m) : undefined}
                 />
