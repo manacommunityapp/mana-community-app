@@ -962,7 +962,16 @@ export function SportsDashboard() {
   }, [familyMembersOnly, user?.fullName, user?.userId]);
 
   const filteredLiveEvents = useMemo(() => {
-    if (upcomingFamilyFilter === "ALL") return liveEvents;
+    if (upcomingFamilyFilter === "ALL") {
+      return liveEvents.filter(ev => {
+        const isSelf = isSelfRelationOrMember(ev.relation, ev.familyMemberId, ev.playerName, user?.fullName);
+        if (isSelf) return true;
+        return familyMembersOnly.some(f =>
+          (ev.familyMemberId != null && String(f.id) === String(ev.familyMemberId)) ||
+          (ev.playerName && f.name && f.name.trim().toLowerCase() === ev.playerName.trim().toLowerCase())
+        );
+      });
+    }
 
     return liveEvents.filter(ev => {
       // Direct check on event's registrant details
@@ -975,7 +984,7 @@ export function SportsDashboard() {
         upcomingFamilyFilter
       );
     });
-  }, [liveEvents, upcomingFamilyFilter, isRegistrationForMember]);
+  }, [liveEvents, upcomingFamilyFilter, isRegistrationForMember, familyMembersOnly, user?.fullName]);
 
   const selectedMemberDisplayName = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return "";
@@ -1723,8 +1732,6 @@ export function SportsDashboard() {
         // 1. Direct check if it's the primary user
         if (currentUserName && (hasNameInA(currentUserName) || hasNameInB(currentUserName))) {
           isSelfMatch = true;
-        } else if (currentUserIdStr && (teamAId === currentUserIdStr || teamBId === currentUserIdStr)) {
-          isSelfMatch = true;
         }
 
         // 2. Check genuine family members by name (strictly familyMembersOnly, excluding self/head)
@@ -1741,34 +1748,37 @@ export function SportsDashboard() {
         // 3. Check registrations in fetchedMyRegs
         if (!isSelfMatch && !matchedMember) {
           for (const r of fetchedMyRegs) {
+            const isSelfReg = Boolean(
+              currentUserName &&
+              (norm(r.playerName) === currentUserName ||
+                (!r.familyMemberId && isSelfRelationOrMember(r.relation, null, r.playerName, user?.fullName)))
+            );
+            const familyMemberMatch = !isSelfReg
+              ? familyMembersOnly.find(f =>
+                  (r.familyMemberId != null && String(f.id) === String(r.familyMemberId)) ||
+                  (r.playerName && norm(f.name) === norm(r.playerName))
+                )
+              : null;
+
+            // If r belongs to someone else (e.g. an external resident registered for others), skip it
+            if (!isSelfReg && !familyMemberMatch) {
+              continue;
+            }
+
             const rName = norm(r.playerName);
             const rTeam = norm((r as any).teamName || (r as any).proposedTeamName);
-            const rIdStr = String(r.id);
             const isRegMatch =
               (rName && (hasNameInA(rName) || hasNameInB(rName))) ||
-              (rTeam && (teamA === rTeam || teamB === rTeam)) ||
-              (teamAId && teamAId === rIdStr) ||
-              (teamBId && teamBId === rIdStr);
+              (rTeam && (teamA === rTeam || teamB === rTeam));
 
             if (isRegMatch) {
               matchedReg = r;
-              const isSelfReg = isSelfRelationOrMember(r.relation, r.familyMemberId, r.playerName, user?.fullName);
               if (isSelfReg) {
                 isSelfMatch = true;
-              } else if (r.familyMemberId) {
-                matchedMember = familyMembersOnly.find(f => String(f.id) === String(r.familyMemberId)) || ({
-                  id: r.familyMemberId,
-                  name: r.playerName || "Family Member",
-                  relation: r.relation || "FAMILY",
-                } as any);
-              } else if (r.relation && !isSelfRelationOrMember(r.relation)) {
-                matchedMember = {
-                  id: r.familyMemberId || `fam-${r.playerName}`,
-                  name: r.playerName || "Family Member",
-                  relation: r.relation,
-                } as any;
-              } else {
-                isSelfMatch = true;
+                matchedMember = null;
+              } else if (familyMemberMatch) {
+                matchedMember = familyMemberMatch;
+                isSelfMatch = false;
               }
               break;
             }
@@ -1786,20 +1796,15 @@ export function SportsDashboard() {
           }
         }
 
-        if (matchedMember || isSelfMatch || matchedReg) {
-          const isSelf = isSelfMatch || isSelfRelationOrMember(
-            matchedMember?.relation || matchedReg?.relation,
-            matchedMember?.id || matchedReg?.familyMemberId,
-            matchedMember?.name || matchedReg?.playerName,
-            user?.fullName
-          );
+        if (matchedMember || isSelfMatch) {
+          const isSelf = isSelfMatch;
           const regPlayerName: string = isSelf
             ? (user?.fullName || "You")
-            : (matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You"));
+            : matchedMember!.name;
           const regRelation: string = isSelf
             ? "SELF"
-            : (matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF"));
-          const regFamId = isSelf ? "self" : (matchedMember ? matchedMember.id : matchedReg?.familyMemberId);
+            : (matchedMember!.relation || (matchedMember as any).relationship || "FAMILY");
+          const regFamId = isSelf ? "self" : matchedMember!.id;
 
           let registrantBadge: string | undefined;
           // Strictly omit badge for the logged-in user / Self
@@ -1811,7 +1816,7 @@ export function SportsDashboard() {
             }
           }
 
-          const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || (matchedReg as any)?.teamName || user?.fullName);
+          const myIdStr = norm(matchedMember?.name || (isSelf ? user?.fullName : "") || (matchedReg as any)?.teamName);
           const isTeamASide = (myIdStr && hasNameInA(myIdStr)) || ((matchedReg as any)?.teamName && teamA === norm((matchedReg as any).teamName));
           const userSideName = isTeamASide ? (rawTeamA || "You") : (rawTeamB || "You");
           const opponentSideName = isTeamASide ? (rawTeamB || "TBD") : (rawTeamA || "TBD");
