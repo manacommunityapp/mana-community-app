@@ -553,6 +553,7 @@ import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
 import { FoodOpsHub } from "./components/food-ops/FoodOpsHub";
 import { HealthcareHub } from "./components/healthcare/HealthcareHub";
 import SportsOpsHub from "./components/sports-ops/SportsOpsHub";
+import PaymentsHub from "./components/payments/PaymentsHub";
 import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
 import { StaffAttendance } from "./components/community-ops/StaffAttendance";
 import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
@@ -1638,6 +1639,7 @@ export const router = createBrowserRouter([
       // ── Healthcare Operations ─────────────────────────────────────────────
       { path: "healthcare", element: <HealthcareHub /> },
       { path: "sports-ops", element: <SportsOpsHub /> },
+      { path: "payments-ops", element: <PaymentsHub /> },
       // ── Community Operations ─────────────────────────────────────────────
       { path: "ops/control-room", element: <OpsControlRoom /> },
       { path: "ops/attendance", element: <StaffAttendance /> },
