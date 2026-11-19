@@ -5,14 +5,20 @@ import DepositManager from './DepositManager';
 import PlayerRatingManager from './PlayerRatingManager';
 import CoachPackageManager from './CoachPackageManager';
 import RefereeManager from './RefereeManager';
+import WaitlistManager from './WaitlistManager';
+import SponsorManager from './SponsorManager';
+import MerchandiseManager from './MerchandiseManager';
 
 const TABS = [
   { id: 'subscriptions', label: 'Subscriptions' },
   { id: 'open-play', label: 'Open Play' },
+  { id: 'waitlist', label: 'Waitlist' },
   { id: 'deposits', label: 'Deposits' },
   { id: 'ratings', label: 'Ratings' },
   { id: 'coaching', label: 'Coaching' },
   { id: 'referees', label: 'Referees' },
+  { id: 'sponsors', label: 'Sponsors' },
+  { id: 'merchandise', label: 'Merchandise' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -44,10 +50,13 @@ export default function SportsOpsHub() {
       <div>
         {activeTab === 'subscriptions' && <SubscriptionManager />}
         {activeTab === 'open-play' && <OpenPlayManager />}
+        {activeTab === 'waitlist' && <WaitlistManager />}
         {activeTab === 'deposits' && <DepositManager />}
         {activeTab === 'ratings' && <PlayerRatingManager />}
         {activeTab === 'coaching' && <CoachPackageManager />}
         {activeTab === 'referees' && <RefereeManager />}
+        {activeTab === 'sponsors' && <SponsorManager />}
+        {activeTab === 'merchandise' && <MerchandiseManager />}
       </div>
     </div>
   );

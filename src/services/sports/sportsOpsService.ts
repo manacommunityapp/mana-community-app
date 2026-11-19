@@ -1,5 +1,45 @@
 import { apiClient } from '../apiClient';
 
+export interface TournamentSponsor {
+  id: number;
+  communityId: number;
+  tournamentId: number;
+  sponsorName: string;
+  tier?: string;
+  amount?: number;
+  logoKey?: string;
+  benefits?: string;
+  status: string;
+  contactName?: string;
+  contactEmail?: string;
+  createdAt: string;
+}
+
+export interface TournamentMerchandise {
+  id: number;
+  communityId: number;
+  tournamentId: number;
+  itemName: string;
+  description?: string;
+  price: number;
+  stockQty: number;
+  imageKey?: string;
+  isAvailable: boolean;
+  createdAt: string;
+}
+
+export interface MerchandiseOrder {
+  id: number;
+  communityId: number;
+  merchandiseId: number;
+  userId: number;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  paymentRef?: string;
+  createdAt: string;
+}
+
 export interface CourtSlotSubscription {
   id: number;
   communityId: number;
@@ -164,4 +204,15 @@ export const sportsOpsService = {
   myRefereeAssignments: () => apiClient.get<RefereeAssignment[]>(`${BASE}/referees/my`),
   assignReferee: (data: Partial<RefereeAssignment>) => apiClient.post<RefereeAssignment>(`${BASE}/referees`, data),
   confirmReferee: (id: number) => apiClient.put<RefereeAssignment>(`${BASE}/referees/${id}/confirm`, {}),
+
+  // Sponsors
+  listSponsors: (tournamentId: number) => apiClient.get<TournamentSponsor[]>(`${BASE}/sponsors?tournamentId=${tournamentId}`),
+  addSponsor: (data: Partial<TournamentSponsor>) => apiClient.post<TournamentSponsor>(`${BASE}/sponsors`, data),
+  updateSponsorStatus: (id: number, status: string) => apiClient.put<TournamentSponsor>(`${BASE}/sponsors/${id}/status`, { status }),
+
+  // Merchandise
+  listMerchandise: (tournamentId: number) => apiClient.get<TournamentMerchandise[]>(`${BASE}/merchandise?tournamentId=${tournamentId}`),
+  addMerchandise: (data: Partial<TournamentMerchandise>) => apiClient.post<TournamentMerchandise>(`${BASE}/merchandise`, data),
+  orderMerchandise: (id: number, quantity: number) => apiClient.post<MerchandiseOrder>(`${BASE}/merchandise/${id}/order`, { quantity }),
+  myMerchandiseOrders: () => apiClient.get<MerchandiseOrder[]>(`${BASE}/merchandise/my-orders`),
 };
