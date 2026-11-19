@@ -8,6 +8,7 @@ import RefereeManager from './RefereeManager';
 import WaitlistManager from './WaitlistManager';
 import SponsorManager from './SponsorManager';
 import MerchandiseManager from './MerchandiseManager';
+import PlayerLeaderboard from './PlayerLeaderboard';
 
 const TABS = [
   { id: 'subscriptions', label: 'Subscriptions' },
@@ -15,6 +16,7 @@ const TABS = [
   { id: 'waitlist', label: 'Waitlist' },
   { id: 'deposits', label: 'Deposits' },
   { id: 'ratings', label: 'Ratings' },
+  { id: 'leaderboard', label: 'Leaderboard' },
   { id: 'coaching', label: 'Coaching' },
   { id: 'referees', label: 'Referees' },
   { id: 'sponsors', label: 'Sponsors' },
@@ -55,6 +57,7 @@ export default function SportsOpsHub() {
         {activeTab === 'ratings' && <PlayerRatingManager />}
         {activeTab === 'coaching' && <CoachPackageManager />}
         {activeTab === 'referees' && <RefereeManager />}
+        {activeTab === 'leaderboard' && <PlayerLeaderboard />}
         {activeTab === 'sponsors' && <SponsorManager />}
         {activeTab === 'merchandise' && <MerchandiseManager />}
       </div>
