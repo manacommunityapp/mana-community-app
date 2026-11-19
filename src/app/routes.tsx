@@ -544,6 +544,14 @@ import { AutomationDashboard } from "./components/automation/AutomationDashboard
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
 import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
+import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
+import { StaffAttendance } from "./components/community-ops/StaffAttendance";
+import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
+import { ParcelManager } from "./components/community-ops/ParcelManager";
+import { MoveRequestManager } from "./components/community-ops/MoveRequestManager";
+import { AssetMaintenance } from "./components/community-ops/AssetMaintenance";
+import { WatchlistManager } from "./components/community-ops/WatchlistManager";
+import { RwaReports } from "./components/community-ops/RwaReports";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
 import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
@@ -1610,6 +1618,15 @@ export const router = createBrowserRouter([
       { path: "ai-chat", element: <AiChatDashboard /> },
       { path: "calendar", element: <CalendarDashboard /> },
       { path: "commerce", element: <CommerceDashboard /> },
+      // ── Community Operations ─────────────────────────────────────────────
+      { path: "ops/control-room", element: <OpsControlRoom /> },
+      { path: "ops/attendance", element: <StaffAttendance /> },
+      { path: "ops/passes", element: <DigitalPassManager /> },
+      { path: "ops/parcels", element: <ParcelManager /> },
+      { path: "ops/move-requests", element: <MoveRequestManager /> },
+      { path: "ops/assets", element: <AssetMaintenance /> },
+      { path: "ops/watchlist", element: <WatchlistManager /> },
+      { path: "ops/reports", element: <RwaReports /> },
       // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
       {
         path: "governance",
