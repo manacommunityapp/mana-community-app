@@ -22,6 +22,7 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
 type LoginFormValues = {
@@ -92,6 +93,9 @@ export function Login() {
       const isMobile = /^\d{10}$/.test(id);
       const normalizedIdentifier = isMobile ? id : id.toLowerCase();
       await login({ identifier: normalizedIdentifier, password: data.password });
+      if (window.innerWidth >= 1024) {
+        safeStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+      }
       toast.success("Welcome back!", { id: "login-toast" });
       navigate(redirectTo);
     } catch (err: any) {

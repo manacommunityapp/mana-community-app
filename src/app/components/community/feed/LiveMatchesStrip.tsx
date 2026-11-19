@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock, Sliders, Sparkles } from "lucide-react";
+import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, ChevronLeft, Flame, CheckCircle2, RotateCw, Loader2, Calendar, Clock, Sliders, Sparkles, Info, Phone, Mail, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState, type ScoringConfig, type TossDecision } from "../../../../services/sports/tournamentService";
+import { sportsEventService } from "../../../../services/sports/sportsEventService";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { apiClient, getStoredUser } from "../../../../services/common/apiClient";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -52,6 +54,112 @@ function getSportEmoji(sport?: string): string {
   if (s.includes("pickleball")) return "🏓";
   if (s.includes("swimming")) return "🏊";
   return "🏆";
+}
+
+interface MatchSideContact {
+  sideName: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+}
+
+function normalizeContactMatch(value: unknown): string {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function firstContactValue(...values: unknown[]): string | undefined {
+  const value = values.find((candidate) => typeof candidate === "string" && candidate.trim());
+  return typeof value === "string" ? value.trim() : undefined;
+}
+
+function getMatchSideContact(
+  match: FeedLiveMatch,
+  side: "A" | "B",
+  registrations: any[],
+  teams: any[]
+): MatchSideContact {
+  const sideName = side === "A" ? match.teamAName : match.teamBName;
+  const sideId = side === "A" ? match.teamAId : match.teamBId;
+  const normalizedName = normalizeContactMatch(sideName);
+  const matchingTeam = teams.find((team) => {
+    const teamNames = [team.teamName, team.name, team.displayName].map(normalizeContactMatch).filter(Boolean);
+    const nameMatch = Boolean(normalizedName && teamNames.includes(normalizedName));
+    const idMatch = sideId != null && Number(team.id ?? team.teamId) === Number(sideId);
+    return nameMatch || (idMatch && teamNames.length === 0);
+  });
+
+  const registration = registrations.find((entry) => {
+    const participantIds = [entry.id, entry.playerId, entry.participantUserId, entry.user?.id, entry.familyMember?.id];
+    const idMatch = !matchingTeam && sideId != null && participantIds.some((id) => id != null && Number(id) === Number(sideId));
+    const participantNames = [entry.playerName, entry.name, entry.user?.fullName, entry.familyMember?.name, entry.participant?.name];
+    const nameMatch = participantNames.some((name) => {
+      const normalizedParticipant = normalizeContactMatch(name);
+      return normalizedParticipant && normalizedName && (normalizedParticipant === normalizedName || normalizedParticipant.includes(normalizedName) || normalizedName.includes(normalizedParticipant));
+    });
+    return idMatch || nameMatch;
+  });
+
+  if (registration) {
+    const player = registration.player || registration.familyMember || registration.participant || {};
+    const playerPhone = firstContactValue(
+      player.phone,
+      registration.playerPhone,
+      registration.phone,
+      registration.partner?.phone,
+      registration.partnerPhone
+    );
+    const familyHeadPhone = firstContactValue(
+      registration.user?.phone,
+      registration.familyMember?.user?.phone,
+      registration.parent?.phone,
+      registration.familyHead?.phone
+    );
+    const phone = playerPhone || familyHeadPhone;
+    if (phone) {
+      return {
+        sideName,
+        contactName: firstContactValue(player.fullName, player.name, registration.playerName, registration.user?.fullName, sideName),
+        phone,
+        email: firstContactValue(player.email, registration.email, registration.user?.email),
+        role: playerPhone ? "Player" : "Family head",
+      };
+    }
+  }
+
+  if (matchingTeam) {
+    const captain = matchingTeam.captainUser || matchingTeam.captain || matchingTeam.ownerUser || matchingTeam.owner || {};
+    const teamCaptainPhone = firstContactValue(
+      matchingTeam.captainPhone,
+      captain.phone,
+      captain.mobile,
+      matchingTeam.ownerUser?.phone,
+      matchingTeam.ownerPhone
+    );
+    if (teamCaptainPhone) {
+      return {
+        sideName,
+        contactName: firstContactValue(captain.fullName, captain.name, matchingTeam.captainName, matchingTeam.ownerName),
+        phone: teamCaptainPhone,
+        email: firstContactValue(captain.email, matchingTeam.captainEmail),
+        role: "Team captain",
+      };
+    }
+  }
+
+  // Team schedules can expose a captain registration even when the teams endpoint omits its user object.
+  const captainRegistration = registrations.find((entry) => {
+    const teamName = normalizeContactMatch(entry.proposedTeamName || entry.teamName);
+    return (entry.captainConfirmation || entry.isCaptain) && teamName && normalizedName && teamName === normalizedName;
+  });
+  const captainPhone = firstContactValue(captainRegistration?.phone, captainRegistration?.user?.phone);
+  return {
+    sideName,
+    contactName: firstContactValue(captainRegistration?.playerName, captainRegistration?.user?.fullName),
+    phone: captainPhone,
+    email: firstContactValue(captainRegistration?.email, captainRegistration?.user?.email),
+    role: captainPhone ? "Team captain" : undefined,
+  };
 }
 
 function getRoundStageLabel(roundName?: string | null): string | null {
@@ -245,6 +353,10 @@ export function LiveMatchesStrip() {
   const [matches, setMatches] = useState<FeedLiveMatch[]>([]);
   const [dismissed, setDismissed] = useState<number[]>(loadDismissed);
   const [watching, setWatching] = useState<FeedLiveMatch | null>(null);
+  const [contactInfoMatch, setContactInfoMatch] = useState<FeedLiveMatch | null>(null);
+  const [contactInfoSides, setContactInfoSides] = useState<MatchSideContact[]>([]);
+  const [contactInfoLoading, setContactInfoLoading] = useState(false);
+  const [contactInfoError, setContactInfoError] = useState("");
   const [scoringMatch, setScoringMatch] = useState<FeedLiveMatch | null>(null);
   const [scoreSetupMatch, setScoreSetupMatch] = useState<FeedLiveMatch | null>(null);
   const [scoreSetupConfig, setScoreSetupConfig] = useState<ScoringConfig | null>(null);
@@ -300,6 +412,39 @@ export function LiveMatchesStrip() {
       toast.error(error?.message || "Could not start this match.");
     } finally {
       setStartingMatchId(null);
+    }
+  };
+
+  const handleOpenContactInfo = async (match: FeedLiveMatch) => {
+    setContactInfoMatch(match);
+    setContactInfoSides([]);
+    setContactInfoError("");
+    setContactInfoLoading(true);
+    try {
+      let configId = match.configId ? Number(match.configId) : undefined;
+      let eventId = match.eventId ? Number(match.eventId) : undefined;
+      const configs = await tournamentService.getConfigs();
+      const config = configs.find((item) =>
+        (configId && Number(item.id) === configId) ||
+        (eventId && Number(item.eventId) === eventId) ||
+        (!configId && !eventId && normalizeContactMatch(item.eventName) === normalizeContactMatch(match.eventName) &&
+          normalizeContactMatch(item.sportName) === normalizeContactMatch(match.sportName))
+      );
+      configId ||= config?.id;
+      eventId ||= config?.eventId;
+
+      const [registrations, teams] = await Promise.all([
+        eventId ? sportsEventService.getTournamentRegistrations(eventId).catch(() => []) : Promise.resolve([]),
+        configId ? tournamentService.getConfigTeams(configId).catch(() => []) : Promise.resolve([]),
+      ]);
+      setContactInfoSides([
+        getMatchSideContact(match, "A", registrations, teams),
+        getMatchSideContact(match, "B", registrations, teams),
+      ]);
+    } catch {
+      setContactInfoError("Could not load participant contact details.");
+    } finally {
+      setContactInfoLoading(false);
     }
   };
 
@@ -490,6 +635,7 @@ export function LiveMatchesStrip() {
                     return {
                       matchId: m.id || m.matchId,
                       configId: cfg.id,
+                      eventId: cfg.eventId,
                       sportName: cfg.sportName || cfg.eventName || "Sports",
                       tournamentName: cfg.tournamentName || "Tournament",
                       eventName: cfg.eventName,
@@ -1012,7 +1158,7 @@ export function LiveMatchesStrip() {
                     setWatching(m);
                   }
                 }}
-                className={`group w-[min(86vw,310px)] shrink-0 snap-start rounded-xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden sm:w-[310px] sm:rounded-2xl ${
+                className={`group w-[min(86vw,290px)] shrink-0 snap-start rounded-xl border transition-all duration-300 flex flex-col justify-between cursor-pointer select-none relative overflow-hidden sm:w-[290px] sm:rounded-2xl ${
                   flashType === "wicket"
                     ? "border-rose-400 bg-rose-50/40 shadow-rose-100 ring-2 ring-rose-400"
                     : flashType === "score"
@@ -1180,6 +1326,19 @@ export function LiveMatchesStrip() {
                       )}
                       <button
                         type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleOpenContactInfo(m);
+                        }}
+                        className="inline-flex min-h-8 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-extrabold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 sm:px-2.5 sm:text-[11px]"
+                        title="Show player or team contact details"
+                        aria-label={`Contact details for ${m.teamAName} vs ${m.teamBName}`}
+                      >
+                        <Info className="h-3 w-3" />
+                        Info
+                      </button>
+                      <button
+                        type="button"
                         disabled={startingMatchId === m.matchId}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -1225,6 +1384,71 @@ export function LiveMatchesStrip() {
         ) : (
           <GenericLiveMatchView matchId={watching.matchId} onClose={() => setWatching(null)} />
         ))}
+
+      {contactInfoMatch && createPortal(
+        <div
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm"
+          onClick={(event) => { if (event.target === event.currentTarget) setContactInfoMatch(null); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="match-contact-info-title"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+              <div className="min-w-0">
+                <h3 id="match-contact-info-title" className="m-0 text-sm font-black text-slate-900">Match contact details</h3>
+                <p className="mb-0 mt-1 truncate text-xs text-slate-500">
+                  {contactInfoMatch.teamAName} vs {contactInfoMatch.teamBName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactInfoMatch(null)}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                aria-label="Close contact details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid gap-3 p-4 sm:grid-cols-2">
+              {contactInfoLoading ? (
+                <div className="col-span-full flex items-center justify-center gap-2 py-8 text-sm font-semibold text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading contacts…
+                </div>
+              ) : contactInfoError ? (
+                <p className="col-span-full mb-0 rounded-xl bg-rose-50 p-3 text-sm font-semibold text-rose-700">{contactInfoError}</p>
+              ) : contactInfoSides.map((contact) => (
+                <section key={contact.sideName} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+                  <h4 className="m-0 truncate text-xs font-black text-slate-800">{contact.sideName}</h4>
+                  {contact.contactName && (
+                    <p className="mb-2 mt-1 flex items-center gap-1.5 truncate text-xs font-semibold text-slate-600">
+                      <UserRound className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate">{contact.contactName}</span>
+                      {contact.role && <span className="shrink-0 text-[10px] font-bold text-slate-400">· {contact.role}</span>}
+                    </p>
+                  )}
+                  {contact.phone ? (
+                    <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 text-sm font-bold text-indigo-700 hover:text-indigo-900">
+                      <Phone className="h-3.5 w-3.5 shrink-0" /> {contact.phone}
+                    </a>
+                  ) : (
+                    <p className="mb-0 mt-2 text-xs text-slate-400">No contact number available</p>
+                  )}
+                  {contact.email && (
+                    <a href={`mailto:${contact.email}`} className="mt-2 flex min-w-0 items-center gap-2 text-xs font-medium text-slate-600 hover:text-indigo-700">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{contact.email}</span>
+                    </a>
+                  )}
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {scoreSetupMatch && (
         <MatchScoringSetupModal
@@ -1591,34 +1815,50 @@ export function LiveMatchesStrip() {
                             </span>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isUpcoming) {
-                                setAllMatchesModalOpen(false);
-                                if (m.configId) {
-                                  navigate(`/sports/schedule?configId=${m.configId}`);
-                                } else {
-                                  navigate("/sports/schedule");
-                                }
-                              } else {
-                                setWatching(m);
-                              }
-                            }}
-                            className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50/90 hover:bg-indigo-100 active:scale-95 px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0"
-                          >
-                            {isUpcoming ? (
-                              <>
-                                <Calendar className="w-3 h-3 text-indigo-600" />
-                                <span>Fixture →</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3 h-3 fill-indigo-600" />
-                                <span>{live ? "Watch Live →" : "Scorecard →"}</span>
-                              </>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {canManageMatches && (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleOpenContactInfo(m);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-extrabold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                title="Show player or team contact details"
+                                aria-label={`Contact details for ${m.teamAName} vs ${m.teamBName}`}
+                              >
+                                <Info className="h-3 w-3" /> Info
+                              </button>
                             )}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isUpcoming) {
+                                  setAllMatchesModalOpen(false);
+                                  if (m.configId) {
+                                    navigate(`/sports/schedule?configId=${m.configId}`);
+                                  } else {
+                                    navigate("/sports/schedule");
+                                  }
+                                } else {
+                                  setWatching(m);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50/90 hover:bg-indigo-100 active:scale-95 px-2.5 py-1 rounded-lg transition-all cursor-pointer shrink-0"
+                            >
+                              {isUpcoming ? (
+                                <>
+                                  <Calendar className="w-3 h-3 text-indigo-600" />
+                                  <span>Fixture →</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3 h-3 fill-indigo-600" />
+                                  <span>{live ? "Watch Live →" : "Scorecard →"}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

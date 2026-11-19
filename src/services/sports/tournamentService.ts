@@ -17,6 +17,7 @@ export interface FeedBroadcastSettings {
 export interface FeedLiveMatch {
   matchId: number;
   configId?: number | null;
+  eventId?: number | null;
   sportName?: string | null;
   tournamentName?: string | null;
   eventName?: string | null;
