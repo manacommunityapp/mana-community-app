@@ -374,6 +374,12 @@ import BulkOrderManagement from "./components/commerce/orders/BulkOrderManagemen
 import CouponManagement from "./components/commerce/vendors/CouponManagement";
 
 // Food & Lifestyle OS pages
+import { DeliverySlotManager } from "./components/food/DeliverySlotManager";
+import { StockManager } from "./components/food/StockManager";
+import { RecurringBasketManager } from "./components/food/RecurringBasketManager";
+import { DeliveryBatchView } from "./components/food/DeliveryBatchView";
+import { RefundManager } from "./components/food/RefundManager";
+import { VendorPrepAnalytics } from "./components/food/VendorPrepAnalytics";
 import { FoodLayout } from "./components/food/FoodLayout";
 import { FoodDashboard } from "./components/food/FoodDashboard";
 import { RestaurantBrowse } from "./components/food/RestaurantBrowse";
@@ -1387,6 +1393,12 @@ export const router = createBrowserRouter([
           { path: "fresh-kitchen", Component: FreshKitchenHub },
           { path: "fresh-kitchen/combos/:id", Component: BreakfastComboCustomizer },
           { path: "daily-basket", Component: DailyBasketManager },
+          { path: "slots", element: <DeliverySlotManager /> },
+          { path: "stock", element: <StockManager /> },
+          { path: "baskets", element: <RecurringBasketManager /> },
+          { path: "batches", element: <DeliveryBatchView /> },
+          { path: "refunds", element: <RefundManager /> },
+          { path: "prep-analytics", element: <VendorPrepAnalytics /> },
         ],
       },
       {
