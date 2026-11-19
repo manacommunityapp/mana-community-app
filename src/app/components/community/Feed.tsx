@@ -762,19 +762,25 @@ export function Feed() {
   useEffect(() => {
     if (!user?.communityId) return;
     feedService.getSidebarSummary().then(setSummaryCounts).catch(() => {});
-    communityDirectoryService.getDirectory()
-      .then((lList) => {
-        if (Array.isArray(lList) && lList.length > 0) {
-          const map: Record<number, string> = {};
-          lList.forEach((l) => {
-            if (l.userId && l.designation) {
-              map[l.userId] = l.designation;
-            }
-          });
-          setLeaderMap(map);
-        }
-      })
-      .catch(() => {});
+
+    // Defer non-critical directory leadership fetch by 2s so feed posts load with full priority
+    const timer = setTimeout(() => {
+      communityDirectoryService.getDirectory()
+        .then((lList) => {
+          if (Array.isArray(lList) && lList.length > 0) {
+            const map: Record<number, string> = {};
+            lList.forEach((l) => {
+              if (l.userId && l.designation) {
+                map[l.userId] = l.designation;
+              }
+            });
+            setLeaderMap(map);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [user?.communityId]);
 
   useEffect(() => {

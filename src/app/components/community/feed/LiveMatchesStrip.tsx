@@ -17,9 +17,16 @@ import { MatchScoringSetupModal } from "../../sports/MatchScoringSetupModal";
 import type { HouseRulesConfig } from "../../sports/utils/cricketUtils";
 import { getSportType, isCricketSport, isTimeSport } from "../../sports/utils/sportScoringConstants";
 
-const POLL_MS = 30_000;
+const POLL_MS = 60_000;
 const MAX_CARDS = 3;
 const DISMISS_KEY = "feedLiveStripDismissed";
+
+interface LiveStripCache {
+  matches: FeedLiveMatch[];
+  timestamp: number;
+}
+let stripCache: LiveStripCache | null = null;
+const STRIP_CACHE_TTL_MS = 60_000;
 
 function loadDismissed(): number[] {
   try {
@@ -405,7 +412,11 @@ export function LiveMatchesStrip() {
     }
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
+    if (!force && stripCache && Date.now() - stripCache.timestamp < STRIP_CACHE_TTL_MS) {
+      setMatches(stripCache.matches);
+      return;
+    }
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
@@ -413,10 +424,9 @@ export function LiveMatchesStrip() {
       const communityId = user?.communityId != null ? Number(user.communityId) : undefined;
       const combinedMap = new Map<number, FeedLiveMatch>();
 
-      // 1. Fetch from /sports/live-feed and /sports/upcoming-feed
+      // 1. Fetch from /sports/live-feed and /sports/upcoming-feed (single bulk feed endpoints)
       try {
         let feedMatches = await tournamentService.getLiveFeedMatches(communityId);
-        // Fallback: If community-scoped query returns no matches, check across all communities
         if ((!feedMatches || feedMatches.length === 0) && communityId) {
           feedMatches = await tournamentService.getLiveFeedMatches(undefined);
         }
@@ -426,7 +436,7 @@ export function LiveMatchesStrip() {
           });
         }
       } catch {
-        // Backend live-feed endpoint may be unavailable or unconfigured; will continue below
+        // Backend live-feed endpoint may be unavailable; continue
       }
 
       try {
@@ -440,85 +450,86 @@ export function LiveMatchesStrip() {
           });
         }
       } catch {
-        // Continue below
+        // Continue
       }
 
-      // 2. Query tournament schedule configs to discover any active live & upcoming matches in tournaments
-      try {
-        const configs = await tournamentService.getConfigs().catch(() => []);
-        const relevantConfigs = Array.isArray(configs)
-          ? configs.filter((c) => {
-              const st = String(c?.status || "").toUpperCase();
-              return ["PUBLISHED", "ACTIVE", "LIVE", "IN_PROGRESS", "COMPLETED"].includes(st);
-            })
-          : [];
-        if (relevantConfigs.length > 0) {
-          const matchPromises = relevantConfigs.map(async (cfg) => {
-            try {
-              const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
-              if (!Array.isArray(cfgMatches)) return [];
-              return cfgMatches
-                .filter((m: any) => {
-                  if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED" || m.status === "CANCELLED") return false;
-                  if (m.showInFeed === false) return false;
-                  return true;
+      // 2. Query tournament schedule configs ONLY if needed to fill MAX_CARDS, capped at top 2 configs
+      if (combinedMap.size < MAX_CARDS) {
+        try {
+          const configs = await tournamentService.getConfigs().catch(() => []);
+          const relevantConfigs = Array.isArray(configs)
+            ? configs
+                .filter((c) => {
+                  const st = String(c?.status || "").toUpperCase();
+                  return ["LIVE", "IN_PROGRESS", "ACTIVE"].includes(st);
                 })
-                .map((m: any): FeedLiveMatch => {
-                  const hasScores = Boolean(
-                    (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
-                    (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
-                    (m.score1 && m.score1 !== "0") ||
-                    (m.score2 && m.score2 !== "0")
-                  );
-                  const isLive = isLiveStatus(m.status, hasScores);
-                  const isCompleted = m.status === "COMPLETED";
-                  return {
-                    matchId: m.id || m.matchId,
-                    configId: cfg.id,
-                    sportName: cfg.sportName || cfg.eventName || "Sports",
-                    tournamentName: cfg.tournamentName || "Tournament",
-                    eventName: cfg.eventName,
-                    roundName: m.roundName || m.round,
-                    teamAName: m.teamAName || m.homeName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 1" : "Team A"),
-                    teamBName: m.teamBName || m.awayName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 2" : "Team B"),
-                    teamAId: m.teamAId || m.homeTeamId || m.teamA?.id || null,
-                    teamBId: m.teamBId || m.awayTeamId || m.teamB?.id || null,
-                    teamAFlat: m.teamAFlat || m.homeFlat,
-                    teamBFlat: m.teamBFlat || m.awayFlat,
-                    scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
-                    scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
-                    status: isLive ? "LIVE" : (isCompleted ? "COMPLETED" : (m.status || "SCHEDULED")),
-                    winnerName: m.winnerName,
-                    scheduledAt: m.scheduledAt,
-                    venueName: m.venueName || m.courtName,
-                  };
-                });
-            } catch {
-              return [];
-            }
-          });
-          const nested = await Promise.all(matchPromises);
-          nested.flat().forEach((m) => {
-            if (m && m.matchId) {
-              const existing = combinedMap.get(m.matchId);
-              if (!existing) {
-                combinedMap.set(m.matchId, m);
-              } else {
-                combinedMap.set(m.matchId, {
-                  ...m,
-                  ...existing,
-                  scoreTeamA: existing.scoreTeamA || m.scoreTeamA || "",
-                  scoreTeamB: existing.scoreTeamB || m.scoreTeamB || "",
-                });
+                .slice(0, 2)
+            : [];
+
+          if (relevantConfigs.length > 0) {
+            const matchPromises = relevantConfigs.map(async (cfg) => {
+              try {
+                const cfgMatches = await tournamentService.getMatchesByConfigId(cfg.id);
+                if (!Array.isArray(cfgMatches)) return [];
+                return cfgMatches
+                  .filter((m: any) => {
+                    if (!m || m.status === "BYE" || m.status === "AUTO_ADVANCED" || m.status === "CANCELLED") return false;
+                    if (m.showInFeed === false) return false;
+                    return true;
+                  })
+                  .slice(0, 3)
+                  .map((m: any): FeedLiveMatch => {
+                    const hasScores = Boolean(
+                      (m.scoreTeamA && m.scoreTeamA !== "0" && m.scoreTeamA !== "—") ||
+                      (m.scoreTeamB && m.scoreTeamB !== "0" && m.scoreTeamB !== "—") ||
+                      (m.score1 && m.score1 !== "0") ||
+                      (m.score2 && m.score2 !== "0")
+                    );
+                    const isLive = isLiveStatus(m.status, hasScores);
+                    const isCompleted = m.status === "COMPLETED";
+                    return {
+                      matchId: m.id || m.matchId,
+                      configId: cfg.id,
+                      sportName: cfg.sportName || cfg.eventName || "Sports",
+                      tournamentName: cfg.tournamentName || "Tournament",
+                      eventName: cfg.eventName,
+                      roundName: m.roundName || m.round,
+                      teamAName: m.teamAName || m.homeName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 1" : "Team A"),
+                      teamBName: m.teamBName || m.awayName || (/badminton|tennis|table|squash|chess|carrom/i.test(cfg.sportName || cfg.eventName || "") ? "Player 2" : "Team B"),
+                      teamAId: m.teamAId || m.homeTeamId || m.teamA?.id || null,
+                      teamBId: m.teamBId || m.awayTeamId || m.teamB?.id || null,
+                      teamAFlat: m.teamAFlat || m.homeFlat,
+                      teamBFlat: m.teamBFlat || m.awayFlat,
+                      scoreTeamA: m.scoreTeamA ?? m.score1 ?? "",
+                      scoreTeamB: m.scoreTeamB ?? m.score2 ?? "",
+                      status: isLive ? "LIVE" : (isCompleted ? "COMPLETED" : (m.status || "SCHEDULED")),
+                      winnerName: m.winnerName,
+                      scheduledAt: m.scheduledAt,
+                      venueName: m.venueName || m.courtName,
+                    };
+                  });
+              } catch {
+                return [];
               }
-            }
-          });
+            });
+            const nested = await Promise.all(matchPromises);
+            nested.flat().forEach((m) => {
+              if (m && m.matchId && !combinedMap.has(m.matchId)) {
+                combinedMap.set(m.matchId, m);
+              }
+            });
+          }
+        } catch {
+          // Keep current state on error
         }
-      } catch {
-        // Keep current state on error
       }
 
-      setMatches(Array.from(combinedMap.values()));
+      const finalMatches = Array.from(combinedMap.values());
+      stripCache = {
+        matches: finalMatches,
+        timestamp: Date.now(),
+      };
+      setMatches(finalMatches);
     } catch {
       // The strip is optional; fail silently and keep the last known state.
     } finally {
@@ -526,7 +537,7 @@ export function LiveMatchesStrip() {
     }
   }, []);
 
-  // 1. Initial load + periodic refresh (every 30s) to add new matches / drop finished ones
+  // 1. Initial load + periodic refresh (every 60s) to add new matches / drop finished ones
   useEffect(() => {
     load();
     const id = window.setInterval(load, POLL_MS);
@@ -548,7 +559,7 @@ export function LiveMatchesStrip() {
   // 2. Global live lifecycle topic: listen for tournament/event match start/finish broadcasts
   useEffect(() => {
     const unsub = stompClient.subscribe("/topic/sports/live", () => {
-      load();
+      load(true);
     });
     return () => {
       unsub();
