@@ -836,7 +836,7 @@ export function SetupSchedule({
     limitMatches: boolean;
     maxMatches: string;
   }>>([]);
-  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string; phone?: string }>>([]);
+  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string; phone?: string; seed?: number | null; seedRank?: number }>>([]);
   const [confirmedRegistrations, setConfirmedRegistrations] = useState<EventRegistration[]>([]);
   const [allPlayersConfirmed, setAllPlayersConfirmed] = useState(true);
   const [openPoolPairs, setOpenPoolPairs] = useState<DoublesTeamPair[]>([]);
@@ -1666,7 +1666,7 @@ export function SetupSchedule({
     setParticipants(String(totalTeams));
 
     const allDoublesTeams = [...fixedPairs, ...pairedTeams];
-    const newParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
+    const newParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null; seed?: number | null; seedRank?: number }> = [];
     for (let i = 0; i < totalTeams; i++) {
       const team = allDoublesTeams[i];
       newParts.push({
@@ -1675,6 +1675,8 @@ export function SetupSchedule({
         flatNumber: team.flatNumber,
         phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
         rating: team.rating,
+        seed: team.player1.seed ?? team.player2?.seed ?? null,
+        seedRank: i + 1,
       });
     }
     setAllParticipantOptions(newParts);
@@ -1946,8 +1948,8 @@ export function SetupSchedule({
   const buildParticipantList = (
     count: number,
     orderOverride?: PlayoffSeedingOrder
-  ): Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null; seed?: number | null }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null; seed?: number | null }> = [];
+  ): Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null; seed?: number | null; seedRank?: number }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null; seed?: number | null; seedRank?: number }> = [];
     const customLines = useCustomNames
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
       : [];
@@ -1988,6 +1990,7 @@ export function SetupSchedule({
             phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
             rating: team.rating ?? null,
             seed: team.player1.seed ?? team.player2?.seed ?? null,
+            seedRank: i + 1,
           });
         } else {
           allParts.push({ id: `P${i + 1}`, name: `Team ${i + 1}` });
@@ -2027,6 +2030,7 @@ export function SetupSchedule({
           phone: reg.phone || reg.user?.phone || '',
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
           seed: reg.seed ?? null,
+          seedRank: i + 1,
         });
       } else {
         allParts.push({ id: `P${i + 1}`, name: `Participant ${i + 1}` });
@@ -4069,6 +4073,30 @@ export function SetupSchedule({
                 ))}
               </div>
             </div>
+
+            {/* Seeded Players List — shown when RANKING mode is active */}
+            {seedingOrder === 'RANKING' && allParticipantOptions.length > 0 && (
+              <div className="mt-1">
+                <label className={labelCls}>Seeded Players (Bracket Draw Order)</label>
+                <div className="mt-1.5 rounded-xl border border-[rgba(99,102,241,0.15)] bg-white/60 overflow-hidden">
+                  {allParticipantOptions.map((p, idx) => (
+                    <div
+                      key={p.id}
+                      className={`flex items-center gap-2.5 px-3 py-2 ${idx < allParticipantOptions.length - 1 ? 'border-b border-[rgba(99,102,241,0.08)]' : ''}`}
+                    >
+                      <span className="text-[10px] font-bold text-white bg-[#4f46e5] rounded px-1.5 py-0.5 shrink-0 min-w-[26px] text-center">
+                        S{p.seedRank ?? idx + 1}
+                      </span>
+                      <span className="text-xs font-medium text-[#0d0d2b] truncate">{p.name}</span>
+                      {p.flatNumber && <span className="text-[10px] text-[#6b7094] shrink-0">{p.flatNumber}</span>}
+                      {p.seed != null && (
+                        <span className="text-[9px] text-[#4f46e5]/70 shrink-0 ml-auto">reg #{p.seed}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -5041,7 +5069,9 @@ export function SetupSchedule({
                                       className="flex-1 bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
                                     >
                                       {allParticipantOptions.map(opt => (
-                                        <option key={opt.id} value={opt.id}>{opt.name}{opt.flatNumber ? ` (${opt.flatNumber})` : ''}</option>
+                                        <option key={opt.id} value={opt.id}>
+                                          {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && opt.seedRank != null ? `[S${opt.seedRank}] ` : ''}{opt.name}{opt.flatNumber ? ` (${opt.flatNumber})` : ''}
+                                        </option>
                                       ))}
                                     </select>
                                   </div>
@@ -5524,7 +5554,12 @@ export function SetupSchedule({
                                   <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col truncate">
-                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.home.seedRank != null && (
+                                      <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.home.seedRank}</span>
+                                    )}
+                                    <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                  </div>
                                   {match.home.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{match.home.flatNumber}</span>}
                                 </div>
                               </div>
@@ -5537,7 +5572,12 @@ export function SetupSchedule({
                               {/* Away Team */}
                               <div className="flex items-center justify-end gap-2.5 w-[42%]">
                                 <div className="flex flex-col items-end truncate">
-                                  <span className="text-xs font-bold text-[#0d0d2b] truncate text-right" title={match.away.name}>{match.away.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0 flex-row-reverse">
+                                    {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.away.seedRank != null && (
+                                      <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.away.seedRank}</span>
+                                    )}
+                                    <span className="text-xs font-bold text-[#0d0d2b] truncate text-right" title={match.away.name}>{match.away.name}</span>
+                                  </div>
                                   {match.away.flatNumber && <span className="text-[10px] text-[#6b7094] truncate text-right">{match.away.flatNumber}</span>}
                                 </div>
                                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
@@ -5554,7 +5594,12 @@ export function SetupSchedule({
                                   <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.home.seedRank != null && (
+                                      <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.home.seedRank}</span>
+                                    )}
+                                    <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                  </div>
                                   {match.home.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.home.flatNumber}</span>}
                                 </div>
                               </div>
@@ -5572,7 +5617,12 @@ export function SetupSchedule({
                                   <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.away.seedRank != null && (
+                                      <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.away.seedRank}</span>
+                                    )}
+                                    <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                  </div>
                                   {match.away.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.away.flatNumber}</span>}
                                 </div>
                               </div>
@@ -5823,7 +5873,12 @@ export function SetupSchedule({
                                 <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                               </div>
                               <div className="flex flex-col truncate">
-                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.home.seedRank != null && (
+                                    <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.home.seedRank}</span>
+                                  )}
+                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                </div>
                                 {match.home.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{match.home.flatNumber}</span>}
                               </div>
                             </div>
@@ -5836,7 +5891,12 @@ export function SetupSchedule({
                             {/* Away Team */}
                             <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
                               <div className="flex flex-col truncate">
-                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                <div className="flex items-center gap-1 min-w-0 flex-row-reverse">
+                                  {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.away.seedRank != null && (
+                                    <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.away.seedRank}</span>
+                                  )}
+                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                </div>
                                 {match.away.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{match.away.flatNumber}</span>}
                               </div>
                               <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
@@ -5853,7 +5913,12 @@ export function SetupSchedule({
                                 <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                               </div>
                               <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.home.seedRank != null && (
+                                    <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.home.seedRank}</span>
+                                  )}
+                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                </div>
                                 {match.home.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.home.flatNumber}</span>}
                               </div>
                             </div>
@@ -5869,7 +5934,12 @@ export function SetupSchedule({
                                 <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
                               </div>
                               <div className="flex flex-col min-w-0">
-                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && match.away.seedRank != null && (
+                                    <span className="text-[9px] font-bold text-white bg-[#4f46e5] rounded px-1 py-px shrink-0">S{match.away.seedRank}</span>
+                                  )}
+                                  <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                </div>
                                 {match.away.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.away.flatNumber}</span>}
                               </div>
                             </div>
@@ -5997,7 +6067,7 @@ export function SetupSchedule({
                         className={inputCls}
                       >
                         {getEditParticipantOptions().map(p => (
-                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                          <option key={p.id} value={p.id}>{(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && (p as any).seedRank != null ? `[S${(p as any).seedRank}] ` : ''}{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
                         ))}
                       </select>
                     )}
@@ -6027,7 +6097,7 @@ export function SetupSchedule({
                         className={inputCls}
                       >
                         {getEditParticipantOptions().map(p => (
-                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                          <option key={p.id} value={p.id}>{(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING' && (p as any).seedRank != null ? `[S${(p as any).seedRank}] ` : ''}{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
                         ))}
                       </select>
                     )}

@@ -12,6 +12,8 @@ export type PlayoffParticipantRef = {
   id: string;
   name: string;
   flatNumber?: string;
+  /** 1-indexed bracket seed position (1 = top seed). Set only for RANKING / TRADITIONAL / SEQUENTIAL draws. */
+  seedRank?: number;
 };
 
 export type PlayoffRoundType =
@@ -637,10 +639,11 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
     });
   }
 
-  const seeds: PlayoffParticipantRef[] = orderedPlayers.map(p => ({
+  const seeds: PlayoffParticipantRef[] = orderedPlayers.map((p, idx) => ({
     id: p.id,
     name: p.name,
     flatNumber: p.flatNumber || undefined,
+    seedRank: idx + 1,
   }));
 
   let power = 1;
@@ -1257,7 +1260,7 @@ export function reconstructKnockoutByes(
   });
 
   return result.map(normalizePlaceholderByeMatch);
-}
+}
 function normalizePlaceholderByeMatch(match: any): any {
   const { team1, team2 } = extractTeamNames(match);
   const homeBye = (team1 || '').trim().toUpperCase() === 'BYE'
