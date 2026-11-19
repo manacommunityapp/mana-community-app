@@ -762,19 +762,25 @@ export function Feed() {
   useEffect(() => {
     if (!user?.communityId) return;
     feedService.getSidebarSummary().then(setSummaryCounts).catch(() => {});
-    communityDirectoryService.getDirectory()
-      .then((lList) => {
-        if (Array.isArray(lList) && lList.length > 0) {
-          const map: Record<number, string> = {};
-          lList.forEach((l) => {
-            if (l.userId && l.designation) {
-              map[l.userId] = l.designation;
-            }
-          });
-          setLeaderMap(map);
-        }
-      })
-      .catch(() => {});
+
+    // Defer non-critical directory leadership fetch by 2s so feed posts load with full priority
+    const timer = setTimeout(() => {
+      communityDirectoryService.getDirectory()
+        .then((lList) => {
+          if (Array.isArray(lList) && lList.length > 0) {
+            const map: Record<number, string> = {};
+            lList.forEach((l) => {
+              if (l.userId && l.designation) {
+                map[l.userId] = l.designation;
+              }
+            });
+            setLeaderMap(map);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, [user?.communityId]);
 
   useEffect(() => {
@@ -1348,9 +1354,9 @@ export function Feed() {
   const composerTypeConfig = getPostTypeConfig(composerType);
 
   return (
-    <div className="w-full max-w-[1040px] xl:max-w-[1080px] mx-auto px-1 sm:px-2">
+    <div className="w-full max-w-[1080px] xl:max-w-[1120px] mx-auto px-1 sm:px-2">
       <div className="flex flex-col lg:flex-row justify-center gap-3 sm:gap-4 lg:gap-5 items-start">
-        <div className="w-full max-w-[640px] xl:max-w-[680px] mx-auto lg:mx-0 flex-1 space-y-2 sm:space-y-2.5 min-w-0">
+        <div className="w-full max-w-[740px] xl:max-w-[760px] mx-auto lg:mx-0 flex-1 space-y-2 sm:space-y-2.5 min-w-0">
           <AlertTicker />
           {/* Live Now Strip: Top-of-page Live Sports Widget (NOT inside post stream) */}
           <LiveMatchesStrip />

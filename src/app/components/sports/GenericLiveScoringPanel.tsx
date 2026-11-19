@@ -182,18 +182,6 @@ export function GenericLiveScoringPanel({
     };
   }, [fetchState, matchId]);
 
-  // Sync serving side from toss decision if available
-  useEffect(() => {
-    if (state?.tossWinnerTeamId) {
-      const isWinnerA = state.tossWinnerTeamId === teamA.id;
-      if (state.tossDecision === "RECEIVE") {
-        setServingSide(isWinnerA ? "B" : "A");
-      } else {
-        setServingSide(isWinnerA ? "A" : "B");
-      }
-    }
-  }, [state?.tossWinnerTeamId, state?.tossDecision, teamA.id]);
-
   const isIndividual = isIndividualSport(sportType);
   const defaultSideAName = isIndividual ? "Player 1" : "Team A";
   const defaultSideBName = isIndividual ? "Player 2" : "Team B";
@@ -217,14 +205,26 @@ export function GenericLiveScoringPanel({
   // Prefer the real competitor names: real player/team name > server name > prop name > fallback
   const teamA = {
     ...teamAProp,
-    id: (state?.teamAId && state.teamAId > 0) ? state.teamAId : (teamAProp.id || 1),
-    name: resolveCompetitorName(state?.teamAName, teamAProp.name, defaultSideAName),
+    id: (state?.teamAId && state.teamAId > 0) ? state.teamAId : (teamAProp?.id || 1),
+    name: resolveCompetitorName(state?.teamAName, teamAProp?.name, defaultSideAName),
   };
   const teamB = {
     ...teamBProp,
-    id: (state?.teamBId && state.teamBId > 0) ? state.teamBId : (teamBProp.id || 2),
-    name: resolveCompetitorName(state?.teamBName, teamBProp.name, defaultSideBName),
+    id: (state?.teamBId && state.teamBId > 0) ? state.teamBId : (teamBProp?.id || 2),
+    name: resolveCompetitorName(state?.teamBName, teamBProp?.name, defaultSideBName),
   };
+
+  // Sync serving side from toss decision if available
+  useEffect(() => {
+    if (state?.tossWinnerTeamId) {
+      const isWinnerA = state.tossWinnerTeamId === teamA.id;
+      if (state.tossDecision === "RECEIVE") {
+        setServingSide(isWinnerA ? "B" : "A");
+      } else {
+        setServingSide(isWinnerA ? "A" : "B");
+      }
+    }
+  }, [state?.tossWinnerTeamId, state?.tossDecision, teamA.id]);
 
   const isUnassigned =
     !teamA.name ||

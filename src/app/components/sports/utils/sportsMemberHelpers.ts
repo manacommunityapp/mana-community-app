@@ -13,6 +13,17 @@ export function isSelfRelationOrMember(
   name?: string | null,
   currentUserName?: string | null
 ): boolean {
+  // If both name and currentUserName are provided, and name does not match currentUserName (and is not a self alias):
+  // Then this is explicitly NOT Self!
+  if (name && currentUserName) {
+    const n = name.trim().toLowerCase();
+    const c = currentUserName.trim().toLowerCase();
+    const isAlias = n === "you" || n === "self" || n === "primary" || n === "head";
+    if (!isAlias && n !== c) {
+      return false;
+    }
+  }
+
   // 1. Check explicit family or self relation strings
   if (rel) {
     const r = String(rel).toUpperCase().trim();
@@ -140,6 +151,10 @@ export function isRegistrationForMemberHelper(
   const targetMember = !isSelfTarget ? familyMembersOnly.find(m => normId(m.id) === targetId) : undefined;
   const targetMemberName = targetMember?.name ? targetMember.name.trim().toLowerCase() : "";
 
+  if (!isSelfTarget && familyMembersOnly && familyMembersOnly.length > 0 && !targetMember) {
+    return false;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. CHECK IF TARGET IS THE CONFIRMED PARTNER (PLAYER 2)
   // ─────────────────────────────────────────────────────────────────────────────
@@ -189,7 +204,7 @@ export function isRegistrationForMemberHelper(
   // (owned by this user AND not marked as an explicit family member AND not matching another family member's name)
   const isSelfPrimary =
     isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName) ||
-    (!isOtherUserReg && !isExplicitFamily && !matchesFamilyMemberName);
+    (!isOtherUserReg && !isExplicitFamily && !matchesFamilyMemberName && (!regPlayerName || (Boolean(targetFullName) && regPlayerName.toLowerCase() === targetFullName.toLowerCase())));
 
   if (isSelfTarget) {
     return isSelfPrimary;

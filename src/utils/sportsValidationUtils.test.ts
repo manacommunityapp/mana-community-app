@@ -14,6 +14,7 @@ import {
   isExplicitTime,
   isPlaceholderOrTbd,
   propagateByeAdvancements,
+  propagateMatchAdvancements,
 } from "./sportsValidationUtils";
 import { checkCategoryEligibility } from "../app/components/sports/SportsRegister";
 
@@ -630,6 +631,159 @@ describe("sportsValidationUtils Test Suite", () => {
       expect(finalMatch).toBeDefined();
       expect(finalMatch?.teamAName).toBe("Top Seed");
       expect(finalMatch?.teamBName).toBe("Challenger");
+    });
+
+    it("propagates completed match winner into downstream match with Round of 32 Match 6 (Winner) placeholder", () => {
+      const matches = [
+        {
+          id: 106,
+          matchId: 106,
+          roundName: "ROUND_OF_32",
+          roundIndex: 0,
+          matchNumber: 6,
+          teamAName: "Player Six A",
+          teamAId: 61,
+          teamAFlat: "Tower A-601",
+          teamBName: "Player Six B",
+          teamBId: 62,
+          teamBFlat: "Tower B-602",
+          status: "COMPLETED",
+          winnerTeamId: 61,
+          winnerName: "Player Six A",
+          winnerSide: "A",
+          scoreTeamA: "2",
+          scoreTeamB: "1",
+          winnerAdvancesToMatchId: 203,
+        },
+        {
+          id: 107,
+          matchId: 107,
+          roundName: "ROUND_OF_32",
+          roundIndex: 0,
+          matchNumber: 7,
+          teamAName: "Player Seven A",
+          teamAId: 71,
+          teamAFlat: "Tower A-701",
+          teamBName: "Player Seven B",
+          teamBId: 72,
+          teamBFlat: "Tower B-702",
+          status: "COMPLETED",
+          winnerTeamId: 72,
+          winnerName: "Player Seven B",
+          winnerSide: "B",
+          scoreTeamA: "0",
+          scoreTeamB: "2",
+          winnerAdvancesToMatchId: 203,
+        },
+        {
+          id: 203,
+          matchId: 203,
+          roundName: "ROUND_OF_16",
+          roundIndex: 1,
+          matchNumber: 3,
+          teamAName: "Round of 32 Match 6 (Winner)",
+          teamBName: "Round of 32 Match 7 (Winner)",
+          placeholderTeamA: "Round of 32 Match 6 (Winner)",
+          placeholderTeamB: "Round of 32 Match 7 (Winner)",
+          status: "SCHEDULED",
+          winnerFeedFromMatchA: 106,
+          winnerFeedFromMatchB: 107,
+        },
+      ];
+
+      const result = propagateByeAdvancements(matches);
+      const r16Match = result.find(m => m.id === 203);
+
+      expect(r16Match).toBeDefined();
+      expect(r16Match?.teamAName).toBe("Player Six A");
+      expect(r16Match?.teamAId).toBe(61);
+      expect(r16Match?.teamAFlat).toBe("Tower A-601");
+      expect(r16Match?.placeholderTeamA).toBe("Player Six A");
+
+      expect(r16Match?.teamBName).toBe("Player Seven B");
+      expect(r16Match?.teamBId).toBe(72);
+      expect(r16Match?.teamBFlat).toBe("Tower B-702");
+      expect(r16Match?.placeholderTeamB).toBe("Player Seven B");
+    });
+
+    it("resolves downstream matches when only feeder placeholder text matches (no explicit feed IDs)", () => {
+      const matches = [
+        {
+          id: 106,
+          matchId: 106,
+          roundName: "ROUND_OF_32",
+          roundIndex: 0,
+          matchNumber: 6,
+          teamAName: "Carlos Alcaraz",
+          teamAId: 10,
+          teamBName: "Alexander Zverev",
+          teamBId: 20,
+          status: "COMPLETED",
+          winnerName: "Carlos Alcaraz",
+          winnerSide: "A",
+        },
+        {
+          id: 203,
+          matchId: 203,
+          roundName: "ROUND_OF_16",
+          roundIndex: 1,
+          matchNumber: 3,
+          teamAName: "Round of 32 Match 6 (Winner)",
+          teamBName: "TBD",
+          placeholderTeamA: "Round of 32 Match 6 (Winner)",
+          status: "SCHEDULED",
+        },
+      ];
+
+      const result = propagateMatchAdvancements(matches);
+      const targetMatch = result.find(m => m.id === 203);
+      expect(targetMatch).toBeDefined();
+      expect(targetMatch?.teamAName).toBe("Carlos Alcaraz");
+      expect(targetMatch?.teamAId).toBe(10);
+      expect(targetMatch?.placeholderTeamA).toBe("Carlos Alcaraz");
+    });
+
+    it("handles cascading advancements across multiple completed rounds", () => {
+      const matches = [
+        {
+          id: 1,
+          roundName: "ROUND_OF_32",
+          roundIndex: 0,
+          matchNumber: 1,
+          teamAName: "Champion",
+          teamBName: "Contender 1",
+          status: "COMPLETED",
+          winnerName: "Champion",
+          winnerSide: "A",
+          winnerAdvancesToMatchId: 2,
+        },
+        {
+          id: 2,
+          roundName: "ROUND_OF_16",
+          roundIndex: 1,
+          matchNumber: 1,
+          teamAName: "Round of 32 Match 1 (Winner)",
+          teamBName: "Contender 2",
+          status: "COMPLETED",
+          winnerName: "Champion",
+          winnerSide: "A",
+          winnerAdvancesToMatchId: 3,
+        },
+        {
+          id: 3,
+          roundName: "QUARTER_FINAL",
+          roundIndex: 2,
+          matchNumber: 1,
+          teamAName: "Round of 16 Match 1 (Winner)",
+          teamBName: "Contender 3",
+          status: "SCHEDULED",
+        },
+      ];
+
+      const result = propagateMatchAdvancements(matches);
+      const qf = result.find(m => m.id === 3);
+      expect(qf).toBeDefined();
+      expect(qf?.teamAName).toBe("Champion");
     });
   });
 });

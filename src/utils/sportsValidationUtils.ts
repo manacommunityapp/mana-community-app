@@ -390,7 +390,7 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
   const cloned: any[] = matches.map((m: any) => ({ ...m }));
 
   // Helper to extract the advancing participant details from a BYE match
-  const getAdvancingParticipant = (m: any) => {
+  const getAdvancingByeParticipant = (m: any) => {
     const rawAName = m.teamAName || m.homeName || m.team1 || m.teamA?.name || m.home?.name || "";
     const rawBName = m.teamBName || m.awayName || m.team2 || m.teamB?.name || m.away?.name || "";
     const aId = m.teamAId ?? m.homeId ?? m.team1Id ?? m.teamA?.id ?? m.home?.id;
@@ -430,6 +430,81 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
     return { name, id, flat, players, teamObj };
   };
 
+  // Helper to extract the winner details from a completed match
+  const getAdvancingWinner = (m: any) => {
+    const rawAName = m.teamAName || m.homeName || m.team1 || m.teamA?.name || m.home?.name || "";
+    const rawBName = m.teamBName || m.awayName || m.team2 || m.teamB?.name || m.away?.name || "";
+    const aId = m.teamAId ?? m.homeId ?? m.team1Id ?? m.teamA?.id ?? m.home?.id;
+    const bId = m.teamBId ?? m.awayId ?? m.team2Id ?? m.teamB?.id ?? m.away?.id;
+    const status = String(m.status || "").toUpperCase();
+
+    const winnerId = m.winnerTeamId ?? m.winnerId ?? m.winner?.id;
+    const winnerName = m.winnerName || m.winnerTeamName || m.winner?.name || m.winner?.teamName;
+    const winnerSide = String(m.winnerSide || "").toUpperCase();
+
+    const isCompleted = status === "COMPLETED";
+    if (!isCompleted && !winnerId && !winnerName && !winnerSide) {
+      return null;
+    }
+
+    let winSide: "A" | "B" | null = null;
+    if (winnerSide === "A" || winnerSide === "HOME" || winnerSide === "TEAM1") {
+      winSide = "A";
+    } else if (winnerSide === "B" || winnerSide === "AWAY" || winnerSide === "TEAM2") {
+      winSide = "B";
+    } else if (winnerId != null) {
+      if (aId != null && String(winnerId) === String(aId)) {
+        winSide = "A";
+      } else if (bId != null && String(winnerId) === String(bId)) {
+        winSide = "B";
+      }
+    }
+
+    if (!winSide && winnerName) {
+      const cleanW = String(winnerName).trim().toLowerCase();
+      const cleanA = String(rawAName).trim().toLowerCase();
+      const cleanB = String(rawBName).trim().toLowerCase();
+      if (cleanA && (cleanW === cleanA || cleanA.includes(cleanW) || cleanW.includes(cleanA))) {
+        winSide = "A";
+      } else if (cleanB && (cleanW === cleanB || cleanB.includes(cleanW) || cleanW.includes(cleanB))) {
+        winSide = "B";
+      }
+    }
+
+    // Score comparison fallback when match is completed
+    if (!winSide && isCompleted) {
+      const scoreA = Number(m.scoreTeamA ?? m.score1);
+      const scoreB = Number(m.scoreTeamB ?? m.score2);
+      if (!Number.isNaN(scoreA) && !Number.isNaN(scoreB)) {
+        if (scoreA > scoreB) winSide = "A";
+        else if (scoreB > scoreA) winSide = "B";
+      }
+    }
+
+    if (winSide) {
+      const isWinA = winSide === "A";
+      const name = isWinA ? (rawAName || winnerName) : (rawBName || winnerName);
+      if (!name || isPlaceholderOrTbd(name)) return null;
+
+      const id = isWinA ? (aId ?? winnerId) : (bId ?? winnerId);
+      const flat = isWinA
+        ? (m.teamAFlat || m.homeFlat || m.team1Flat || m.teamA?.flatNumber || m.home?.flatNumber)
+        : (m.teamBFlat || m.awayFlat || m.team2Flat || m.teamB?.flatNumber || m.away?.flatNumber);
+      const players = isWinA
+        ? (m.teamA?.players || m.teamAPlayers)
+        : (m.teamB?.players || m.teamBPlayers);
+      const teamObj = isWinA ? (m.teamA || m.home) : (m.teamB || m.away);
+
+      return { name, id, flat, players, teamObj };
+    }
+
+    if (winnerName && !isPlaceholderOrTbd(winnerName)) {
+      return { name: winnerName, id: winnerId, flat: undefined, players: undefined, teamObj: undefined };
+    }
+
+    return null;
+  };
+
   // Helper to determine round order/index of a match
   const getRoundNumber = (m: any): number => {
     if (typeof m.roundIndex === "number") return m.roundIndex;
@@ -458,6 +533,44 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
     return 0;
   };
 
+  const extractRoundKey = (m: any): string => {
+    const raw = String(m?.roundName || m?.round || m?.roundType || m?.stage || "").trim().toUpperCase();
+    if (raw.includes("128")) return "ROUND_OF_128";
+    if (raw.includes("64")) return "ROUND_OF_64";
+    if (raw.includes("32")) return "ROUND_OF_32";
+    if (raw.includes("16")) return "ROUND_OF_16";
+    if (raw.includes("QUARTER") || raw.includes("QF")) return "QUARTER_FINAL";
+    if (raw.includes("SEMI") || raw.includes("SF")) return "SEMI_FINAL";
+    if (raw.includes("FINAL") && !raw.includes("SEMI") && !raw.includes("QUARTER")) return "FINAL";
+    return raw;
+  };
+
+  const matchesFeederPlaceholder = (placeholder: string, feeder: any): boolean => {
+    if (!placeholder || !isPlaceholderOrTbd(placeholder)) return false;
+    const cleanPlace = placeholder.trim();
+    const feederIdStr = String(feeder.id ?? feeder.matchId ?? "");
+    const feederNum = feeder.matchNumber != null ? Number(feeder.matchNumber) : null;
+
+    if (feederIdStr && cleanPlace.includes(feederIdStr)) {
+      return true;
+    }
+
+    if (feederNum !== null) {
+      // Check if placeholder contains "Match <N>" or "Match#<N>"
+      const matchNumRegex = new RegExp(`\\bMatch\\s*#?\\s*${feederNum}\\b`, "i");
+      if (matchNumRegex.test(cleanPlace)) {
+        // If placeholder mentions an explicit round, make sure it matches the feeder's round
+        const placeRound = extractRoundKey({ roundName: cleanPlace });
+        const feederRound = extractRoundKey(feeder);
+        if (placeRound && feederRound && placeRound !== feederRound) {
+          return false;
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
   // Populate target match with advancing participant
   const applyAdvancement = (target: any, side: "A" | "B", adv: { name: string; id?: any; flat?: string; players?: any[]; teamObj?: any }) => {
     let modified = false;
@@ -469,6 +582,10 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
         target.team1 = adv.name;
         modified = true;
       }
+      if (target.placeholderTeamA !== adv.name && (isPlaceholderOrTbd(target.placeholderTeamA) || !target.placeholderTeamA)) {
+        target.placeholderTeamA = adv.name;
+        modified = true;
+      }
       if (adv.id != null && target.teamAId !== adv.id && target.homeId !== adv.id) {
         target.teamAId = adv.id;
         target.homeId = adv.id;
@@ -478,9 +595,11 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
         target.teamAFlat = adv.flat;
         target.homeFlat = adv.flat;
         target.team1Flat = adv.flat;
+        modified = true;
       }
       if (adv.players && !target.teamAPlayers) {
         target.teamAPlayers = adv.players;
+        modified = true;
       }
       if (target.teamA && typeof target.teamA === "object") {
         target.teamA = { ...target.teamA, name: adv.name, id: adv.id ?? target.teamA.id };
@@ -496,6 +615,10 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
         target.team2 = adv.name;
         modified = true;
       }
+      if (target.placeholderTeamB !== adv.name && (isPlaceholderOrTbd(target.placeholderTeamB) || !target.placeholderTeamB)) {
+        target.placeholderTeamB = adv.name;
+        modified = true;
+      }
       if (adv.id != null && target.teamBId !== adv.id && target.awayId !== adv.id) {
         target.teamBId = adv.id;
         target.awayId = adv.id;
@@ -505,9 +628,11 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
         target.teamBFlat = adv.flat;
         target.awayFlat = adv.flat;
         target.team2Flat = adv.flat;
+        modified = true;
       }
       if (adv.players && !target.teamBPlayers) {
         target.teamBPlayers = adv.players;
+        modified = true;
       }
       if (target.teamB && typeof target.teamB === "object") {
         target.teamB = { ...target.teamB, name: adv.name, id: adv.id ?? target.teamB.id };
@@ -519,7 +644,7 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
     return modified;
   };
 
-  // Iteratively propagate advancements (supports multi-round / cascading BYEs)
+  // Iteratively propagate advancements (supports multi-round / cascading advancements)
   let changed = true;
   let passes = 0;
   while (changed && passes < 10) {
@@ -539,56 +664,64 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
       roundGroups.get(rNum)!.sort((a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0));
     }
 
-    for (const byeM of cloned) {
-      if (!isByeMatch(byeM)) continue;
-
-      const adv = getAdvancingParticipant(byeM);
+    for (const feederM of cloned) {
+      const adv = isByeMatch(feederM)
+        ? getAdvancingByeParticipant(feederM)
+        : getAdvancingWinner(feederM);
       if (!adv) continue;
 
-      const byeId = byeM.id ?? byeM.matchId;
-      const byeIdStr = byeId != null ? String(byeId) : "";
-      const byeNum = byeM.matchNumber != null ? String(byeM.matchNumber) : "";
+      const feederId = feederM.id ?? feederM.matchId;
+      const feederIdStr = feederId != null ? String(feederId) : "";
+      const feederNum = feederM.matchNumber != null ? String(feederM.matchNumber) : "";
 
       let target: any = null;
       let targetSide: "A" | "B" | null = null;
 
-      // 1. Direct link on the BYE match (winnerAdvancesToMatchId / winnerAdvancesTo)
-      const nextMatchId = byeM.winnerAdvancesToMatchId ?? byeM.winnerAdvancesTo ?? byeM.nextMatchId;
+      // 1. Direct link on the feeder match (winnerAdvancesToMatchId / winnerAdvancesTo)
+      const nextMatchId = feederM.winnerAdvancesToMatchId ?? feederM.winnerAdvancesTo ?? feederM.nextMatchId;
       if (nextMatchId != null) {
         const nextIdStr = String(nextMatchId);
         target = cloned.find((m: any) => String(m.id ?? m.matchId) === nextIdStr);
         if (target) {
-          if (byeIdStr && String(target.winnerFeedFromMatchA) === byeIdStr) {
+          if (feederIdStr && String(target.winnerFeedFromMatchA) === feederIdStr) {
             targetSide = "A";
-          } else if (byeIdStr && String(target.winnerFeedFromMatchB) === byeIdStr) {
+          } else if (feederIdStr && String(target.winnerFeedFromMatchB) === feederIdStr) {
             targetSide = "B";
-          } else if (target.placeholderTeamA && byeNum && target.placeholderTeamA.includes(byeNum)) {
-            targetSide = "A";
-          } else if (target.placeholderTeamB && byeNum && target.placeholderTeamB.includes(byeNum)) {
-            targetSide = "B";
+          } else {
+            const aPlace = String(target.placeholderTeamA || target.teamAName || target.homeName || target.team1 || "");
+            const bPlace = String(target.placeholderTeamB || target.teamBName || target.awayName || target.team2 || "");
+            if (matchesFeederPlaceholder(aPlace, feederM)) {
+              targetSide = "A";
+            } else if (matchesFeederPlaceholder(bPlace, feederM)) {
+              targetSide = "B";
+            }
           }
         }
       }
 
-      // 2. Target references the BYE match via feeder links (winnerFeedFromMatchA/B)
-      if (!target && byeIdStr) {
-        target = cloned.find((m: any) => String(m.winnerFeedFromMatchA) === byeIdStr);
+      // 2. Target references the feeder match via feeder links (winnerFeedFromMatchA/B)
+      if (!target && feederIdStr) {
+        target = cloned.find((m: any) => String(m.winnerFeedFromMatchA) === feederIdStr);
         if (target) {
           targetSide = "A";
         } else {
-          target = cloned.find((m: any) => String(m.winnerFeedFromMatchB) === byeIdStr);
+          target = cloned.find((m: any) => String(m.winnerFeedFromMatchB) === feederIdStr);
           if (target) targetSide = "B";
         }
       }
 
-      // 3. Downstream match references BYE match in placeholder text or team name
-      if (!target && (byeNum || byeIdStr)) {
+      // 3. Downstream match references feeder match in placeholder text or team name
+      if (!target && (feederNum || feederIdStr)) {
         for (const m of cloned) {
-          if (m === byeM) continue;
+          if (m === feederM) continue;
+          const rNumCur = getRoundNumber(feederM);
+          const rNumTarget = getRoundNumber(m);
+          if (rNumCur > rNumTarget && rNumTarget !== 0) continue;
+
           const aPlace = String(m.placeholderTeamA || m.teamAName || m.homeName || m.team1 || "");
           const bPlace = String(m.placeholderTeamB || m.teamBName || m.awayName || m.team2 || "");
-          const aMatches = isPlaceholderOrTbd(aPlace) && ((byeNum && aPlace.includes(`Match ${byeNum}`)) || (byeIdStr && aPlace.includes(byeIdStr)));
-          const bMatches = isPlaceholderOrTbd(bPlace) && ((byeNum && bPlace.includes(`Match ${byeNum}`)) || (byeIdStr && bPlace.includes(byeIdStr)));
+          const aMatches = isPlaceholderOrTbd(aPlace) && matchesFeederPlaceholder(aPlace, feederM);
+          const bMatches = isPlaceholderOrTbd(bPlace) && matchesFeederPlaceholder(bPlace, feederM);
           if (aMatches) {
             target = m;
             targetSide = "A";
@@ -603,12 +736,12 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
 
       // 4. Knockout bracket tree positional matching (Round R match i -> Round R+1 match Math.floor(i / 2))
       if (!target) {
-        const curRound = getRoundNumber(byeM);
+        const curRound = getRoundNumber(feederM);
         const curMatches = roundGroups.get(curRound) || [];
         const nextRoundIdx = sortedRounds.find(r => r > curRound);
         if (nextRoundIdx !== undefined) {
           const nextMatches = roundGroups.get(nextRoundIdx) || [];
-          const posInRound = curMatches.indexOf(byeM);
+          const posInRound = curMatches.indexOf(feederM);
           if (posInRound >= 0 && nextMatches.length > 0) {
             const targetPos = Math.min(Math.floor(posInRound / 2), nextMatches.length - 1);
             target = nextMatches[targetPos];
@@ -626,6 +759,8 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
             targetSide = "A";
           } else if (isPlaceholderOrTbd(bName) && !isPlaceholderOrTbd(aName)) {
             targetSide = "B";
+          } else if (feederM.matchNumber != null) {
+            targetSide = (Number(feederM.matchNumber) % 2 !== 0) ? "A" : "B";
           } else if (isPlaceholderOrTbd(aName)) {
             targetSide = "A";
           } else {
@@ -647,3 +782,5 @@ export function propagateByeAdvancements<T = any>(matches: T[]): T[] {
 
   return cloned as T[];
 }
+
+export const propagateMatchAdvancements = propagateByeAdvancements;
