@@ -487,6 +487,7 @@ import { OrderDisputePage } from "./components/group-buying/OrderDisputePage";
 import { ExploreTrips } from "./components/trips/ExploreTrips";
 import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashboard";
 import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
+import { DiscoverPage } from "./components/discover/DiscoverPage";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
 import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
@@ -1512,6 +1513,7 @@ export const router = createBrowserRouter([
       { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
+      { path: "search", element: <DiscoverPage /> },
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
       { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
