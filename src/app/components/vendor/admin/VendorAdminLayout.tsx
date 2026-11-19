@@ -12,6 +12,10 @@ import {
   Menu,
   X,
   ChevronRight,
+  ShieldCheck,
+  BadgeDollarSign,
+  Activity,
+  Truck,
 } from "lucide-react";
 import { cn } from "../../ui/utils";
 
@@ -19,6 +23,10 @@ const NAV_ITEMS: { to: string; icon: any; label: string; end?: boolean }[] = [
   { to: "/vendor-admin",              icon: LayoutDashboard, label: "Dashboard",      end: true },
   { to: "/vendor-admin/vendors",      icon: Store,           label: "Vendor Directory" },
   { to: "/vendor-admin/registrations",icon: ClipboardList,   label: "Registrations" },
+  { to: "/vendor-admin/fresh/dashboard",    icon: Activity,        label: "Fresh Command Hub" },
+  { to: "/vendor-admin/fresh/capabilities", icon: ShieldCheck,     label: "Fresh Compliance" },
+  { to: "/vendor-admin/fresh/pricing",      icon: BadgeDollarSign, label: "Fresh Pricing Hub" },
+  { to: "/vendor-admin/fresh/dispatch",     icon: Truck,           label: "Fresh Dispatch" },
   { to: "/vendor-admin/categories",   icon: FolderTree,      label: "Categories" },
   { to: "/vendor-admin/work-orders",  icon: Wrench,          label: "Work Orders" },
   { to: "/vendor-admin/contracts",    icon: FileText,        label: "Contracts" },

@@ -15,7 +15,7 @@ import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
@@ -23,6 +23,10 @@ import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./spon
 import { useCashfree } from "../../../hooks/useCashfree";
 import CashfreeCheckout from "../payments/CashfreeCheckout";
 import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
+import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
+import type { ManaPaymentRecord } from "../../../types/manaPay";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -102,12 +106,25 @@ export function inferGender(
   if (!member) return "";
   const rel = (member.relation || "").trim().toLowerCase();
   
-  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (member.gender && String(member.gender).trim()) {
+    const norm = normalizeGender(member.gender);
+    if (norm === "FEMALE") return "Female";
+    if (norm === "MALE") return "Male";
+    return String(member.gender).trim();
+  }
+
+  const femaleRelations = [
+    "wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom",
+    "sister-in-law", "daughter-in-law", "mother-in-law", "girl", "female", "lady", "woman", "women"
+  ];
   if (femaleRelations.some(r => rel.includes(r))) {
     return "Female";
   }
 
-  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  const maleRelations = [
+    "husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad",
+    "brother-in-law", "son-in-law", "father-in-law", "boy", "male", "gentleman", "man", "men"
+  ];
   if (maleRelations.some(r => rel.includes(r))) {
     return "Male";
   }
@@ -117,11 +134,14 @@ export function inferGender(
     return pGen.startsWith("m") ? "Female" : "Male";
   }
 
-  if (member.gender && String(member.gender).trim()) {
-    const norm = normalizeGender(member.gender);
-    if (norm === "FEMALE") return "Female";
-    if (norm === "MALE") return "Male";
-    return String(member.gender).trim();
+  const nameLower = (member.name || "").trim().toLowerCase();
+  if (nameLower) {
+    if (nameLower.includes("(female)") || nameLower.includes("(f)") || nameLower.includes("(girl)") || /\b(female|girl|women|woman)\b/i.test(nameLower)) {
+      return "Female";
+    }
+    if (nameLower.includes("(male)") || nameLower.includes("(m)") || nameLower.includes("(boy)") || /\b(male|boy|men|man)\b/i.test(nameLower)) {
+      return "Male";
+    }
   }
 
   return "";
@@ -936,6 +956,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   // Pending registration payload saved until payment succeeds.
   const pendingRegistrationRef = useRef<null | (() => Promise<void>)>(null);
 
+  // Gateway selection — driven by checkout-options API, not hardcoded.
+  const { options: checkoutOptions } = useCheckoutOptions();
+  const [selectedGateway, setSelectedGateway] = useState<string>("CASHFREE");
+  const [manaPayOrderId, setManaPayOrderId] = useState<number | undefined>(undefined);
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
+
+  // Keep selectedGateway in sync with the platform's default gateway once options load.
+  useEffect(() => {
+    if (checkoutOptions?.defaultGateway) {
+      setSelectedGateway(checkoutOptions.defaultGateway);
+    }
+  }, [checkoutOptions?.defaultGateway]);
+
   const [event, setEvent] = useState<SportsEvent | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1019,14 +1052,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const [formData, setFormData] = useState<RegistrationFormData>(() => {
     const isFamilyInit = props.initialFor === "family";
     if (isFamilyInit && initialFamMember) {
-      const calcAge = (initialFamMember.dob ? calculateAge(initialFamMember.dob) : null) ?? initialFamMember.age ?? 25;
+      const initDob = formatToDateString(initialFamMember.dob || (initialFamMember as any).dateOfBirth || (initialFamMember as any).birthDate || "");
+      const calcAge = (initDob ? calculateAge(initDob) : null) ?? initialFamMember.age ?? 25;
       return {
         categoryIds: [] as number[],
         matchTypes: ["SINGLES"],
         matchType: "SINGLES",
         role: "",
-        gender: initialFamMember.gender || "",
-        dateOfBirth: initialFamMember.dob || "",
+        gender: normalizeGender(initialFamMember.gender) || normalizeGender(inferGender(initialFamMember, (user as any)?.gender)) || "",
+        dateOfBirth: initDob,
         age: calcAge,
         matches: 0,
         runs: 0,
@@ -1049,7 +1083,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       matchTypes: ["SINGLES"],
       matchType: "SINGLES",
       role: "",
-      gender: (user as any)?.gender || "",
+      gender: normalizeGender((user as any)?.gender) || "",
       dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
       age: (user as any)?.dateOfBirth || (user as any)?.dob
         ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
@@ -1101,7 +1135,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       setFormData(prev => {
         if (prev.regType === "self") {
           const uName = userNameVal || prev.playerName;
-          const uGen = userGenderVal || prev.gender;
+          const uGen = normalizeGender(userGenderVal) || prev.gender;
           const uDob = userDobVal || prev.dateOfBirth;
           const uFlat = userFlatVal || prev.flatNumber;
           const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
@@ -1122,7 +1156,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [updateUser]);
 
   const userFullName = liveUser?.fullName || user?.fullName || "";
-  const userGender = liveUser?.gender || user?.gender || "";
+  const userGender = normalizeGender(liveUser?.gender || user?.gender) || "";
   const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
   const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
   const rawUserFlat =
@@ -1272,7 +1306,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       ...prev,
       playerName: mem.name,
       familyMemberId: mem.id,
-      gender: mem.gender ? mem.gender.toUpperCase() : prev.gender,
+      gender: normalizeGender(mem.gender) || normalizeGender(inferGender(mem, userGender)) || "",
       dateOfBirth: mem.dob || prev.dateOfBirth,
       age: memberAge ?? prev.age,
       relation: (mem.relation || "CHILD").toUpperCase(),
@@ -1351,7 +1385,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           name: mem.name || "",
           relation: mem.relation || (mem as any).relationship || "Son",
           gender: mem.gender || "",
-          dob: mem.dob || (mem as any).dateOfBirth || "",
+          dob: formatToDateString(mem.dob || (mem as any).dateOfBirth || (mem as any).birthDate || ""),
           phone: mem.phone || "",
           flatNo: userFlat,
           gotram: mem.gotram || "",
@@ -1386,54 +1420,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       .catch(() => {});
   }, []);
 
-  const isParticipantRegisteredForEvent = useCallback((
-    targetEventId: number | string | undefined,
-    pType: "self" | "family" | "other",
-    pMemberId?: number | string,
-    pPlayerName?: string
-  ) => {
-    if (!targetEventId || !myRegistrations.length) return false;
-    return myRegistrations.some(r => {
-      const matchesEvent =
-        String(r.eventId) === String(targetEventId) ||
-        String(r.event?.id) === String(targetEventId);
-      if (!matchesEvent) return false;
-      const st = String(r.status || "").toUpperCase().trim();
-      if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
-
-      if (pType === "self") {
-        const regRelation = (r.relation || "").trim().toUpperCase();
-        const regFamilyId = r.familyMemberId;
-        const regPlayerName = (r.playerName || "").trim().toLowerCase();
-        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
-
-        return (
-          !regFamilyId ||
-          regFamilyId === "self" ||
-          regFamilyId === "member-self" ||
-          regRelation === "SELF" ||
-          regRelation === "HEAD" ||
-          (!regFamilyId && !regRelation) ||
-          (userFullNameLower && regPlayerName === userFullNameLower)
-        );
-      } else if (pType === "family") {
-        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
-          return true;
-        }
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      } else if (pType === "other") {
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      }
-      return false;
-    });
-  }, [myRegistrations, userFullName, user?.fullName]);
-
   const getParticipantRegistrations = useCallback((
     targetEventId: number | string | undefined,
     pType: "self" | "family" | "other",
@@ -1450,9 +1436,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
-        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "family") {
-        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "other") {
         if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
           return true;
@@ -1461,7 +1447,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
       return false;
     });
-  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName]);
+  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName, user?.userId]);
+
+  const isParticipantRegisteredForEvent = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    return getParticipantRegistrations(targetEventId, pType, pMemberId, pPlayerName).length > 0;
+  }, [getParticipantRegistrations]);
 
   const getParticipantRegistration = useCallback((
     targetEventId: number | string | undefined,
@@ -1593,7 +1588,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           age: computedAge,
           status: "ACTIVE",
         };
-        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        await familyService.updateFamilyMember(profileModalState.memberId!, payload);
         const refreshed = await familyService.getFamilyMembers(true);
         setSavedFamilyMembers(refreshed);
 
@@ -1610,6 +1605,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
         setFormData(prev => ({
           ...prev,
+          familyMemberId: profileModalState.memberId || prev.familyMemberId,
           playerName: payload.name,
           gender: payload.gender,
           dateOfBirth: payload.dob,
@@ -1666,7 +1662,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   useEffect(() => {
     if (props.familyMembers && props.familyMembers.length > 0) {
       setSavedFamilyMembers(props.familyMembers);
-      return;
     }
     const fetchFamily = async () => {
       try {
@@ -1676,10 +1671,31 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         console.warn("Could not load family members in SportsRegister:", err);
       }
     };
-    fetchFamily();
+    if (!props.familyMembers || props.familyMembers.length === 0) {
+      fetchFamily();
+    }
     window.addEventListener("mana_family_updated", fetchFamily);
     return () => window.removeEventListener("mana_family_updated", fetchFamily);
   }, [props.familyMembers]);
+
+  // Keep active family member form data in sync if savedFamilyMembers changes (e.g. after updating DOB/Gender in modal)
+  useEffect(() => {
+    if (formData.regType === "family" && formData.familyMemberId && savedFamilyMembers.length > 0) {
+      const activeMember = savedFamilyMembers.find(m => String(m.id) === String(formData.familyMemberId));
+      if (activeMember) {
+        const activeDob = formatToDateString(activeMember.dob || (activeMember as any).dateOfBirth || (activeMember as any).birthDate || "");
+        if (activeDob && (!formData.dateOfBirth || formData.dateOfBirth !== activeDob)) {
+          const calculatedAge = calculateAge(activeDob) ?? activeMember.age ?? formData.age;
+          setFormData(prev => ({
+            ...prev,
+            dateOfBirth: activeDob,
+            age: calculatedAge,
+            gender: normalizeGender(activeMember.gender) || normalizeGender(inferGender(activeMember, userGender)) || prev.gender || "",
+          }));
+        }
+      }
+    }
+  }, [savedFamilyMembers, formData.regType, formData.familyMemberId, formData.dateOfBirth, formData.age, userGender]);
 
   const [searchParams] = useSearchParams();
   const queryFor = props.initialFor || searchParams.get("for");
@@ -1689,15 +1705,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     if (queryFor === "family" && queryMemberId && savedFamilyMembers.length > 0) {
       const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
       if (targetMember) {
-        const calculatedAge = (targetMember.dob ? calculateAge(targetMember.dob) : null) ?? targetMember.age ?? 25;
+        const memberDob = formatToDateString(targetMember.dob || (targetMember as any).dateOfBirth || (targetMember as any).birthDate || "");
+        const calculatedAge = (memberDob ? calculateAge(memberDob) : null) ?? targetMember.age ?? 25;
         const inferredGen = inferGender(targetMember, userGender);
         setFormData(prev => ({
           ...prev,
           regType: "family",
           playerName: targetMember.name,
           familyMemberId: targetMember.id,
-          gender: inferredGen || targetMember.gender || "",
-          dateOfBirth: targetMember.dob || "",
+          gender: normalizeGender(inferredGen) || normalizeGender(targetMember.gender) || "",
+          dateOfBirth: memberDob,
           flatNumber: userFlat,
           age: calculatedAge,
           relation: targetMember.relation || "OTHER",
@@ -1710,7 +1727,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         regType: "self",
         playerName: userFullName,
         familyMemberId: undefined,
-        gender: userGender,
+        gender: normalizeGender(userGender) || "",
         dateOfBirth: userDob,
         flatNumber: userFlat,
         age: computedUserAge,
@@ -1773,6 +1790,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   // Toggle format selection (allows selecting both Singles and Doubles, etc.)
   const toggleFormat = (fmt: string) => {
+    if (registeredFormats.includes(fmt.toUpperCase())) {
+      toast.info(`${fmt.replace(/_/g, " ").toLowerCase()} format is already registered`);
+      return;
+    }
     setFormData(prev => {
       const exists = prev.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
       let updated: string[];
@@ -1959,7 +1980,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         ...prev,
         dateOfBirth: effectiveDob || prev.dateOfBirth,
         age: effectiveDob ? calculatedAge : prev.age,
-        gender: effectiveGender || prev.gender,
+        gender: normalizeGender(effectiveGender) || prev.gender,
         playerName: user?.fullName || prev.playerName,
       }));
     }
@@ -2183,7 +2204,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 matchType: fmt,
                 role: formData.role,
                 age: formData.age,
-                gender: formData.gender || undefined,
+                gender: normalizeGender(formData.gender) || undefined,
                 dateOfBirth: formData.dateOfBirth,
                 matches: formData.matches,
                 runs: formData.runs,
@@ -2225,6 +2246,24 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         }
       };
 
+      // Route to ManaPay if selected; otherwise use Cashfree SDK.
+      if (selectedGateway === "MANA_PAY") {
+        try {
+          const unifiedOrder = await unifiedPaymentService.createOrder({
+            communityId: (user as any)?.communityId,
+            gateway: "MANA_PAY",
+            referenceType: "SPORTS_REGISTRATION",
+            referenceId: event!.id,
+            amount: registrationFee,
+          });
+          setManaPayOrderId(unifiedOrder.id);
+          setShowManaPayModal(true);
+        } catch (err: any) {
+          toast.error(err?.message || "Could not initiate payment. Please try again.");
+        }
+        return;
+      }
+
       setShowPaymentOverlay(true);
       const paid = await cashfree.initiatePayment({
         amount: registrationFee,
@@ -2254,7 +2293,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             matchType: fmt,
             role: formData.role,
             age: formData.age,
-            gender: formData.gender || undefined,
+            gender: normalizeGender(formData.gender) || undefined,
             dateOfBirth: formData.dateOfBirth,
             matches: formData.matches,
             runs: formData.runs,
@@ -2714,7 +2753,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </div>
                 <DatePicker
                   value={profileModalState.dob}
-                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  onChange={(val) => setProfileModalState(prev => ({ ...prev, dob: val || "" }))}
                   max={new Date().toISOString().split("T")[0]}
                   presets={false}
                   placeholder="Select Date of Birth"
@@ -3038,15 +3077,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             key={m.id}
                             type="button"
                             onClick={() => {
-                              const mAge = (m.dob ? calculateAge(m.dob) : null) ?? m.age ?? 25;
+                              const mDob = formatToDateString(m.dob || (m as any).dateOfBirth || (m as any).birthDate || "");
+                              const mAge = (mDob ? calculateAge(mDob) : null) ?? m.age ?? 25;
                               const inferredGen = inferGender(m, userGender);
                               setFormData(prev => ({
                                 ...prev,
                                 regType: "family",
                                 playerName: m.name,
                                 familyMemberId: m.id,
-                                gender: inferredGen || m.gender || "",
-                                dateOfBirth: m.dob || "",
+                                gender: normalizeGender(inferredGen) || normalizeGender(m.gender) || "",
+                                dateOfBirth: mDob,
                                 flatNumber: userFlat,
                                 age: mAge,
                                 relation: m.relation || "OTHER",
@@ -3361,7 +3401,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         <select
                           id="sports-reg-gender-select"
                           name="gender"
-                          value={formData.gender}
+                          value={normalizeGender(formData.gender)}
                           onChange={handleInputChange}
                           required
                           className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
@@ -3520,14 +3560,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <button
                         key={fmt}
                         type="button"
+                        disabled={isFmtRegistered}
                         onClick={() => toggleFormat(fmt)}
-                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 select-none ${
                           isSelected
-                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs"
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs cursor-pointer"
                             : isFmtRegistered
-                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
-                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300"
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 opacity-80 cursor-not-allowed"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300 cursor-pointer"
                         }`}
+                        title={isFmtRegistered ? `${formatLabel} format is already registered or confirmed` : undefined}
                       >
                         <div className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
                           isSelected ? "bg-white/20 text-white" : "border border-slate-300 dark:border-slate-600 group-hover:border-indigo-400"
@@ -3575,55 +3617,71 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             )}
 
             {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
-            {isTeamSport(event?.sport?.name || event?.name || "") && (
-              <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
-                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+            {isTeamSport(event?.sport?.name || event?.name || "") && (() => {
+              const isNomOpen = Boolean(event?.captainNominationOpen || (event as any)?.rawEvent?.captainNominationOpen);
+              return (
+                <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                        <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          Team Captain Nomination
+                        </h4>
+                        {isNomOpen ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                            Optional
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200">
+                            Closed
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSnackbarInfo({
+                              open: true,
+                              title: "Team Captain Nomination",
+                              message: isNomOpen
+                                ? "Are you interested in leading a team and participating in the player auction/draft?"
+                                : "Captain nominations are currently closed for this event by the community administrator.",
+                            });
+                          }}
+                          title="Team Captain Information"
+                          aria-label="Captain nomination information"
+                          className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                        Team Captain Nomination
-                      </h4>
-                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
-                        Optional
-                      </span>
+
+                    {/* Toggle Button */}
+                    {isNomOpen ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          setSnackbarInfo({
-                            open: true,
-                            title: "Team Captain Nomination",
-                            message: "Are you interested in leading a team and participating in the player auction/draft?",
-                          });
-                        }}
-                        title="Team Captain Information"
-                        aria-label="Captain nomination information"
-                        className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                        onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
+                        }`}
                       >
-                        <Info className="w-3.5 h-3.5" />
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            formData.captainNomination ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
                       </button>
-                    </div>
+                    ) : (
+                      <span className="text-[11px] font-medium text-slate-400 italic">
+                        Nominations closed
+                      </span>
+                    )}
                   </div>
 
-                  {/* Toggle Button */}
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.captainNomination ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {formData.captainNomination && (
+                  {isNomOpen && formData.captainNomination && (
                   <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
                     <label htmlFor="sports-reg-proposed-team" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
@@ -3644,7 +3702,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 )}
               </div>
-            )}
+            ); })()}
 
             {/* ── Current Event Ineligibility Banner ── */}
             {(() => {
@@ -4558,6 +4616,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             cashfree.reset();
           }}
         />
+        {showManaPayModal && event && (
+          <ManaPayCheckoutModal
+            isOpen={showManaPayModal}
+            onClose={() => { setShowManaPayModal(false); setManaPayOrderId(undefined); }}
+            paymentOrderId={manaPayOrderId}
+            order={{
+              domain: "SPORTS",
+              orderReferenceId: String(event.id),
+              title: `${event.name ?? "Sports"} Registration Fee`,
+              totalAmount: Number((event as any).registrationFee ?? 0),
+              payer: { name: (user as any)?.fullName ?? "", unit: (user as any)?.flatNumber ?? "" },
+              idempotencyKey: `sports-${event.id}-${(user as any)?.id}-${Date.now()}`,
+            } as any}
+            onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+              setShowManaPayModal(false);
+              await pendingRegistrationRef.current?.();
+            }}
+          />
+        )}
         <Toaster richColors position="top-right" />
       </>
     );
@@ -4577,6 +4654,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           cashfree.reset();
         }}
       />
+      {showManaPayModal && event && (
+        <ManaPayCheckoutModal
+          isOpen={showManaPayModal}
+          onClose={() => { setShowManaPayModal(false); setManaPayOrderId(undefined); }}
+          paymentOrderId={manaPayOrderId}
+          order={{
+            domain: "SPORTS",
+            orderReferenceId: String(event.id),
+            title: `${event.name ?? "Sports"} Registration Fee`,
+            totalAmount: Number((event as any).registrationFee ?? 0),
+            payer: { name: (user as any)?.fullName ?? "", unit: (user as any)?.flatNumber ?? "" },
+            idempotencyKey: `sports-${event.id}-${(user as any)?.id}-${Date.now()}`,
+          } as any}
+          onPaymentSuccess={async (_record: ManaPaymentRecord) => {
+            setShowManaPayModal(false);
+            await pendingRegistrationRef.current?.();
+          }}
+        />
+      )}
       <Toaster richColors position="top-right" />
     </>
   );

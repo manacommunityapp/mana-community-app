@@ -1,6 +1,40 @@
 import { apiClient } from "../common/apiClient";
-import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../../app/components/scheduler/playoffSchedule";
+import type { PlayoffScheduleInput, PlayoffMatchDraft, RoundTimingAnchor } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
+
+export type FeedVisibilityLevel = "tournament" | "event" | "match";
+export type FeedPostPolicy = "FINALS_ONLY" | "KNOCKOUTS_ONLY" | "ALL_MATCHES" | "NONE" | "CUSTOM";
+
+export interface FeedBroadcastSettings {
+  showInFeed: boolean;
+  explicit?: boolean;
+  feedPostPolicy?: FeedPostPolicy;
+  feedPostStages?: string;
+  postToFeed?: boolean | null;
+}
+
+/** A match shown in the community feed "Live Now" strip. */
+export interface FeedLiveMatch {
+  matchId: number;
+  configId?: number | null;
+  sportName?: string | null;
+  tournamentName?: string | null;
+  eventName?: string | null;
+  roundName?: string | null;
+  teamAName: string;
+  teamBName: string;
+  teamAId?: number | null;
+  teamBId?: number | null;
+  teamAFlat?: string | null;
+  teamBFlat?: string | null;
+  scoreTeamA?: string | null;
+  scoreTeamB?: string | null;
+  status: "LIVE" | "COMPLETED" | string;
+  winnerName?: string | null;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  venueName?: string | null;
+}
 
 export interface TournamentTypeInfo {
   id: string;
@@ -34,7 +68,17 @@ export interface EventInfo {
   totalTeams: number;
   venueId?: number;
   venueName?: string;
+  gender?: string;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categoryName?: string;
+  format?: string[] | string;
+  formats?: string[];
+  minPlayers?: number;
+  maxPlayers?: number;
 }
+
+import type { TournamentBreak } from "../../app/components/scheduler/breakScheduleUtils";
 
 export interface ConfigInfo {
   id: number;
@@ -51,13 +95,31 @@ export interface ConfigInfo {
   swissRounds?: number;
   matchDurationMinutes?: number;
   breakBetweenMatchesMinutes?: number;
+  breaksConfig?: TournamentBreak[];
+  endTime?: string;
+  matchDays?: number[];
+  roundTimings?: Record<string, RoundTimingAnchor>;
   venueId?: number;
   pointsForWin?: number;
   pointsForDraw?: number;
   pointsForLoss?: number;
   thirdPlaceMatch?: boolean;
   hasSeeding?: boolean;
+  seedingOrder?: string;
+  byesFirstRoundOnly?: boolean;
+  showByesInBracket?: boolean;
+  limitMatchesPerDay?: boolean;
+  maxMatchesPerDay?: number;
+  usePlayoffDays?: boolean;
+  playoffDays?: number[] | null;
+  venueAssignType?: string;
+  playoffRoundDates?: Record<string, string> | null;
+  playoffRoundTimes?: Record<string, string> | null;
+  playoffRoundDurations?: Record<string, string> | null;
+  playoffRoundModes?: Record<string, 'sequential' | 'same_time' | string> | null;
   sportName?: string;
+  tournamentId?: number;
+  showInFeed?: boolean | null;
 }
 
 // ─── Match Result Types ──────────────────────────────────────────────────────
@@ -65,6 +127,8 @@ export interface ConfigInfo {
 export interface MatchResultRequestData {
   matchId: number;
   winnerTeamId?: number | null;
+  winnerName?: string;
+  winnerSide?: "A" | "B" | string;
   scoreTeamA?: string;
   scoreTeamB?: string;
   matchNotes?: string;
@@ -72,6 +136,15 @@ export interface MatchResultRequestData {
   runsTeamB?: number;
   oversTeamA?: number;
   oversTeamB?: number;
+  tossWinnerTeamId?: number | null;
+  tossDecision?: string;
+}
+
+export type TossDecision = "BAT" | "BOWL" | "KICKOFF" | "DEFEND" | "RAID" | "SERVE" | "RECEIVE" | "GO_FIRST" | "GO_SECOND";
+
+export interface MatchTossRequestData {
+  tossWinnerTeamId: number;
+  tossDecision: TossDecision;
 }
 
 export interface MatchResultDetailRequestData {
@@ -163,6 +236,23 @@ export interface MatchDetailData {
   topWicketTakers?: PlayerStatsData[];
 }
 
+export interface BatchRescheduleRequest {
+  configId?: number;
+  mode: 'TIME_SHIFT' | 'NEW_DATE';
+  delayMinutes?: number;
+  newDate?: string;
+  startTime?: string;
+  intervalMinutes?: number;
+  fromDateTime?: string;
+  matchIds?: number[];
+}
+
+export interface BatchRescheduleResponse {
+  updatedCount: number;
+  message: string;
+  updatedMatches: any[];
+}
+
 export interface InningsDetailData {
   inningsNumber: number;
   battingTeamName: string;
@@ -238,6 +328,7 @@ export interface BallEventRequestData {
   dismissedPlayerId?: number;
   fielderId?: number;
   commentary?: string;
+  commandId?: string;
 }
 
 export interface BallEventData {
@@ -291,6 +382,11 @@ export interface LiveMatchStateData {
   teamAId?: number;
   teamBId?: number;
   target?: number;
+  oversLimit?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
+  tossWinnerTeamId?: number;
+  tossDecision?: string;
 }
 
 export interface InningsStateData {
@@ -340,6 +436,7 @@ export interface GenericScoreRequest {
   pointsAwarded?: number;
   description?: string;
   secondaryPlayerId?: number;
+  commandId?: string;
 }
 
 export interface GenericScoreEvent {
@@ -368,6 +465,7 @@ export interface PeriodScore {
 
 export interface ScoringConfig {
   id?: number;
+  configId?: number;
   sportType: string;
   periodsCount: number;
   pointsToWinPeriod?: number;
@@ -378,6 +476,11 @@ export interface ScoringConfig {
   hasPenaltyShootout: boolean;
   tiebreakPointsToWin?: number;
   scoringRulesJson?: string;
+  oversPerInnings?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
+  breakDurationMinutes?: number;
+  targetScore?: number;
 }
 
 export interface GenericMatchState {
@@ -397,6 +500,8 @@ export interface GenericMatchState {
   periodsWonB: number;
   periods: PeriodScore[];
   recentEvents: GenericScoreEvent[];
+  tossWinnerTeamId?: number;
+  tossDecision?: TossDecision;
   scoringConfig?: ScoringConfig;
 }
 
@@ -456,6 +561,25 @@ export interface RaceResult {
   notes?: string;
 }
 
+// Module-level caches for /tournament/{configId}/matches
+const inFlightMatchesPromises = new Map<number, Promise<any[]>>();
+interface MatchesCacheEntry {
+  data: any[];
+  timestamp: number;
+}
+const matchesCache = new Map<number, MatchesCacheEntry>();
+const MATCHES_CACHE_TTL_MS = 5000;
+
+export function invalidateMatchesCache(configId?: number): void {
+  if (configId != null) {
+    matchesCache.delete(configId);
+    inFlightMatchesPromises.delete(configId);
+  } else {
+    matchesCache.clear();
+    inFlightMatchesPromises.clear();
+  }
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -488,8 +612,14 @@ export const tournamentService = {
   },
 
   /** GET /api/tournament/events */
-  async getEventsForDropdown(): Promise<EventInfo[]> {
-    return apiClient.get<EventInfo[]>("/tournament/events");
+  async getEventsForDropdown(communityId?: number): Promise<EventInfo[]> {
+    try {
+      const url = communityId ? `/tournament/events?communityId=${communityId}` : "/tournament/events";
+      const data = await apiClient.get<EventInfo[]>(url);
+      return Array.isArray(data) ? data : [];
+    } catch (_err) {
+      return [];
+    }
   },
 
   /** GET /api/tournament/configs */
@@ -502,6 +632,12 @@ export const tournamentService = {
     }
   },
 
+  /** Strict analytics read that preserves API errors so the admin dashboard can flag missing schedule data. */
+  async getConfigsForAnalytics(): Promise<ConfigInfo[]> {
+    const data = await apiClient.get<ConfigInfo[]>("/tournament/configs");
+    return Array.isArray(data) ? data : [];
+  },
+
   /** POST /api/tournament/config */
   async createConfig(data: any): Promise<ConfigInfo> {
     return apiClient.post<ConfigInfo>("/tournament/config", data);
@@ -510,6 +646,16 @@ export const tournamentService = {
   /** PUT /api/tournament/config/{id} */
   async updateConfig(id: number, data: any): Promise<ConfigInfo> {
     return apiClient.put<ConfigInfo>(`/tournament/config/${id}`, data);
+  },
+
+  /** DELETE /api/tournament/config/{id} - Delete draft tournament configuration */
+  async deleteConfig(id: number): Promise<void> {
+    return apiClient.delete<void>(`/tournament/config/${id}`);
+  },
+
+  /** POST /api/tournament/config/{id}/publish - Publish tournament configuration and fixtures */
+  async publishTournamentConfig(id: number): Promise<ConfigInfo> {
+    return apiClient.post<ConfigInfo>(`/tournament/config/${id}/publish`);
   },
 
   /** GET /api/tournament/{configId}/teams */
@@ -541,6 +687,10 @@ export const tournamentService = {
     venueId?: number | null;
     courtId?: number | null;
     durationMinutes?: number;
+    homeName?: string | null;
+    awayName?: string | null;
+    homeFlat?: string | null;
+    awayFlat?: string | null;
   }): Promise<any> {
     const payload = {
       homeTeamId: (matchData.homeTeamId && !isNaN(Number(matchData.homeTeamId))) ? Number(matchData.homeTeamId) : null,
@@ -551,6 +701,10 @@ export const tournamentService = {
       venueId: (matchData.venueId && !isNaN(Number(matchData.venueId))) ? Number(matchData.venueId) : null,
       courtId: (matchData.courtId && !isNaN(Number(matchData.courtId))) ? Number(matchData.courtId) : null,
       durationMinutes: matchData.durationMinutes || 60,
+      homeName: matchData.homeName || null,
+      awayName: matchData.awayName || null,
+      homeFlat: matchData.homeFlat || null,
+      awayFlat: matchData.awayFlat || null,
     };
     return apiClient.post<any>(`/tournament/${configId}/manual/matches`, payload);
   },
@@ -560,6 +714,18 @@ export const tournamentService = {
     return apiClient.delete<void>(`/tournament/match/${matchId}`);
   },
 
+  /** PUT /api/tournament/match/{matchId}/reschedule - Update scheduled date/time and optional venue/court */
+  async rescheduleMatch(matchId: number, data: { scheduledAt: string; venue?: string; court?: string }): Promise<any> {
+    invalidateMatchesCache();
+    return apiClient.put<any>(`/tournament/match/${matchId}/reschedule`, data);
+  },
+
+  /** POST /api/tournament/{configId}/matches/batch-reschedule - Batch reschedule / time-shift remaining uncompleted matches */
+  async batchRescheduleMatches(configId: number, data: BatchRescheduleRequest): Promise<BatchRescheduleResponse> {
+    invalidateMatchesCache(configId);
+    return apiClient.post<BatchRescheduleResponse>(`/tournament/${configId}/matches/batch-reschedule`, data);
+  },
+
   /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
   async publishSchedule(configId: number): Promise<any> {
     return this.updateMatchesStatus(configId, 'PUBLISHED');
@@ -567,6 +733,7 @@ export const tournamentService = {
 
   /** POST /api/tournament/{configId}/matches/bulk - Save all generated matches */
   async saveMatchesBulk(configId: number, matches: any[]): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.post<any>(`/tournament/${configId}/matches/bulk`, { matches });
   },
 
@@ -579,28 +746,92 @@ export const tournamentService = {
     }
   },
 
-  /** GET /api/tournament/{configId}/matches - Fetch all matches for a config */
-  async getMatchesByConfigId(configId: number): Promise<any[]> {
-    try {
-      const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
-      return Array.isArray(data) ? data : [];
-    } catch (_err) {
-      return [];
+  /** Invalidate in-memory matches cache for a config or all configs */
+  invalidateMatchesCache(configId?: number): void {
+    invalidateMatchesCache(configId);
+  },
+
+  /** GET /api/tournament/{configId}/matches - Fetch all matches for a config with in-flight deduplication and short TTL caching */
+  async getMatchesByConfigId(configId: number, forceRefresh = false): Promise<any[]> {
+    if (!configId) return [];
+
+    // 1. Check TTL cache if not forcing refresh
+    if (!forceRefresh) {
+      const cached = matchesCache.get(configId);
+      if (cached && Date.now() - cached.timestamp < MATCHES_CACHE_TTL_MS) {
+        return [...cached.data];
+      }
     }
+
+    // 2. In-flight request deduplication: return existing promise if already in-flight
+    const existingPromise = inFlightMatchesPromises.get(configId);
+    if (existingPromise && !forceRefresh) {
+      return existingPromise;
+    }
+
+    // 3. Dispatch HTTP request and store in-flight promise
+    const fetchPromise = (async () => {
+      try {
+        const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+        const result = Array.isArray(data) ? data : [];
+        matchesCache.set(configId, { data: result, timestamp: Date.now() });
+        return result;
+      } catch (_err) {
+        return [];
+      } finally {
+        inFlightMatchesPromises.delete(configId);
+      }
+    })();
+
+    inFlightMatchesPromises.set(configId, fetchPromise);
+    return fetchPromise;
+  },
+
+  /** Strict analytics read; shares the same deduplication and short TTL cache. */
+  async getMatchesByConfigIdForAnalytics(configId: number, forceRefresh = false): Promise<any[]> {
+    if (!configId) return [];
+
+    if (!forceRefresh) {
+      const cached = matchesCache.get(configId);
+      if (cached && Date.now() - cached.timestamp < MATCHES_CACHE_TTL_MS) {
+        return [...cached.data];
+      }
+    }
+
+    const existingPromise = inFlightMatchesPromises.get(configId);
+    if (existingPromise && !forceRefresh) {
+      return existingPromise;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+        const result = Array.isArray(data) ? data : [];
+        matchesCache.set(configId, { data: result, timestamp: Date.now() });
+        return result;
+      } finally {
+        inFlightMatchesPromises.delete(configId);
+      }
+    })();
+
+    inFlightMatchesPromises.set(configId, fetchPromise);
+    return fetchPromise;
   },
 
   /** Alias for getMatchesByConfigId */
-  async getSavedMatchesByConfigId(configId: number): Promise<any[]> {
-    return this.getMatchesByConfigId(configId);
+  async getSavedMatchesByConfigId(configId: number, forceRefresh = false): Promise<any[]> {
+    return this.getMatchesByConfigId(configId, forceRefresh);
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Update status of all matches */
   async updateMatchesStatus(configId: number, status: 'SCHEDULED' | 'DRAFT' | 'PUBLISHED'): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.put<any>(`/tournament/${configId}/matches/status`, { status });
   },
 
   /** DELETE /api/tournament/{configId}/matches - Delete all matches for a config */
   async deleteMatchesByConfigId(configId: number): Promise<any> {
+    invalidateMatchesCache(configId);
     return apiClient.delete<any>(`/tournament/${configId}/matches`);
   },
 
@@ -620,14 +851,18 @@ export const tournamentService = {
     config: any;
     matches: any[];
   }): Promise<{ config: ConfigInfo; savedMatches: number }> {
+    invalidateMatchesCache(payload.configId ?? undefined);
     try {
       return await apiClient.post<{ config: ConfigInfo; savedMatches: number }>(
         "/tournament/schedule/save",
         payload
       );
-    } catch (err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
+    } catch (err: any) {
+      console.error("[tournamentService.saveSchedule] Backend save error:", err);
+      // Only fallback to mock if the client is truly offline or network is disconnected
+      const isOffline = typeof window !== "undefined" && (!window.navigator.onLine || err?.message?.includes("Network Error"));
+      if (isOffline) {
+        console.warn("[tournamentService.saveSchedule] Offline network detected, using local mock");
         return {
           config: {
             id: payload.configId || Math.floor(Math.random() * 1000) + 200,
@@ -649,35 +884,30 @@ export const tournamentService = {
 
   /** POST /api/tournament/match/result — basic result (scores + winner) */
   async recordResult(data: MatchResultRequestData): Promise<any> {
+    invalidateMatchesCache();
     return apiClient.post<any>("/tournament/match/result", data);
   },
 
   /** POST /api/tournament/match/result/detail — detailed result with scorecard */
   async recordDetailedResult(data: MatchResultDetailRequestData): Promise<MatchDetailData> {
+    invalidateMatchesCache();
     return apiClient.post<MatchDetailData>("/tournament/match/result/detail", data);
   },
 
   /** GET /api/tournament/match/{matchId}/detail — full match detail with scorecard */
   async getMatchDetail(matchId: number): Promise<MatchDetailData> {
-    try {
-      return await apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
-    } catch (_err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
-        return {
-          matchId,
-          status: "SCHEDULED",
-          roundName: "Semi-Final",
-          matchNumber: 1,
-          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
-          teamA: { id: 1, name: "Team A", color: "#6366f1" },
-          teamB: { id: 2, name: "Team B", color: "#f97316" },
-          venueName: "Community Sports Arena",
-          courtName: "Court 1",
-        };
-      }
-      throw _err;
-    }
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+  },
+
+  /** PUT /api/tournament/match/{matchId}/toss — save cricket toss before scoring */
+  async recordMatchToss(matchId: number, data: MatchTossRequestData): Promise<MatchDetailData> {
+    invalidateMatchesCache();
+    return apiClient.put<MatchDetailData>(`/tournament/match/${matchId}/toss`, data);
+  },
+
+  /** Strict analytics read for winner/result data. */
+  async getMatchDetailForAnalytics(matchId: number): Promise<MatchDetailData> {
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
   },
 
   /** GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp */
@@ -742,6 +972,27 @@ export const tournamentService = {
     return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
   },
 
+  /** GET /api/tournament/match/generic/scoring-config/{configId} */
+  async getScoringConfig(configId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/${configId}`);
+  },
+
+  /** POST /api/tournament/match/generic/scoring-config */
+  async saveScoringConfig(data: ScoringConfig): Promise<ScoringConfig> {
+    return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
+  },
+
+  /** GET /api/tournament/match/generic/match/{matchId}/config */
+  async getMatchScoringConfig(matchId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config`);
+  },
+
+  /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
+  async updateMatchConfigOverride(matchId: number, override: string | ScoringConfig | Record<string, any>): Promise<ScoringConfig> {
+    const payload = typeof override === "string" ? { overrideJson: override } : override;
+    return apiClient.put<ScoringConfig>(`/tournament/match/generic/match/${matchId}/config-override`, payload);
+  },
+
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
 
   async getGenericLeaderboard(configId: number, category: string): Promise<GenericLeaderboardEntry[]> {
@@ -773,4 +1024,82 @@ export const tournamentService = {
   async recalculateRaceRanks(matchId: number): Promise<RaceResult[]> {
     return apiClient.post<RaceResult[]>(`/tournament/match/race/${matchId}/recalculate-ranks`, {});
   },
+
+  // ─── Community Feed Visibility ───────────────────────────────────────────────
+
+  /**
+   * Set the "show on community feed" flag at tournament / event / match level.
+   * `showInFeed: null` resets to "inherit" (not applicable for tournaments, where null = off).
+   * `cascade` clears overrides below the chosen level so everything inside follows it.
+   */
+  async setFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+    showInFeed: boolean | null,
+    cascade = false,
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, { showInFeed, cascade });
+  },
+
+  /** Get feed visibility and stage policy for a tournament, event, or match. */
+  async getFeedVisibility(
+    level: FeedVisibilityLevel,
+    id: number,
+  ): Promise<FeedBroadcastSettings> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    return apiClient.get<FeedBroadcastSettings>(`/sports/${segment}/${id}/feed-visibility`);
+  },
+
+  /** Configure both live strip visibility and completed match feed-posting policy. */
+  async setFeedSettings(
+    level: FeedVisibilityLevel,
+    id: number,
+    settings: {
+      showInFeed?: boolean | null;
+      feedPostPolicy?: FeedPostPolicy;
+      feedPostStages?: string;
+      postToFeed?: boolean | null;
+      cascade?: boolean;
+    },
+  ): Promise<void> {
+    const segment = level === "tournament" ? "tournaments" : level === "event" ? "events" : "matches";
+    await apiClient.put(`/sports/${segment}/${id}/feed-visibility`, settings);
+  },
+
+  /** Manually publish an official result post to the community feed for a completed match. */
+  async publishMatchResultToFeed(
+    matchId: number,
+  ): Promise<{ matchId: number; postId: number; success: boolean; message?: string }> {
+    return apiClient.post<{ matchId: number; postId: number; success: boolean; message?: string }>(
+      `/sports/matches/${matchId}/publish-result-post`,
+      {},
+    );
+  },
+
+  /** Live matches (and ones completed in the last ~15 min) flagged for the community feed. */
+  async getLiveFeedMatches(communityId?: number | null): Promise<FeedLiveMatch[]> {
+    const qs = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/live-feed${qs}`);
+  },
+
+  /** Upcoming scheduled matches flagged for the community feed. */
+  async getUpcomingFeedMatches(communityId?: number | null, limit = 15): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/upcoming-feed${qs}`).catch(() => []);
+  },
+
+  /** Recently completed matches with winner details and scores for the results modal. */
+  async getRecentCompletedMatches(communityId?: number | null, limit = 30): Promise<FeedLiveMatch[]> {
+    const params = new URLSearchParams();
+    if (communityId) params.set("communityId", String(communityId));
+    if (limit) params.set("limit", String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.get<FeedLiveMatch[]>(`/sports/recent-completed${qs}`);
+  },
 };
+
+

@@ -189,6 +189,7 @@ export const feedService = {
           authorRole: p.authorRole,
           likesCount: p.likesCount || p.likeCount || 0,
           commentsCount: p.commentsCount || p.commentCount || 0,
+          postType: p.postType || p.type || "GENERAL",
         })),
         nextCursor: res.last ? null : btoa(String(Date.now())),
       };
@@ -224,6 +225,7 @@ export interface CursorFeedItem {
   authorRole?: string;
   likesCount?: number;
   commentsCount?: number;
+  postType?: string;
 }
 
 export interface CursorFeedResponse {

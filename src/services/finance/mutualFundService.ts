@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export type FundCategory = "ELSS" | "LARGE_CAP" | "MID_CAP" | "SMALL_CAP" | "INDEX" | "LIQUID" | "HYBRID";
 export interface MutualFund { id: string; name: string; short_name: string; category: FundCategory; amc: string; nav: number; nav_change_pct: number; returns_1y: number; returns_3y: number; returns_5y: number; risk: "LOW" | "MODERATE" | "HIGH"; min_sip: number; min_lumpsum: number; rating: number; }

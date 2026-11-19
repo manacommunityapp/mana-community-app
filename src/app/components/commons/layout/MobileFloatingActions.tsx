@@ -562,7 +562,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
           type="button"
           onClick={() => setActiveModal("search")}
           title="Search Community"
-          className="p-1.5 sm:p-2 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] text-[#44475B] hover:bg-[#F1F4F7] hover:border-[#DFE4E8] active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden shadow-2xs"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[#44475B] shadow-2xs transition-all hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 cursor-pointer lg:hidden sm:h-10 sm:w-10"
         >
           <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#7C7E8C]" />
         </button>
@@ -573,7 +573,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
             type="button"
             onClick={onToggleSidebar}
             title="Open Navigation Menu"
-            className="p-1.5 sm:p-2 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] text-[#44475B] hover:bg-[#F1F4F7] active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden shadow-2xs"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[#44475B] shadow-2xs transition-all hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 cursor-pointer lg:hidden sm:h-10 sm:w-10"
           >
             <MenuListIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44475B]" />
           </button>
@@ -584,7 +584,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
           type="button"
           onClick={() => setActiveModal("directory")}
           title="Community Directory"
-          className="relative p-1.5 sm:p-2 rounded-xl bg-[#E6FAF5] border border-[#A7F3D0] text-[#008767] hover:bg-[#A7F3D0]/30 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-[#008767] shadow-2xs transition-all hover:bg-emerald-100 active:scale-95 cursor-pointer sm:h-10 sm:w-10"
         >
           <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#008767]" />
           {directoryCount !== undefined && directoryCount > 0 && (

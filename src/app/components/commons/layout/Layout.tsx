@@ -111,7 +111,7 @@ function UserProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-xl border border-[#EBEFF2] bg-white hover:bg-[#F9FAFC] hover:border-[#A7F3D0] transition-all shadow-xs cursor-pointer active:scale-95 group select-none"
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-xs transition-all hover:border-emerald-200 hover:bg-emerald-50 active:scale-95 cursor-pointer group select-none sm:h-auto sm:w-auto sm:justify-start sm:gap-2 sm:py-1 sm:pl-1 sm:pr-2.5"
         title="Profile & Account Menu"
         aria-expanded={open}
       >
@@ -119,7 +119,7 @@ function UserProfileMenu({
           <img
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
-            className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0"
+            className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] transition-all shrink-0 group-hover:ring-2 group-hover:ring-[#00D09C]/30"
             onError={(e) => {
               const currentSrc = e.currentTarget.src;
               if (currentSrc && !currentSrc.includes("/api/files/")) {
@@ -142,7 +142,7 @@ function UserProfileMenu({
         </span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 text-[#7C7E8C] transition-transform duration-200 shrink-0",
+            "hidden h-3 w-3 shrink-0 text-[#7C7E8C] transition-transform duration-200 sm:block",
             open && "rotate-180 text-[#00D09C]"
           )}
         />
@@ -423,8 +423,12 @@ export function Layout() {
     "Community Calendar": "CALENDAR",
     "Vehicle Care": "HOME_SERVICES",
     "Property OS (CPOS)": "CPOS",
-    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Food & Dining": "FOOD_OS",
+    "Fresh Kitchen": "FOOD_OS",
+    "Daily Basket": "FOOD_OS",
+    "Wellness Nutrition": ["FOOD_OS", "HEALTH"],
+    "Kitty & Social Circles": "KITTY_PARTY",
+    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Fixed Deposits": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Digital Gold": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Mutual Funds": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
@@ -505,6 +509,7 @@ export function Layout() {
         { to: "/events", icon: CalendarDays, label: "Events", menuKey: "events" },
         { to: "/movies", icon: Film, label: "Movie Night", badge: "Cinema", menuKey: "movies" },
         { to: "/trips", icon: Compass, label: "Community Trips", menuKey: "trips" },
+        { to: "/kitty-party", icon: Sparkles, label: "Kitty & Social Circles", badge: "New", menuKey: "kitty-party" },
         { to: "/split", icon: PieChart, label: "Mana Split", badge: "New", menuKey: "split-bill" },
         { to: "/pets", icon: Heart, label: "Pet Registry", menuKey: "pets" },
         { to: "/polls", icon: Vote, label: "Polls", menuKey: "polls" },
@@ -517,6 +522,9 @@ export function Layout() {
         { to: "/marketplace", icon: Store, label: "Marketplace", menuKey: "marketplace" },
         { to: "/deals", icon: Tag, label: "Mana Deals", menuKey: "deals" },
         { to: "/food", icon: ShoppingCart, label: "Food & Dining", menuKey: "food" },
+        { to: "/fresh-kitchen", icon: Sparkles, label: "Fresh Kitchen", badge: "2-4°C", menuKey: "fresh-kitchen" },
+        { to: "/daily-basket", icon: ShoppingBag, label: "Daily Basket", badge: "Daily", menuKey: "daily-basket" },
+        { to: "/wellness-basket", icon: HeartPulse, label: "Wellness Nutrition", badge: "Sub", menuKey: "wellness-basket" },
         { to: "/academy", icon: GraduationCap, label: "Mana Academy", menuKey: "academy" },
         { to: "/group-buying", icon: ShoppingBag, label: "Group Buying", menuKey: "group-buying" },
         { to: "/home-services", icon: HeartHandshake, label: "Home Services", menuKey: "home-services" },
@@ -550,11 +558,11 @@ export function Layout() {
   };
 
   /**
-   * Hybrid visibility check — three-tier logic:
-   * 1. If the link has a menuKey AND user.menuPermissions[] is populated (backend-driven):
-   *    → use hasMenuPermission(menuKey, "view") — fully dynamic, no code changes needed for new items
-   * 2. Else fall back to the legacy label-based module + permission check (old behaviour)
-   * 3. SuperAdmin always sees everything
+   * Hybrid visibility check:
+   * 1. SuperAdmin always sees everything
+   * 2. Community module gate: If the module is disabled for this community, hide the link regardless of role
+   * 3. Dynamic menuPermissions from backend (populated after /users/me)
+   * 4. Legacy hardcoded permission check (fallback)
    */
   const isLinkVisible = (label: string, menuKey?: string) => {
     if (loadingPermissions) return true;
@@ -562,20 +570,18 @@ export function Layout() {
     // SuperAdmin bypass
     if (isSuperAdmin) return true;
 
+    // Community module gate: If the community has this module disabled, nobody (except SuperAdmin) should see it
+    const moduleConfig = labelToModule[label];
+    if (moduleConfig && !isModuleEnabled(moduleConfig)) {
+      return false;
+    }
+
     // Tier 1: dynamic menuPermissions from backend (populated after /users/me)
     if (menuKey && user?.menuPermissions && user.menuPermissions.length > 0) {
       return hasMenuPermission(menuKey, "view");
     }
 
-    // Tier 2: legacy module-enablement check
-    const moduleConfig = labelToModule[label];
-    if (moduleConfig) {
-      if (!isModuleEnabled(moduleConfig)) {
-        return false;
-      }
-    }
-
-    // Tier 3: legacy hardcoded permission check (fallback)
+    // Tier 2: legacy hardcoded permission check (fallback)
     if (label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
     if (label === "Mana Pay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || permissions.includes(VIEW_ADMIN) || isAnyAdmin;
@@ -614,7 +620,11 @@ export function Layout() {
     if (label === "Vehicle Care") return true;
     if (label === "Property OS (CPOS)") return true;
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
-    if (label === "Food & Dining") return true;
+    if (label === "Food & Dining") return isModuleEnabled("FOOD_OS");
+    if (label === "Fresh Kitchen") return isModuleEnabled("FOOD_OS");
+    if (label === "Daily Basket") return isModuleEnabled("FOOD_OS");
+    if (label === "Wellness Nutrition") return isModuleEnabled(["FOOD_OS", "HEALTH"]);
+    if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
     if (label === "Mutual Funds") return true;
@@ -650,7 +660,7 @@ export function Layout() {
 
   return (
     <ChatProvider>
-      <div className="h-screen bg-background flex font-sans text-foreground overflow-hidden">
+      <div className="h-[100dvh] min-h-0 bg-background flex font-sans text-foreground overflow-hidden">
         {/* Mobile Backdrop */}
         {isMobileSidebarOpen && (
           <div
@@ -1240,8 +1250,8 @@ export function Layout() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F9FAFC]">
-          <header className="bg-white border-b border-[#EBEFF2] h-13 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-xs">
-            <div className="flex items-center gap-2 sm:gap-3">
+          <header style={{ paddingTop: "env(safe-area-inset-top, 0px)" }} className="sticky top-0 z-30 flex min-h-[58px] items-center justify-between gap-2 border-b border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-[0_4px_18px_rgba(15,23,42,0.045)] backdrop-blur-xl sm:min-h-16 sm:px-6 lg:px-8">
+            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
               {/* Desktop Menu Toggle Button */}
               <button
                 type="button"
@@ -1254,9 +1264,11 @@ export function Layout() {
 
               <Link
                 to="/"
-                className="font-extrabold text-sm sm:text-base text-[#44475B] lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
+                aria-label="Mana Community home"
+                className="group flex items-center gap-2 lg:hidden"
               >
-                Mana Community
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#00D09C] to-[#00A87E] text-xs font-black text-white shadow-[0_4px_10px_rgba(0,208,156,0.25)] transition-transform group-hover:scale-[1.03]">M</span>
+                <span className="text-[15px] font-extrabold tracking-tight text-[#263746] sm:text-base">Mana</span>
               </Link>
             </div>
 
@@ -1276,7 +1288,7 @@ export function Layout() {
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+            <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5 lg:gap-3">
             <MobileHeaderActions onToggleSidebar={toggleSidebar} />
             <NotificationBell />
 

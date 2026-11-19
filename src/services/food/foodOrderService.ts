@@ -43,7 +43,7 @@ export const foodOrderService = {
     return apiClient.post<FoodOrder>("/food/orders/group", data);
   },
   async joinGroupOrder(joinCode: string, items: FoodOrderRequest["items"]): Promise<FoodOrder> {
-    return apiClient.post<FoodOrder>(`/food/orders/group/join`, { items }, { params: { joinCode } });
+    return apiClient.post<FoodOrder>(`/food/orders/group/join?joinCode=${encodeURIComponent(joinCode)}`, { items });
   },
 
   // ── Refunds ──

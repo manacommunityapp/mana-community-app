@@ -36,11 +36,16 @@ export function ContactNameAutocomplete({
   const [loading, setLoading] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false); // don't re-search right after a pick
+  const lastTypedValue = useRef<string | null>(null); // only search if user actively typed into the input
 
-  // Debounced search on value change (only at >= 3 chars and with a community).
+  // Debounced search on value change (only at >= 3 chars, with a community, and when user typed).
   useEffect(() => {
     if (skipNextSearch.current) {
       skipNextSearch.current = false;
+      return;
+    }
+    // Only execute search if value was modified by user typing, not initial prop or programmatic update
+    if (lastTypedValue.current !== value) {
       return;
     }
     const q = value.trim();
@@ -84,20 +89,32 @@ export function ContactNameAutocomplete({
 
   const pick = (u: UserResponse) => {
     skipNextSearch.current = true;
+    lastTypedValue.current = null;
     onSelect({ fullName: u.fullName, email: u.email || "", phone: u.phone || "" });
     setOpen(false);
     setResults([]);
   };
 
-  const showEmpty = open && !loading && results.length === 0 && value.trim().length >= 3 && !!communityId;
+  const showEmpty = open && !loading && results.length === 0 && value.trim().length >= 3 && !!communityId && lastTypedValue.current === value;
 
   return (
     <div className="relative" ref={wrapRef}>
       <input
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => { if (results.length) setOpen(true); }}
+        onChange={(e) => {
+          lastTypedValue.current = e.target.value;
+          onChange(e.target.value);
+        }}
+        onFocus={() => {
+          if (lastTypedValue.current === value && results.length > 0) setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && open) {
+            e.stopPropagation();
+            setOpen(false);
+          }
+        }}
         placeholder={placeholder}
         autoComplete="off"
         className={className}

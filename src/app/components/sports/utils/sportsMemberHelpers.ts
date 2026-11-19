@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Centralized sports member resolution and isolation helpers.
  * Used across SportsDashboard, SportsRegister, and SportsMultiRegister to ensure
  * 100% consistent participant identification, duplicate prevention, and family scoping.
@@ -105,7 +105,8 @@ export function isRegistrationForMemberHelper(
   reg: any,
   selectedMemberId: string | number | undefined,
   familyMembersOnly: Array<{ id?: string | number; name?: string; relation?: string }> = [],
-  currentUserName?: string | null
+  currentUserName?: string | null,
+  currentUserId?: string | number | null
 ): boolean {
   if (!reg) return false;
   const isSelfTarget =
@@ -120,6 +121,57 @@ export function isRegistrationForMemberHelper(
   const regFamilyMemberId = reg.familyMemberId || reg.familyMember?.id;
   const targetFullName = (currentUserName || "").trim();
 
+  let effectiveUserId = currentUserId;
+  if (!effectiveUserId && typeof window !== "undefined") {
+    try {
+      const u = localStorage.getItem("user");
+      if (u) {
+        const parsed = JSON.parse(u);
+        effectiveUserId = parsed.id || parsed.userId;
+      }
+    } catch {}
+  }
+
+  const pStatus = String(reg.partnerStatus || reg.partnerConfirmationStatus || "").toUpperCase().trim();
+  const isPartnerConfirmed = pStatus === "CONFIRMED" || pStatus === "ACCEPTED";
+
+  const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
+  const targetId = normId(selectedMemberId);
+  const targetMember = !isSelfTarget ? familyMembersOnly.find(m => normId(m.id) === targetId) : undefined;
+  const targetMemberName = targetMember?.name ? targetMember.name.trim().toLowerCase() : "";
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 1. CHECK IF TARGET IS THE CONFIRMED PARTNER (PLAYER 2)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const regPartnerFamId = reg.partnerFamilyMemberId || reg.partnerFamilyMember?.id;
+  const hasPartnerFam = regPartnerFamId != null && String(regPartnerFamId).trim() !== "";
+
+  if (isPartnerConfirmed) {
+    if (isSelfTarget) {
+      const isSelfPartner = !hasPartnerFam && Boolean(
+        (effectiveUserId != null && (
+          String(reg.partnerUserId) === String(effectiveUserId) ||
+          String(reg.partner?.id) === String(effectiveUserId)
+        )) ||
+        (reg.partnerName && targetFullName && reg.partnerName.trim().toLowerCase() === targetFullName.toLowerCase())
+      );
+      if (isSelfPartner) {
+        return true;
+      }
+    } else {
+      const isTargetFamPartner = Boolean(
+        (hasPartnerFam && normId(regPartnerFamId) === targetId) ||
+        (!hasPartnerFam && targetMemberName && reg.partnerName && reg.partnerName.trim().toLowerCase() === targetMemberName)
+      );
+      if (isTargetFamPartner) {
+        return true;
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // 2. CHECK IF TARGET IS THE PRIMARY REGISTRANT (PLAYER 1)
+  // ─────────────────────────────────────────────────────────────────────────────
   const isExplicitFamily = Boolean(
     (regFamilyMemberId && !isSelfRelationOrMember(undefined, regFamilyMemberId)) ||
     (regRelation && !isSelfRelationOrMember(regRelation))
@@ -129,33 +181,46 @@ export function isRegistrationForMemberHelper(
     regPlayerName && familyMembersOnly.some(m => m.name && m.name.trim().toLowerCase() === regPlayerName.toLowerCase())
   );
 
-  // A registration belongs to Self if it's explicitly Self, OR not an explicit family member and not matching any family member's name
-  const isSelfReg =
+  const isOtherUserReg = Boolean(
+    effectiveUserId != null && reg.userId != null && String(reg.userId) !== String(effectiveUserId)
+  );
+
+  // A registration belongs to Self as Player 1 if it's explicitly Self, OR
+  // (owned by this user AND not marked as an explicit family member AND not matching another family member's name)
+  const isSelfPrimary =
     isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName) ||
-    (!isExplicitFamily && !matchesFamilyMemberName);
+    (!isOtherUserReg && !isExplicitFamily && !matchesFamilyMemberName);
 
   if (isSelfTarget) {
-    return isSelfReg;
+    return isSelfPrimary;
   }
 
-  // When filtering by an actual family member, exclude Self registrations
-  if (isSelfReg) {
+  // When filtering by a genuine family member, exclude registrations where Player 1 is Self
+  if (isSelfPrimary) {
     return false;
   }
 
-  if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
-    return true;
+  // 2a. Match by familyMemberId on Player 1
+  if (regFamilyMemberId != null && String(regFamilyMemberId).trim() !== "") {
+    return normId(regFamilyMemberId) === targetId;
   }
 
-  const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
+  // 2b. Match by player name if present
+  if (regPlayerName && targetMemberName) {
+    return regPlayerName.toLowerCase() === targetMemberName;
+  }
+
+  // 2c. Fallback by unique relation
   if (targetMember) {
-    const targetMemberName = (targetMember.name || "").trim().toLowerCase();
     const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-    if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
-      return true;
-    }
     if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
-      return true;
+      const sameRelationMembers = familyMembersOnly.filter(m => {
+        const r = String(m.relation || (m as any).relationship || "").trim().toUpperCase();
+        return r && r === targetMemberRelation;
+      });
+      if (sameRelationMembers.length === 1) {
+        return true;
+      }
     }
   }
 

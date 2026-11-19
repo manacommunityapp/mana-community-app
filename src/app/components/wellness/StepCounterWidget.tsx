@@ -183,7 +183,7 @@ export default function StepCounterWidget() {
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip
                 contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 8 }}
-                formatter={(v: number) => [v.toLocaleString(), 'Steps']}
+                formatter={(v: any) => [Number(v ?? 0).toLocaleString(), 'Steps']}
               />
               <ReferenceLine y={target} stroke="#3b82f6" strokeDasharray="4 4" label={{ value: 'Goal', position: 'right', fontSize: 10, fill: '#3b82f6' }} />
               <Bar dataKey="steps" fill="#3b82f6" radius={[3, 3, 0, 0]} />

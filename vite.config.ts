@@ -4,6 +4,10 @@ import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // ── Build / deployment metadata (injected at build time) ──────────────────
 // Shown on the Architecture Docs page so each deployment reports its version,
@@ -26,9 +30,17 @@ const buildTime: string = new Date().toISOString()
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8081';
+  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8080';
 
   return {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
+    optimizeDeps: {
+      include: ['@tanstack/react-query'],
+    },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
       __GIT_BRANCH__: JSON.stringify(gitBranch),
@@ -38,7 +50,22 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      babel({ presets: [reactCompilerPreset()] })
+      babel({ presets: [reactCompilerPreset()] }),
+      {
+        name: 'generate-version-json',
+        generateBundle() {
+          this.emitFile({
+            type: 'asset',
+            fileName: 'version.json',
+            source: JSON.stringify({
+              version: appVersion,
+              commit: gitCommit,
+              branch: gitBranch,
+              buildTime,
+            }, null, 2),
+          });
+        },
+      },
     ],
     server: {
       headers: {

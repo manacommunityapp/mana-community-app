@@ -17,9 +17,9 @@ interface SportsEventTabProps {
   handleEdit: (e: SportsEvent) => void;
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
-  handleAnnounce: (id: number, name: string) => void;
-  handleViewPlayers: (id: number) => void;
-  handleViewCaptains: (id: number) => void;
+  handleViewPlayers: (id: number, forceReload?: boolean) => void;
+  handleViewCaptains: (id: number, forceReload?: boolean) => void;
+  handleToggleCaptainNomination?: (eventId: number, open: boolean) => Promise<void> | void;
   viewingEventId: number | null;
   viewMode: "players" | "captains" | null | undefined;
   registrations: TournamentRegistration[];
@@ -45,7 +45,7 @@ interface SportsEventTabProps {
   playerCategories: PlayerCategory[];
   venues: Venue[];
   activeEvents: SportsEvent[];
-  handleSportPickerSelect: (sport: { name: string; icon: string }) => void;
+  handleSportPickerSelect: (sport: { name: string; icon: string; iconUrl?: string }) => void;
   handleCreateCustomSport: () => void;
   removeSportForm: (id: string) => void;
   addEventToSportForm: (formId: string) => void;
@@ -55,7 +55,11 @@ interface SportsEventTabProps {
   handleSportEdit: (sport: any) => void;
   handleSportDelete: (id: number) => void;
   handleCloseTournament?: (id: number) => void;
+  handleCompleteTournament?: (id: number) => void;
   handleCloseEvent?: (id: number) => void;
+  handleStartEventRegistration?: (id: number, name?: string) => void;
+  handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
+  handleAnnounce?: (id: number, name: string) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -71,10 +75,20 @@ interface SportsEventTabProps {
   onLoadCategories?: () => void;
   activeTournamentId?: number | null;
   activeTournamentName?: string;
+  activeTournaments?: any[];
   clearTournamentContext?: () => void;
   setTournamentContext?: (id: number, name: string) => void;
   tournamentStartDate?: Date;
   tournamentEndDate?: Date;
+  sportsEventSubTab?: "list" | "config";
+  setSportsEventSubTab?: (tab: "list" | "config") => void;
+  selectedEventIds?: number[];
+  onToggleSelectEvent?: (id: number) => void;
+  onSelectAllEvents?: (ids: number[], select: boolean) => void;
+  onClearSelectedEvents?: () => void;
+  onBatchStartEvents?: (ids?: number[]) => void;
+  onBatchCloseEvents?: (ids?: number[]) => void;
+  onBatchDeleteEvents?: (ids?: number[]) => void;
 }
 
 export function SportsEventTab({
@@ -91,10 +105,14 @@ export function SportsEventTab({
   handleDelete,
   handleActivate,
   handleCloseTournament,
+  handleCompleteTournament,
   handleCloseEvent,
+  handleStartEventRegistration,
+  handleStartAllPendingEvents,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
+  handleToggleCaptainNomination,
   viewingEventId,
   viewMode,
   registrations,
@@ -141,12 +159,24 @@ export function SportsEventTab({
   onLoadCategories,
   activeTournamentId,
   activeTournamentName,
+  activeTournaments,
   clearTournamentContext,
   setTournamentContext,
   tournamentStartDate,
   tournamentEndDate,
+  sportsEventSubTab: controlledSubTab,
+  setSportsEventSubTab: setControlledSubTab,
+  selectedEventIds,
+  onToggleSelectEvent,
+  onSelectAllEvents,
+  onClearSelectedEvents,
+  onBatchStartEvents,
+  onBatchCloseEvents,
+  onBatchDeleteEvents,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [internalSubTab, setInternalSubTab] = useState<"list" | "config">("list");
+  const sportsEventSubTab = controlledSubTab ?? internalSubTab;
+  const setSportsEventSubTab = setControlledSubTab ?? setInternalSubTab;
 
   const onEditEventFromList = (ev: any) => {
     setShowSportPicker(false);
@@ -197,16 +227,12 @@ export function SportsEventTab({
           Tournaments List
         </button>
         <button
-          disabled={!activeTournamentId}
           onClick={() => setSportsEventSubTab("config")}
-          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all ${
-            !activeTournamentId
-              ? "border-transparent text-slate-300 cursor-not-allowed"
-              : sportsEventSubTab === "config"
-              ? "border-indigo-600 text-indigo-600 font-bold cursor-pointer"
-              : "border-transparent text-slate-500 hover:text-indigo-600 cursor-pointer"
+          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            sportsEventSubTab === "config"
+              ? "border-indigo-600 text-indigo-600 font-bold"
+              : "border-transparent text-slate-500 hover:text-indigo-600"
           }`}
-          title={!activeTournamentId ? "Select a tournament first to configure events" : ""}
         >
           Configure Events
         </button>
@@ -221,9 +247,10 @@ export function SportsEventTab({
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           handleActivate={handleActivate}
-          handleAnnounce={handleAnnounce}
+          handleAnnounce={handleAnnounce || (() => {})}
           handleViewPlayers={handleViewPlayers}
           handleViewCaptains={handleViewCaptains}
+          handleToggleCaptainNomination={handleToggleCaptainNomination}
           viewingEventId={viewingEventId}
           viewMode={viewMode}
           registrations={registrations}
@@ -244,7 +271,17 @@ export function SportsEventTab({
           handleSportEdit={onEditEventFromList}
           handleSportDelete={handleSportDelete}
           handleCloseTournament={handleCloseTournament}
+          handleCompleteTournament={handleCompleteTournament}
           handleCloseEvent={handleCloseEvent}
+          handleStartEventRegistration={handleStartEventRegistration}
+          handleStartAllPendingEvents={handleStartAllPendingEvents}
+          selectedEventIds={selectedEventIds}
+          onToggleSelectEvent={onToggleSelectEvent}
+          onSelectAllEvents={onSelectAllEvents}
+          onClearSelectedEvents={onClearSelectedEvents}
+          onBatchStartEvents={onBatchStartEvents}
+          onBatchCloseEvents={onBatchCloseEvents}
+          onBatchDeleteEvents={onBatchDeleteEvents}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();
@@ -288,8 +325,12 @@ export function SportsEventTab({
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
           onLoadCategories={onLoadCategories}
+          onLoadConfig={onLoadConfig}
           tournamentStartDate={tournamentStartDate}
           tournamentEndDate={tournamentEndDate}
+          activeTournamentId={activeTournamentId}
+          activeTournamentName={activeTournamentName}
+          activeTournaments={activeTournaments}
         />
       )}
     </div>

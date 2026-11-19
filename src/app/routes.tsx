@@ -1,4 +1,34 @@
 import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useHrmOrg } from "../contexts/HrmOrgContext";
+import { HrmLayout } from "./components/hrm/HrmLayout";
+import { HrmDashboard } from "./components/hrm/HrmDashboard";
+import { EmployeeDirectory } from "./components/hrm/EmployeeDirectory";
+import { EmployeeProfile } from "./components/hrm/EmployeeProfile";
+import { AttendanceManagement } from "./components/hrm/AttendanceManagement";
+import { LeaveManagement } from "./components/hrm/LeaveManagement";
+import { ShiftManagement } from "./components/hrm/ShiftManagement";
+import { HrmSettings } from "./components/hrm/HrmSettings";
+import { OrgHierarchy } from "./components/hrm/OrgHierarchy";
+import { RecruitmentBoard } from "./components/hrm/RecruitmentBoard";
+import { PerformanceManagement } from "./components/hrm/PerformanceManagement";
+import { LearningDevelopment } from "./components/hrm/LearningDevelopment";
+import PayrollManagement from "./components/hrm/PayrollManagement";
+import ExpenseManagement from "./components/hrm/ExpenseManagement";
+import AssetManagement from "./components/hrm/AssetManagement";
+import TasksBoard from "./components/hrm/TasksBoard";
+import HelpDesk from "./components/hrm/HelpDesk";
+import HrAnalyticsDashboard from "./components/hrm/HrAnalyticsDashboard";
+import ComplianceAlerts from "./components/hrm/ComplianceAlerts";
+import AuditTrailViewer from "./components/hrm/AuditTrailViewer";
+import RoleManagement from "./components/hrm/RoleManagement";
+import CustomReportBuilder from "./components/hrm/CustomReportBuilder";
+import SkillPassport from "./components/hrm/SkillPassport";
+import WorkforcePool from "./components/hrm/WorkforcePool";
+import JobBoard from "./components/hrm/JobBoard";
+import DutyHandover from "./components/hrm/DutyHandover";
+import IntegrationSettings from "./components/hrm/IntegrationSettings";
+import ForecastDashboard from "./components/hrm/ForecastDashboard";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -65,6 +95,8 @@ import { BudgetDashboard } from "./components/finance/BudgetDashboard";
 import { FinancialReports } from "./components/finance/FinancialReports";
 import { LedgerFinance } from "./components/finance/LedgerFinance";
 import { MyMoneyDashboard } from "./components/finance/personal/MyMoneyDashboard";
+import { EventBudgetsView } from "./components/finance/budget/EventBudgetsView";
+import { TournamentBudgetsView } from "./components/finance/budget/TournamentBudgetsView";
 import { ManaSplitHub } from "./components/split/ManaSplitHub";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
@@ -129,6 +161,129 @@ function TeamRegisterPage() {
   const navigate = useNavigate();
   return <SportsTeamRegistration eventId={Number(eventId)} onClose={() => navigate(-1)} />;
 }
+
+function OrgChartPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <OrgHierarchy orgId={activeOrgId} />;
+}
+
+function HrmRecruitmentPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RecruitmentBoard orgId={activeOrgId} />;
+}
+
+function HrmPerformancePage() {
+  const { activeOrgId } = useHrmOrg();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeOrgId) return;
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
+    );
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <PerformanceManagement orgId={activeOrgId} employeeId={employeeId} />;
+}
+
+function HrmLearningPage() {
+  const { activeOrgId } = useHrmOrg();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  useEffect(() => {
+    if (!activeOrgId) return;
+    import("../services/hrm/hrmService").then(({ hrmService }) =>
+      hrmService.getMyProfile(activeOrgId).then(emp => setEmployeeId(emp.id)).catch(() => {})
+    );
+  }, [activeOrgId]);
+  if (!activeOrgId || !employeeId) return null;
+  return <LearningDevelopment orgId={activeOrgId} employeeId={employeeId} />;
+}
+
+function HrmPayrollPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <PayrollManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmExpensePage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ExpenseManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmAssetPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AssetManagement orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmTasksPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <TasksBoard orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmHelpDeskPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HelpDesk orgId={activeOrgId} isHrAdmin />;
+}
+
+function HrmAnalyticsPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <HrAnalyticsDashboard orgId={activeOrgId} />;
+}
+
+function HrmCompliancePage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <ComplianceAlerts orgId={activeOrgId} />;
+}
+
+function HrmAuditPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <AuditTrailViewer orgId={activeOrgId} />;
+}
+
+function HrmRolesPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <RoleManagement orgId={activeOrgId} />;
+}
+
+function HrmReportsPage() {
+  const { activeOrgId } = useHrmOrg();
+  if (!activeOrgId) return null;
+  return <CustomReportBuilder orgId={activeOrgId} />;
+}
+
+function HrmSkillPassportPage() {
+  return <SkillPassport />;
+}
+
+function HrmWorkforcePoolPage() {
+  return <WorkforcePool />;
+}
+
+function HrmJobBoardPage() {
+  return <JobBoard />;
+}
+
+function HrmDutyHandoverPage() {
+  return <DutyHandover />;
+}
+
+function HrmIntegrationsPage() {
+  return <IntegrationSettings />;
+}
+
+function HrmForecastingPage() {
+  return <ForecastDashboard />;
+}
+
 import {
   MatchDetailPage,
   MatchLivePage,
@@ -148,6 +303,7 @@ import { GuardManagement } from "./components/guard/GuardManagement";
 import { ParcelRoom } from "./components/parcels/ParcelRoom";
 import { StaffManagement } from "./components/staff/StaffManagement";
 import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
+import { GeneratorMaintenanceDashboard } from "./components/maintenance/GeneratorMaintenanceDashboard";
 import { AccessCardsManagement } from "./components/access/AccessCardsManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
@@ -234,6 +390,21 @@ import { SmartPantry } from "./components/food/SmartPantry";
 import { CateringPlatform } from "./components/food/CateringPlatform";
 import { FoodProfile } from "./components/food/FoodProfile";
 import { FoodAnalyticsDashboard } from "./components/food/FoodAnalyticsDashboard";
+import { FreshKitchenHub } from "./components/fresh-kitchen/FreshKitchenHub";
+import { BreakfastComboCustomizer } from "./components/fresh-kitchen/BreakfastComboCustomizer";
+import { DailyBasketManager } from "./components/fresh-kitchen/DailyBasketManager";
+import { VendorProductionCapacityView } from "./components/vendor/portal/VendorProductionCapacityView";
+import { WellnessHub } from "./components/wellness/WellnessHub";
+import { DietitianReviewPortal } from "./components/wellness/DietitianReviewPortal";
+import { FreshVendorCapabilityManager } from "./components/fresh/vendor/FreshVendorCapabilityManager";
+import { FreshVendorStaffManager } from "./components/fresh/vendor/FreshVendorStaffManager";
+import { FreshVendorVerificationHub } from "./components/fresh/admin/FreshVendorVerificationHub";
+import FreshAdminDashboard from "./components/fresh/admin/FreshAdminDashboard";
+import FreshProductCatalogEditor from "./components/fresh/vendor/FreshProductCatalogEditor";
+import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprovalHub";
+import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
+import FreshDispatchRoutingHub from "./components/fresh/vendor/FreshDispatchRoutingHub";
+import FreshVendorSettlementLedger from "./components/fresh/vendor/FreshVendorSettlementLedger";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -269,6 +440,9 @@ import { MyRequests } from "./components/services/MyRequests";
 import { ProviderDashboard } from "./components/services/ProviderDashboard";
 import { AdminServices } from "./components/services/AdminServices";
 import { InstaHelp } from "./components/services/InstaHelp";
+import { InteriorsMarketplace } from "./components/services/InteriorsMarketplace";
+import { InteriorProjects } from "./components/services/InteriorProjects";
+  import { InteriorVendors } from "./components/services/InteriorVendors";
 // Home Services (Community Help) pages
 import { HomeServicesLayout } from "./components/home-services/HomeServicesLayout";
 import { HomeServicesDashboard } from "./components/home-services/HomeServicesDashboard";
@@ -424,9 +598,19 @@ import {
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
   VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
   VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
+  VIEW_HRM,
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
+
+// Kitty Party & Social Circles pages
+import { KittyPartyDashboard } from "./components/kitty/kittyPartyDashboard";
+import { KittyPartyCircleList } from "./components/kitty/kittyPartyCircleList";
+import { KittyPartyCreateCircle } from "./components/kitty/kittyPartyCreateCircle";
+import { KittyPartyCircleDetails } from "./components/kitty/kittyPartyCircleDetails";
+import { KittyPartyLedgerView } from "./components/kitty/kittyPartyLedgerView";
+import { KittyPartyHousieRoom } from "./components/kitty/kittyPartyHousieRoom";
+import { KittyPartyExpenseSplitView } from "./components/kitty/kittyPartyExpenseSplitView";
 
 function HealthSubRouteRedirect() {
   const { tab } = useParams();
@@ -491,6 +675,10 @@ export const router = createBrowserRouter([
         index: true, 
         element: <PermissionGuard permission={VIEW_FEED} requiredModule="COMMUNITY_FEED"><Feed /></PermissionGuard> 
       },
+      { 
+        path: "feed", 
+        element: <PermissionGuard permission={VIEW_FEED} requiredModule="COMMUNITY_FEED"><Feed /></PermissionGuard> 
+      },
       {
         path: "sports",
         Component: SportsLayout,
@@ -513,23 +701,23 @@ export const router = createBrowserRouter([
           },
           {
             path: "badges",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
           },
           {
             path: "feed",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsFeed /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsFeed /></PermissionGuard>
           },
           {
             path: "find-players",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMatchmaking /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsMatchmaking /></PermissionGuard>
           },
           {
             path: "messages",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
           },
           {
             path: "insurance",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
           },
           {
             path: "my-auctions",
@@ -561,7 +749,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "trainers",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
+            element: <PermissionGuard superAdminOnly requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "venues",
@@ -719,6 +907,10 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><ServicesLayout /></PermissionGuard>,
         children: [
           { index: true, Component: ServiceBrowse },
+          { path: "interiors", Component: InteriorsMarketplace },
+            { path: "interiors/vendors", Component: InteriorVendors },
+          { path: "interiors/projects", Component: InteriorProjects },
+          { path: "interiors/projects/:id", Component: InteriorProjects },
           {
             path: "requests",
             element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
@@ -779,6 +971,10 @@ export const router = createBrowserRouter([
       {
         path: "maintenance/schedules",
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><MaintenanceScheduleAdmin /></PermissionGuard>
+      },
+      {
+        path: "maintenance/generator",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
       },
       {
         path: "parking",
@@ -847,6 +1043,10 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><MaintenanceDashboard /></PermissionGuard>
           },
           {
+            path: "generator-maintenance",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
+          },
+          {
             path: "audit",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><AssetAuditDashboard /></PermissionGuard>
           },
@@ -868,8 +1068,20 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="invoice" /></PermissionGuard>
           },
           {
+            path: "accounting",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="accounting" /></PermissionGuard>
+          },
+          {
             path: "budget",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><BudgetDashboard /></PermissionGuard>
+          },
+          {
+            path: "event-budgets",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><EventBudgetsView /></PermissionGuard>
+          },
+          {
+            path: "tournament-budgets",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><TournamentBudgetsView /></PermissionGuard>
           },
           {
             path: "reports",
@@ -888,6 +1100,17 @@ export const router = createBrowserRouter([
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },
           { path: "registrations", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorRegistrations /></PermissionGuard> },
+          { path: "fresh", Component: FreshAdminDashboard },
+          { path: "fresh/dashboard", Component: FreshAdminDashboard },
+          { path: "fresh-dashboard", Component: FreshAdminDashboard },
+          { path: "fresh-capabilities", Component: FreshVendorVerificationHub },
+          { path: "fresh/capabilities", Component: FreshVendorVerificationHub },
+          { path: "fresh/pricing", Component: FreshPricingApprovalHub },
+          { path: "fresh-pricing", Component: FreshPricingApprovalHub },
+          { path: "fresh/dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh-dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh/settlements", Component: FreshVendorSettlementLedger },
+          { path: "fresh-settlements", Component: FreshVendorSettlementLedger },
           { path: "categories", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorCategories /></PermissionGuard> },
           { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
@@ -942,6 +1165,20 @@ export const router = createBrowserRouter([
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
+          { path: "production-capacity", Component: VendorProductionCapacityView },
+          { path: "capacity", Component: VendorProductionCapacityView },
+          { path: "fresh-capabilities", Component: FreshVendorCapabilityManager },
+          { path: "fresh/capabilities", Component: FreshVendorCapabilityManager },
+          { path: "fresh-staff", Component: FreshVendorStaffManager },
+          { path: "fresh/staff", Component: FreshVendorStaffManager },
+          { path: "fresh/catalog", Component: FreshProductCatalogEditor },
+          { path: "fresh-catalog", Component: FreshProductCatalogEditor },
+          { path: "fresh/production", Component: FreshProcessingProductionHub },
+          { path: "fresh-production", Component: FreshProcessingProductionHub },
+          { path: "fresh/dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh-dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh/settlements", Component: FreshVendorSettlementLedger },
+          { path: "fresh-settlements", Component: FreshVendorSettlementLedger },
           {
             path: "products",
             element: (
@@ -1138,6 +1375,9 @@ export const router = createBrowserRouter([
           { path: "catering", element: <PermissionGuard permission={VIEW_FOOD_CATERING}><CateringPlatform /></PermissionGuard> },
           { path: "profile", element: <PermissionGuard permission={VIEW_FOOD_PROFILE}><FoodProfile /></PermissionGuard> },
           { path: "analytics", element: <PermissionGuard permission={VIEW_FOOD_ANALYTICS}><FoodAnalyticsDashboard /></PermissionGuard> },
+          { path: "fresh-kitchen", Component: FreshKitchenHub },
+          { path: "fresh-kitchen/combos/:id", Component: BreakfastComboCustomizer },
+          { path: "daily-basket", Component: DailyBasketManager },
         ],
       },
       {
@@ -1263,6 +1503,12 @@ export const router = createBrowserRouter([
       { path: "group-buying/review/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderReviewPage /></PermissionGuard> },
       { path: "group-buying/dispute/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderDisputePage /></PermissionGuard> },
       { path: "group-buying/catalog", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
+      { path: "fresh-kitchen", element: <PermissionGuard requiredModule="FOOD_OS"><FreshKitchenHub /></PermissionGuard> },
+      { path: "fresh-kitchen/combos/:id", element: <PermissionGuard requiredModule="FOOD_OS"><BreakfastComboCustomizer /></PermissionGuard> },
+      { path: "daily-basket", element: <PermissionGuard requiredModule="FOOD_OS"><DailyBasketManager /></PermissionGuard> },
+      { path: "wellness-basket", element: <PermissionGuard anyModules={["FOOD_OS", "HEALTH"]}><WellnessHub /></PermissionGuard> },
+      { path: "wellness-basket/admin", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]}><DietitianReviewPortal /></PermissionGuard> },
+      { path: "vendor/portal/capacity", element: <VendorProductionCapacityView /> },
       { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
@@ -1377,11 +1623,52 @@ export const router = createBrowserRouter([
           { path: "committee", element: <CommitteeAndElections /> },
         ],
       },
+      // ── Mana HRM (Human Resource Management) ────────
+      {
+        path: "hrm",
+        element: <PermissionGuard permission={VIEW_HRM} requiredModule="HRM"><HrmLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <HrmDashboard /> },
+          { path: "employees", element: <EmployeeDirectory /> },
+          { path: "employees/:employeeId", element: <EmployeeProfile /> },
+          { path: "attendance", element: <AttendanceManagement /> },
+          { path: "leaves", element: <LeaveManagement /> },
+          { path: "shifts", element: <ShiftManagement /> },
+          { path: "recruitment", element: <HrmRecruitmentPage /> },
+          { path: "performance", element: <HrmPerformancePage /> },
+          { path: "learning", element: <HrmLearningPage /> },
+          { path: "payroll", element: <HrmPayrollPage /> },
+          { path: "expenses", element: <HrmExpensePage /> },
+          { path: "assets", element: <HrmAssetPage /> },
+          { path: "tasks", element: <HrmTasksPage /> },
+          { path: "helpdesk", element: <HrmHelpDeskPage /> },
+          { path: "analytics", element: <HrmAnalyticsPage /> },
+          { path: "compliance", element: <HrmCompliancePage /> },
+          { path: "audit", element: <HrmAuditPage /> },
+          { path: "roles", element: <HrmRolesPage /> },
+          { path: "reports", element: <HrmReportsPage /> },
+          { path: "skill-passport",  element: <HrmSkillPassportPage /> },
+          { path: "workforce-pool",  element: <HrmWorkforcePoolPage /> },
+          { path: "job-board",       element: <HrmJobBoardPage /> },
+          { path: "duty-handover",   element: <HrmDutyHandoverPage /> },
+          { path: "integrations",    element: <HrmIntegrationsPage /> },
+          { path: "forecasting",     element: <HrmForecastingPage /> },
+          { path: "settings", element: <HrmSettings /> },
+          { path: "org-chart", element: <OrgChartPage /> },
+        ],
+      },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
       { path: "offers", element: <Navigate to="/deals" replace /> },
-      { path: "trips/flights", element: <Navigate to="/trips?tab=flights" replace /> },
+      // ── Mana Kitty Party & Social Circles ────────
+      { path: "kitty-party", element: <KittyPartyDashboard /> },
+      { path: "kitty-party/discover", element: <KittyPartyCircleList /> },
+      { path: "kitty-party/create", element: <KittyPartyCreateCircle /> },
+      { path: "kitty-party/:id", element: <KittyPartyCircleDetails /> },
+      { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
+      { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
+      { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },

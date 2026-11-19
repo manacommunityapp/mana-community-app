@@ -1,7 +1,7 @@
 // rechargeService.ts — Mobile Recharge (Prepaid/Postpaid) for web app
 // Hybrid fallback: tries backend /v1/recharge/* first, falls back to static data.
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export type RechargeType = "PREPAID" | "POSTPAID";
 export type PlanCategory = "POPULAR" | "DATA" | "UNLIMITED" | "VALIDITY" | "TOPUP";

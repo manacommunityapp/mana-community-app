@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, Clock, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck, Lock } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -12,18 +12,57 @@ import { escapeHtml } from '../../../utils/sanitize';
 
 
 import { sportsService } from '../../../services/sports/sportsService';
-import type { TournamentTypeInfo, EventInfo, ConfigInfo } from '../../../services/sports/tournamentService';
-import type { Venue, EventRegistration } from '../../../types/api';
+import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from '../../../services/sports/tournamentService';
+import type { Venue, EventRegistration, SportsEvent } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
 import { ScheduleSaveFooter } from './ScheduleSaveFooter';
+import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
+import { FixturesListView } from './FixturesListView';
+import { getPartnerDetails } from '../sports/admin/sportsPartnerUtils';
+import { formatFlatLabel } from '../../../utils/sportsValidationUtils';
+import { ScheduleExportModal, detectSportName } from '../sports/admin/ScheduleExportModal';
+import {
+  type DoublesTeamPair,
+  partitionDoublesRegistrations,
+  pairOpenPoolPlayers,
+  getRegistrationPlayerName,
+} from './doublesPairingUtils';
+import {
+  exportUmpireScorecardsPDF,
+  exportBracketToPDF,
+  exportListViewToPDF,
+  isByeMatch,
+  isTeamBasedSchedule,
+} from '../../../utils/sportsExportUtils';
+import { isTeamSport } from '../sports/utils/sportsConstants';
+import type { ExportableMatch } from '../../../utils/sportsExportUtils';
 import {
   applyPlayoffOverrides,
   collectPlayoffPlaceholderOptions,
   getGroupStageEnd,
   addMinutesToTime,
   parseBreakMinutes,
+  buildPlayoffBracket,
+  isByeParticipant,
+  sanitizePlayoffMatches,
+  buildPlayoffDraftFromSavedMatches,
+  isPlaceholderBracketSlot,
+  createScheduleCursor,
 } from './playoffSchedule';
-import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder } from './playoffSchedule';
+import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder, RoundTimingAnchor } from './playoffSchedule';
+import {
+  type TournamentBreak,
+  type BreakType,
+  DEFAULT_TOURNAMENT_BREAKS,
+  calcBreakDuration,
+  formatMinutesToTime,
+  parseTimeToMinutes,
+  getNextAvailableSlotAfterBreaks,
+  isSlotOverlappingBreak,
+  getBreakVisualTheme,
+  advanceDateToAllowedDay,
+  isMatchExceedingDayEnd,
+} from './breakScheduleUtils';
 
 const TIME_OPTIONS = [
   '06:00 AM','07:00 AM','08:00 AM','09:00 AM','10:00 AM','11:00 AM','12:00 PM',
@@ -38,11 +77,480 @@ const SEEDING_OPTIONS: { value: PlayoffSeedingOrder; label: string }[] = [
 ];
 const VENUE_ASSIGN_OPTIONS = ['Random','Snake','Sequential','Parallel'];
 
-interface SetupScheduleProps {
-  initialEventId?: string;
+export function deduplicateReciprocalRegistrations(
+  registrations: EventRegistration[],
+  isDoubles: boolean
+): EventRegistration[] {
+  if (!isDoubles) return registrations;
+  const processedRegIds = new Set<number>();
+  const effectiveRegistrations: EventRegistration[] = [];
+
+  for (const reg of registrations) {
+    if (processedRegIds.has(reg.id)) continue;
+    processedRegIds.add(reg.id);
+
+    if (reg.partnerUserId != null) {
+      const reciprocal = registrations.find(
+        other => other.id !== reg.id &&
+          ((other.user?.id != null && other.user.id === reg.partnerUserId) || other.id === reg.partnerUserId) &&
+          (other.partnerUserId === reg.user?.id || other.partnerUserId === reg.id)
+      );
+      if (reciprocal) {
+        processedRegIds.add(reciprocal.id);
+      }
+    }
+    effectiveRegistrations.push(reg);
+  }
+  return effectiveRegistrations;
 }
 
-export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
+export function formatParticipantDisplayName(
+  reg: EventRegistration,
+  partnerInfo: { hasPartner: boolean; isOpenPool?: boolean; name?: string | null; flat?: string | null; [key: string]: any },
+  isDoubles: boolean,
+  fallbackIndex = 1
+): { displayName: string; flatDisplay?: string } {
+  let displayName = reg.playerName || reg.user?.fullName || `Participant ${fallbackIndex}`;
+  let flatDisplay = reg.flatNumber || (reg as any)?.flatNo || reg.user?.flatNo || (reg.user as any)?.flatNumber || undefined;
+  if (flatDisplay && !flatDisplay.includes(',')) {
+    const block = (reg as any)?.block || (reg.user as any)?.block || (reg.user as any)?.tower;
+    if (block && !flatDisplay.toLowerCase().includes('block') && !flatDisplay.toLowerCase().includes('tower')) {
+      flatDisplay = formatFlatLabel(flatDisplay, block) || flatDisplay;
+    }
+  }
+
+  if (isDoubles) {
+    const primaryName = reg.playerName || reg.user?.fullName || 'Player';
+    if (partnerInfo.hasPartner && partnerInfo.name) {
+      const partnerName = partnerInfo.name;
+      if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+        displayName = `${reg.proposedTeamName.trim()} (${primaryName} / ${partnerName})`;
+      } else {
+        displayName = `${primaryName} / ${partnerName}`;
+      }
+      if (partnerInfo.flat && partnerInfo.flat !== flatDisplay) {
+        flatDisplay = flatDisplay ? `${flatDisplay} / ${partnerInfo.flat}` : partnerInfo.flat;
+      }
+    } else if (partnerInfo.isOpenPool) {
+      displayName = `${primaryName} / [Seeking Partner]`;
+    } else {
+      displayName = `${primaryName} / [Partner Invited]`;
+    }
+  } else if (reg.proposedTeamName && reg.proposedTeamName.trim()) {
+    displayName = `${reg.proposedTeamName.trim()} (${displayName})`;
+  }
+
+  return { displayName, flatDisplay };
+}
+
+/**
+ * Resolves the target venue ID for an event by checking in priority order:
+ * 1. Full sports event object (sportsService.getEventById)
+ * 2. venueId on full sports event
+ * 3. existing tournament config venueId
+ * 4. dropdown EventInfo venueId
+ * 5. Venue name match against loaded venues
+ */
+export function resolveTargetVenueId(
+  fullEvent: { venue?: { id?: number | null }; venueId?: number | null; venueName?: string } | null | undefined,
+  existingConfig: { venueId?: number | null; venueName?: string } | null | undefined,
+  eventInfo: { venueId?: number | null; venueName?: string } | null | undefined,
+  venuesList: Array<{ id: number; name?: string }> = []
+): number | null {
+  const directId = (
+    (fullEvent?.venue?.id && Number(fullEvent.venue.id) > 0 ? Number(fullEvent.venue.id) : null) ??
+    ((fullEvent as any)?.venueId && Number((fullEvent as any).venueId) > 0 ? Number((fullEvent as any).venueId) : null) ??
+    (existingConfig?.venueId && Number(existingConfig.venueId) > 0 ? Number(existingConfig.venueId) : null) ??
+    (eventInfo?.venueId && Number(eventInfo.venueId) > 0 ? Number(eventInfo.venueId) : null) ??
+    null
+  );
+  if (directId) return directId;
+
+  const venueName = fullEvent?.venueName || (fullEvent?.venue as any)?.name || eventInfo?.venueName || existingConfig?.venueName;
+  if (venueName && venueName.trim()) {
+    const trimmed = venueName.trim().toLowerCase();
+    const matchedByName = venuesList.find(v =>
+      v.name && (v.name.toLowerCase() === trimmed || trimmed.startsWith(v.name.toLowerCase()))
+    );
+    if (matchedByName) return matchedByName.id;
+  }
+  return null;
+}
+
+export interface RoundTimelineSlot {
+  matchIndex: number;
+  startTime: string;
+  endTime: string;
+  duration: number;
+}
+
+export interface RoundTimeline {
+  slots: RoundTimelineSlot[];
+  roundEndTime: string;
+  nextAvailableTime: string;
+}
+
+/**
+ * Computes scheduled slots for a playoff round.
+ * In 'sequential' mode, each match starts after the previous match finishes plus break time,
+ * jumping over any enabled tournament breaks.
+ * In 'same_time' mode, all matches start concurrently at the round's start time (on parallel courts).
+ */
+export function calculateRoundTimeline(
+  startTime: string,
+  matchCount: number,
+  duration: number,
+  breakMins: number = 10,
+  breaks: TournamentBreak[] = [],
+  mode: 'sequential' | 'same_time' = 'sequential',
+  dayOfWeek?: number,
+  numCourts: number = 1
+): RoundTimeline {
+  if (matchCount <= 0 || !startTime) {
+    return {
+      slots: [],
+      roundEndTime: startTime || '08:00 AM',
+      nextAvailableTime: startTime || '08:00 AM',
+    };
+  }
+
+  const effectiveDuration = duration > 0 ? duration : 30;
+  const initialMin = parseTimeToMinutes(startTime);
+
+  if (mode === 'same_time') {
+    const { nextTimeMin: adjustedStartMin } = getNextAvailableSlotAfterBreaks(
+      initialMin,
+      effectiveDuration,
+      breaks,
+      dayOfWeek
+    );
+    const endMin = adjustedStartMin + effectiveDuration;
+    const startStr = formatMinutesToTime(adjustedStartMin);
+    const endStr = formatMinutesToTime(endMin);
+
+    const slots: RoundTimelineSlot[] = [];
+    for (let i = 0; i < matchCount; i++) {
+      slots.push({
+        matchIndex: i,
+        startTime: startStr,
+        endTime: endStr,
+        duration: effectiveDuration,
+      });
+    }
+
+    const { nextTimeMin: nextAvailMin } = getNextAvailableSlotAfterBreaks(
+      endMin + breakMins,
+      effectiveDuration,
+      breaks,
+      dayOfWeek
+    );
+
+    return {
+      slots,
+      roundEndTime: endStr,
+      nextAvailableTime: formatMinutesToTime(nextAvailMin),
+    };
+  }
+
+  // Sequential mode (with N-court parallel batching when numCourts > 1):
+  const courts = Math.max(1, numCourts);
+  const slots: RoundTimelineSlot[] = [];
+  let currentStartMin = initialMin;
+
+  for (let i = 0; i < matchCount; i++) {
+    if (i % courts === 0) {
+      const { nextTimeMin: adjustedStartMin } = getNextAvailableSlotAfterBreaks(
+        currentStartMin,
+        effectiveDuration,
+        breaks,
+        dayOfWeek
+      );
+      const endMin = adjustedStartMin + effectiveDuration;
+      slots.push({
+        matchIndex: i,
+        startTime: formatMinutesToTime(adjustedStartMin),
+        endTime: formatMinutesToTime(endMin),
+        duration: effectiveDuration,
+      });
+      currentStartMin = endMin + breakMins;
+    } else {
+      const prev = slots[slots.length - 1];
+      slots.push({
+        matchIndex: i,
+        startTime: prev.startTime,
+        endTime: prev.endTime,
+        duration: effectiveDuration,
+      });
+    }
+  }
+
+  const lastEndMin = slots.length > 0
+    ? parseTimeToMinutes(slots[slots.length - 1].endTime)
+    : initialMin;
+
+  const { nextTimeMin: nextAvailMin } = getNextAvailableSlotAfterBreaks(
+    lastEndMin + breakMins,
+    effectiveDuration,
+    breaks,
+    dayOfWeek
+  );
+
+  return {
+    slots,
+    roundEndTime: slots.length > 0 ? slots[slots.length - 1].endTime : startTime,
+    nextAvailableTime: formatMinutesToTime(nextAvailMin),
+  };
+}
+
+/**
+ * Applies round dates, start times, durations, and sequential / same-time modes
+ * across playoff match drafts.
+ */
+// Chronological round order for time cascade
+const PLAYOFF_ROUND_ORDER = [
+  'ROUND_OF_64', 'ROUND_OF_32', 'ROUND_OF_16',
+  'QUARTER_FINAL', 'SEMI_FINAL', 'THIRD_PLACE', 'FINAL',
+];
+
+export function computePlayoffRoundMatches(
+  matches: PlayoffMatchDraft[],
+  options: {
+    roundDates: Record<string, string>;
+    roundTimes: Record<string, string>;
+    roundDurations: Record<string, string>;
+    roundModes: Record<string, 'sequential' | 'same_time'>;
+    globalDuration: number;
+    breakMins: number;
+    breaks?: TournamentBreak[];
+    usePlayoffDays?: boolean;
+    playoffDays?: number[];
+    numCourts?: number;
+    startTime?: string;
+  }
+): PlayoffMatchDraft[] {
+  const {
+    roundDates,
+    roundTimes,
+    roundDurations,
+    globalDuration,
+    breakMins,
+    breaks = [],
+    usePlayoffDays = false,
+    playoffDays = [0, 1, 2, 3, 4, 5, 6],
+    numCourts = 1,
+    startTime: globalStartTime = '',
+  } = options;
+
+  const roundOrder = new Map(PLAYOFF_ROUND_ORDER.map((round, index) => [round, index]));
+  const originalIndex = new Map(matches.map((match, index) => [match.id, index]));
+  const orderedMatches = [...matches].sort((a, b) =>
+    (roundOrder.get(a.round) ?? PLAYOFF_ROUND_ORDER.length) - (roundOrder.get(b.round) ?? PLAYOFF_ROUND_ORDER.length) ||
+    a.roundIndex - b.roundIndex ||
+    (originalIndex.get(a.id) ?? 0) - (originalIndex.get(b.id) ?? 0)
+  );
+  const matchById = new Map(matches.map(match => [match.id, match]));
+  // The bracket generator's per-match dates come from a serial cursor and can
+  // already have rolled forward even though this scheduler will parallelize courts.
+  // Use the first draft date as the shared default anchor; feeder and court
+  // availability then move each match only as far forward as it actually needs.
+  const defaultScheduleDate = matches
+    .map(match => match.date)
+    .filter((date): date is string => !!date)
+    .sort()[0];
+  const scheduledEndByMatch = new Map<string, number>();
+  const courtAvailableAt = new Map<string, number>();
+  const participantAvailableAt = new Map<string, number>();
+  const scheduledTimes = new Map<string, { date: string; time: string }>();
+  const scheduledCourts = new Map<string, string>();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const dayOrdinal = (date: string) => Math.floor(Date.parse(`${date}T00:00:00Z`) / dayMs);
+  const dateFromOrdinal = (ordinal: number) => new Date(ordinal * dayMs).toISOString().slice(0, 10);
+  const absoluteMinute = (date: string, time: string) => dayOrdinal(date) * 1440 + parseTimeToMinutes(time);
+  const formatAbsoluteMinute = (absolute: number) => {
+    const ordinal = Math.floor(absolute / 1440);
+    return { date: dateFromOrdinal(ordinal), time: formatMinutesToTime(absolute - ordinal * 1440) };
+  };
+  const placeAfterBreaks = (candidate: number, duration: number) => {
+    let start = candidate;
+    for (let guard = 0; guard < 32; guard++) {
+      const ordinal = Math.floor(start / 1440);
+      const minuteOfDay = start - ordinal * 1440;
+      const date = dateFromOrdinal(ordinal);
+      const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
+      const { nextTimeMin } = getNextAvailableSlotAfterBreaks(minuteOfDay, duration, breaks, dayOfWeek);
+      const adjusted = ordinal * 1440 + nextTimeMin;
+      if (adjusted === start) return start;
+      start = adjusted;
+    }
+    return start;
+  };
+
+  // Allocate each match across courts by earliest availability. Later-round
+  // matches can use free courts as soon as their own participants are ready;
+  // feeder links delay only the matches waiting for an earlier result. BYEs
+  // advance immediately and consume no court, duration, or rest interval.
+  const rounds = new Map<string, typeof orderedMatches>();
+  orderedMatches.forEach(match => {
+    const key = `${match.round}:${match.roundIndex}`;
+    rounds.set(key, [...(rounds.get(key) || []), match]);
+  });
+  for (const roundMatches of rounds.values()) {
+    const representative = roundMatches[0];
+    const configuredDate = roundDates[representative.round] || defaultScheduleDate || representative.date;
+    const adjustedDate = usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && configuredDate
+      ? advanceDateToAllowedDay(configuredDate, playoffDays)
+      : configuredDate;
+    const fallbackDate = adjustedDate || defaultScheduleDate || representative.date || '1970-01-01';
+    const configuredStart = roundTimes[representative.round] || globalStartTime || representative.time || '08:00 AM';
+    const roundStart = absoluteMinute(fallbackDate, configuredStart);
+    const roundDurationStr = roundDurations[representative.round];
+    const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
+    const isAutomaticAdvance = (match: PlayoffMatchDraft) =>
+      isByeParticipant(match.home) || isByeParticipant(match.away) ||
+      match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
+    const playableMatches = roundMatches.filter(match => !isAutomaticAdvance(match));
+    roundMatches.filter(isAutomaticAdvance).forEach(match => scheduledEndByMatch.set(match.id, roundStart));
+
+    const getFeederIds = (match: PlayoffMatchDraft) => [match.home?.id, match.away?.id]
+      .filter((id): id is string => !!id)
+      .map(id => {
+        const suffix = id.endsWith('-winner') ? '-winner' : id.endsWith('-loser') ? '-loser' : '';
+        return suffix ? id.slice(0, -suffix.length) : '';
+      })
+      .filter(id => id && matchById.has(id));
+    const getParticipantKeys = (match: PlayoffMatchDraft) => [match.home, match.away]
+      .filter(participant => !!participant && !isByeParticipant(participant))
+      .map(participant => participant.id || participant.name)
+      .filter(id => !!id && !id.endsWith('-winner') && !id.endsWith('-loser'))
+      .map(id => id.trim().toLowerCase());
+
+    const venueCourtPools = new Map<string, string[]>();
+    playableMatches.forEach(match => {
+      const venueKey = String(match.venueId ?? '');
+      if (!venueCourtPools.has(venueKey)) {
+        const venueCourts = Array.from(new Set(matches
+          .filter(candidate => String(candidate.venueId ?? '') === venueKey && candidate.courtId != null &&
+            !isByeParticipant(candidate.home) && !isByeParticipant(candidate.away) &&
+            candidate.status !== 'AUTO_ADVANCED' && candidate.status !== 'BYE')
+          .map(candidate => String(candidate.courtId))));
+        venueCourtPools.set(venueKey, venueCourts.length > 0
+          ? venueCourts
+          : Array.from({ length: Math.max(1, numCourts) }, (_, courtIndex) => `unassigned:${courtIndex}`));
+      }
+    });
+
+    // Re-evaluate all remaining matches after each placement. This lets ready
+    // matches claim the current free courts before a feeder-delayed match is
+    // assigned a later slot, while tracking each participant across rounds.
+    const pending = [...playableMatches];
+    while (pending.length > 0) {
+      let bestPlacement: {
+        match: PlayoffMatchDraft;
+        courtId: string;
+        courtKey: string;
+        start: number;
+        participantKeys: string[];
+        pendingIndex: number;
+      } | null = null;
+
+      for (let pendingIndex = 0; pendingIndex < pending.length; pendingIndex++) {
+        const match = pending[pendingIndex];
+        const feederIds = getFeederIds(match);
+        if (feederIds.some(id => !scheduledEndByMatch.has(id))) continue;
+        const feederReadyAt = feederIds.reduce((readyAt, id) =>
+          Math.max(readyAt, scheduledEndByMatch.get(id) ?? roundStart), roundStart);
+        const participantKeys = getParticipantKeys(match);
+        const participantReadyAt = participantKeys.reduce((readyAt, key) =>
+          Math.max(readyAt, participantAvailableAt.get(key) ?? roundStart), roundStart);
+        const readyAt = Math.max(roundStart, feederReadyAt, participantReadyAt);
+        const venueKey = String(match.venueId ?? '');
+        const courtPool = venueCourtPools.get(venueKey) || [];
+
+        for (const courtId of courtPool) {
+          const courtKey = `${venueKey}:${courtId}`;
+          const start = placeAfterBreaks(Math.max(readyAt, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+          if (!bestPlacement || start < bestPlacement.start ||
+            (start === bestPlacement.start && pendingIndex < bestPlacement.pendingIndex)) {
+            bestPlacement = { match, courtId, courtKey, start, participantKeys, pendingIndex };
+          }
+        }
+      }
+
+      // Break malformed or cyclic feeder references safely instead of leaving
+      // a fixture unscheduled; valid brackets always take the ready path above.
+      if (!bestPlacement) {
+        const match = pending[0];
+        const venueKey = String(match.venueId ?? '');
+        const courtId = (venueCourtPools.get(venueKey) || [])[0] || 'unassigned:0';
+        const courtKey = `${venueKey}:${courtId}`;
+        const start = placeAfterBreaks(Math.max(roundStart, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+        bestPlacement = { match, courtId, courtKey, start, participantKeys: getParticipantKeys(match), pendingIndex: 0 };
+      }
+
+      const { match, courtId, courtKey, start, participantKeys } = bestPlacement;
+      const scheduled = formatAbsoluteMinute(start);
+      scheduledTimes.set(match.id, scheduled);
+      if (!courtId.startsWith('unassigned:')) scheduledCourts.set(match.id, courtId);
+      scheduledEndByMatch.set(match.id, start + duration);
+      courtAvailableAt.set(courtKey, start + duration + breakMins);
+      participantKeys.forEach(key => participantAvailableAt.set(key, start + duration));
+      pending.splice(bestPlacement.pendingIndex, 1);
+    }
+  }
+
+  return matches.map(m => {
+    const roundDate = roundDates[m.round];
+    const roundDurationStr = roundDurations[m.round];
+    const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
+
+    let updated: PlayoffMatchDraft = { ...m, duration };
+
+    if (isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED' || m.status === 'BYE') {
+      updated.time = '';
+      updated.venueId = null;
+      updated.courtId = null;
+      return updated;
+    }
+
+    if (roundDate) {
+      updated.date = roundDate;
+    } else if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && updated.date) {
+      updated.date = advanceDateToAllowedDay(updated.date, playoffDays);
+    }
+
+    // BYE matches keep time=''; real matches use their court/dependency slot.
+    const scheduled = scheduledTimes.get(m.id);
+    if (scheduled) {
+      updated.date = scheduled.date;
+      updated.time = scheduled.time;
+      updated.courtId = scheduledCourts.get(m.id) ?? updated.courtId;
+    }
+
+    return updated;
+  });
+}
+
+/** Converts 12-hour time ("04:00 PM") to 24-hour "HH:mm" ("16:00") expected by backend persistence. */
+export function to24HourTime(timeStr: string): string {
+  if (!timeStr) return '00:00';
+  const mins = parseTimeToMinutes(timeStr);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+interface SetupScheduleProps {
+  initialEventId?: string;
+  initialConfigId?: number | null;
+  onClearConfigSelection?: () => void;
+}
+
+export function SetupSchedule({
+  initialEventId,
+  initialConfigId,
+  onClearConfigSelection,
+}: SetupScheduleProps = {}) {
   // Data
   const { hasPermission, user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const canEditTiming = isSuperAdmin || isAdmin || isSportsAdmin || (hasPermission ? hasPermission("Edit Venue Timing") : false);
@@ -57,13 +565,30 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [participants, setParticipants] = useState('8');
   const [numberOfGroups, setNumberOfGroups] = useState('2');
   const [thirdPlace, setThirdPlace] = useState(false);
-  const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
+  const [seedingOrder, setSeedingOrder] = useState('RANDOM');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
-  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
+  // All BYEs in the first knockout round only (no byes in qualifiers / semi-finals / final).
+  const [byesFirstRoundOnly, setByesFirstRoundOnly] = useState(true);
+  const [showByesInBracket, setShowByesInBracket] = useState(true);
+  const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('RANDOM');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
-  const isGroupKnockout = format === 'GROUP_PLAYOFF';
-  const isKnockoutOnly = format === 'KNOCKOUT_SINGLE' || format === 'KNOCKOUT_DOUBLE';
+  const isKnockoutOnly =
+    format === 'KNOCKOUT' ||
+    format === 'KNOCKOUT_SINGLE' ||
+    format === 'KNOCKOUT_DOUBLE' ||
+    format === 'DOUBLE_ELIMINATION';
+
+  const isGroupKnockout =
+    format === 'GROUP_PLAYOFF' ||
+    format === 'GROUP_KNOCKOUT';
+
+  const isRoundRobin =
+    format === 'ROUND_ROBIN' ||
+    format === 'LEAGUE' ||
+    format === 'CUSTOM' ||
+    format === 'SWISS' ||
+    format === 'SUPER_LEAGUE';
 
   // Scoring Config
   const [ptsWin, setPtsWin] = useState('2');
@@ -250,15 +775,34 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [usePlayoffDays, setUsePlayoffDays] = useState(false);
   const [playoffDays, setPlayoffDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [playoffRoundDates, setPlayoffRoundDates] = useState<Record<string, string>>({});
+  const [playoffRoundTimes, setPlayoffRoundTimes] = useState<Record<string, string>>({});
+  const [playoffRoundDurations, setPlayoffRoundDurations] = useState<Record<string, string>>({});
+  const [playoffRoundModes, setPlayoffRoundModes] = useState<Record<string, 'sequential' | 'same_time'>>({});
   const [maxMatchesPerDay, setMaxMatchesPerDay] = useState('2');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Scheduled Breaks & Meals Config (Lunch, Dinner, Drinks, Maintenance)
+  const [tournamentBreaks, setTournamentBreaks] = useState<TournamentBreak[]>(DEFAULT_TOURNAMENT_BREAKS);
+  const [showAddCustomBreakModal, setShowAddCustomBreakModal] = useState(false);
+  const [newCustomBreakName, setNewCustomBreakName] = useState('');
+  const [newCustomBreakType, setNewCustomBreakType] = useState<BreakType>('CUSTOM');
+  const [newCustomBreakStart, setNewCustomBreakStart] = useState('03:00 PM');
+  const [newCustomBreakEnd, setNewCustomBreakEnd] = useState('03:30 PM');
+
   // Venue Config
   const [selectedVenues, setSelectedVenues] = useState<number[]>([]);
-  const [venueAssignType, setVenueAssignType] = useState('Random');
+  const [venueAssignType, setVenueAssignType] = useState('Sequential');
   const [expandedVenue, setExpandedVenue] = useState<number | null>(null);
   // Selected courts per venue — keyed by venue id, value = list of selected court names
-  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});  // Event selection
+  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});
+
+  // Event & Filter Selection
+  const [tournaments, setTournaments] = useState<TournamentDropdownItem[]>([]);
+  const [selectedTournamentFilter, setSelectedTournamentFilter] = useState('');
+  const [selectedSportFilter, setSelectedSportFilter] = useState('');
+  const [selectedAgeFilter, setSelectedAgeFilter] = useState('');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState('');
+  const [selectedFormatFilter, setSelectedFormatFilter] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('');
 
   // UI
@@ -268,26 +812,66 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [addEditVenueModalOpen, setAddEditVenueModalOpen] = useState(false);
   const [venueToEdit, setVenueToEdit] = useState<Venue | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showDisplayExportMenu, setShowDisplayExportMenu] = useState(false);
+  const [showStageExportModal, setShowStageExportModal] = useState(false);
+  const [stageExportFormat, setStageExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
+  const [scheduleViewMode, setScheduleViewMode] = useState<'visual' | 'list' | 'table'>('visual');
+  const [useCustomNames, setUseCustomNames] = useState(false);
+  const [customParticipantNames, setCustomParticipantNames] = useState('');
   const [playoffsGenerated, setPlayoffsGenerated] = useState(false);
   // Playoff ("rounds to final") bracket draft generated by the backend
   // (POST /api/tournament/playoff/generate). Replaces in-browser generation.
   const [playoffDraft, setPlayoffDraft] = useState<PlayoffMatchDraft[]>([]);
   const [showSetup, setShowSetup] = useState(false);
   const [currentConfigId, setCurrentConfigId] = useState<number | null>(null);
+  const [currentConfigStatus, setCurrentConfigStatus] = useState<string>('');
   const [generatedGroups, setGeneratedGroups] = useState<Array<{
     name: string;
-    participants: Array<{ id: string; name: string; flatNumber?: string }>;
+    participants: Array<{ id: string; name: string; flatNumber?: string; phone?: string }>;
     rounds: string;
     proceeders: string;
     limitMatches: boolean;
     maxMatches: string;
   }>>([]);
-  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string }>>([]);
+  const [allParticipantOptions, setAllParticipantOptions] = useState<Array<{ id: string; name: string; flatNumber?: string; phone?: string }>>([]);
   const [confirmedRegistrations, setConfirmedRegistrations] = useState<EventRegistration[]>([]);
   const [allPlayersConfirmed, setAllPlayersConfirmed] = useState(true);
+  const [openPoolPairs, setOpenPoolPairs] = useState<DoublesTeamPair[]>([]);
+  const [unpairedPoolPlayers, setUnpairedPoolPlayers] = useState<EventRegistration[]>([]);
+  const [savingPairsToDb, setSavingPairsToDb] = useState(false);
+
+  const selectedEventObj = useMemo(() => {
+    return events.find(e => e.id.toString() === selectedEvent);
+  }, [events, selectedEvent]);
+
+  const isDoublesEvent = useMemo(() => {
+    if (!selectedEventObj) return false;
+    const rawFmt = selectedEventObj.formats || selectedEventObj.format;
+    const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+    return (
+      fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+      Boolean(selectedEventObj.minPlayers === 2 && selectedEventObj.maxPlayers === 2) ||
+      Boolean(selectedEventObj.name && selectedEventObj.name.toLowerCase().includes('doubles'))
+    );
+  }, [selectedEventObj]);
+
+  const isMixedDoublesEvent = useMemo(() => {
+    if (!selectedEventObj) return false;
+    const rawFmt = selectedEventObj.formats || selectedEventObj.format;
+    const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+    return (
+      fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+      Boolean(selectedEventObj.name && selectedEventObj.name.toLowerCase().includes('mixed'))
+    );
+  }, [selectedEventObj]);
+
+  const fixedDoublesPairs = useMemo(() => {
+    if (!isDoublesEvent || !selectedEventObj) return [];
+    return partitionDoublesRegistrations(confirmedRegistrations, selectedEventObj).fixedPairs;
+  }, [isDoublesEvent, selectedEventObj, confirmedRegistrations]);
 
   // Match Editing State
   const [matchOverrides, setMatchOverrides] = useState<Record<string, any>>({});
@@ -312,27 +896,352 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   // Pre-select event when arriving from "Schedule Matches" button
   useEffect(() => {
+    if (initialConfigId) return;
     if (!initialEventId || events.length === 0) return;
     const match = events.find(e => e.id.toString() === initialEventId);
-    if (match) handleEventChange(initialEventId);
+    if (match) {
+      handleEventChange(initialEventId);
+      if (match.tournamentId) {
+        setSelectedTournamentFilter(match.tournamentId.toString());
+      }
+      if (match.sportName) {
+        setSelectedSportFilter(match.sportName);
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, initialEventId]);
+  }, [events, initialEventId, initialConfigId]);
 
   const loadData = async () => {
     try {
-      const [t, e, c] = await Promise.all([
+      const [t, e, c, tournList, communityEvents, venueList] = await Promise.all([
         tournamentService.getTournamentTypes(),
         tournamentService.getEventsForDropdown(),
         tournamentService.getConfigs(),
+        tournamentService.getTournamentsForDropdown().catch(() => [] as TournamentDropdownItem[]),
+        user?.communityId
+          ? sportsService.getCommunityEvents(user.communityId).catch(() => [] as SportsEvent[])
+          : Promise.resolve([] as SportsEvent[]),
+        venueService.getVenues(user?.communityId).catch(() => [] as Venue[]),
       ]);
       setTypes(t);
-      setEvents(e);
       setConfigs(c);
+      if (venueList && venueList.length > 0) {
+        setVenues(venueList);
+      }
+
+      // Enrich events with communityEvents data for robust tournament, gender & age properties
+      const commMap = new Map<number, SportsEvent>((communityEvents || []).map(ce => [ce.id, ce]));
+      const enrichedEvents: EventInfo[] = (e || []).map(item => {
+        const ce = commMap.get(item.id);
+        const tournamentId = item.tournamentId ?? ce?.tournament?.id ?? null;
+        const tournamentName = item.tournamentName || ce?.tournament?.name || (tournamentId ? `Tournament #${tournamentId}` : undefined);
+        const venueId = (item.venueId && Number(item.venueId) > 0)
+          ? Number(item.venueId)
+          : (ce?.venue?.id ? Number(ce.venue.id) : ((ce as any)?.venueId && Number((ce as any).venueId) > 0 ? Number((ce as any).venueId) : undefined));
+        const venueName = item.venueName || ce?.venue?.name || ce?.venueName || undefined;
+        const gender = item.gender || ce?.gender || undefined;
+        const minAge = item.minAge != null ? item.minAge : (ce?.minAge != null ? ce.minAge : undefined);
+        const maxAge = item.maxAge != null ? item.maxAge : (ce?.maxAge != null ? ce.maxAge : undefined);
+        const categoryName = item.categoryName || ce?.categoryName || undefined;
+        const rawFormats = item.formats || item.format || ce?.format || (ce as any)?.formats;
+        const formats = Array.isArray(rawFormats) ? rawFormats : (rawFormats ? [rawFormats] : []);
+
+        return {
+          ...item,
+          tournamentId,
+          tournamentName,
+          venueId,
+          venueName,
+          gender,
+          minAge,
+          maxAge,
+          categoryName,
+          formats,
+          minPlayers: item.minPlayers ?? ce?.minPlayers,
+          maxPlayers: item.maxPlayers ?? ce?.maxPlayers,
+        };
+      });
+      setEvents(enrichedEvents);
+
+      // Collect unique tournaments from dropdown API and enriched events.
+      // Only include tournaments that have at least one REGISTRATION_CLOSED event.
+      const closedEnrichedEvents = enrichedEvents.filter(ev => {
+        const st = String(ev.status || '').toUpperCase().trim();
+        return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+      });
+      const closedTournamentIds = new Set(
+        closedEnrichedEvents.map(ev => ev.tournamentId).filter(Boolean)
+      );
+      const tournsMap = new Map<number, TournamentDropdownItem>();
+      (tournList || []).forEach(tr => {
+        if (tr.id && closedTournamentIds.has(tr.id)) tournsMap.set(tr.id, tr);
+      });
+      closedEnrichedEvents.forEach(ev => {
+        if (ev.tournamentId && !tournsMap.has(ev.tournamentId)) {
+          tournsMap.set(ev.tournamentId, {
+            id: ev.tournamentId,
+            name: ev.tournamentName || `Tournament #${ev.tournamentId}`,
+          });
+        }
+      });
+      setTournaments(Array.from(tournsMap.values()));
     } catch { /* fallback handled by existing types */ }
-    try {
-      const v = await venueService.getVenues(user?.communityId);
-      setVenues(v);
-    } catch { /* no venues */ }
+  };
+
+  const formatGender = (gender?: string): string => {
+    if (!gender) return 'Open / All';
+    const upper = gender.trim().toUpperCase();
+    if (upper === 'MALE' || upper === 'MEN' || upper === 'BOYS') return 'Male';
+    if (upper === 'FEMALE' || upper === 'WOMEN' || upper === 'GIRLS') return 'Female';
+    if (upper === 'MIXED') return 'Mixed';
+    if (upper === 'ALL' || upper === 'ANY' || upper === 'OPEN') return 'Open / All';
+    return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+  };
+
+  const formatAgeCategory = (e: EventInfo): string => {
+    if (e.categoryName && e.categoryName.trim()) {
+      return e.categoryName.trim();
+    }
+    if (e.minAge != null && e.maxAge != null && (e.minAge > 0 || e.maxAge < 100)) {
+      if (e.maxAge >= 90) return `${e.minAge}+ Yrs`;
+      if (e.minAge <= 0) return `U-${e.maxAge}`;
+      return `${e.minAge}–${e.maxAge} Yrs`;
+    }
+    if (e.minAge != null && e.minAge > 0) return `${e.minAge}+ Yrs`;
+    if (e.maxAge != null && e.maxAge < 100) return `U-${e.maxAge}`;
+    return 'All Ages / Open';
+  };
+
+  const formatParticipantFormat = (e: EventInfo): string => {
+    // 1. Check formats array from e or enriched data
+    const rawFormats = e.formats || e.format;
+    const list = Array.isArray(rawFormats) ? rawFormats : (rawFormats ? [rawFormats] : []);
+    const normalized = list.map(f => String(f).toUpperCase().trim()).filter(Boolean);
+
+    if (normalized.length > 0) {
+      const labels = normalized.map(f => {
+        if (f === 'SINGLES') return 'Singles';
+        if (f === 'DOUBLES') return 'Doubles';
+        if (f === 'MIXED_DOUBLES' || f === 'MIXED') return 'Mixed Doubles';
+        if (f === 'TEAM') return 'Team';
+        return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase();
+      });
+      return Array.from(new Set(labels)).join(' / ');
+    }
+
+    // 2. Infer from name or category keywords
+    const text = `${e.name || ''} ${e.categoryName || ''}`.toLowerCase();
+    if (text.includes('mixed doubles') || (text.includes('mixed') && text.includes('doubles'))) {
+      return 'Mixed Doubles';
+    }
+    if (text.includes('singles') && text.includes('doubles')) {
+      return 'Singles / Doubles';
+    }
+    if (text.includes('singles')) {
+      return 'Singles';
+    }
+    if (text.includes('doubles')) {
+      return 'Doubles';
+    }
+    if (text.includes('mixed')) {
+      return 'Mixed Doubles';
+    }
+
+    // 3. Infer from min/max players
+    if (e.minPlayers === 1 && e.maxPlayers === 1) return 'Singles';
+    if (e.minPlayers === 2 && e.maxPlayers === 2) return 'Doubles';
+    if (e.minPlayers && e.minPlayers > 2) return 'Team';
+
+    // 4. Team sports
+    const sport = (e.sportName || '').toLowerCase();
+    if (['cricket', 'football', 'volleyball', 'basketball', 'kabaddi', 'hockey', 'throwball', 'rugby', 'soccer'].includes(sport)) {
+      return 'Team';
+    }
+
+    return '';
+  };
+
+  const getEventOptionLabel = (e: EventInfo): string => {
+    const fmt = formatParticipantFormat(e);
+    const sportPart = e.sportName ? ` (${e.sportName})` : '';
+    if (!fmt) {
+      return `${e.name}${sportPart}`;
+    }
+    const nameLower = (e.name || '').toLowerCase();
+    const fmtLower = fmt.toLowerCase();
+    if (nameLower.includes(fmtLower) || (fmtLower.includes('mixed') && nameLower.includes('mixed'))) {
+      return `${e.name}${sportPart}`;
+    }
+    return `${e.name} — ${fmt}${sportPart}`;
+  };
+
+  /** Returns true if an event's registration is closed (ready for scheduling). */
+  const isRegClosed = (e: EventInfo): boolean => {
+    const st = String(e.status || '').toUpperCase().trim();
+    return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
+  };
+
+  /** Events whose registration is closed — used as the base for all filter dropdowns. */
+  const closedEvents = useMemo(() => events.filter(isRegClosed), [events]);
+
+  const availableSports = useMemo(() => {
+    const set = new Set<string>();
+    closedEvents.forEach(e => {
+      if (e.sportName && e.sportName.trim()) {
+        set.add(e.sportName.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [closedEvents]);
+
+  const availableGenders = useMemo(() => {
+    const set = new Set<string>();
+    closedEvents.forEach(e => {
+      set.add(formatGender(e.gender));
+    });
+    if (set.size === 0) {
+      ['Open / All', 'Male', 'Female', 'Mixed'].forEach(g => set.add(g));
+    }
+    const preferredOrder = ['Open / All', 'Male', 'Female', 'Mixed'];
+    return Array.from(set).sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a);
+      const idxB = preferredOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [closedEvents]);
+
+  const availableAges = useMemo(() => {
+    const set = new Set<string>();
+    closedEvents.forEach(e => {
+      set.add(formatAgeCategory(e));
+    });
+    return Array.from(set).sort((a, b) => {
+      if (a === 'All Ages / Open') return -1;
+      if (b === 'All Ages / Open') return 1;
+      return a.localeCompare(b);
+    });
+  }, [closedEvents]);
+
+  const availableFormats = useMemo(() => {
+    const set = new Set<string>();
+    closedEvents.forEach(e => {
+      const fmt = formatParticipantFormat(e);
+      if (fmt) {
+        if (fmt.includes(' / ')) {
+          fmt.split(' / ').forEach(part => set.add(part.trim()));
+        } else {
+          set.add(fmt);
+        }
+      }
+    });
+    if (set.size === 0) {
+      ['Singles', 'Doubles', 'Mixed Doubles', 'Team'].forEach(f => set.add(f));
+    }
+    const preferredOrder = ['Singles', 'Doubles', 'Mixed Doubles', 'Mixed', 'Team'];
+    return Array.from(set).sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a);
+      const idxB = preferredOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [closedEvents]);
+
+  const filteredEvents = useMemo(() => {
+    // Base: only events with registration closed (participants finalised → ready to schedule)
+    return closedEvents.filter(e => {
+      if (selectedTournamentFilter) {
+        if (selectedTournamentFilter === '__none__') {
+          if (e.tournamentId) return false;
+        } else {
+          if (String(e.tournamentId || '') !== selectedTournamentFilter) return false;
+        }
+      }
+      if (selectedSportFilter) {
+        if ((e.sportName || '').trim().toLowerCase() !== selectedSportFilter.trim().toLowerCase()) return false;
+      }
+      if (selectedAgeFilter) {
+        if (formatAgeCategory(e) !== selectedAgeFilter) return false;
+      }
+      if (selectedGenderFilter) {
+        if (formatGender(e.gender) !== selectedGenderFilter) return false;
+      }
+      if (selectedFormatFilter) {
+        const fmt = formatParticipantFormat(e);
+        if (!fmt) return false;
+        if (fmt !== selectedFormatFilter && !fmt.includes(selectedFormatFilter)) return false;
+      }
+      return true;
+    });
+  }, [closedEvents, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
+
+  const handleTournamentFilterChange = (tournId: string) => {
+    setSelectedTournamentFilter(tournId);
+    if (selectedEvent && tournId) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev) {
+        if (tournId === '__none__' && ev.tournamentId) {
+          handleEventChange('');
+        } else if (tournId !== '__none__' && String(ev.tournamentId || '') !== tournId) {
+          handleEventChange('');
+        }
+      }
+    }
+  };
+
+  const handleSportFilterChange = (sport: string) => {
+    setSelectedSportFilter(sport);
+    if (selectedEvent && sport) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && (ev.sportName || '').trim().toLowerCase() !== sport.trim().toLowerCase()) {
+        handleEventChange('');
+      }
+    }
+  };
+
+  const handleAgeFilterChange = (age: string) => {
+    setSelectedAgeFilter(age);
+    if (selectedEvent && age) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && formatAgeCategory(ev) !== age) {
+        handleEventChange('');
+      }
+    }
+  };
+
+  const handleGenderFilterChange = (gender: string) => {
+    setSelectedGenderFilter(gender);
+    if (selectedEvent && gender) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && formatGender(ev.gender) !== gender) {
+        handleEventChange('');
+      }
+    }
+  };
+
+  const handleFormatFilterChange = (format: string) => {
+    setSelectedFormatFilter(format);
+    if (selectedEvent && format) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev) {
+        const fmt = formatParticipantFormat(ev);
+        if (fmt !== format && !fmt.includes(format)) {
+          handleEventChange('');
+        }
+      }
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSelectedTournamentFilter('');
+    setSelectedSportFilter('');
+    setSelectedAgeFilter('');
+    setSelectedGenderFilter('');
+    setSelectedFormatFilter('');
   };
 
   const handleSaveTimingSuccess = (updatedVenue: Venue) => {
@@ -350,6 +1259,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     });
     setSelectedVenues(prev => prev.includes(savedVenue.id) ? prev : [...prev, savedVenue.id]);
     setExpandedVenue(savedVenue.id);
+    if (savedVenue.courts && savedVenue.courts.length > 0) {
+      setSelectedCourts(prev => ({
+        ...prev,
+        [savedVenue.id]: savedVenue.courts!.map(c => c.name),
+      }));
+    }
   };
 
 
@@ -362,7 +1277,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (ev.eventDateEnd) setEndDate(ev.eventDateEnd);
     }
 
-    if (!id) return;
+    if (!id) {
+      setSelectedVenues([]);
+      setExpandedVenue(null);
+      setSelectedCourts({});
+      setConfirmedRegistrations([]);
+      setOpenPoolPairs([]);
+      setUnpairedPoolPlayers([]);
+      setCurrentConfigId(null);
+      return;
+    }
 
     // Fetch sports_event row, confirmed count, and registration list in parallel
     const [fullEventResult, confirmedResult, registrationsResult] = await Promise.allSettled([
@@ -374,12 +1298,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // Format — sports_event.tournament_type is authoritative
     if (fullEventResult.status === 'fulfilled') {
       const fe = fullEventResult.value;
-      const resolved = (fe.tournamentType as string | undefined)
+      let resolved = (fe.tournamentType as string | undefined)
         ?? configs.find(c => c.eventId === Number(id))?.tournamentType
         ?? '';
+      if (resolved === 'KNOCKOUT') resolved = 'KNOCKOUT_SINGLE';
+      if (resolved === 'GROUP_KNOCKOUT') resolved = 'GROUP_PLAYOFF';
       if (resolved) setFormat(resolved);
     } else {
-      const fallback = configs.find(c => c.eventId === Number(id))?.tournamentType ?? '';
+      let fallback = configs.find(c => c.eventId === Number(id))?.tournamentType ?? '';
+      if (fallback === 'KNOCKOUT') fallback = 'KNOCKOUT_SINGLE';
+      if (fallback === 'GROUP_KNOCKOUT') fallback = 'GROUP_PLAYOFF';
       if (fallback) setFormat(fallback);
     }
 
@@ -396,8 +1324,398 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         (r: EventRegistration) => r.status === 'CONFIRMED' || r.status === 'REGISTERED'
       );
       setConfirmedRegistrations(confirmed);
+
+      // If format is doubles, partition into fixed pairs and open pool, and auto-pair open pool
+      const rawFmt = ev?.formats || ev?.format;
+      const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+      const isEvDoubles = fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+        Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2) ||
+        Boolean(ev?.name && ev.name.toLowerCase().includes('doubles'));
+
+      if (isEvDoubles && confirmed.length > 0) {
+        const isMixed = fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+          Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+        const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmed, ev);
+        const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed });
+        setOpenPoolPairs(pairedTeams);
+        setUnpairedPoolPlayers(unpairedPlayers);
+
+        const totalTeams = fixedPairs.length + pairedTeams.length;
+        if (totalTeams > 0) {
+          setParticipants(String(totalTeams));
+        }
+      } else {
+        setOpenPoolPairs([]);
+        setUnpairedPoolPlayers([]);
+      }
     } else {
       setConfirmedRegistrations([]);
+      setOpenPoolPairs([]);
+      setUnpairedPoolPlayers([]);
+    }
+
+    // Associate existing tournament config if one already exists for this event
+    const existingConfig = configs.find(c => c.eventId === Number(id));
+    if (existingConfig) {
+      setCurrentConfigId(existingConfig.id);
+      if (existingConfig.seedingOrder) {
+        setSeedingOrder(existingConfig.seedingOrder);
+        setPlayoffSeedingOrder(existingConfig.seedingOrder);
+      }
+      if (typeof existingConfig.byesFirstRoundOnly === 'boolean') {
+        setByesFirstRoundOnly(existingConfig.byesFirstRoundOnly);
+      }
+      if (typeof existingConfig.showByesInBracket === 'boolean') {
+        setShowByesInBracket(existingConfig.showByesInBracket);
+      }
+      if (typeof existingConfig.limitMatchesPerDay === 'boolean') {
+        setLimitMatchesPerDay(existingConfig.limitMatchesPerDay);
+      }
+      if (existingConfig.maxMatchesPerDay) {
+        setMaxMatchesPerDay(String(existingConfig.maxMatchesPerDay));
+      }
+      if (typeof existingConfig.usePlayoffDays === 'boolean') {
+        setUsePlayoffDays(existingConfig.usePlayoffDays);
+      }
+      if (Array.isArray(existingConfig.playoffDays)) {
+        setPlayoffDays(existingConfig.playoffDays);
+      }
+      if (existingConfig.venueAssignType) {
+        setVenueAssignType(existingConfig.venueAssignType);
+      }
+      if (existingConfig.playoffRoundDates && typeof existingConfig.playoffRoundDates === 'object') {
+        setPlayoffRoundDates(existingConfig.playoffRoundDates);
+      }
+      if (existingConfig.playoffRoundTimes && typeof existingConfig.playoffRoundTimes === 'object') {
+        setPlayoffRoundTimes(existingConfig.playoffRoundTimes);
+      }
+      if (existingConfig.playoffRoundDurations && typeof existingConfig.playoffRoundDurations === 'object') {
+        setPlayoffRoundDurations(existingConfig.playoffRoundDurations);
+      }
+      if (existingConfig.playoffRoundModes && typeof existingConfig.playoffRoundModes === 'object') {
+        setPlayoffRoundModes(existingConfig.playoffRoundModes as Record<string, 'sequential' | 'same_time'>);
+      }
+      if (existingConfig.startDate) setStartDate(existingConfig.startDate);
+      if (existingConfig.endDate) setEndDate(existingConfig.endDate);
+      if (existingConfig.endTime) setEndTime(existingConfig.endTime);
+      if (existingConfig.matchDurationMinutes) setMatchDuration(String(existingConfig.matchDurationMinutes));
+      if (existingConfig.breakBetweenMatchesMinutes != null) setBreakTime(`${existingConfig.breakBetweenMatchesMinutes} mins`);
+      if (existingConfig.numberOfGroups) setNumberOfGroups(String(existingConfig.numberOfGroups));
+      if (typeof existingConfig.thirdPlaceMatch === 'boolean') {
+        setThirdPlace(existingConfig.thirdPlaceMatch);
+        setPlayoffThirdPlace(existingConfig.thirdPlaceMatch);
+      }
+      if (existingConfig.pointsForWin != null) setPtsWin(String(existingConfig.pointsForWin));
+      if (existingConfig.pointsForDraw != null) setPtsDraw(String(existingConfig.pointsForDraw));
+      if (existingConfig.pointsForLoss != null) setPtsLoss(String(existingConfig.pointsForLoss));
+      if (existingConfig.breaksConfig && Array.isArray(existingConfig.breaksConfig) && existingConfig.breaksConfig.length > 0) {
+        setTournamentBreaks(existingConfig.breaksConfig);
+      }
+      if (Array.isArray(existingConfig.matchDays)) setMatchDays(existingConfig.matchDays);
+    } else {
+      setCurrentConfigId(null);
+      setPlayoffRoundDates({});
+      setPlayoffRoundTimes({});
+      setPlayoffRoundDurations({});
+      setPlayoffRoundModes({});
+    }
+
+    // ═══ Automatically Configure Venue for Selected Event ═══
+    const fe = fullEventResult.status === 'fulfilled' ? fullEventResult.value : null;
+    const targetVenueId = resolveTargetVenueId(fe, existingConfig, ev, venues);
+
+    if (targetVenueId) {
+      setSelectedVenues([targetVenueId]);
+      setExpandedVenue(targetVenueId);
+
+      // Locate venue details to pre-select courts
+      let venueObj = venues.find(v => v.id === targetVenueId);
+      if (!venueObj) {
+        try {
+          const fetched = await venueService.getVenueById(targetVenueId);
+          if (fetched && fetched.id) {
+            venueObj = fetched;
+            setVenues(prev => prev.some(v => v.id === fetched.id) ? prev : [...prev, fetched]);
+          }
+        } catch (err) {
+          console.warn('[SetupSchedule] Failed to fetch venue details for venueId:', targetVenueId, err);
+        }
+      }
+
+      if (venueObj?.courts && venueObj.courts.length > 0) {
+        const courtNames = venueObj.courts.map(c => c.name);
+        setSelectedCourts(prev => ({
+          ...prev,
+          [targetVenueId!]: courtNames,
+        }));
+      }
+    } else {
+      setSelectedVenues([]);
+      setExpandedVenue(null);
+    }
+  };
+
+  const applyConfigToSetup = (target: ConfigInfo) => {
+    setCurrentConfigId(target.id);
+    setCurrentConfigStatus(target.status || 'DRAFT');
+
+    // Format
+    let resolvedFormat = target.tournamentType || '';
+    if (resolvedFormat === 'KNOCKOUT') resolvedFormat = 'KNOCKOUT_SINGLE';
+    if (resolvedFormat === 'GROUP_KNOCKOUT') resolvedFormat = 'GROUP_PLAYOFF';
+    if (resolvedFormat) setFormat(resolvedFormat);
+
+    // Participants
+    if (target.totalTeams) setParticipants(String(target.totalTeams));
+
+    // Dates & Times
+    if (target.startDate) setStartDate(target.startDate);
+    if (target.endDate) setEndDate(target.endDate);
+    if (target.endTime) setEndTime(target.endTime);
+    if (target.matchDurationMinutes) setMatchDuration(String(target.matchDurationMinutes));
+    if (target.breakBetweenMatchesMinutes != null) setBreakTime(`${target.breakBetweenMatchesMinutes} mins`);
+
+    // Groups & Knockout
+    if (target.numberOfGroups) setNumberOfGroups(String(target.numberOfGroups));
+    if (typeof target.thirdPlaceMatch === 'boolean') {
+      setThirdPlace(target.thirdPlaceMatch);
+      setPlayoffThirdPlace(target.thirdPlaceMatch);
+    }
+    if (target.seedingOrder) {
+      setSeedingOrder(target.seedingOrder);
+      setPlayoffSeedingOrder(target.seedingOrder);
+    }
+    if (typeof target.byesFirstRoundOnly === 'boolean') setByesFirstRoundOnly(target.byesFirstRoundOnly);
+    if (typeof target.showByesInBracket === 'boolean') setShowByesInBracket(target.showByesInBracket);
+    if (typeof target.limitMatchesPerDay === 'boolean') setLimitMatchesPerDay(target.limitMatchesPerDay);
+    if (target.maxMatchesPerDay) setMaxMatchesPerDay(String(target.maxMatchesPerDay));
+    if (typeof target.usePlayoffDays === 'boolean') setUsePlayoffDays(target.usePlayoffDays);
+    if (Array.isArray(target.playoffDays)) setPlayoffDays(target.playoffDays);
+    if (Array.isArray(target.matchDays)) setMatchDays(target.matchDays);
+    if (target.venueAssignType) setVenueAssignType(target.venueAssignType);
+
+    // Scoring
+    if (target.pointsForWin != null) setPtsWin(String(target.pointsForWin));
+    if (target.pointsForDraw != null) setPtsDraw(String(target.pointsForDraw));
+    if (target.pointsForLoss != null) setPtsLoss(String(target.pointsForLoss));
+
+    // Breaks
+    if (target.breaksConfig && Array.isArray(target.breaksConfig) && target.breaksConfig.length > 0) {
+      setTournamentBreaks(target.breaksConfig);
+    }
+
+    // Playoff Round Overrides
+    if (target.playoffRoundDates && typeof target.playoffRoundDates === 'object') setPlayoffRoundDates(target.playoffRoundDates);
+    if (target.playoffRoundTimes && typeof target.playoffRoundTimes === 'object') setPlayoffRoundTimes(target.playoffRoundTimes);
+    if (target.playoffRoundDurations && typeof target.playoffRoundDurations === 'object') setPlayoffRoundDurations(target.playoffRoundDurations);
+    if (target.playoffRoundModes && typeof target.playoffRoundModes === 'object') {
+      setPlayoffRoundModes(target.playoffRoundModes as Record<string, 'sequential' | 'same_time'>);
+    }
+
+    // Event & Registrations
+    if (target.eventId) {
+      const evIdStr = String(target.eventId);
+      setSelectedEvent(evIdStr);
+      const ev = events.find(e => e.id === target.eventId);
+      if (ev) {
+        if (ev.tournamentId) setSelectedTournamentFilter(String(ev.tournamentId));
+        if (ev.sportName) setSelectedSportFilter(ev.sportName);
+      }
+
+      // Fetch confirmed registrations
+      sportsService.getEventRegistrations(target.eventId).then(regs => {
+        const confirmed = (regs || []).filter(
+          (r: EventRegistration) => r.status === 'CONFIRMED' || r.status === 'REGISTERED'
+        );
+        setConfirmedRegistrations(confirmed);
+
+        const rawFmt = ev?.formats || ev?.format;
+        const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+        const isEvDoubles = fmtList.some((f: any) => String(f).toUpperCase().includes('DOUBLES')) ||
+          Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2) ||
+          Boolean(ev?.name && ev.name.toLowerCase().includes('doubles'));
+
+        if (isEvDoubles && confirmed.length > 0) {
+          const isMixed = fmtList.some((f: any) => String(f).toUpperCase().includes('MIXED')) ||
+            Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+          const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmed, ev);
+          const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed });
+          setOpenPoolPairs(pairedTeams);
+          setUnpairedPoolPlayers(unpairedPlayers);
+          const totalTeams = fixedPairs.length + pairedTeams.length;
+          if (totalTeams > 0 && !target.totalTeams) {
+            setParticipants(String(totalTeams));
+          }
+        }
+      }).catch(err => {
+        console.warn('[SetupSchedule] Error loading registrations for config event:', err);
+      });
+    }
+
+    // Venue & Courts
+    const evTarget = events.find(e => e.id === target.eventId);
+    const targetVenueId = target.venueId || (evTarget?.venueId ? Number(evTarget.venueId) : null);
+    if (targetVenueId) {
+      setSelectedVenues([targetVenueId]);
+      setExpandedVenue(targetVenueId);
+      const vObj = venues.find(v => v.id === targetVenueId);
+      const vCourts = vObj?.courts;
+      if (vCourts && vCourts.length > 0) {
+        setSelectedCourts(prev => ({
+          ...prev,
+          [targetVenueId]: vCourts.map(c => c.name),
+        }));
+      } else {
+        venueService.getVenueById(targetVenueId).then(fetched => {
+          const fetchedCourts = fetched?.courts;
+          if (fetchedCourts && fetchedCourts.length > 0) {
+            setSelectedCourts(prev => ({
+              ...prev,
+              [targetVenueId]: fetchedCourts.map(c => c.name),
+            }));
+          }
+        }).catch(() => {});
+      }
+    }
+
+    // Display the bracket view immediately when editing schedule
+    setScheduleGenerated(true);
+    setPlayoffsGenerated(true);
+    setPlayoffViewMode('bracket');
+    setScheduleViewMode('visual');
+
+    // Generate local playoff draft to establish the bracket structure
+    const initialDraft = generateLocalPlayoffDraft((target.seedingOrder as PlayoffSeedingOrder) || 'RANDOM');
+
+    // If matches were previously saved, rebuild the COMPLETE bracket exactly as saved
+    // (all rounds + BYE slots, ordered by bracketSlot) rather than overlaying by index.
+    if (target.id) {
+      tournamentService.getSavedMatchesByConfigId(target.id).then(savedMatches => {
+        const savedDraft = buildPlayoffDraftFromSavedMatches(savedMatches, target);
+        if (savedDraft.length > 0) {
+          setPlayoffDraft(savedDraft);
+          // Pin exactly what was saved (date/time/duration/venue/court) so schedule
+          // recomputation never replaces it with generated defaults.
+          const pinned: Record<string, any> = {};
+          savedDraft.forEach(m => {
+            if (m.status === 'AUTO_ADVANCED') return;
+            pinned[m.id] = {
+              date: m.date,
+              time: m.time,
+              duration: m.duration,
+              venueId: m.venueId,
+            };
+          });
+          setMatchOverrides(pinned);
+          setShowByesInBracket(
+            typeof (target as any).showByesInBracket === 'boolean' ? (target as any).showByesInBracket : true
+          );
+        } else if (initialDraft.length > 0) {
+          setPlayoffDraft(initialDraft);
+        }
+      }).catch(err => {
+        console.warn('[SetupSchedule] Error loading saved matches for config:', err);
+      });
+    }
+  };
+
+  const handleExitEditMode = () => {
+    setCurrentConfigId(null);
+    setCurrentConfigStatus('');
+    setSelectedEvent('');
+    setFormat('');
+    setParticipants('8');
+    setStartDate('');
+    setEndDate('');
+    setSelectedVenues([]);
+    setExpandedVenue(null);
+    setSelectedCourts({});
+    setScheduleGenerated(false);
+    setPlayoffsGenerated(false);
+    setGeneratedGroups([]);
+    setAllParticipantOptions([]);
+    setMatchOverrides({});
+    onClearConfigSelection?.();
+    showInfo('Exited configuration edit mode');
+  };
+
+  // Pre-load and apply configuration when arriving with initialConfigId
+  useEffect(() => {
+    if (!initialConfigId) return;
+    const target = configs.find(c => c.id === Number(initialConfigId));
+    if (target) {
+      applyConfigToSetup(target);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configs, initialConfigId, events, venues]);
+
+  const handleReshuffleOpenPool = () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Open pool pairings are locked.');
+      return;
+    }
+    if (!selectedEventObj || confirmedRegistrations.length === 0) return;
+    const { openPool, fixedPairs } = partitionDoublesRegistrations(confirmedRegistrations, selectedEventObj);
+    const { pairedTeams, unpairedPlayers } = pairOpenPoolPlayers(openPool, {
+      isMixedDoubles: isMixedDoublesEvent,
+    });
+    setOpenPoolPairs(pairedTeams);
+    setUnpairedPoolPlayers(unpairedPlayers);
+
+    const totalTeams = fixedPairs.length + pairedTeams.length;
+    setParticipants(String(totalTeams));
+
+    const allDoublesTeams = [...fixedPairs, ...pairedTeams];
+    const newParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
+    for (let i = 0; i < totalTeams; i++) {
+      const team = allDoublesTeams[i];
+      newParts.push({
+        id: `P${i + 1}`,
+        name: team.name,
+        flatNumber: team.flatNumber,
+        phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
+        rating: team.rating,
+      });
+    }
+    setAllParticipantOptions(newParts);
+
+    if (generatedGroups.length > 0) {
+      setGeneratedGroups(prev =>
+        prev.map((g, gIdx) => ({
+          ...g,
+          participants: newParts.filter((_, idx) => idx % prev.length === gIdx),
+        }))
+      );
+    }
+
+    showSuccess(`Randomly paired ${openPool.length} open pool players into ${pairedTeams.length} doubles team(s)!`);
+  };
+
+  const handleSavePairsToEvent = async () => {
+    if (openPoolPairs.length === 0) return;
+    setSavingPairsToDb(true);
+    let successCount = 0;
+    try {
+      for (const pair of openPoolPairs) {
+        if (pair.player1?.id && pair.player2?.user?.id) {
+          try {
+            await sportsService.nominatePartner(
+              pair.player1.id,
+              pair.player2.user.id,
+              null,
+              true
+            );
+            successCount++;
+          } catch (e) {
+            console.warn(`Could not nominate partner for reg ${pair.player1.id}:`, e);
+          }
+        }
+      }
+      showSuccess(`Successfully synced ${successCount} auto-paired team(s) to tournament registrations!`);
+    } catch (err: any) {
+      showError('Failed to save some partner pairs: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingPairsToDb(false);
     }
   };
 
@@ -415,7 +1733,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   };
 
   const toggleVenue = (id: number) => {
-    setSelectedVenues(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
+    setSelectedVenues(prev => {
+      const willSelect = !prev.includes(id);
+      if (willSelect) {
+        const venue = venues.find(v => v.id === id);
+        if (venue?.courts && venue.courts.length > 0 && (!selectedCourts[id] || selectedCourts[id].length === 0)) {
+          setSelectedCourts(cPrev => ({
+            ...cPrev,
+            [id]: venue.courts!.map(c => c.name),
+          }));
+        }
+        setExpandedVenue(id);
+        return [...prev, id];
+      } else {
+        return prev.filter(v => v !== id);
+      }
+    });
   };
 
   /** Toggle a court selection within a venue — supports single or multiple courts. */
@@ -427,6 +1760,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         : [...current, courtName];
       return { ...prev, [venueId]: next };
     });
+    setMatchOverrides(prev => {
+      const next: Record<string, any> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const { courtId, ...rest } = v as any;
+        next[k] = rest;
+      }
+      return next;
+    });
   };
 
   /** Selected venues that have courts available but none selected yet. */
@@ -437,11 +1778,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         !!v && !!v.courts && v.courts.length > 0 && (selectedCourts[v.id]?.length || 0) === 0);
 
   /**
-   * Resolve the court id to assign to a match. Prefers the user's selected
-   * courts for the venue, distributing matches across them round-robin by index.
+   * Resolve the court id to assign to a match according to venueAssignType:
+   * - 'Sequential' / 'Parallel': court index = index % pool.length
+   * - 'Snake': bounces back and forth across courts (0, 1, 2, 1, 0...)
+   * - 'Random': uses deterministic pseudo-random hash of index to select court
    * Falls back to the venue's first court, or null if the venue has no courts.
    */
-  const resolveCourtId = (venueId: number | null, index: number): string | null => {
+  const resolveCourtId = (venueId: number | null, index: number, assignTypeOverride?: string): string | null => {
     if (!venueId) return null;
     const venue = venues.find(v => v.id === venueId);
     if (!venue?.courts || venue.courts.length === 0) return null;
@@ -449,20 +1792,41 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const pool = selectedNames.length > 0
       ? venue.courts.filter(c => selectedNames.includes(c.name))
       : venue.courts;
-    const chosen = pool.length > 0 ? pool[index % pool.length] : venue.courts[0];
-    return chosen?.id ?? null;
+    if (pool.length === 0) return venue.courts[0]?.id ?? venue.courts[0]?.name ?? null;
+
+    const assignType = assignTypeOverride || venueAssignType;
+    let chosenCourtIdx = 0;
+
+    if (assignType === 'Snake' && pool.length > 1) {
+      const cycle = 2 * (pool.length - 1);
+      const mod = index % cycle;
+      chosenCourtIdx = mod < pool.length ? mod : cycle - mod;
+    } else if (assignType === 'Random' && pool.length > 1) {
+      // Deterministic pseudo-random distribution per index so fixtures stay stable
+      chosenCourtIdx = Math.abs((index * 997 + 101) % pool.length);
+    } else {
+      // Sequential, Parallel, or fallback
+      chosenCourtIdx = index % pool.length;
+    }
+
+    const chosen = pool[chosenCourtIdx] || pool[0];
+    return chosen?.id ?? chosen?.name ?? null;
   };
 
   /** Resolve a venue id to its display name (for showing assigned venue per match). */
   const resolveVenueName = (venueId: number | null): string =>
     venueId ? (venues.find(v => v.id === venueId)?.name ?? '') : '';
 
-  /** Resolve a court id to its display name across all venues' courts. */
-  const resolveCourtName = (courtId: string | null): string => {
+  /** Resolve a court id against its venue first, since court IDs may repeat between venues. */
+  const resolveCourtName = (courtId: string | null, venueId?: number | null): string => {
     if (courtId == null) return '';
-    for (const v of venues) {
-      const c = v.courts?.find(ct => String(ct.id) === String(courtId));
-      if (c) return c.name;
+    if (venueId != null) {
+      const venue = venues.find(v => v.id === venueId);
+      return venue?.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId))?.name ?? '';
+    }
+    for (const venue of venues) {
+      const court = venue.courts?.find(ct => ct.name === courtId || String(ct.id) === String(courtId));
+      if (court) return court.name;
     }
     return '';
   };
@@ -470,6 +1834,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   /** Returns the existing tournament_config for the selected event, if one already exists. */
   const existingConfigForEvent = () =>
     selectedEvent ? configs.find(c => c.eventId === Number(selectedEvent)) : undefined;
+
+  const existingConfig = existingConfigForEvent();
+  const isEditingExistingConfig = Boolean(currentConfigId && existingConfig && existingConfig.id === currentConfigId);
+  const isBlockedByOtherConfig = Boolean(existingConfig && (!currentConfigId || existingConfig.id !== currentConfigId));
+  const activeConfigObj = currentConfigId ? configs.find(c => c.id === currentConfigId) : existingConfig;
+  const isSchedulePublished = Boolean(
+    (currentConfigStatus && currentConfigStatus.toUpperCase() !== 'DRAFT') ||
+    (currentConfigId && activeConfigObj?.status && activeConfigObj.status.toUpperCase() !== 'DRAFT') ||
+    (existingConfig && existingConfig.status && existingConfig.status.toUpperCase() !== 'DRAFT')
+  );
 
   const validateScheduleConfig = () => {
     if (!format) { showWarning('Please select a format'); return false; }
@@ -499,6 +1873,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       teamsAdvancingPerGroup: isGroupKnockout ? Math.min(2, Math.max(1, Math.floor(Number(participants) / (Number(numberOfGroups) || 2)))) : null,
       teamIds: [],
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
+      seedingOrder: isGroupKnockout ? playoffSeedingOrder : seedingOrder,
+      byesFirstRoundOnly,
+      showByesInBracket,
       hasSeeding: isGroupKnockout
         ? (playoffSeedingOrder === 'TRADITIONAL' || playoffSeedingOrder === 'RANKING')
         : (seedingOrder === 'TRADITIONAL' || seedingOrder === 'RANKING'),
@@ -506,9 +1883,39 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endDate: endDate || null,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakBetweenMatchesMinutes: parseInt(breakTime) || 10,
+      breaksConfig: tournamentBreaks,
+      endTime: endTime || null,
       matchDays: matchDays.length < 7 ? matchDays : null,
       playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
+      usePlayoffDays,
+      limitMatchesPerDay,
+      maxMatchesPerDay: Number(maxMatchesPerDay) || 2,
+      venueAssignType,
+      selectedCourts,
+      generatedGroups: generatedGroups.map(g => ({
+        name: g.name,
+        rounds: g.rounds,
+        proceeders: g.proceeders,
+        limitMatches: g.limitMatches,
+        maxMatches: g.maxMatches,
+      })),
       playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
+      playoffRoundTimes: Object.keys(playoffRoundTimes).length > 0 ? playoffRoundTimes : null,
+      playoffRoundDurations: Object.keys(playoffRoundDurations).length > 0 ? playoffRoundDurations : null,
+      playoffRoundModes: Object.keys(playoffRoundModes).length > 0 ? playoffRoundModes : null,
+      roundTimings: (() => {
+        const timings: Record<string, { date: string; startTime?: string }> = {};
+        const allKeys = new Set([...Object.keys(playoffRoundDates), ...Object.keys(playoffRoundTimes)]);
+        allKeys.forEach(k => {
+          if (playoffRoundDates[k] || playoffRoundTimes[k]) {
+            timings[k] = {
+              date: playoffRoundDates[k] || startDate,
+              startTime: playoffRoundTimes[k] || startTime,
+            };
+          }
+        });
+        return Object.keys(timings).length > 0 ? timings : null;
+      })(),
       venueId: selectedVenues.length > 0 ? selectedVenues[0] : null,
       pointsForWin: Number(ptsWin),
       pointsForDraw: Number(ptsDraw),
@@ -536,15 +1943,72 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     };
   };
 
-  const buildParticipantList = (count: number): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+  const buildParticipantList = (
+    count: number,
+    orderOverride?: PlayoffSeedingOrder
+  ): Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; phone?: string; rating?: number | null }> = [];
+    const customLines = useCustomNames
+      ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
+      : [];
+
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    const fmt = ev ? formatParticipantFormat(ev) : '';
+    const isDoubles = fmt.toLowerCase().includes('doubles') || Boolean(ev && ev.minPlayers === 2 && ev.maxPlayers === 2);
+
+    if (isDoubles) {
+      const isMixed = fmt.toLowerCase().includes('mixed') || Boolean(ev?.name && ev.name.toLowerCase().includes('mixed'));
+      const { fixedPairs, openPool } = partitionDoublesRegistrations(confirmedRegistrations, ev);
+      const activeOpenPairs = openPoolPairs.length > 0
+        ? openPoolPairs
+        : pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed }).pairedTeams;
+      const allDoublesTeams = [...fixedPairs, ...activeOpenPairs];
+
+      for (let i = 0; i < count; i++) {
+        if (customLines[i]) {
+          allParts.push({
+            id: `P${i + 1}`,
+            name: customLines[i],
+          });
+        } else if (i < allDoublesTeams.length) {
+          const team = allDoublesTeams[i];
+          allParts.push({
+            id: `P${i + 1}`,
+            name: team.name,
+            flatNumber: team.flatNumber,
+            phone: [team.player1.phone || team.player1.user?.phone, team.player2?.phone || team.player2?.user?.phone].filter(Boolean).join(' / '),
+            rating: team.rating ?? null,
+          });
+        } else {
+          allParts.push({ id: `P${i + 1}`, name: `Team ${i + 1}` });
+        }
+      }
+      return allParts;
+    }
+
+    // For RANKING mode, sort by rating descending so Seed 1 (highest rated) → P1, Seed 2 → P2, etc.
+    // For TRADITIONAL, SEQUENTIAL, and RANDOM, preserve base registration order (RANDOM shuffles bracket seeds).
+    const currentOrder = orderOverride || (isGroupKnockout ? playoffSeedingOrder : seedingOrder);
+    const baseRegs = deduplicateReciprocalRegistrations(confirmedRegistrations, false);
+    const effectiveRegistrations = currentOrder === 'RANKING'
+      ? baseRegs.slice().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      : baseRegs;
+
     for (let i = 0; i < count; i++) {
-      if (i < confirmedRegistrations.length) {
-        const reg = confirmedRegistrations[i];
+      if (customLines[i]) {
         allParts.push({
           id: `P${i + 1}`,
-          name: reg.playerName || reg.user?.fullName || `Participant ${i + 1}`,
-          flatNumber: reg.flatNumber || reg.user?.community?.name || undefined,
+          name: customLines[i],
+        });
+      } else if (i < effectiveRegistrations.length) {
+        const reg = effectiveRegistrations[i];
+        const { displayName, flatDisplay } = formatParticipantDisplayName(reg, { hasPartner: false, isOpenPool: false } as any, false, i + 1);
+
+        allParts.push({
+          id: `P${i + 1}`,
+          name: displayName,
+          flatNumber: flatDisplay,
+          phone: reg.phone || reg.user?.phone || '',
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
         });
       } else {
@@ -554,8 +2018,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return allParts;
   };
 
-  const buildGroupsState = () => {
-    const numGroups = Number(numberOfGroups) || 2;
+  const buildGroupsState = (overrideNumGroups?: number) => {
+    const numGroups = overrideNumGroups ?? (isRoundRobin ? 1 : (Number(numberOfGroups) || 2));
     const numParticipants = Number(participants) || 8;
     const allParts = buildParticipantList(numParticipants);
     setAllParticipantOptions(allParts);
@@ -567,7 +2031,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const groups: typeof generatedGroups = [];
     for (let g = 0; g < numGroups; g++) {
       groups.push({
-        name: `Group ${String.fromCharCode(65 + g)}`,
+        name: isRoundRobin && numGroups === 1
+          ? (format === 'LEAGUE' ? 'League Fixtures' : 'Round Robin Fixtures')
+          : `Group ${String.fromCharCode(65 + g)}`,
         participants: [],
         rounds: '1',
         proceeders: defaultProceeders,
@@ -575,16 +2041,27 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         maxMatches: '2',
       });
     }
+    // Serpentine (snake) seeding: Row 0 → A B C D, Row 1 → D C B A, etc.
+    // This keeps Seed 1 and Seed 2 in different groups.
     allParts.forEach((p, idx) => {
-      const groupIdx = idx % numGroups;
-      groups[groupIdx].participants.push(p);
+      const row = Math.floor(idx / numGroups);
+      const col = row % 2 === 0 ? (idx % numGroups) : (numGroups - 1 - (idx % numGroups));
+      groups[col].participants.push(p);
     });
     setGeneratedGroups(groups);
   };
 
   /** Step 1 (Group + Knockout): assign groups and generate group-stage matches only. */
   const handleScheduleGroups = async () => {
-    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Group pairings and bracket draw are locked.');
+      return;
+    }
+    const existing = existingConfigForEvent();
+    if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
+      showWarning('A tournament configuration already exists for this event');
+      return;
+    }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -606,6 +2083,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   /** Step 2 (Group + Knockout): generate knockout / playoff matches after groups are scheduled. */
   const handleGeneratePlayoffs = async () => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Playoff pairings and bracket draw are locked.');
+      return;
+    }
     if (!scheduleGenerated) {
       showWarning('Schedule groups first');
       return;
@@ -631,7 +2112,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       // Preview-only: generate the playoff ("rounds to final") bracket on the
       // backend (stateless) and hold it in local state. Nothing is persisted
       // until the admin clicks Save as Draft / Save & Publish.
-      await fetchPlayoffDraft();
+      setMatchOverrides({});
+      generateLocalPlayoffDraft(playoffSeedingOrder as PlayoffSeedingOrder);
 
       setPlayoffsGenerated(true);
       showSuccess('Knockout bracket generated! Review and Save when ready.');
@@ -645,7 +2127,15 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   /** Single-step generate for Knockout-only and other non-group formats. */
   const handleGenerate = async () => {
-    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Match pairings and bracket draw are locked.');
+      return;
+    }
+    const existing = existingConfigForEvent();
+    if (existing && (!currentConfigId || existing.id !== currentConfigId)) {
+      showWarning('A tournament configuration already exists for this event');
+      return;
+    }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -657,11 +2147,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setAllParticipantOptions(allParts);
 
       if (isKnockoutOnly) {
-        await fetchPlayoffDraft();
+        setMatchOverrides({});
+        generateLocalPlayoffDraft(seedingOrder as PlayoffSeedingOrder);
         setGeneratedGroups([]);
         setPlayoffsGenerated(true);
         showSuccess('Knockout schedule generated! Review and Save when ready.');
+      } else if (isRoundRobin) {
+        buildGroupsState(1);
+        setPlayoffsGenerated(false);
+        showSuccess('Round Robin schedule generated! Review and Save when ready.');
       } else {
+        buildGroupsState();
         setPlayoffsGenerated(false);
         showSuccess('Schedule generated! Review and Save when ready.');
       }
@@ -765,36 +2261,84 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (days.length === 0 || days.length === 7) return date;
     const d = new Date(date);
     let guard = 0;
-    while (!days.includes(d.getDay()) && guard < 7) {
+    while (!days.includes(d.getDay()) && guard < 14) {
       d.setDate(d.getDate() + 1);
       guard++;
     }
     return d;
   };
 
+  const getTotalSelectedCourts = (): number => {
+    return Math.max(1, selectedVenues.reduce((sum, vid) => {
+      const names = selectedCourts[vid] || [];
+      if (names.length > 0) return sum + names.length;
+      const v = venues.find(x => x.id === vid);
+      return sum + (v?.courts?.length || 1);
+    }, 0));
+  };
+
+  const computeGroupMatchSlots = (): Array<{ date: string; time: string }> => {
+    if (generatedGroups.length === 0) return [];
+
+    const numCourts = getTotalSelectedCourts();
+
+    const cursor = createScheduleCursor(
+      startDate || new Date().toISOString().split('T')[0],
+      startTime || '08:00 AM',
+      Number(matchDuration) || 30,
+      parseBreakMinutes(breakTime),
+      tournamentBreaks.filter(b => b.enabled),
+      endTime || undefined,
+      matchDays.length > 0 && matchDays.length < 7 ? matchDays : undefined
+    );
+
+    const totalMatches = generatedGroups.reduce(
+      (sum, g) => sum + getGroupMatches(g, 0).length,
+      0
+    );
+
+    const slots: Array<{ date: string; time: string }> = [];
+    for (let i = 0; i < totalMatches; i++) {
+      if (i % numCourts === 0) {
+        const slot = cursor.next();
+        slots.push({ date: slot.date, time: slot.time });
+      } else {
+        slots.push({ ...slots[slots.length - 1] });
+      }
+    }
+    return slots;
+  };
+
   const getActiveGroupMatches = (group: typeof generatedGroups[0], groupIdx: number) => {
     const baseMatches = getGroupMatches(group, groupIdx);
+
+    const slots = computeGroupMatchSlots();
+    let globalOffset = 0;
+    for (let g = 0; g < groupIdx; g++) {
+      globalOffset += getGroupMatches(generatedGroups[g], g).length;
+    }
 
     return baseMatches.map((m, mIdx) => {
       const key = `${groupIdx}-${mIdx}`;
       const override = matchOverrides[key];
+      const globalIdx = globalOffset + mIdx;
 
-      const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
-      const defaultDate = new Date(baseDate);
-      defaultDate.setDate(baseDate.getDate() + groupIdx + mIdx * 2);
-      const adjusted = advanceToAllowedDay(defaultDate);
-      const defaultDateStr = adjusted.toISOString().split('T')[0];
-      
+      const slot = slots[globalIdx];
+      const defaultDateStr = slot?.date || (startDate || new Date().toISOString().split('T')[0]);
+      const defaultTime = slot?.time || startTime;
+
       const defaultVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
-      const defaultCourtId = resolveCourtId(defaultVenueId, groupIdx + mIdx);
+      const defaultCourtId = resolveCourtId(defaultVenueId, globalIdx);
+
+      const matchDur = override?.duration || Number(matchDuration) || 30;
 
       return {
         name: override?.name || `G${groupIdx + 1} Match ${mIdx + 1}`,
         home: override?.home || m.home,
         away: override?.away || m.away,
         date: override?.date || defaultDateStr,
-        time: override?.time || startTime,
-        duration: override?.duration || Number(matchDuration) || 30,
+        time: override?.time || defaultTime,
+        duration: matchDur,
         venueId: override?.venueId ?? defaultVenueId,
         courtId: override?.courtId ?? defaultCourtId,
         moveSubsMatches: override?.moveSubsMatches || false,
@@ -826,21 +2370,30 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const newHome = allowedParts.find(p => p.id === editMatchForm.homeId);
     const newAway = allowedParts.find(p => p.id === editMatchForm.awayId);
 
-    if (!newHome || !newAway) {
-      showWarning('Please select valid participants');
-      return;
-    }
-    if (newHome.id === newAway.id) {
-      showWarning('A participant cannot play against themselves');
-      return;
+    const existingPlayoffMatch = editingGroupIdx === -1
+      ? getPlayoffMatches().find(m => m.id === editingMatchKey)
+      : null;
+
+    const finalHome = newHome || (existingPlayoffMatch ? existingPlayoffMatch.home : null) || { id: editMatchForm.homeId, name: editMatchForm.homeId };
+    const finalAway = newAway || (existingPlayoffMatch ? existingPlayoffMatch.away : null) || { id: editMatchForm.awayId, name: editMatchForm.awayId };
+
+    if (!isSchedulePublished) {
+      if (!newHome || !newAway) {
+        showWarning('Please select valid participants');
+        return;
+      }
+      if (newHome.id === newAway.id) {
+        showWarning('A participant cannot play against themselves');
+        return;
+      }
     }
 
     setMatchOverrides(prev => ({
       ...prev,
       [editingMatchKey]: {
         name: editMatchForm.name,
-        home: newHome,
-        away: newAway,
+        home: finalHome,
+        away: finalAway,
         date: editMatchForm.date,
         time: editMatchForm.time,
         duration: editMatchForm.duration,
@@ -880,7 +2433,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * Mirrors the shape the in-browser generator used; the actual bracket is
    * now produced server-side via tournamentService.generatePlayoffBracket().
    */
-  const buildPlayoffInput = (): PlayoffScheduleInput => {
+  const buildPlayoffInput = (overrideOrder?: PlayoffSeedingOrder): PlayoffScheduleInput => {
+    const activeSeedingOrder = (overrideOrder || (isGroupKnockout ? playoffSeedingOrder : seedingOrder)) as PlayoffSeedingOrder;
     const numGroups = isKnockoutOnly
       ? 1
       : generatedGroups.length || Number(numberOfGroups) || 2;
@@ -908,7 +2462,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // selected courts so the backend does BYE auto-advance, flat/tower-aware first-round
     // pairing, and parallel court allocation (Rule 4).
     const playerParticipants = isKnockoutOnly
-      ? buildParticipantList(Number(participants) || 8).map(p => ({
+      ? buildParticipantList(Number(participants) || 8, activeSeedingOrder).map(p => ({
           id: p.id,
           name: p.name,
           flatNumber: p.flatNumber ?? null,
@@ -916,20 +2470,48 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         }))
       : undefined;
 
+    const numericCourtId = defaultCourtId && !Number.isNaN(Number(defaultCourtId)) ? Number(defaultCourtId) : null;
+    const initialStartTime = (isKnockoutOnly || allGroupSlots.length === 0)
+      ? (startTime || '08:00 AM')
+      : addMinutesToTime(groupEnd.time, breakMins);
+
+    const roundTimings: Record<string, RoundTimingAnchor> = {};
+    const allRoundKeys = new Set([...Object.keys(playoffRoundDates), ...Object.keys(playoffRoundTimes)]);
+    allRoundKeys.forEach(round => {
+      const date = playoffRoundDates[round] || groupEnd.date;
+      const roundStartTime = playoffRoundTimes[round] || initialStartTime;
+      if (date) {
+        roundTimings[round] = {
+          date,
+          startTime: roundStartTime,
+          courtIds: selectedCourtIds(defaultVenueId),
+        };
+      }
+    });
+
+    const effectiveMatchDays = usePlayoffDays && playoffDays.length < 7
+      ? playoffDays
+      : (matchDays.length < 7 ? matchDays : undefined);
+
     return {
       numGroups,
       proceedersPerGroup,
-      seedingOrder: (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder,
+      seedingOrder: activeSeedingOrder,
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
       startDate: groupEnd.date,
-      startTime: addMinutesToTime(groupEnd.time, breakMins),
+      startTime: initialStartTime,
+      endTime: endTime || undefined,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakMinutes: breakMins,
+      breaks: tournamentBreaks.filter(b => b.enabled),
       venueId: defaultVenueId,
-      courtId: defaultCourtId,
+      courtId: numericCourtId,
       participants: playerParticipants,
       courtIds: selectedCourtIds(defaultVenueId),
-      matchDays: matchDays.length < 7 ? matchDays : undefined,
+      matchDays: effectiveMatchDays,
+      roundTimings: Object.keys(roundTimings).length > 0 ? roundTimings : undefined,
+      byesFirstRoundOnly,
+      includeByesInBracket: showByesInBracket,
     };
   };
 
@@ -948,11 +2530,66 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   /**
    * Fetches the playoff bracket from the backend and caches it in state so the
    * synchronous render/save paths (getPlayoffMatches) can read it.
+   * Falls back seamlessly to the client-side generator if the backend is unreachable.
    */
-  const fetchPlayoffDraft = async (): Promise<PlayoffMatchDraft[]> => {
-    const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
-    setPlayoffDraft(draft);
-    return draft;
+  /**
+   * Generates the playoff bracket draft immediately on the client using buildPlayoffBracket,
+   * ensuring real-time UI updates (0ms) and true random re-shuffling on every invocation.
+   */
+  const generateLocalPlayoffDraft = (
+    overrideOrder?: PlayoffSeedingOrder,
+    overrideShowByes?: boolean
+  ): PlayoffMatchDraft[] => {
+    // When editing an already saved tournament configuration or if schedule is published,
+    // preserve the saved tournament bracket matches; never re-generate from scratch!
+    if (currentConfigId) {
+      return playoffDraft;
+    }
+    const activeOrder = overrideOrder || ((isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder);
+    const activeShowByes = overrideShowByes !== undefined ? overrideShowByes : showByesInBracket;
+    // Always preserve first-round BYEs in the underlying draft so that toggling showByesInBracket
+    // can dynamically show or hide BYEs in getPlayoffMatches without regenerating.
+    const input = { ...buildPlayoffInput(activeOrder), includeByesInBracket: true };
+    const localDraft = sanitizePlayoffMatches(buildPlayoffBracket(input), true);
+    setPlayoffDraft(localDraft);
+    return localDraft;
+  };
+
+  const fetchPlayoffDraft = async (overrideOrder?: PlayoffSeedingOrder): Promise<PlayoffMatchDraft[]> => {
+    const localDraft = generateLocalPlayoffDraft(overrideOrder);
+    return localDraft;
+  };
+
+  const handleKnockoutSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Seeding sequence and bracket draw are locked.');
+      return;
+    }
+    setSeedingOrder(newOrder);
+    setMatchOverrides({});
+    generateLocalPlayoffDraft(newOrder);
+    if (newOrder === 'RANDOM') {
+      showSuccess('Bracket randomized with fresh draw!');
+    } else {
+      const opt = SEEDING_OPTIONS.find(o => o.value === newOrder);
+      showSuccess(`Bracket sequence set to ${opt?.label || newOrder}!`);
+    }
+  };
+
+  const handlePlayoffSeedingOrderChange = (newOrder: PlayoffSeedingOrder) => {
+    if (isSchedulePublished) {
+      showWarning('Schedule is PUBLISHED. Playoff seeding sequence and bracket draw are locked.');
+      return;
+    }
+    setPlayoffSeedingOrder(newOrder);
+    setMatchOverrides({});
+    generateLocalPlayoffDraft(newOrder);
+    if (newOrder === 'RANDOM') {
+      showSuccess('Playoffs randomized with fresh draw!');
+    } else {
+      const opt = SEEDING_OPTIONS.find(o => o.value === newOrder);
+      showSuccess(`Playoffs sequence set to ${opt?.label || newOrder}!`);
+    }
   };
 
   /**
@@ -960,47 +2597,97 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    * manual overrides) on top of the backend-generated bracket draft.
    * Pass `draftOverride` to use a freshly-fetched draft before React state updates.
    */
-  const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
-    let matches = draftOverride ?? playoffDraft;
+  const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[], preserveByes?: boolean) => {
+    const shouldPreserveByes = preserveByes !== undefined ? preserveByes : showByesInBracket;
+    const bracketMatches = sanitizePlayoffMatches(draftOverride ?? playoffDraft, shouldPreserveByes);
+    let matches = bracketMatches.filter(match => !isPlaceholderBracketSlot(match));
+
+    const enrichFlats = (list: PlayoffMatchDraft[]) => {
+      return list.map(m => {
+        let home = m.home;
+        let away = m.away;
+        if (home) {
+          const found = allParticipantOptions.find(p => p.id === home.id || p.name === home.name);
+          if (found && (!home.flatNumber || !(home as any).phone)) home = {
+            ...home,
+            flatNumber: home.flatNumber || found.flatNumber,
+            phone: (home as any).phone || found.phone,
+          } as typeof home;
+        }
+        if (away) {
+          const found = allParticipantOptions.find(p => p.id === away.id || p.name === away.name);
+          if (found && (!away.flatNumber || !(away as any).phone)) away = {
+            ...away,
+            flatNumber: away.flatNumber || found.flatNumber,
+            phone: (away as any).phone || found.phone,
+          } as typeof away;
+        }
+        return { ...m, home, away };
+      });
+    };
+
+    const combineWithPendingSlots = (scheduledMatches: PlayoffMatchDraft[]) => {
+      const scheduledById = new Map(scheduledMatches.map(match => [String(match.id), match] as const));
+      return enrichFlats(bracketMatches.map(match =>
+        isPlaceholderBracketSlot(match)
+          ? { ...match, date: '', time: '', venueId: null, courtId: null, status: 'PENDING_SLOT' }
+          : scheduledById.get(String(match.id)) || match
+      ));
+    };
 
     if (isKnockoutOnly) {
-      let koMatches = applyPlayoffOverrides(matches, matchOverrides);
-      if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
-        koMatches = koMatches.map(m => {
-          const roundDate = playoffRoundDates[m.round];
-          if (roundDate) return { ...m, date: roundDate };
-          if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
-            const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
-            return { ...m, date: d.toISOString().split('T')[0] };
-          }
-          return m;
-        });
-      }
-      return koMatches;
+      // Distribute matches across venue/courts by venueAssignType (same logic as Group→Knockout).
+      const koVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
+      let koRealIdx = 0;
+      matches = matches.map((m) => {
+        const isBye = isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED';
+        const courtId = isBye ? null : resolveCourtId(koVenueId, koRealIdx);
+        if (!isBye) koRealIdx++;
+        return { ...m, venueId: koVenueId, courtId };
+      });
+      let koMatches = computePlayoffRoundMatches(matches, {
+        roundDates: playoffRoundDates,
+        roundTimes: playoffRoundTimes,
+        roundDurations: playoffRoundDurations,
+        roundModes: playoffRoundModes,
+        globalDuration: Number(matchDuration) || 30,
+        breakMins: parseBreakMinutes(breakTime),
+        breaks: tournamentBreaks.filter(b => b.enabled),
+        usePlayoffDays,
+        playoffDays,
+        numCourts: getTotalSelectedCourts(),
+        startTime: startTime || '08:00 AM',
+      });
+      koMatches = applyPlayoffOverrides(koMatches, matchOverrides);
+      return combineWithPendingSlots(koMatches);
     }
 
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
     // (round-robin by match index). Manual court overrides (applied next) still take precedence.
     const playoffVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
-    matches = matches.map((m, idx) => ({
-      ...m,
-      venueId: playoffVenueId,
-      courtId: resolveCourtId(playoffVenueId, idx),
-    }));
+    let poRealIdx = 0;
+    let distributedMatches = matches.map((m) => {
+      const isBye = isByeParticipant(m.home) || isByeParticipant(m.away) || m.status === 'AUTO_ADVANCED';
+      const courtId = isBye ? null : resolveCourtId(playoffVenueId, poRealIdx);
+      if (!isBye) poRealIdx++;
+      return { ...m, venueId: playoffVenueId, courtId };
+    });
 
-    if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
-      matches = matches.map(m => {
-        const roundDate = playoffRoundDates[m.round];
-        if (roundDate) return { ...m, date: roundDate };
-        if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
-          const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
-          return { ...m, date: d.toISOString().split('T')[0] };
-        }
-        return m;
-      });
-    }
+    distributedMatches = computePlayoffRoundMatches(distributedMatches, {
+      roundDates: playoffRoundDates,
+      roundTimes: playoffRoundTimes,
+      roundDurations: playoffRoundDurations,
+      roundModes: playoffRoundModes,
+      globalDuration: Number(matchDuration) || 30,
+      breakMins: parseBreakMinutes(breakTime),
+      breaks: tournamentBreaks.filter(b => b.enabled),
+      usePlayoffDays,
+      playoffDays,
+      numCourts: getTotalSelectedCourts(),
+      startTime: startTime || '08:00 AM',
+    });
 
-    return applyPlayoffOverrides(matches, matchOverrides);
+    return combineWithPendingSlots(applyPlayoffOverrides(distributedMatches, matchOverrides));
   };
 
   const getEditParticipantOptions = () => {
@@ -1020,6 +2707,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   };
 
   const handleClearSchedule = async () => {
+    if (isSchedulePublished) {
+      showWarning('Cannot clear a published schedule.');
+      return;
+    }
     const confirmed = await confirmAction(
       'Clear Schedule',
       'Are you sure you want to clear this schedule? This will reset all generated matches.'
@@ -1057,23 +2748,34 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
     if (!eventId) return allMatches;
 
-    // Collect group stage matches
-    if (isGroupKnockout) {
+    let matchCounter = 1;
+
+    // Collect group stage or round robin matches
+    if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
         const matches = getActiveGroupMatches(group, gIdx);
         matches.forEach((match, mIdx) => {
+          const homeFlat = match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null;
+          const awayFlat = match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null;
           allMatches.push({
             eventId,
             configId: null, // Will be populated after config is created
             groupName: group.name,
-            stage: 'GROUP',
-            matchNumber: mIdx + 1,
+            stage: isRoundRobin ? 'ROUND_ROBIN' : 'GROUP',
+            round: isRoundRobin ? 'LEAGUE_MATCH' : 'GROUP_STAGE',
+            roundNumber: 1,
+            bracketSlot: mIdx,
+            matchNumber: matchCounter++,
             homeName: match.home.name,
             homeId: match.home.id,
+            homeFlat,
+            teamAFlat: homeFlat,
             awayName: match.away.name,
             awayId: match.away.id,
+            awayFlat,
+            teamBFlat: awayFlat,
             matchDate: match.date,
-            matchTime: match.time,
+            matchTime: to24HourTime(match.time),
             duration: match.duration,
             venueId: match.venueId,
             courtId: match.courtId,
@@ -1085,26 +2787,51 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
     // Collect playoff matches if generated
     if (playoffsGenerated || playoffOverride) {
-      const playoffMatches = getPlayoffMatches(playoffOverride);
+      // Always preserve round 0 BYE matches for persistence so the full tournament draw is stored
+      const playoffMatches = getPlayoffMatches(playoffOverride, true);
       playoffMatches.forEach((match: any, idx: number) => {
+        if (isPlaceholderBracketSlot(match)) return;
+        const homeIsBye = isByeParticipant(match.home);
+        const awayIsBye = isByeParticipant(match.away);
+        const isByeMatch = homeIsBye || awayIsBye || match.status === 'AUTO_ADVANCED';
+
+        const homeName = homeIsBye ? 'BYE' : (match.home?.name || 'TBD');
+        const homeId = homeIsBye ? 'bye' : (match.home?.id || null);
+        const awayName = awayIsBye ? 'BYE' : (match.away?.name || 'TBD');
+        const awayId = awayIsBye ? 'bye' : (match.away?.id || null);
+
+        const homeFlat = !homeIsBye
+          ? (match.home?.flatNumber || allParticipantOptions.find(p => p.id === match.home?.id || p.name === match.home?.name)?.flatNumber || null)
+          : null;
+        const awayFlat = !awayIsBye
+          ? (match.away?.flatNumber || allParticipantOptions.find(p => p.id === match.away?.id || p.name === match.away?.name)?.flatNumber || null)
+          : null;
+
         allMatches.push({
           eventId,
           configId: null,
-          groupName: isGroupKnockout ? 'Playoffs' : match.name,
+          groupName: match.name || (isGroupKnockout ? 'Playoffs' : 'Knockout'),
           stage: isGroupKnockout ? 'PLAYOFF' : 'KNOCKOUT',
-          matchNumber: idx + 1,
-          homeName: match.home?.name || 'TBD',
-          homeId: match.home?.id || null,
-          awayName: match.away?.name || 'TBD',
-          awayId: match.away?.id || null,
-          matchDate: match.date,
-          matchTime: match.time,
+          round: match.round || (isGroupKnockout ? 'SEMI_FINAL' : ((match.roundIndex ?? 0) === 0 ? 'ROUND_OF_16' : 'QUARTER_FINAL')),
+          roundNumber: (match.roundIndex !== undefined ? match.roundIndex + 1 : 1),
+          bracketSlot: idx,
+          matchNumber: matchCounter++,
+          homeName,
+          homeId,
+          homeFlat,
+          teamAFlat: homeFlat,
+          awayName,
+          awayId,
+          awayFlat,
+          teamBFlat: awayFlat,
+          matchDate: isByeMatch ? '' : match.date,
+          matchTime: isByeMatch ? '' : to24HourTime(match.time),
           duration: match.duration,
-          venueId: match.venueId,
-          courtId: match.courtId || null,
+          venueId: isByeMatch ? null : match.venueId,
+          courtId: isByeMatch ? null : (match.courtId || null),
           // Auto-advanced BYE matches keep their AUTO_ADVANCED status; the backend save
           // preserves it (others get the global DRAFT/PUBLISHED on Save).
-          status: match.status || 'SCHEDULED',
+          status: isByeMatch ? 'AUTO_ADVANCED' : (match.status || 'SCHEDULED'),
         });
       });
     }
@@ -1144,10 +2871,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       return;
     }
 
-    const confirmed = await confirmAction(
-      'Publish Schedule',
-      'Publish this schedule? Participants will be notified.'
-    );
+    const actionTitle = isSchedulePublished ? 'Update Schedule' : 'Publish Schedule';
+    const actionPrompt = isSchedulePublished
+      ? 'Save schedule updates? Match dates, times, durations, and venues will be updated.'
+      : 'Publish this schedule? Participants will be notified.';
+
+    const confirmed = await confirmAction(actionTitle, actionPrompt);
     if (!confirmed) {
       return;
     }
@@ -1162,9 +2891,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         matches: collectAllMatches(),
       });
       setCurrentConfigId(result.config.id);
+      setCurrentConfigStatus('PUBLISHED');
       console.log('[Save Publish] Saved:', { configId: result.config.id, savedMatches: result.savedMatches });
 
-      showSuccess('Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.');
+      showSuccess(
+        isSchedulePublished
+          ? 'Schedule updates saved! Match dates, times, and venues updated.'
+          : 'Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.'
+      );
     } catch (err: any) {
       console.error('[Save Publish] Error:', err);
       const message = err?.message || 'Unknown error';
@@ -1177,10 +2911,6 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const handleDragDropScheduler = () => {
     showInfo('Drag & Drop Scheduler — open visual editor to adjust timings and venues');
   };
-
-  // Existing tournament config already saved for the selected event (in tournament_config table).
-  // When present, the schedule was already generated/configured — block re-generation.
-  const existingConfig = existingConfigForEvent();
 
   const showScheduleSaveFooter =
     scheduleGenerated && (isGroupKnockout ? playoffsGenerated : isKnockoutOnly ? playoffsGenerated : true);
@@ -1207,12 +2937,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const getTotalMatchesCount = () => {
     let count = 0;
-    if (isGroupKnockout) {
+    if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
         count += getActiveGroupMatches(group, gIdx).length;
       });
     }
-    count += getPlayoffMatches().length;
+    count += getPlayoffMatches().filter(match => !isPlaceholderBracketSlot(match)).length;
     return count;
   };
 
@@ -1222,108 +2952,504 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (playoffMatches.length > 0) {
       maxRound = Math.max(...playoffMatches.map(m => m.roundIndex)) + 1;
     }
-    if (isGroupKnockout) {
+    if (isGroupKnockout || isRoundRobin) {
       const groupRounds = generatedGroups.length > 0 ? Number(generatedGroups[0].rounds) || 1 : 1;
       return groupRounds + maxRound;
     }
     return maxRound || 1;
   };
 
-  const handleExportSchedule = (formatType: 'csv' | 'pdf') => {
-    const allMatches = collectAllMatches();
-    if (allMatches.length === 0) {
+  // Helper to parse time string into minutes from midnight
+  const parseTimeToMinutes = (timeStr: string): number => {
+    if (!timeStr) return 0;
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return 0;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  };
+
+  // Clash & Rest Interval Detection across all active fixtures
+  const scheduleConflicts = useMemo<Record<string, string[]>>(() => {
+    const list: Array<{
+      key: string;
+      home: { id: string; name: string };
+      away: { id: string; name: string };
+      date: string;
+      time: string;
+      duration: number;
+      venueId: number | null;
+      courtId: string | number | null;
+      isPlayoff: boolean;
+    }> = [];
+
+    // Group matches
+    if (isGroupKnockout || isRoundRobin) {
+      generatedGroups.forEach((group, gIdx) => {
+        const matches = getActiveGroupMatches(group, gIdx);
+        matches.forEach((m, mIdx) => {
+          list.push({
+            key: `${gIdx}-${mIdx}`,
+            home: m.home,
+            away: m.away,
+            date: m.date,
+            time: m.time,
+            duration: m.duration || 30,
+            venueId: m.venueId,
+            courtId: m.courtId,
+            isPlayoff: false,
+          });
+        });
+      });
+    }
+
+    // Playoff matches
+    if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
+      // Keep the complete bracket in the view model; presentation toggles filter
+      // BYEs without destroying the entries needed when the user turns them back on.
+      const pMatches = getPlayoffMatches(undefined, true);
+      pMatches.forEach(m => {
+        list.push({
+          key: m.id,
+          home: m.home,
+          away: m.away,
+          date: m.date,
+          time: m.time,
+          duration: m.duration || 30,
+          venueId: m.venueId,
+          courtId: m.courtId,
+          isPlayoff: true,
+        });
+      });
+    }
+
+    const conflictsMap: Record<string, string[]> = {};
+    const addConflict = (key: string, msg: string) => {
+      if (!conflictsMap[key]) conflictsMap[key] = [];
+      if (!conflictsMap[key].includes(msg)) conflictsMap[key].push(msg);
+    };
+
+    for (let i = 0; i < list.length; i++) {
+      const m1 = list[i];
+      if (!m1.date || !m1.time) continue;
+      const isBye1 = m1.home.id === 'bye' || m1.away.id === 'bye' || m1.home.name === 'BYE' || m1.away.name === 'BYE';
+      if (isBye1) continue;
+
+      const s1 = parseTimeToMinutes(m1.time);
+      const e1 = s1 + (m1.duration || 30);
+
+      for (let j = i + 1; j < list.length; j++) {
+        const m2 = list[j];
+        if (!m2.date || !m2.time || m1.date !== m2.date) continue;
+        const isBye2 = m2.home.id === 'bye' || m2.away.id === 'bye' || m2.home.name === 'BYE' || m2.away.name === 'BYE';
+        if (isBye2) continue;
+
+        const s2 = parseTimeToMinutes(m2.time);
+        const e2 = s2 + (m2.duration || 30);
+
+        const timeOverlap = Math.max(s1, s2) < Math.min(e1, e2);
+
+        // 1. Court Collision
+        if (m1.venueId && m1.courtId && m1.venueId === m2.venueId && String(m1.courtId) === String(m2.courtId)) {
+          if (timeOverlap) {
+            const v = venues.find(ven => ven.id === m1.venueId);
+            const c = v?.courts?.find(crt => crt.name === m1.courtId || String(crt.id) === String(m1.courtId));
+            const courtName = [v?.name, c?.name].filter(Boolean).join(' - ') || 'Court';
+            const msg = `Court Overlap: ${courtName} double-booked between ${m1.time} and ${m2.time}`;
+            addConflict(m1.key, msg);
+            addConflict(m2.key, msg);
+          }
+        }
+
+        // 2. Participant Collision / Rest Interval Conflict (< 30 min)
+        const pList1 = [m1.home, m1.away].filter(p => p.id && !p.id.includes('-') && !p.id.startsWith('dummy') && p.name !== 'BYE');
+        const pList2 = [m2.home, m2.away].filter(p => p.id && !p.id.includes('-') && !p.id.startsWith('dummy') && p.name !== 'BYE');
+
+        pList1.forEach(p1 => {
+          const shared = pList2.find(p2 => p2.id === p1.id || (p2.name && p2.name === p1.name && !p1.name.startsWith('Participant ')));
+          if (shared) {
+            if (timeOverlap) {
+              const msg = `Time Clash: ${shared.name} scheduled in simultaneous matches (${m1.time} & ${m2.time})`;
+              addConflict(m1.key, msg);
+              addConflict(m2.key, msg);
+            } else {
+              const gap = s2 >= e1 ? s2 - e1 : s1 - e2;
+              if (gap < 30) {
+                const msg = `Rest Conflict (<30m): ${shared.name} has only ${gap}m rest between ${m1.time} & ${m2.time}`;
+                addConflict(m1.key, msg);
+                addConflict(m2.key, msg);
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // 3. Break Conflict (Match overlapping an enabled Lunch, Dinner, Drinks, or Custom break)
+    const activeBreaks = tournamentBreaks.filter(b => b.enabled);
+    if (activeBreaks.length > 0) {
+      list.forEach(m => {
+        if (!m.date || !m.time) return;
+        const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+        if (isBye) return;
+
+        const mStart = parseTimeToMinutes(m.time);
+        const mDur = m.duration || 30;
+        const conflictBreak = isSlotOverlappingBreak(mStart, mDur, activeBreaks);
+        if (conflictBreak) {
+          addConflict(m.key, `Break Conflict: Scheduled during ${conflictBreak.name} (${conflictBreak.startTime} - ${conflictBreak.endTime})`);
+        }
+      });
+    }
+
+    // 4. End Time / Daily Bounds Conflict
+    if (endTime && endTime.trim()) {
+      const dayEndMin = parseTimeToMinutes(endTime);
+      list.forEach(m => {
+        if (!m.date || !m.time) return;
+        const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+        if (isBye) return;
+
+        const mStart = parseTimeToMinutes(m.time);
+        const mDur = m.duration || 30;
+        if (isMatchExceedingDayEnd(mStart, mDur, dayEndMin)) {
+          addConflict(m.key, `End Time Conflict: Match ends at ${formatMinutesToTime(mStart + mDur)}, exceeding day end time ${endTime}`);
+        }
+      });
+    }
+
+    // 5. Allowed Days Conflict
+    list.forEach(m => {
+      if (!m.date) return;
+      const isBye = m.home.id === 'bye' || m.away.id === 'bye' || m.home.name === 'BYE' || m.away.name === 'BYE';
+      if (isBye) return;
+
+      const days = (m.isPlayoff && usePlayoffDays && playoffDays.length < 7) ? playoffDays : (matchDays.length < 7 ? matchDays : null);
+      if (days && days.length > 0) {
+        const parts = m.date.split('-');
+        const d = parts.length === 3 ? new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])) : new Date(m.date);
+        if (!days.includes(d.getDay())) {
+          const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+          addConflict(m.key, `Disallowed Day Conflict: Scheduled on ${dayName} (${m.date}), which is not an allowed match day`);
+        }
+      }
+    });
+
+    // 6. Limit Participant Matches Per Day Conflict
+    if (limitMatchesPerDay) {
+      const maxPerDay = Number(maxMatchesPerDay) || 2;
+      const dailyCounts: Record<string, Record<string, string[]>> = {}; // date -> participantId/name -> matchKeys[]
+      list.forEach(m => {
+        if (!m.date) return;
+        const parts = [m.home, m.away].filter(p => p.id && !p.id.includes('-') && !p.id.startsWith('dummy') && p.name !== 'BYE');
+        if (!dailyCounts[m.date]) dailyCounts[m.date] = {};
+        parts.forEach(p => {
+          const pKey = p.id || p.name;
+          if (!dailyCounts[m.date][pKey]) dailyCounts[m.date][pKey] = [];
+          dailyCounts[m.date][pKey].push(m.key);
+        });
+      });
+
+      Object.entries(dailyCounts).forEach(([date, participantMap]) => {
+        Object.entries(participantMap).forEach(([pKey, mKeys]) => {
+          if (mKeys.length > maxPerDay) {
+            const warningMsg = `Daily Limit Exceeded: Participant scheduled for ${mKeys.length} matches on ${date} (limit is ${maxPerDay} matches/day)`;
+            mKeys.forEach(k => addConflict(k, warningMsg));
+          }
+        });
+      });
+    }
+
+    return conflictsMap;
+  }, [
+    generatedGroups,
+    isGroupKnockout,
+    isRoundRobin,
+    isKnockoutOnly,
+    playoffsGenerated,
+    venues,
+    matchOverrides,
+    playoffDraft,
+    tournamentBreaks,
+    endTime,
+    matchDays,
+    playoffDays,
+    usePlayoffDays,
+    limitMatchesPerDay,
+    maxMatchesPerDay,
+    playoffRoundDates,
+    playoffRoundTimes,
+    playoffRoundDurations,
+    playoffRoundModes,
+  ]);
+
+  const allFixturesTableRows = useMemo<FixtureTableRow[]>(() => {
+    const rows: FixtureTableRow[] = [];
+    let matchCounter = 1;
+
+    // Group / Round Robin matches
+    if (isGroupKnockout || isRoundRobin) {
+      generatedGroups.forEach((group, gIdx) => {
+        const matches = getActiveGroupMatches(group, gIdx);
+        matches.forEach((m, mIdx) => {
+          const key = `${gIdx}-${mIdx}`;
+          const v = venues.find(ven => ven.id === m.venueId);
+          const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
+          rows.push({
+            id: key,
+            key: `group-${key}`,
+            matchNumber: matchCounter++,
+            stage: isRoundRobin ? (group.name || 'Round Robin') : group.name,
+            groupIndex: gIdx,
+            matchIndex: mIdx,
+            isPlayoff: false,
+            date: m.date,
+            time: m.time,
+            duration: m.duration || 30,
+            venueId: m.venueId,
+            courtId: m.courtId,
+            venueName: v?.name,
+            courtName: c?.name,
+            home: m.home,
+            away: m.away,
+            conflicts: scheduleConflicts[key] || [],
+            rawMatch: m,
+          });
+        });
+      });
+    }
+
+    // Playoff matches
+    if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
+      const pMatches = getPlayoffMatches();
+      pMatches.forEach(m => {
+        const v = venues.find(ven => ven.id === m.venueId);
+        const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
+        const roundNameFormatted = m.round.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+        rows.push({
+          id: m.id,
+          key: `playoff-${m.id}`,
+          matchNumber: matchCounter++,
+          stage: roundNameFormatted,
+          isPlayoff: true,
+          date: m.date,
+          time: m.time,
+          duration: m.duration || 30,
+          venueId: m.venueId,
+          courtId: m.courtId,
+          venueName: v?.name,
+          courtName: c?.name,
+          home: m.home,
+          away: m.away,
+          conflicts: scheduleConflicts[m.id] || [],
+          rawMatch: m,
+        });
+      });
+    }
+
+    return rows;
+  }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft]);
+
+  const allVisibleFixturesTableRows = useMemo(
+    () => allFixturesTableRows.filter(row => !isPlaceholderBracketSlot(row.rawMatch)),
+    [allFixturesTableRows]
+  );
+  const visibleFixturesTableRows = useMemo(() => {
+    const rows = showByesInBracket
+      ? allVisibleFixturesTableRows
+      : allVisibleFixturesTableRows.filter(row => {
+          const match = row.rawMatch as any;
+          return !isByeParticipant(match?.home) && !isByeParticipant(match?.away) &&
+            !['AUTO_ADVANCED', 'BYE'].includes(String(match?.status || '').trim().toUpperCase());
+        });
+    return rows.map((row, index) => ({ ...row, matchNumber: index + 1 }));
+  }, [allVisibleFixturesTableRows, showByesInBracket]);
+
+  const totalConflictsCount = useMemo(() => {
+    return Object.values(scheduleConflicts).reduce((acc, msgs) => acc + (msgs.length > 0 ? 1 : 0), 0);
+  }, [scheduleConflicts]);
+
+  const collectExportableMatches = (includeAutoAdvanced = showByesInBracket): ExportableMatch[] => {
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    const sportName = ev?.sportName || detectSportName(ev?.name) || 'Tournament';
+    const list: ExportableMatch[] = [];
+
+    if (isGroupKnockout || isRoundRobin) {
+      generatedGroups.forEach((group, gIdx) => {
+        const matches = getActiveGroupMatches(group, gIdx);
+        matches.forEach((m, mIdx) => {
+          const v = venues.find(ven => ven.id === m.venueId);
+          const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
+          const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
+          const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+          const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+          const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+          const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+          const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+          const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
+          list.push({
+            id: `G${gIdx + 1}-M${mIdx + 1}`,
+            matchNumber: list.length + 1,
+            groupName: group.name,
+            round: isRoundRobin ? 'LEAGUE_MATCH' : 'GROUP_STAGE',
+            roundName: group.name,
+            stage: isRoundRobin ? 'ROUND_ROBIN' : 'GROUP',
+            sport: sportName,
+            sportName: sportName,
+            date: m.date,
+            time: m.time,
+            venue: venueStr,
+            venueName: v?.name,
+            courtName: c?.name,
+            team1: m.home.name,
+            team2: m.away.name,
+            team1Flat: homeFlat,
+            team2Flat: awayFlat,
+            team1Phone: homePhone,
+            team2Phone: awayPhone,
+            homeTeamName: m.home.name,
+            awayTeamName: m.away.name,
+            homeFlat,
+            awayFlat,
+            home: { ...m.home, flatNumber: homeFlat },
+            away: { ...m.away, flatNumber: awayFlat },
+            status: 'SCHEDULED',
+          });
+        });
+      });
+    }
+
+    if (isKnockoutOnly || (isGroupKnockout && playoffsGenerated)) {
+      const playoffMatches = getPlayoffMatches();
+      playoffMatches.forEach(m => {
+        if (isPlaceholderBracketSlot(m)) return;
+        const v = venues.find(ven => ven.id === m.venueId);
+        const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
+        const venueStr = [v?.name, c?.name].filter(Boolean).join(' - ') || 'TBD';
+        const roundFormatted = (m.round || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+        const homeParticipant = allParticipantOptions.find(p => p.id === m.home?.id || p.name === m.home?.name);
+        const awayParticipant = allParticipantOptions.find(p => p.id === m.away?.id || p.name === m.away?.name);
+        const homeFlat = m.home?.flatNumber || homeParticipant?.flatNumber;
+        const awayFlat = m.away?.flatNumber || awayParticipant?.flatNumber;
+        const homePhone = (m.home as any)?.phone || homeParticipant?.phone;
+        const awayPhone = (m.away as any)?.phone || awayParticipant?.phone;
+        list.push({
+          id: `KO-${m.id}`,
+          matchNumber: list.length + 1,
+          groupName: m.name,
+          round: m.round,
+          roundName: roundFormatted,
+          stage: isGroupKnockout ? 'PLAYOFF' : 'KNOCKOUT',
+          sport: sportName,
+          sportName: sportName,
+          date: m.date,
+          time: m.time,
+          venue: venueStr,
+          venueName: v?.name,
+          courtName: c?.name,
+          team1: m.home?.name || 'TBD',
+          team2: m.away?.name || 'TBD',
+          team1Flat: homeFlat,
+          team2Flat: awayFlat,
+          team1Phone: homePhone,
+          team2Phone: awayPhone,
+          homeTeamName: m.home?.name || 'TBD',
+          awayTeamName: m.away?.name || 'TBD',
+          homeFlat,
+          awayFlat,
+          home: { ...m.home, flatNumber: homeFlat },
+          away: { ...m.away, flatNumber: awayFlat },
+          status: 'SCHEDULED',
+        });
+      });
+    }
+
+    const exportRows = includeAutoAdvanced
+      ? list
+      : list.filter(match => match.status !== 'AUTO_ADVANCED' && match.status !== 'BYE');
+    return exportRows.map((match, index) => ({ ...match, matchNumber: index + 1 }));
+  };
+
+  const handleExportCSV = () => {
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('csv');
+    setShowStageExportModal(true);
+  };
+
+  const handleExportExcel = () => {
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('excel');
+    setShowStageExportModal(true);
+  };
+
+  const handleExportPDF = () => {
+    if (collectExportableMatches(true).length === 0) { showWarning('No matches to export'); return; }
+    setStageExportFormat('pdf');
+    setShowStageExportModal(true);
+  };
+
+  const handleExportScorecards = () => {
+    const list = collectExportableMatches();
+    if (list.length === 0) { showWarning('No matches to export'); return; }
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    exportUmpireScorecardsPDF(list, `${ev?.name || 'Tournament'} Umpire Scorecards`);
+  };
+
+
+  const handleExportListViewPDF = () => {
+    if (visibleFixturesTableRows.length === 0) {
       showWarning('No matches to export');
       return;
     }
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    exportListViewToPDF(
+      visibleFixturesTableRows,
+      `${ev?.name || 'Tournament'} Fixtures Schedule (List View)`,
+      'Mana Community Sports',
+      ev?.sportName || 'Tournament'
+    );
+  };
 
-    const eventName = events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament';
-    const safeName = eventName.replace(/[^a-zA-Z0-9]/g, '_');
+  const handleExportBracketPDF = () => {
+    const playoffMatches = getPlayoffMatches();
+    if (playoffMatches.length === 0) {
+      showWarning('No bracket matches available to download. Please generate the schedule first.');
+      return;
+    }
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    const resolvedMatches = playoffMatches.map(m => {
+      const v = venues.find(ven => ven.id === m.venueId);
+      const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
+      return {
+        ...m,
+        venueName: v?.name || '',
+        courtName: c?.name || '',
+      };
+    });
+    exportBracketToPDF(
+      resolvedMatches,
+      `${ev?.name || 'Tournament'} Knockout Draw`,
+      'Mana Community Sports',
+      ev?.sportName || 'Tournament'
+    );
+  };
 
+  const handleEditFromTable = (row: FixtureTableRow) => {
+    if (row.isPlayoff) {
+      handleOpenEditPlayoffMatch(row.rawMatch);
+    } else if (row.groupIndex !== undefined && row.matchIndex !== undefined) {
+      handleOpenEditMatch(row.groupIndex, row.matchIndex, row.rawMatch);
+    }
+  };
+
+  const handleExportSchedule = (formatType: 'csv' | 'pdf') => {
     if (formatType === 'csv') {
-      const headers = ['#', 'Match', 'Stage', 'Group', 'Home', 'Away', 'Date', 'Time', 'Venue', 'Court', 'Status'];
-      const rows = allMatches.map((m, idx) => [
-        idx + 1,
-        `Match ${m.matchNumber}`,
-        m.stage,
-        m.groupName || '—',
-        m.homeName,
-        m.awayName,
-        m.matchDate || '—',
-        m.matchTime || '—',
-        resolveVenueName(m.venueId) || '—',
-        resolveCourtName(m.courtId) || '—',
-        m.status,
-      ]);
-
-      const csvContent = [headers, ...rows]
-        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-        .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${safeName}_Schedule.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      showSuccess(`Schedule exported as CSV (${allMatches.length} matches)`);
+      handleExportCSV();
     } else {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) { showError('Pop-up blocked. Please allow pop-ups to export PDF.'); return; }
-
-      const matchRows = allMatches.map((m, idx) => `
-        <tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">${idx + 1}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.stage)}${m.groupName ? ' — ' + escapeHtml(m.groupName) : ''}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${escapeHtml(m.homeName)}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">vs</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${escapeHtml(m.awayName)}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.matchDate || '—')}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.matchTime || '—')}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(resolveVenueName(m.venueId) || '—')}</td>
-        </tr>
-      `).join('');
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${escapeHtml(eventName)} — Schedule</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; color: #1e293b; }
-            h1 { font-size: 20px; margin-bottom: 4px; }
-            .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { background: #f1f5f9; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
-            .summary { display: flex; gap: 24px; margin-bottom: 20px; }
-            .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; text-align: center; }
-            .stat-value { font-size: 20px; font-weight: 700; }
-            .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
-            @media print { body { padding: 15px; } }
-          </style>
-        </head>
-        <body>
-          <h1>${escapeHtml(eventName)}</h1>
-          <div class="subtitle">${escapeHtml(format.replace(/_/g, ' '))} · ${allMatches.length} Matches · Generated ${escapeHtml(new Date().toLocaleDateString())}</div>
-          <div class="summary">
-            <div class="stat"><div class="stat-value">${allMatches.length}</div><div class="stat-label">Matches</div></div>
-            <div class="stat"><div class="stat-value">${participants}</div><div class="stat-label">Teams</div></div>
-            <div class="stat"><div class="stat-value">${selectedVenues.length}</div><div class="stat-label">Venues</div></div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>#</th><th>Stage</th><th>Home</th><th></th><th>Away</th><th>Date</th><th>Time</th><th>Venue</th>
-              </tr>
-            </thead>
-            <tbody>${matchRows}</tbody>
-          </table>
-          <script>window.onload = function() { window.print(); }</script>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      showSuccess('Schedule PDF ready for printing');
+      handleExportPDF();
     }
   };
 
@@ -1347,23 +3473,250 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       {/* Configuration Form — Hidden when schedule is generated */}
       {!scheduleGenerated && (
       <>
-        {/* Event Selection */}
+        {/* Event Selection & Filters */}
         <div className={cardCls}>
-          <label className={labelCls}>Select Sports Event</label>
-          <select value={selectedEvent} onChange={e => handleEventChange(e.target.value)} className={inputCls}>
-            <option value="">— Select Event —</option>
-            {events.map(e => <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>)}
-          </select>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-[rgba(99,102,241,0.1)] gap-2">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#4f46e5]" />
+              <h3 className="text-sm font-bold text-[#0d0d2b]">Tournament & Event Selection</h3>
+              <span className="text-xs text-[#6b7094] hidden md:inline">
+                Filter by tournament, sport, age, gender, or participant format to narrow down sports events
+              </span>
+            </div>
+            {(selectedTournamentFilter || selectedSportFilter || selectedAgeFilter || selectedGenderFilter || selectedFormatFilter) && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs font-semibold text-[#4f46e5] hover:text-[#4338ca] inline-flex items-center gap-1 self-start sm:self-auto cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reset Filters
+              </button>
+            )}
+          </div>
 
-          {existingConfig && (
-            <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 rounded-lg px-3 py-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+            {/* Tournament Filter */}
+            <div>
+              <label className={labelCls}>
+                Tournament
+                {selectedTournamentFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedTournamentFilter}
+                onChange={e => handleTournamentFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Tournaments ({tournaments.length})</option>
+                {tournaments.map(t => (
+                  <option key={t.id} value={t.id.toString()}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sport Type Filter */}
+            <div>
+              <label className={labelCls}>
+                Sport Type
+                {selectedSportFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedSportFilter}
+                onChange={e => handleSportFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Sports ({availableSports.length})</option>
+                {availableSports.map(s => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Age Category Filter */}
+            <div>
+              <label className={labelCls}>
+                Age Category
+                {selectedAgeFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedAgeFilter}
+                onChange={e => handleAgeFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Ages ({availableAges.length})</option>
+                {availableAges.map(a => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Gender Filter */}
+            <div>
+              <label className={labelCls}>
+                Gender
+                {selectedGenderFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedGenderFilter}
+                onChange={e => handleGenderFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Genders ({availableGenders.length})</option>
+                {availableGenders.map(g => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Participant Format Filter */}
+            <div>
+              <label className={labelCls}>
+                Participant Format
+                {selectedFormatFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedFormatFilter}
+                onChange={e => handleFormatFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Formats ({availableFormats.length})</option>
+                {availableFormats.map(f => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sports Event Selection */}
+            <div>
+              <label className={labelCls}>
+                Sports Event <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={selectedEvent}
+                onChange={e => handleEventChange(e.target.value)}
+                className={`${inputCls} font-medium ${selectedEvent ? 'border-[#4f46e5]/40 bg-indigo-50/20' : ''}`}
+              >
+                <option value="">— Select Event ({filteredEvents.length}) —</option>
+                {filteredEvents.map(e => (
+                  <option key={e.id} value={e.id}>
+                    {getEventOptionLabel(e)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {filteredEvents.length === 0 && closedEvents.length > 0 && (
+            <p className="mt-2.5 text-xs text-amber-600">
+              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {closedEvents.length} registration-closed events.
+            </p>
+          )}
+          {closedEvents.length === 0 && events.length > 0 && (
+            <p className="mt-2.5 text-xs text-amber-600">
+              No events with closed registration found. Only events where registration is closed appear here — close registration for an event first, then return to set up its schedule.
+            </p>
+          )}
+
+          {/* Active Event Details Summary Card */}
+          {selectedEvent && (() => {
+            const ev = events.find(e => e.id.toString() === selectedEvent);
+            if (!ev) return null;
+            return (
+              <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
+                <span className="font-bold text-slate-700">Selected Event Details:</span>
+                {ev.tournamentName && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-medium border border-indigo-100">
+                    <Trophy className="w-3 h-3 text-indigo-500" />
+                    Tournament: {ev.tournamentName}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                  Sport: {ev.sportName}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-100">
+                  Gender: {formatGender(ev.gender)}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-100">
+                  Age: {formatAgeCategory(ev)}
+                </span>
+                {formatParticipantFormat(ev) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                    Format: {formatParticipantFormat(ev)}
+                  </span>
+                )}
+                {(ev.eventDateStart || ev.eventDateEnd) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 font-medium border border-amber-100">
+                    <Calendar className="w-3 h-3 text-amber-500" />
+                    {ev.eventDateStart} {ev.eventDateEnd && ev.eventDateEnd !== ev.eventDateStart ? `to ${ev.eventDateEnd}` : ''}
+                  </span>
+                )}
+                {(resolveVenueName(selectedVenues[0] || null) || ev.venueName) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-medium border border-rose-100">
+                    <MapPin className="w-3 h-3 text-rose-500" />
+                    Venue: {resolveVenueName(selectedVenues[0] || null) || ev.venueName}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
+          {isBlockedByOtherConfig && existingConfig && (
+            <div className="mt-3 flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 rounded-lg px-3 py-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span className="text-xs font-semibold">
                 A tournament configuration already exists for this event
                 {existingConfig.tournamentName ? <> — <span className="font-semibold">{existingConfig.tournamentName}</span></> : null}
                 {` (${existingConfig.tournamentType}, ${existingConfig.totalTeams} teams, status: ${existingConfig.status}).`}
-                {' '}Schedule generation is disabled. Open the existing schedule to view or edit it.
+                {' '}Schedule generation for a new configuration is disabled. Click &quot;Edit Schedule&quot; in Tournament Configurations or select a different event.
               </span>
+            </div>
+          )}
+
+          {isEditingExistingConfig && existingConfig && (
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-purple-200/80 text-purple-950 rounded-xl px-4 py-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-700 mt-0.5">
+                  <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700">Editing Tournament Schedule</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                      ${existingConfig.status === "DRAFT" ? "bg-slate-100 text-slate-700" :
+                        existingConfig.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" :
+                        existingConfig.status === "LIVE" ? "bg-indigo-100 text-indigo-800" :
+                        "bg-sky-100 text-sky-800"}`}>
+                      Config #{existingConfig.id} · {existingConfig.status}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                    {existingConfig.tournamentName || selectedEventObj?.name || 'Tournament'}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Pre-loaded with this tournament&apos;s format, dates, venues, courts and match rules. You can adjust settings, re-generate fixtures, or update and save.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleExitEditMode}
+                  className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition cursor-pointer shadow-sm"
+                  title="Exit edit mode and start a new schedule"
+                >
+                  <X className="w-3.5 h-3.5" /> Exit Edit Mode
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1393,10 +3746,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               >
                 <option value="">Select Schedule Type</option>
                 <option value="KNOCKOUT_SINGLE">Knockout (Single Elimination)</option>
+                <option value="KNOCKOUT">Knockout</option>
                 <option value="KNOCKOUT_DOUBLE">Double Elimination</option>
                 <option value="ROUND_ROBIN">Round Robin</option>
                 <option value="LEAGUE">League</option>
                 <option value="GROUP_PLAYOFF">Group Stage + Playoffs</option>
+                <option value="GROUP_KNOCKOUT">Group + Knockout</option>
                 <option value="CUSTOM">Custom Bracket</option>
               </select>
               {isGroupKnockout && (
@@ -1407,6 +3762,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               {isKnockoutOnly && (
                 <p className="text-[11px] text-[#6b7094] mt-1.5">
                   Knockout only: click Generate Schedule to build the elimination bracket (no group stage).
+                </p>
+              )}
+              {isRoundRobin && (
+                <p className="text-[11px] text-[#4f46e5]/80 mt-1.5">
+                  Round Robin / League: click Generate Schedule to build all match fixtures between participants.
                 </p>
               )}
             </div>
@@ -1427,6 +3787,188 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 className={`${inputCls} ${selectedEvent ? 'opacity-60 cursor-not-allowed' : ''}`}
                 placeholder="Number of Participants"
               />
+            </div>
+
+            {/* Doubles Open Pool Auto-Pairing Card */}
+            {isDoublesEvent && selectedEvent && (
+              <div className="flex flex-col gap-3 p-4 rounded-xl bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 border border-indigo-200/80 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#4f46e5]/10 flex items-center justify-center text-[#4f46e5] shrink-0">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        {isMixedDoublesEvent ? 'Mixed Doubles Open Pool Pairing' : 'Doubles Open Pool Auto-Pairing'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Solo / unpartnered players are matched into balanced 2v2 doubles teams.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReshuffleOpenPool}
+                      title="Randomly redraw open pool pairings"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white border border-indigo-200 text-[#4f46e5] hover:bg-indigo-50 active:scale-95 transition-all shadow-2xs cursor-pointer"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                      Re-Shuffle
+                    </button>
+                    {openPoolPairs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleSavePairsToEvent}
+                        disabled={savingPairsToDb}
+                        title="Save these partner pairings back to the event registrations in database"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[#4f46e5] text-white hover:bg-[#4338ca] active:scale-95 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                      >
+                        {savingPairsToDb ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Syncing...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            Sync to Event
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pairing Stats Pills */}
+                <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px]">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium">
+                    <UserCheck className="w-3 h-3 text-emerald-600" />
+                    {fixedDoublesPairs.length} Fixed Pair{fixedDoublesPairs.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-medium">
+                    <Users className="w-3 h-3 text-indigo-600" />
+                    {openPoolPairs.length} Auto-Paired Team{openPoolPairs.length === 1 ? '' : 's'}
+                  </span>
+                  {unpairedPoolPlayers.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 font-medium">
+                      <AlertTriangle className="w-3 h-3 text-amber-600" />
+                      {unpairedPoolPlayers.length} Standby Player
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-medium ml-auto">
+                    Total: {participants} Doubles Teams
+                  </span>
+                </div>
+
+                {/* Unpaired Standby Alert if odd number of players */}
+                {unpairedPoolPlayers.length > 0 && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50/90 border border-amber-200 text-amber-800 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold">
+                        {unpairedPoolPlayers.length} unpartnered player on standby:
+                      </p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        {unpairedPoolPlayers.map(p => getRegistrationPlayerName(p)).join(', ')} — An odd number of open pool registrants prevents forming another complete pair. They will not be scheduled unless another player joins or is assigned.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-Paired Teams Preview */}
+                {openPoolPairs.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-0.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Auto-Paired Doubles Teams Preview
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {openPoolPairs.map((pair, idx) => (
+                        <div
+                          key={`auto-pair-${idx}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white/90 border border-indigo-100 shadow-2xs hover:border-indigo-300 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                                #{idx + 1}
+                              </span>
+                              <p className="text-xs font-semibold text-slate-800 truncate" title={pair.name}>
+                                {pair.name}
+                              </p>
+                            </div>
+                            {pair.flatNumber && (
+                              <p className="text-[10px] text-slate-500 truncate pl-6">
+                                Flat: {pair.flatNumber}
+                              </p>
+                            )}
+                          </div>
+                          {pair.rating != null && (
+                            <span className="ml-2 text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                              ⭐ {pair.rating}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Custom Participant Names / Paste Roster (Inspired by Playinga) */}
+            <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-50/80 border border-slate-200">
+              <div className="flex items-center justify-between">
+                <label
+                  className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer select-none"
+                  onClick={() => setUseCustomNames(!useCustomNames)}
+                >
+                  <Users className="w-3.5 h-3.5 text-[#4f46e5]" />
+                  <span>Enter participant names / Paste custom roster</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setUseCustomNames(!useCustomNames)}
+                  className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer border-none ${useCustomNames ? 'bg-[#4f46e5]' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${useCustomNames ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {useCustomNames && (
+                <div className="flex flex-col gap-1.5 mt-1 animate-fade-in-up">
+                  <p className="text-[11px] text-slate-500">
+                    Paste one competitor or team name per line (from WhatsApp, Excel, or notes). Names will be placed into the generated draw.
+                  </p>
+                  <textarea
+                    rows={4}
+                    value={customParticipantNames}
+                    onChange={e => {
+                      setCustomParticipantNames(e.target.value);
+                      const lines = e.target.value.split('\n').map(l => l.trim()).filter(Boolean);
+                      if (lines.length >= 2 && !selectedEvent) {
+                        setParticipants(String(lines.length));
+                      }
+                    }}
+                    placeholder={"Team Red\nTeam Blue\nTeam Green\nTeam Yellow\nTeam White\nTeam Black"}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white font-mono focus:border-[#4f46e5] focus:outline-none focus:ring-1 focus:ring-[#4f46e5]"
+                  />
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span>
+                      {customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean).length} custom names parsed
+                    </span>
+                    {customParticipantNames && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomParticipantNames('')}
+                        className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Number of Groups — only for Group + Knockout */}
@@ -1456,6 +3998,44 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </button>
             </div>
 
+            {/* BYEs only in first knockout round */}
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={byesFirstRoundOnly}
+                onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>
+                Give all BYEs in the 1st knockout round only
+                <span className="block text-xs text-[#6b7094]">
+                  For odd / non power-of-2 player counts (e.g. 21, 22, 37, 38) top seeds skip round 1; no BYEs in qualifiers, semi-finals or final.
+                </span>
+              </span>
+            </label>
+
+            {/* Show BYEs in bracket draw (16/32/64/128) */}
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={showByesInBracket}
+                onChange={e => {
+                  const nextVal = e.target.checked;
+                  setShowByesInBracket(nextVal);
+                  if (!currentConfigId && !isSchedulePublished) {
+                    generateLocalPlayoffDraft(undefined, nextVal);
+                  }
+                }}
+                className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+              />
+              <span>
+                Show BYEs in Bracket Draw (16 / 32 / 64 / 128)
+                <span className="block text-xs text-[#6b7094]">
+                  When participants are an odd number, displays all 1st round BYE match slots and advances seeded players to round 2.
+                </span>
+              </span>
+            </label>
+
             {/* Seeding Order */}
             <div className="text-center">
               <label className={labelCls}>Choose Your Schedule Sequence <span className="text-red-400">*</span></label>
@@ -1465,7 +4045,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${seedingOrder === opt.value ? 'border-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}>
                       {seedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#4f46e5]" />}
                     </div>
-                    <input type="radio" name="seeding" value={opt.value} checked={seedingOrder === opt.value} onChange={() => setSeedingOrder(opt.value)} className="sr-only" />
+                    <input type="radio" name="seeding" value={opt.value} checked={seedingOrder === opt.value} onChange={() => handleKnockoutSeedingOrderChange(opt.value)} className="sr-only" />
                     {opt.label}
                   </label>
                 ))}
@@ -1574,6 +4154,140 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <select value={breakTime} onChange={e => setBreakTime(e.target.value)} className={inputCls}>
                   {BREAK_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
+              </div>
+            </div>
+
+            {/* Scheduled Breaks & Meals (Lunch, Dinner, Drinks, Maintenance) */}
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 p-3.5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🥪</span>
+                    <label className="text-xs font-bold text-slate-800 tracking-wide uppercase">
+                      Scheduled Breaks & Meals
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Matches will automatically pause and skip these windows (e.g. Lunch 1–2 PM).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomBreakModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Break</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {tournamentBreaks.map(brk => {
+                  const theme = getBreakVisualTheme(brk.type);
+                  return (
+                    <div
+                      key={brk.id}
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border transition-all ${
+                        brk.enabled
+                          ? 'bg-white border-indigo-200/80 shadow-xs'
+                          : 'bg-slate-50/80 border-slate-200/60 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-[160px]">
+                        <input
+                          type="checkbox"
+                          id={`break-${brk.id}`}
+                          checked={brk.enabled}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setTournamentBreaks(prev =>
+                              prev.map(b => (b.id === brk.id ? { ...b, enabled: checked } : b))
+                            );
+                          }}
+                          className="w-4 h-4 accent-indigo-600 rounded cursor-pointer"
+                        />
+                        <label
+                          htmlFor={`break-${brk.id}`}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 cursor-pointer select-none"
+                        >
+                          <span>{theme.icon}</span>
+                          <span>{brk.name}</span>
+                        </label>
+                      </div>
+
+                      {brk.enabled && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <span className="text-[10px] text-slate-400">From</span>
+                            <select
+                              value={brk.startTime}
+                              onChange={e => {
+                                const newStart = e.target.value;
+                                setTournamentBreaks(prev =>
+                                  prev.map(b =>
+                                    b.id === brk.id
+                                      ? {
+                                          ...b,
+                                          startTime: newStart,
+                                          durationMinutes: calcBreakDuration(newStart, b.endTime),
+                                        }
+                                      : b
+                                  )
+                                );
+                              }}
+                              className="text-xs py-1 px-2 border border-slate-200 rounded-md bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                            >
+                              {TIME_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-xs text-slate-600">
+                            <span className="text-[10px] text-slate-400">To</span>
+                            <select
+                              value={brk.endTime}
+                              onChange={e => {
+                                const newEnd = e.target.value;
+                                setTournamentBreaks(prev =>
+                                  prev.map(b =>
+                                    b.id === brk.id
+                                      ? {
+                                          ...b,
+                                          endTime: newEnd,
+                                          durationMinutes: calcBreakDuration(b.startTime, newEnd),
+                                        }
+                                      : b
+                                  )
+                                );
+                              }}
+                              className="text-xs py-1 px-2 border border-slate-200 rounded-md bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                            >
+                              {TIME_OPTIONS.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {brk.durationMinutes}m pause
+                          </span>
+
+                          {!['break-lunch', 'break-drinks', 'break-dinner'].includes(brk.id) && (
+                            <button
+                              type="button"
+                              onClick={() => setTournamentBreaks(prev => prev.filter(b => b.id !== brk.id))}
+                              className="text-slate-400 hover:text-red-500 p-1 transition-colors cursor-pointer"
+                              title="Delete custom break"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1707,40 +4421,233 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       </div>
                     </div>
 
-                    {/* Specific round dates */}
+                    {/* Specific round dates & start times */}
                     <div>
-                      <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
-                        Pin Round to Specific Date <span className="normal-case font-normal">(optional)</span>
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
-                        {([
-                          { round: 'QUARTER_FINAL', label: 'Quarter-Finals' },
-                          { round: 'SEMI_FINAL', label: 'Semi-Finals' },
-                          { round: 'FINAL', label: 'Final' },
-                          { round: 'THIRD_PLACE', label: '3rd Place' },
-                        ] as const).map(r => (
-                          <div key={r.round} className="flex items-center gap-2">
-                            <span className="text-[11px] text-[#6b7094] w-20 sm:w-24 shrink-0">{r.label}</span>
-                            <input
-                              type="date"
-                              value={playoffRoundDates[r.round] || ''}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setPlayoffRoundDates(prev => {
-                                  if (!val) {
-                                    const next = { ...prev };
-                                    delete next[r.round];
-                                    return next;
-                                  }
-                                  return { ...prev, [r.round]: val };
-                                });
-                              }}
-                              className="flex-1 min-w-0 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
-                            />
-                          </div>
-                        ))}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
+                          Pin Round Date, Start Time & Duration <span className="normal-case font-normal">(optional)</span>
+                        </span>
+                        <span className="text-[10px] text-indigo-600 font-medium">
+                          Sequential vs Same Time scheduling
+                        </span>
                       </div>
-                      <p className="text-[9px] text-[#6b7094] mt-1">Set a fixed date for any round. Leave blank to use day-of-week rules above.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {([
+                          { round: 'QUARTER_FINAL', label: 'Quarter-Finals', prevRound: null, defaultMatches: 4 },
+                          { round: 'SEMI_FINAL', label: 'Semi-Finals', prevRound: 'QUARTER_FINAL', defaultMatches: 2 },
+                          { round: 'FINAL', label: 'Final', prevRound: 'SEMI_FINAL', defaultMatches: 1 },
+                          { round: 'THIRD_PLACE', label: '3rd Place', prevRound: 'SEMI_FINAL', defaultMatches: 1 },
+                        ] as const).map(r => {
+                          const roundDraftMatches = (playoffDraft || []).filter(m => m.round === r.round);
+                          const matchCount = roundDraftMatches.length > 0 ? roundDraftMatches.length : r.defaultMatches;
+                          const currentMode = playoffRoundModes[r.round] || 'sequential';
+                          const currentDurationStr = playoffRoundDurations[r.round] || '';
+                          const effectiveDuration = currentDurationStr ? (parseInt(currentDurationStr, 10) || 30) : (parseInt(matchDuration, 10) || 30);
+                          const currentStartTime = playoffRoundTimes[r.round] || '';
+                          const currentDate = playoffRoundDates[r.round] || '';
+                          const breakMins = parseBreakMinutes(breakTime);
+
+                          const timeline = currentStartTime
+                            ? calculateRoundTimeline(
+                                currentStartTime,
+                                matchCount,
+                                effectiveDuration,
+                                breakMins,
+                                tournamentBreaks.filter(b => b.enabled),
+                                currentMode,
+                                currentDate ? new Date(currentDate + 'T00:00:00').getDay() : undefined
+                              )
+                            : null;
+
+                          // Check suggestion from previous round
+                          const prevRoundKey = r.prevRound;
+                          const prevStartTime = prevRoundKey ? playoffRoundTimes[prevRoundKey] : null;
+                          const prevDate = prevRoundKey ? playoffRoundDates[prevRoundKey] : null;
+                          let suggestedStartTime: string | null = null;
+
+                          if (prevRoundKey && prevStartTime) {
+                            const prevMatches = (playoffDraft || []).filter(m => m.round === prevRoundKey);
+                            const prevCount = prevMatches.length > 0
+                              ? prevMatches.length
+                              : (prevRoundKey === 'QUARTER_FINAL' ? 4 : 2);
+                            const prevDurationStr = playoffRoundDurations[prevRoundKey] || '';
+                            const prevDuration = prevDurationStr ? (parseInt(prevDurationStr, 10) || 30) : (parseInt(matchDuration, 10) || 30);
+                            const prevMode = playoffRoundModes[prevRoundKey] || 'sequential';
+                            const prevDay = prevDate ? new Date(prevDate + 'T00:00:00').getDay() : undefined;
+
+                            const prevTimeline = calculateRoundTimeline(
+                              prevStartTime,
+                              prevCount,
+                              prevDuration,
+                              breakMins,
+                              tournamentBreaks.filter(b => b.enabled),
+                              prevMode,
+                              prevDay
+                            );
+                            suggestedStartTime = prevTimeline.roundEndTime;
+                          }
+
+                          return (
+                            <div key={r.round} className="flex flex-col gap-2 bg-[#fafbff] border border-[rgba(99,102,241,0.14)] p-2.5 rounded-xl shadow-xs transition-all">
+                              {/* Header: Name, Match count, and Mode selector */}
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-bold text-[#0d0d2b]">{r.label}</span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
+                                    {matchCount} match{matchCount > 1 ? 'es' : ''}
+                                  </span>
+                                </div>
+                                <div className="flex items-center bg-white border border-[rgba(99,102,241,0.18)] rounded-md p-0.5 text-[9px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayoffRoundModes(prev => ({ ...prev, [r.round]: 'sequential' }))}
+                                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                      currentMode === 'sequential'
+                                        ? 'bg-[#6366f1] text-white font-semibold shadow-xs'
+                                        : 'text-[#6b7094] hover:text-[#0d0d2b]'
+                                    }`}
+                                    title="Matches run sequentially one after another based on duration and breaks"
+                                  >
+                                    Sequential
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPlayoffRoundModes(prev => ({ ...prev, [r.round]: 'same_time' }))}
+                                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                                      currentMode === 'same_time'
+                                        ? 'bg-[#6366f1] text-white font-semibold shadow-xs'
+                                        : 'text-[#6b7094] hover:text-[#0d0d2b]'
+                                    }`}
+                                    title="All matches start at the same time concurrently on separate courts"
+                                  >
+                                    Same Time
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Inputs: Date, Start Time, Duration */}
+                              <div className="grid grid-cols-3 gap-1.5">
+                                <div>
+                                  <label className="text-[9px] font-semibold text-[#6b7094] block mb-0.5">Date</label>
+                                  <input
+                                    type="date"
+                                    value={currentDate}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setPlayoffRoundDates(prev => {
+                                        if (!val) {
+                                          const next = { ...prev };
+                                          delete next[r.round];
+                                          return next;
+                                        }
+                                        return { ...prev, [r.round]: val };
+                                      });
+                                    }}
+                                    className="w-full bg-white border border-[rgba(99,102,241,0.15)] rounded px-1.5 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-semibold text-[#6b7094] block mb-0.5">Start Time</label>
+                                  <select
+                                    value={currentStartTime}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setPlayoffRoundTimes(prev => {
+                                        if (!val) {
+                                          const next = { ...prev };
+                                          delete next[r.round];
+                                          return next;
+                                        }
+                                        return { ...prev, [r.round]: val };
+                                      });
+                                    }}
+                                    className="w-full bg-white border border-[rgba(99,102,241,0.15)] rounded px-1 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                                  >
+                                    <option value="">Time...</option>
+                                    {TIME_OPTIONS.map(t => (
+                                      <option key={t} value={t}>{t}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-semibold text-[#6b7094] block mb-0.5">Duration</label>
+                                  <div className="flex items-center bg-white border border-[rgba(99,102,241,0.15)] rounded px-1.5 py-1 focus-within:border-[#6366f1]">
+                                    <input
+                                      type="number"
+                                      min="10"
+                                      max="360"
+                                      step="5"
+                                      placeholder={matchDuration || '30'}
+                                      value={currentDurationStr}
+                                      onChange={e => {
+                                        const val = e.target.value;
+                                        setPlayoffRoundDurations(prev => {
+                                          if (!val) {
+                                            const next = { ...prev };
+                                            delete next[r.round];
+                                            return next;
+                                          }
+                                          return { ...prev, [r.round]: val };
+                                        });
+                                      }}
+                                      className="w-full min-w-0 text-[11px] text-[#0d0d2b] focus:outline-none bg-transparent"
+                                    />
+                                    <span className="text-[9px] text-[#6b7094] ml-1 shrink-0">mins</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Live Timeline Preview */}
+                              {timeline && (
+                                <div className="bg-indigo-50/70 border border-indigo-100 rounded-lg p-1.5 flex flex-col gap-1">
+                                  <div className="flex items-center justify-between text-[9px] font-medium text-indigo-900">
+                                    <span>{currentMode === 'sequential' ? 'Staggered schedule' : 'Concurrent schedule'} · Ends ~{timeline.roundEndTime}</span>
+                                    <span className="text-indigo-600 font-semibold">Next slot: {timeline.nextAvailableTime}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 overflow-x-auto py-0.5 scrollbar-none">
+                                    {timeline.slots.map(s => (
+                                      <span
+                                        key={s.matchIndex}
+                                        className="shrink-0 px-1.5 py-0.5 bg-white border border-indigo-200/90 rounded text-[9px] text-indigo-900 font-mono font-medium shadow-2xs"
+                                        title={`Match ${s.matchIndex + 1}: ${s.startTime} - ${s.endTime} (${s.duration} mins)`}
+                                      >
+                                        M{s.matchIndex + 1}: {s.startTime}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Next Round Auto-Progression Suggestion */}
+                              {suggestedStartTime && suggestedStartTime !== currentStartTime && (
+                                <div className="flex items-center justify-between gap-1.5 bg-amber-50/90 border border-amber-200/90 rounded-lg px-2 py-1 text-[10px] text-amber-900">
+                                  <div className="flex items-center gap-1 truncate">
+                                    <Clock className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span className="truncate">
+                                      After {r.prevRound === 'QUARTER_FINAL' ? 'QF' : 'SF'}: next slot <strong>{suggestedStartTime}</strong>
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPlayoffRoundTimes(prev => ({ ...prev, [r.round]: suggestedStartTime! }));
+                                      if (prevDate && !currentDate) {
+                                        setPlayoffRoundDates(prev => ({ ...prev, [r.round]: prevDate }));
+                                      }
+                                    }}
+                                    className="shrink-0 px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[9px] font-semibold transition-colors cursor-pointer shadow-xs"
+                                  >
+                                    Schedule at {suggestedStartTime}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-[#6b7094] mt-1.5">
+                        Set custom dates, start times, and durations per playoff round. Choose <strong>Sequential</strong> (matches scheduled consecutively based on match duration + break) or <strong>Same Time</strong> (all matches start concurrently on separate courts).
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1895,7 +4802,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               {VENUE_ASSIGN_OPTIONS.map(opt => (
                 <button
                   key={opt}
-                  onClick={() => setVenueAssignType(opt)}
+                  onClick={() => {
+                    setVenueAssignType(opt);
+                    setMatchOverrides(prev => {
+                      const next: Record<string, any> = {};
+                      for (const [k, v] of Object.entries(prev)) {
+                        const { courtId, ...rest } = v as any;
+                        next[k] = rest;
+                      }
+                      return next;
+                    });
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${venueAssignType === opt ? 'bg-[#4f46e5] text-white shadow-md' : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-slate-500'}`}
                 >
                   {opt}
@@ -1911,33 +4828,42 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
       {/* Generate — Group+Knockout: Schedule Groups first; Knockout-only / others: Generate Schedule */}
       {!scheduleGenerated && format && (
-        <div className="text-center pt-2 pb-4">
-          <button
-            onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
-            disabled={generating || !!existingConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
-            className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
-            style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
-          >
-            <Zap className="h-4 w-4 shrink-0" />
-            {generating
-              ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
-              : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
-          </button>
-          {existingConfig && (
-            <p className="text-xs text-emerald-700 mt-2 font-semibold">A tournament configuration already exists for this event — generation is disabled.</p>
-          )}
-          {isGroupKnockout && Number(numberOfGroups) < 2 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>
-          )}
-          {selectedVenues.length === 0 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">Select at least one venue in Venue Configuration to generate the schedule.</p>
-          )}
-          {selectedVenues.length > 0 && venuesNeedingCourt().length > 0 && (
-            <p className="text-xs text-amber-700 mt-2 font-semibold">
-              Select at least one court for: {venuesNeedingCourt().map(v => v.name).join(', ')}.
-            </p>
-          )}
-        </div>
+        isSchedulePublished ? (
+          <div className="text-center pt-2 pb-4">
+            <div className="inline-flex items-center gap-2 p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-800 text-xs font-semibold shadow-xs">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>This schedule is PUBLISHED. Schedule re-generation is locked to preserve official bracket draw.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center pt-2 pb-4">
+            <button
+              onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
+              disabled={generating || isBlockedByOtherConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
+              className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
+              style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
+            >
+              <Zap className="h-4 w-4 shrink-0" />
+              {generating
+                ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
+                : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
+            </button>
+            {isBlockedByOtherConfig && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">A different tournament configuration already exists for this event — generation is disabled.</p>
+            )}
+            {isGroupKnockout && Number(numberOfGroups) < 2 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>
+            )}
+            {selectedVenues.length === 0 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">Select at least one venue in Venue Configuration to generate the schedule.</p>
+            )}
+            {selectedVenues.length > 0 && venuesNeedingCourt().length > 0 && (
+              <p className="text-xs text-amber-700 mt-2 font-semibold">
+                Select at least one court for: {venuesNeedingCourt().map(v => v.name).join(', ')}.
+              </p>
+            )}
+          </div>
+        )
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -1969,22 +4895,67 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
                   </button>
                   {showExportMenu && (
-                    <div className="absolute right-0 top-full mt-1 bg-white border border-[rgba(99,102,241,0.12)] rounded-xl shadow-lg z-50 min-w-[160px] py-1">
-                      <button
-                        type="button"
-                        onClick={() => { setShowExportMenu(false); handleExportSchedule('csv'); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
-                      >
-                        <FileSpreadsheet className="h-3.5 w-3.5 text-green-600" /> Download CSV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowExportMenu(false); handleExportSchedule('pdf'); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-red-500" /> Export PDF
-                      </button>
-                    </div>
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[240px] p-1.5 flex flex-col gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => { setShowExportMenu(false); setShowStageExportModal(true); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-medium border border-indigo-200/80"
+                        >
+                          <Sparkles className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <div>
+                            <div className="font-bold text-indigo-900">Export by Stage (Group / Finals)</div>
+                            <div className="text-[10px] text-indigo-600">CSV, Excel, PDF & separate files</div>
+                          </div>
+                        </button>
+                        <div className="my-0.5 border-b border-slate-100" />
+                        <button
+                          type="button"
+                          onClick={() => { setShowExportMenu(false); handleExportCSV(); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium"
+                        >
+                          <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                          <div>
+                            <div className="font-semibold">Download CSV</div>
+                            <div className="text-[10px] text-slate-400">Excel UTF-8 compatible</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowExportMenu(false); handleExportExcel(); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium"
+                        >
+                          <FileSpreadsheet className="h-4 w-4 text-indigo-600" />
+                          <div>
+                            <div className="font-semibold">Download Excel (.xls)</div>
+                            <div className="text-[10px] text-slate-400">Formatted spreadsheet</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowExportMenu(false); handleExportPDF(); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium"
+                        >
+                          <FileText className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <div className="font-semibold">Print Match Schedule</div>
+                            <div className="text-[10px] text-slate-400">Official tournament PDF</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowExportMenu(false); handleExportScorecards(); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium"
+                        >
+                          <FileText className="h-4 w-4 text-amber-600" />
+                          <div>
+                            <div className="font-semibold">Umpire Score Sheets</div>
+                            <div className="text-[10px] text-slate-400">Printable match cards</div>
+                          </div>
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -2007,22 +4978,28 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
           {/* Hide Setup Button */}
           <div className="flex justify-center">
-            <button
-              onClick={() => {
-                setScheduleGenerated(false);
-              }}
-              className="px-4 py-1.5 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-full hover:bg-[#4f46e5]/10 transition-colors inline-flex items-center gap-1"
-            >
-              Show Setup
-            </button>
+            {!isSchedulePublished ? (
+              <button
+                onClick={() => {
+                  setScheduleGenerated(false);
+                }}
+                className="px-4 py-1.5 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-full hover:bg-[#4f46e5]/10 transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                Show Setup
+              </button>
+            ) : (
+              <span className="text-[11px] text-slate-500 italic flex items-center gap-1">
+                <Lock className="w-3 h-3 text-slate-400" /> Schedule configuration is locked for this published event.
+              </span>
+            )}
           </div>
 
           {/* Sample Schedule Container — Show only when event and format are selected */}
           {selectedEvent && format && !playoffsGenerated && (
           <div className="border border-dashed border-[#4f46e5]/40 rounded-xl bg-white/30 px-3 py-4 pb-4 relative">
 
-            {/* Group Cards Container — Group + Knockout only */}
-            {isGroupKnockout && (
+            {/* Group Cards Container — Group Stage or Round Robin */}
+            {(isGroupKnockout || isRoundRobin) && (
             <div className="flex flex-col mt-4 gap-4">
               <div className="flex flex-wrap gap-4 justify-center">
                 {generatedGroups.map((group, gIdx) => (
@@ -2070,16 +5047,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
                                   />
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                  <label className="text-xs font-medium text-[#6b7094]">Number of Proceeders</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={group.proceeders}
-                                    onChange={e => updateGroupConfig(gIdx, 'proceeders', e.target.value)}
-                                    className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
-                                  />
-                                  {isGroupKnockout && (
+                                {isGroupKnockout && (
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-medium text-[#6b7094]">Number of Proceeders</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={group.proceeders}
+                                      onChange={e => updateGroupConfig(gIdx, 'proceeders', e.target.value)}
+                                      className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
+                                    />
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -2089,8 +5066,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     >
                                       Select Proceeders
                                     </button>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                                 <div className="flex flex-col gap-1 mt-4">
                                   <div className="flex gap-2 items-center justify-between">
                                     <label className="text-xs font-medium text-[#6b7094]">Limit Per Participant Matches?</label>
@@ -2136,6 +5113,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </div>
 
               {/* Playoffs Configuration - Third Place & Seeding Sequence */}
+              {isGroupKnockout && (
               <div className="flex flex-col gap-4 mt-4 items-center">
                   {/* Create Third Place Match Toggle */}
                   <div className="flex gap-4 items-center">
@@ -2150,6 +5128,44 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </button>
                   </div>
 
+                  {/* BYEs only in first knockout round */}
+                  <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700 max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={byesFirstRoundOnly}
+                      onChange={e => setByesFirstRoundOnly(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+                    />
+                    <span>
+                      Give all BYEs in the 1st knockout round only
+                      <span className="block text-xs text-[#6b7094]">
+                        When the number of qualifiers is not a power of 2, top seeds skip round 1; no BYEs in quarter-finals, semi-finals or final.
+                      </span>
+                    </span>
+                  </label>
+
+                  {/* Show BYEs in bracket draw (16/32/64/128) */}
+                  <label className="flex items-start gap-2.5 cursor-pointer text-sm text-slate-700 max-w-md">
+                    <input
+                      type="checkbox"
+                      checked={showByesInBracket}
+                      onChange={e => {
+                        const nextVal = e.target.checked;
+                        setShowByesInBracket(nextVal);
+                        if (!currentConfigId && !isSchedulePublished) {
+                          generateLocalPlayoffDraft(undefined, nextVal);
+                        }
+                      }}
+                      className="mt-0.5 w-4 h-4 accent-[#4f46e5] cursor-pointer"
+                    />
+                    <span>
+                      Show BYEs in Bracket Draw (16 / 32 / 64 / 128)
+                      <span className="block text-xs text-[#6b7094]">
+                        When qualifiers are odd or non-power-of-2, renders initial draw with BYEs.
+                      </span>
+                    </span>
+                  </label>
+
                   {/* Choose Playoffs Schedule Sequence */}
                   <div className="flex flex-col gap-4 items-center justify-center">
                     <label className="text-sm text-slate-700">
@@ -2162,16 +5178,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${playoffSeedingOrder === opt.value ? 'border-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}>
                             {playoffSeedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#4f46e5]" />}
                           </div>
-                          <input type="radio" name="playoffSeeding" value={opt.value} checked={playoffSeedingOrder === opt.value} onChange={() => setPlayoffSeedingOrder(opt.value)} className="sr-only" />
+                          <input type="radio" name="playoffSeeding" value={opt.value} checked={playoffSeedingOrder === opt.value} onChange={() => handlePlayoffSeedingOrderChange(opt.value)} className="sr-only" />
                           {opt.label}
                         </label>
                       ))}
                     </div>
                   </div>
                 </div>
+              )}
 
               {/* Step 2: Generate playoff schedule (Group + Knockout only) */}
-              {!playoffsGenerated && (
+              {isGroupKnockout && !playoffsGenerated && (
                 <div className="flex flex-col mt-4 items-center gap-2">
                   <p className="text-xs text-[#6b7094] text-center max-w-md">
                     Group matches are scheduled. Set proceeders per group, then generate the knockout bracket.
@@ -2191,8 +5208,236 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </div>
           )}
 
-          {/* Group stage match fixtures — Group + Knockout only */}
-          {isGroupKnockout && (
+          {/* Schedule View Mode Switcher (Visual Draw & Bracket vs Fixtures Table) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 p-3 bg-white rounded-xl border border-[rgba(99,102,241,0.12)] shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700">Display View:</span>
+              <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleViewMode('visual');
+                    setPlayoffViewMode('bracket');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                    scheduleViewMode === 'visual'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                  }`}
+                >
+                  <span>🌲 Visual Draw & Bracket</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleViewMode('list');
+                    setPlayoffViewMode('list');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                    scheduleViewMode === 'list'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                  }`}
+                >
+                  <span>📄 List View</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    {visibleFixturesTableRows.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleViewMode('table')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                    scheduleViewMode === 'table'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                  }`}
+                >
+                  <span>📋 Fixtures Table</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    {visibleFixturesTableRows.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Right side: Conflicts pill & Export & Print dropdown for all display views */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Conflict summary status pill */}
+              {totalConflictsCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{totalConflictsCount} Schedule Conflicts</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>0 Conflicts (All clear)</span>
+                </span>
+              )}
+
+              {/* Export & Print Dropdown Button for all Display Views */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDisplayExportMenu(!showDisplayExportMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Export &amp; Print</span>
+                  <ChevronDown className="w-3 h-3 text-indigo-500" />
+                </button>
+
+                {showDisplayExportMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDisplayExportMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[240px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                      {(scheduleViewMode === 'visual' || getPlayoffMatches().length > 0) && (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 bg-indigo-50/60 rounded-t-lg">
+                            Visual Bracket Draw
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowDisplayExportMenu(false); handleExportBracketPDF(); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-indigo-950 bg-indigo-50/50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-semibold border-none"
+                          >
+                            <Trophy className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="font-bold text-indigo-900">Download Bracket Draw (PDF)</span>
+                              <span className="text-[10px] text-indigo-600 font-normal">Landscape tournament tree draw</span>
+                            </div>
+                          </button>
+                        </>
+                      )}
+
+                      {scheduleViewMode === 'list' && (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 bg-indigo-50/60 rounded-t-lg">
+                            Colored List View
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowDisplayExportMenu(false); handleExportListViewPDF(); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-indigo-950 bg-indigo-50/50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-semibold border-none"
+                          >
+                            <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="font-bold text-indigo-900">Download List View (PDF)</span>
+                              <span className="text-[10px] text-indigo-600 font-normal">Colored round-by-round tournament list</span>
+                            </div>
+                          </button>
+                        </>
+                      )}
+
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        Export Schedule
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); setShowStageExportModal(true); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-medium border border-indigo-200/80 mb-1"
+                      >
+                        <Sparkles className="h-4 w-4 text-indigo-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-bold text-indigo-900">Export by Stage (Group / Finals)</span>
+                          <span className="text-[10px] text-indigo-600">Download separate files for each stage</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportCSV(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Download CSV</span>
+                          <span className="text-[10px] text-slate-400">Excel UTF-8 compatible</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportExcel(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Download Excel (.xls)</span>
+                          <span className="text-[10px] text-slate-400">Formatted spreadsheet</span>
+                        </div>
+                      </button>
+
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-t border-slate-100 mt-0.5">
+                        Print &amp; PDF
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportPDF(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <Printer className="h-4 w-4 text-rose-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Print Schedule (PDF)</span>
+                          <span className="text-[10px] text-slate-400">Vector printable fixtures sheet</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportScorecards(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileText className="h-4 w-4 text-amber-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Print Umpire Score Sheets</span>
+                          <span className="text-[10px] text-slate-400">Court scorecards &amp; signoff</span>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Table View */}
+          {scheduleViewMode === 'table' && (
+            <div className="mt-4">
+              <FixturesTableView
+                fixtures={visibleFixturesTableRows}
+                breaks={tournamentBreaks}
+                onEditMatch={handleEditFromTable}
+                onExportCSV={handleExportCSV}
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                onExportScorecards={handleExportScorecards}
+              />
+            </div>
+          )}
+
+          {/* List View */}
+          {scheduleViewMode === 'list' && (
+            <div className="mt-4">
+              <FixturesListView
+                fixtures={allVisibleFixturesTableRows}
+                breaks={tournamentBreaks}
+                onEditMatch={handleEditFromTable}
+                sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
+                showAutoAdvanced={showByesInBracket}
+                onToggleAutoAdvanced={() => setShowByesInBracket(value => !value)}
+              />
+            </div>
+          )}
+
+          {/* Visual View (Group Fixtures & Playoff Bracket) */}
+          {scheduleViewMode === 'visual' && (
+            <>
+              {/* Match fixtures — Group Stage or Round Robin */}
+          {(isGroupKnockout || isRoundRobin) && (
           <div className="flex flex-col gap-6 mt-6">
             {generatedGroups.map((group, gIdx) => {
               const matches = getActiveGroupMatches(group, gIdx);
@@ -2226,7 +5471,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
                             <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-emerald-500 to-emerald-500 text-white rounded-full text-xs font-bold shadow-md cursor-pointer hover:opacity-90 transition-opacity">
                               <img height="14" width="14" className="rounded-none shrink-0" alt={sportName} title={sportName} src={getSportIcon(sportName)} />
-                              <span className="px-1">G{gIdx + 1} Match {mIdx + 1}</span>
+                              <span className="px-1">{isRoundRobin ? `Match ${mIdx + 1}` : `G${gIdx + 1} Match ${mIdx + 1}`}</span>
                             </div>
                           </div>
 
@@ -2247,7 +5492,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
                               <i className="pi pi-map-marker text-[#4f46e5]"></i>
                               <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
-                              <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                              <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.name === match.courtId || String(c.id) === String(match.courtId))?.name || 'TBD'}</span>
                             </div>
                           </div>
 
@@ -2317,8 +5562,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
                             {/* Card Actions */}
                             <div className="flex justify-between items-center mt-3 pt-3 border-t border-[rgba(99,102,241,0.12)]/30">
-                              <div className="text-[11px] text-[#6b7094]">
-                                Status: <span className="text-emerald-700 font-semibold">Scheduled</span>
+                              <div className="text-[11px] text-[#6b7094] flex items-center gap-1.5 flex-wrap">
+                                <span>Status: <span className="text-emerald-700 font-semibold">Scheduled</span></span>
+                                {scheduleConflicts[`${gIdx}-${mIdx}`]?.length > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                                    title={scheduleConflicts[`${gIdx}-${mIdx}`].join('\n')}
+                                  >
+                                    ⚠️ Conflict
+                                  </span>
+                                )}
                               </div>
                               <div className="flex gap-2">
                                 <button
@@ -2357,12 +5610,50 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     {isKnockoutOnly ? 'Knockout Bracket' : 'Playoffs'}
                   </p>
                 </div>
-                <div className="flex items-center gap-4 justify-end">
+                <div className="flex flex-wrap items-center gap-3 justify-end">
+                  {isSchedulePublished ? (
+                    <div className="flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl text-slate-700 text-xs font-semibold">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Sequence: {SEEDING_OPTIONS.find(opt => opt.value === (isGroupKnockout ? playoffSeedingOrder : seedingOrder))?.label || 'Traditional'} (Locked)</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-[rgba(99,102,241,0.12)] p-1 rounded-xl shadow-xs">
+                      <span className="text-[11px] font-semibold text-[#6b7094] px-1 hidden sm:inline">Sequence:</span>
+                      {SEEDING_OPTIONS.map(opt => {
+                        const currentVal = isGroupKnockout ? playoffSeedingOrder : seedingOrder;
+                        const isSelected = currentVal === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              if (isGroupKnockout) {
+                                handlePlayoffSeedingOrderChange(opt.value);
+                              } else {
+                                handleKnockoutSeedingOrderChange(opt.value);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none flex items-center gap-1"
+                            style={isSelected
+                              ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                              : { background: "transparent", color: "#6b7094" }}
+                            title={opt.value === 'RANDOM' ? 'Click to generate a fresh random draw' : `Switch to ${opt.label} sequence`}
+                          >
+                            <span>{opt.label}</span>
+                            {opt.value === 'RANDOM' && isSelected && <span className="text-[10px]">🔀</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Match Schedule</span>
                   <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
                     <button
                       type="button"
-                      onClick={() => setPlayoffViewMode('bracket')}
+                      onClick={() => {
+                        setPlayoffViewMode('bracket');
+                        setScheduleViewMode('visual');
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
                       style={playoffViewMode === 'bracket'
                         ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
@@ -2372,7 +5663,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPlayoffViewMode('list')}
+                      onClick={() => {
+                        setPlayoffViewMode('list');
+                        setScheduleViewMode('list');
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
                       style={playoffViewMode === 'list'
                         ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
@@ -2383,32 +5677,86 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   </div>
                 </div>
               </div>
-              {isGroupKnockout && (
-                <p className="text-xs text-[#6b7094] flex items-center gap-1">
-                  <i className="pi pi-info-circle text-amber-500"></i>
-                  <span>
-                    Knockout bracket requires 2 proceeders per group (2 groups → Semi-Final 1, Semi-Final 2, then Final).
-                    Use Select Proceeders on each group after group matches, or set Number of Proceeders to 2 before Generate Schedule.
-                  </span>
-                </p>
+              {isGroupKnockout && (() => {
+                const totalProceeders = generatedGroups.reduce((acc, g) => acc + (Number(g.proceeders) || 0), 0);
+                const isPowerOfTwo = totalProceeders > 1 && (totalProceeders & (totalProceeders - 1)) === 0;
+
+                return (
+                  <div className="space-y-1">
+                    <p className="text-xs text-[#6b7094] flex items-center gap-1">
+                      <i className="pi pi-info-circle text-indigo-500"></i>
+                      <span>
+                        BYE matches are restricted to group stage only. Knockout bracket contains 100% real matches.
+                      </span>
+                    </p>
+                    {totalProceeders > 1 && !isPowerOfTwo && (
+                      <div className="flex items-start gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                        <i className="pi pi-exclamation-triangle text-amber-600 shrink-0 mt-0.5"></i>
+                        <span>
+                          <strong>Odd proceeders note:</strong> With {totalProceeders} total proceeders, top seeds receive a direct pass into subsequent rounds without dummy BYE fixtures. For every team to play in round 1, configure a power-of-2 number of proceeders (e.g., 2, 4, 8, 16).
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {isSchedulePublished && (
+                <div className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-200/80 rounded-xl text-amber-900 shadow-sm">
+                  <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div className="flex-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-amber-800 text-sm">Schedule is Published &amp; Locked</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        PUBLISHED
+                      </span>
+                    </div>
+                    <p className="text-amber-700 mt-0.5">
+                      Player bracket draw and pairings are locked. You can update match dates, times, durations, venues, and courts by clicking the edit icon on any match card.
+                    </p>
+                  </div>
+                </div>
               )}
 
               {playoffViewMode === 'bracket' ? (
                 (() => {
                   const playoffMatches = getPlayoffMatches();
                   if (playoffMatches.length === 0) return null;
+                  const earliestPlayoffRound = playoffMatches.length > 0
+                    ? Math.min(...playoffMatches.filter(m => m.round !== 'THIRD_PLACE').map(m => m.roundIndex))
+                    : 0;
+                  const firstRoundMatchesCount = (showByesInBracket ? playoffMatches : playoffDraft)
+                    .filter(m => m.round !== 'THIRD_PLACE' && m.roundIndex === earliestPlayoffRound).length;
+                  let totalDrawCalc = firstRoundMatchesCount * 2;
+                  let drawPower = 1;
+                  while (drawPower < totalDrawCalc) drawPower <<= 1;
+                  if (drawPower < 2) {
+                    const numParticipants = Number(participants) || playoffMatches.length;
+                    while (drawPower < numParticipants) drawPower <<= 1;
+                  }
                   return (
                     <PlayoffBracketView
                       matches={playoffMatches}
                       onEditMatch={handleOpenEditPlayoffMatch}
+                      onDownloadBracket={handleExportBracketPDF}
                       resolveVenueName={resolveVenueName}
                       resolveCourtName={resolveCourtName}
+                      showByes={showByesInBracket}
+                      onToggleShowByes={() => {
+                        const nextVal = !showByesInBracket;
+                        setShowByesInBracket(nextVal);
+                        if (!currentConfigId && !isSchedulePublished) {
+                          generateLocalPlayoffDraft(undefined, nextVal);
+                        }
+                        showSuccess(nextVal ? `Showing full ${drawPower} draw with BYEs` : 'Hiding BYEs (compact bracket)');
+                      }}
+                      totalDrawCount={drawPower}
                     />
                   );
                 })()
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getPlayoffMatches().map((match, mIdx) => {
+                  {getPlayoffMatches().filter(match => !isPlaceholderBracketSlot(match)).map((match, mIdx) => {
                     const matchDate = parseLocalDate(match.date);
                     const ev = events.find(e => e.id.toString() === selectedEvent);
                     const sportName = ev?.sportName || 'Table Tennis';
@@ -2443,7 +5791,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
                             <i className="pi pi-map-marker text-[#4f46e5]"></i>
                             <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
-                            <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                            <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.name === match.courtId || String(c.id) === String(match.courtId))?.name || 'TBD'}</span>
                           </div>
                         </div>
 
@@ -2511,8 +5859,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
                           {/* Card Actions */}
                           <div className="flex justify-between items-center mt-3 pt-3 border-t border-[rgba(99,102,241,0.12)]/30">
-                            <div className="text-[11px] text-[#6b7094]">
-                              Status: <span className="text-emerald-700 font-semibold">Scheduled</span>
+                            <div className="text-[11px] text-[#6b7094] flex items-center gap-1.5 flex-wrap">
+                              <span>Status: <span className="text-emerald-700 font-semibold">Scheduled</span></span>
+                              {scheduleConflicts[match.id]?.length > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-300"
+                                  title={scheduleConflicts[match.id].join('\n')}
+                                >
+                                  ⚠️ Conflict
+                                </span>
+                              )}
                             </div>
                             <div className="flex gap-2">
                               <button
@@ -2532,6 +5888,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               )}
             </div>
           )}
+            </>
+          )}
 
           {showScheduleSaveFooter && (
             <ScheduleSaveFooter
@@ -2541,6 +5899,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               onSaveDraft={handleSaveDraft}
               onSavePublish={handleSavePublish}
               onDragDropScheduler={handleDragDropScheduler}
+              isPublished={isSchedulePublished}
             />
           )}
         </div>
@@ -2593,31 +5952,67 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   </div>
                 </div>
 
-                {/* Participant Dropdowns */}
+                {/* Participant Dropdowns or Locked Display */}
                 <div className="flex flex-col md:flex-row gap-4 items-center w-full">
                   <div className="w-full">
-                    <label className={labelCls}>Participant 1 <span className="text-red-400">*</span></label>
-                    <select
-                      value={editMatchForm.homeId}
-                      onChange={e => setEditMatchForm(prev => ({ ...prev, homeId: e.target.value }))}
-                      className={inputCls}
-                    >
-                      {getEditParticipantOptions().map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
-                      ))}
-                    </select>
+                    <label className={labelCls}>
+                      Participant 1 {isSchedulePublished && <span className="text-[10px] text-amber-700 font-semibold">(Locked)</span>}
+                    </label>
+                    {isSchedulePublished ? (
+                      <div className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 flex items-center justify-between shadow-xs">
+                        <span className="font-semibold truncate">
+                          {(() => {
+                            const found = getEditParticipantOptions().find(p => p.id === editMatchForm.homeId);
+                            if (found) return `${found.name}${(found as any).flatNumber ? ` (${(found as any).flatNumber})` : ''}`;
+                            const pMatch = getPlayoffMatches().find(m => m.id === editingMatchKey);
+                            return pMatch?.home?.name || editMatchForm.homeId || 'TBD';
+                          })()}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> Locked (Published)
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={editMatchForm.homeId}
+                        onChange={e => setEditMatchForm(prev => ({ ...prev, homeId: e.target.value }))}
+                        className={inputCls}
+                      >
+                        {getEditParticipantOptions().map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div className="w-full">
-                    <label className={labelCls}>Participant 2 <span className="text-red-400">*</span></label>
-                    <select
-                      value={editMatchForm.awayId}
-                      onChange={e => setEditMatchForm(prev => ({ ...prev, awayId: e.target.value }))}
-                      className={inputCls}
-                    >
-                      {getEditParticipantOptions().map(p => (
-                        <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
-                      ))}
-                    </select>
+                    <label className={labelCls}>
+                      Participant 2 {isSchedulePublished && <span className="text-[10px] text-amber-700 font-semibold">(Locked)</span>}
+                    </label>
+                    {isSchedulePublished ? (
+                      <div className="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 flex items-center justify-between shadow-xs">
+                        <span className="font-semibold truncate">
+                          {(() => {
+                            const found = getEditParticipantOptions().find(p => p.id === editMatchForm.awayId);
+                            if (found) return `${found.name}${(found as any).flatNumber ? ` (${(found as any).flatNumber})` : ''}`;
+                            const pMatch = getPlayoffMatches().find(m => m.id === editingMatchKey);
+                            return pMatch?.away?.name || editMatchForm.awayId || 'TBD';
+                          })()}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> Locked (Published)
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={editMatchForm.awayId}
+                        onChange={e => setEditMatchForm(prev => ({ ...prev, awayId: e.target.value }))}
+                        className={inputCls}
+                      >
+                        {getEditParticipantOptions().map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{(p as any).flatNumber ? ` (${(p as any).flatNumber})` : ''}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -3251,6 +6646,111 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </div>
         </div>
       )}
+      {/* Add Custom Break Modal */}
+      {showAddCustomBreakModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⏸️</span>
+                <h3 className="text-sm font-bold text-slate-900">Add Tournament Break</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomBreakModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Break Name</label>
+                <input
+                  type="text"
+                  value={newCustomBreakName}
+                  onChange={e => setNewCustomBreakName(e.target.value)}
+                  placeholder="e.g. Court Maintenance / Prayer / Ceremony"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
+                <select
+                  value={newCustomBreakType}
+                  onChange={e => setNewCustomBreakType(e.target.value as BreakType)}
+                  className={inputCls}
+                >
+                  <option value="LUNCH">🥪 Lunch Break</option>
+                  <option value="DINNER">🍽️ Dinner Break</option>
+                  <option value="DRINKS">☕ Tea / Drinks Break</option>
+                  <option value="MAINTENANCE">🧹 Court Maintenance</option>
+                  <option value="CEREMONY">🎉 Ceremony / Presentation</option>
+                  <option value="CUSTOM">⏸️ Other / Custom Break</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">Start Time</label>
+                  <select
+                    value={newCustomBreakStart}
+                    onChange={e => setNewCustomBreakStart(e.target.value)}
+                    className={inputCls}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 mb-1 block">End Time</label>
+                  <select
+                    value={newCustomBreakEnd}
+                    onChange={e => setNewCustomBreakEnd(e.target.value)}
+                    className={inputCls}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomBreakModal(false)}
+                className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = newCustomBreakName.trim() || 'Custom Break';
+                  const duration = calcBreakDuration(newCustomBreakStart, newCustomBreakEnd);
+                  const newBreak: TournamentBreak = {
+                    id: `break-custom-${Date.now()}`,
+                    name,
+                    type: newCustomBreakType,
+                    startTime: newCustomBreakStart,
+                    endTime: newCustomBreakEnd,
+                    durationMinutes: duration,
+                    enabled: true,
+                  };
+                  setTournamentBreaks(prev => [...prev, newBreak]);
+                  setNewCustomBreakName('');
+                  setShowAddCustomBreakModal(false);
+                  showSuccess(`Added break "${name}" (${newCustomBreakStart} - ${newCustomBreakEnd})`);
+                }}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs cursor-pointer"
+              >
+                Add Break
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <VenueTimingModal
         isOpen={timingModalOpen}
         onClose={() => {
@@ -3272,6 +6772,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         venueToEdit={venueToEdit}
         existingVenues={venues}
       />
+      {showStageExportModal && (
+        <ScheduleExportModal
+          isOpen={showStageExportModal}
+          onClose={() => setShowStageExportModal(false)}
+          defaultFormat={stageExportFormat}
+          tournamentName={events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament'}
+          matches={collectExportableMatches(true)}
+          sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || detectSportName(events.find(e => e.id.toString() === selectedEvent)?.name)}
+          isTeamEvent={isTeamSport(events.find(e => e.id.toString() === selectedEvent)?.sportName || '')}
+        />
+      )}
     </div>
   );
 }

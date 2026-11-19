@@ -210,6 +210,8 @@ export interface HomeServiceBooking {
   paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
   paymentTransactionId?: string;
   paidAt?: string;
+  rating?: number;
+  review?: string;
   createdAt: string;
   updatedAt: string;
 }

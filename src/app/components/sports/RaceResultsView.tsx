@@ -8,6 +8,7 @@ import {
 interface RaceResultsViewProps {
   matchId: number;
   onClose: () => void;
+  live?: boolean;
 }
 
 const MEDAL = ["", "\u{1F947}", "\u{1F948}", "\u{1F949}"];
@@ -18,7 +19,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   DQ: { label: "DQ", cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
 };
 
-export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
+export function RaceResultsView({ matchId, onClose, live = false }: RaceResultsViewProps) {
   const [results, setResults] = useState<RaceResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +27,28 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
-    tournamentService
-      .getRaceResults(matchId)
-      .then(setResults)
-      .catch(() => setError("Could not load race results."))
-      .finally(() => setLoading(false));
-  }, [matchId]);
+    let active = true;
+    let hasLoaded = false;
+    const loadResults = async () => {
+      try {
+        const nextResults = await tournamentService.getRaceResults(matchId);
+        if (!active) return;
+        setResults(nextResults);
+        setError(null);
+      } catch {
+        if (active && !hasLoaded) setError("Could not load race results.");
+      } finally {
+        hasLoaded = true;
+        if (active) setLoading(false);
+      }
+    };
+    void loadResults();
+    const refreshTimer = live ? window.setInterval(() => { void loadResults(); }, 10000) : undefined;
+    return () => {
+      active = false;
+      if (refreshTimer !== undefined) window.clearInterval(refreshTimer);
+    };
+  }, [matchId, live]);
 
   const heats = [...new Set(results.filter((r) => r.heatNumber).map((r) => r.heatNumber!))].sort(
     (a, b) => a - b
@@ -70,7 +87,7 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
           <div className="flex items-center gap-2">
             <Timer className="w-5 h-5 text-white" />
             <div>
-              <div className="text-sm font-bold text-white">Race Results</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-white">Race Results{live && <span className="rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">Live · refreshes 10s</span>}</div>
               <div className="text-xs text-cyan-200">{results.length} participants</div>
             </div>
           </div>

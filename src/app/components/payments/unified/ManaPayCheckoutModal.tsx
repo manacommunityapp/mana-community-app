@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { manaPayService } from '../../../../services/payments/manaPayService';
+import { unifiedPaymentService } from '../../../../services/payments/unifiedPaymentService';
 import { ManaPayQrCode } from './ManaPayQrCode';
 import type {
   CreateManaPaymentIntentRequest,
@@ -34,7 +35,16 @@ export interface ManaPayCheckoutModalProps {
   onClose: () => void;
   order: CreateManaPaymentIntentRequest;
   onPaymentSuccess: (record: ManaPaymentRecord) => void;
+  /** Resident wallet balance from backend — required for the Wallet tab. */
   residentWalletBalance?: number;
+  /**
+   * Unified payment order ID from the server.
+   * Required: verifyPayment is called before onPaymentSuccess.
+   * Omitting this skips server-side verification — only acceptable for legacy intent-only flows.
+   */
+  paymentOrderId?: number;
+  /** Server-calculated convenience fee (from checkout-options). Default 0. */
+  convenienceFeeAmount?: number;
 }
 
 export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
@@ -42,7 +52,9 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
   onClose,
   order,
   onPaymentSuccess,
-  residentWalletBalance = 2450,
+  residentWalletBalance = 0,
+  paymentOrderId,
+  convenienceFeeAmount = 0,
 }) => {
   const [selectedRail, setSelectedRail] = useState<ManaPaymentRail>('UPI_QR');
   const [intent, setIntent] = useState<ManaPaymentIntentResponse | null>(null);
@@ -121,6 +133,19 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
           amount: order.totalAmount,
         }
       );
+
+      // Always verify the unified payment order server-side.
+      // Never treat the ManaPay SDK confirmation alone as final.
+      if (paymentOrderId) {
+        await unifiedPaymentService.verifyPayment(paymentOrderId);
+      } else {
+        // paymentOrderId was not supplied by the caller — verification skipped.
+        // This is a security gap: callers must create a unified payment order and pass its id.
+        console.error(
+          '[ManaPayCheckoutModal] paymentOrderId not provided — server-side verification skipped. ' +
+          'All callers must create a unified payment order and pass paymentOrderId.'
+        );
+      }
 
       toast.success('Payment completed successfully!');
       onPaymentSuccess(record);
@@ -368,9 +393,6 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
                   <a
                     key={app.name}
                     href={intent?.upiIntentUri || '#'}
-                    onClick={() => {
-                      setTimeout(() => handleConfirmPayment('UPI_INTENT'), 2500);
-                    }}
                     className={`p-4 rounded-2xl border ${app.color} flex flex-col items-center justify-center gap-1.5 text-center transition-all cursor-pointer shadow-xs`}
                   >
                     <Smartphone className="w-5 h-5 text-indigo-600" />
@@ -413,9 +435,19 @@ export const ManaPayCheckoutModal: React.FC<ManaPayCheckoutModalProps> = ({
                     <span className="font-mono">₹{order.totalAmount}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>Payment Gateway Fee:</span>
-                    <span className="font-mono text-emerald-600 font-semibold">₹0.00 (Waived)</span>
+                    <span>Convenience Fee:</span>
+                    {convenienceFeeAmount > 0 ? (
+                      <span className="font-mono">₹{convenienceFeeAmount.toFixed(2)}</span>
+                    ) : (
+                      <span className="font-mono text-emerald-600 font-semibold">₹0.00 (Waived)</span>
+                    )}
                   </div>
+                  {convenienceFeeAmount > 0 && (
+                    <div className="flex justify-between font-semibold text-slate-700 dark:text-slate-200 border-t pt-1.5">
+                      <span>Total Payable:</span>
+                      <span className="font-mono">₹{(order.totalAmount + convenienceFeeAmount).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -20,21 +20,24 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsSocialService } from "../../../services/sports/sportsSocialService";
 import type { SportsFeedPost, FeedComment, FeedPostType } from "../../../types/sportsSocial";
+import { WinnerScorecard } from "./WinnerScorecard";
+import { ConfettiCanvas } from "./utils/ConfettiCanvas";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const POST_TYPE_META: Record<FeedPostType, { label: string; icon: typeof Trophy; color: string }> = {
-  SCORECARD:         { label: "Scorecard",   icon: Trophy,       color: "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400" },
-  HIGHLIGHT:         { label: "Highlight",   icon: Sparkles,     color: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400" },
-  PHOTO:             { label: "Photo",       icon: Camera,       color: "bg-pink-50 text-pink-600 dark:bg-pink-950 dark:text-pink-400" },
-  MILESTONE:         { label: "Milestone",   icon: Star,         color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400" },
-  DISCUSSION:        { label: "Discussion",  icon: MessageSquare,color: "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400" },
-  MATCH_RESULT:      { label: "Result",      icon: Target,       color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400" },
-  TOURNAMENT_UPDATE: { label: "Tournament",  icon: Megaphone,    color: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400" },
+  SCORECARD: { label: "Match Done", icon: Trophy, color: "bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/60" },
+  HIGHLIGHT: { label: "Highlight", icon: Sparkles, color: "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400" },
+  PHOTO: { label: "Photo", icon: Camera, color: "bg-pink-50 text-pink-600 dark:bg-pink-950 dark:text-pink-400" },
+  MILESTONE: { label: "Milestone", icon: Star, color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400" },
+  DISCUSSION: { label: "Discussion", icon: MessageSquare, color: "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-400" },
+  MATCH_RESULT: { label: "Winner Result", icon: Crown, color: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-700/60" },
+  TOURNAMENT_UPDATE: { label: "Tournament", icon: Megaphone, color: "bg-orange-50 text-orange-600 dark:bg-orange-950 dark:text-orange-400" },
 };
 
 const SPORT_FILTERS = ["ALL", "CRICKET", "FOOTBALL", "BADMINTON", "TABLE_TENNIS", "VOLLEYBALL"];
@@ -221,6 +224,7 @@ export function SportsFeed() {
   const [expandedComments, setExpandedComments] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, FeedComment[]>>({});
   const [commentInput, setCommentInput] = useState("");
+  const [confettiActive, setConfettiActive] = useState<boolean>(false);
 
   // Create post modal
   const [showCreate, setShowCreate] = useState(false);
@@ -258,6 +262,10 @@ export function SportsFeed() {
   );
 
   // ── handlers ──────────────────────────────────────────────────────────────
+  function handleCheerWinner() {
+    setConfettiActive(true);
+  }
+
   function handleLike(postId: string) {
     const updated = sportsSocialService.likePost(postId);
     if (updated) setPosts(prev => prev.map(p => p.id === postId ? updated : p));
@@ -342,6 +350,14 @@ export function SportsFeed() {
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto">
+    <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto relative">
+      {/* Confetti Physics Burst for Winner Celebrations */}
+      {confettiActive && (
+        <ConfettiCanvas
+          durationMs={3500}
+          onComplete={() => setConfettiActive(false)}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -500,6 +516,21 @@ export function SportsFeed() {
                     <span className="flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{post.comments}</span>
                     <span className="flex items-center gap-0.5"><Share2 className="w-2.5 h-2.5" />{post.shares}</span>
                   </div>
+      {/* Feed Posts */}
+      <div className="space-y-4">
+        {posts.map((post) => {
+          const meta = POST_TYPE_META[post.type];
+          const Icon = meta.icon;
+          return (
+            <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs hover:shadow-xs transition-shadow">
+              {/* Post Header */}
+              <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {post.authorName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">{post.authorName}</div>
+                  <div className="text-[10px] text-slate-400">{formatTimeAgo(post.createdAt)} &middot; {post.sport.charAt(0) + post.sport.slice(1).toLowerCase()}</div>
                 </div>
               );
             })}
@@ -626,6 +657,15 @@ export function SportsFeed() {
                       />
                     </div>
                   </div>
+              {/* Match Completed Winner Scorecard (if present) */}
+              {post.scorecard && (
+                <div className="mx-4 mb-3">
+                  <WinnerScorecard
+                    scorecard={post.scorecard}
+                    sport={post.sport}
+                    onCheer={handleCheerWinner}
+                    onShare={() => handleShare(post.id)}
+                  />
                 </div>
               )}
 

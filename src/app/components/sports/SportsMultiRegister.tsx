@@ -1,27 +1,29 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
   Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle, Search,
-  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown
+  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown,
+  UserMinus, Lock
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
-import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
+import { sportsDashboardService, type DashboardTournamentCard, type DashboardMyRegistration } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
-import { inferGender } from "./SportsRegister";
-import { getFamilyMembersOnly } from "./utils/sportsMemberHelpers";
+import { inferGender, checkCategoryEligibility as checkDashboardEligibility } from "./SportsRegister";
+import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
+import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -49,6 +51,16 @@ function detectSport(name: string): string {
   if (n.includes("tennis")) return "tennis";
   if (n.includes("chess")) return "chess";
   if (n.includes("carrom")) return "carrom";
+  if (n.includes("skating") || n.includes("skate")) return "skating";
+  if (n.includes("swimming")) return "swimming";
+  if (n.includes("running") || n.includes("athletics")) return "running";
+  if (n.includes("cycling")) return "cycling";
+  if (n.includes("billiard")) return "billiards";
+  if (n.includes("snooker")) return "snooker";
+  if (n.includes("bowling")) return "bowling";
+  if (n.includes("squash")) return "squash";
+  if (n.includes("pickleball")) return "pickleball";
+  if (n.includes("padel")) return "padel";
   return "generic";
 }
 
@@ -97,28 +109,40 @@ function parseDobDate(dobString?: string | null): Date | null {
   return null;
 }
 
-function calculateAge(dobString: string): number | null {
-  if (!dobString) return null;
-  const dob = parseDobDate(dobString);
-  if (!dob) return null;
-  const today = new Date();
-  let age = today.getFullYear() - dob.getFullYear();
-  const m = today.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-    age--;
+export function synthesizeDobFromAge(age: number): string {
+  const currentYear = new Date().getFullYear();
+  const birthYear = currentYear - age;
+  return `${birthYear}-01-01`;
+}
+
+export function calculateAge(dobString: string | null | undefined, explicitAge?: number | null): number | null {
+  if (dobString) {
+    const dob = parseDobDate(dobString);
+    if (dob) {
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+      if (age >= 0) return age;
+    }
   }
-  return age >= 0 ? age : null;
+  if (explicitAge != null && !isNaN(Number(explicitAge)) && Number(explicitAge) > 0) {
+    return Number(explicitAge);
+  }
+  return null;
 }
 
 // ─── Eligibility Validator ──────────────────────────────────────────────────
 
-interface EligibilityResult {
+export interface EligibilityResult {
   eligible: boolean;
   reason?: string;
   badgeText?: string;
 }
 
-function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
+export function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
   if (!gender) return "";
   const g = String(gender).trim().toUpperCase();
   if (g === "MALE" || g === "M" || g === "MEN" || g === "MAN" || g === "BOY" || g === "BOYS") return "MALE";
@@ -126,7 +150,7 @@ function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" |
   return "OTHER";
 }
 
-function checkCategoryEligibility(
+export function checkCategoryEligibility(
   cat: PlayerCategory | undefined,
   age: number | null,
   gender: string
@@ -242,7 +266,7 @@ function checkCategoryEligibility(
   };
 }
 
-function getEventCategories(
+function getEventCategoriesRaw(
   categories: PlayerCategory[],
   sportName: string,
   eventName?: string,
@@ -250,25 +274,45 @@ function getEventCategories(
 ): PlayerCategory[] {
   if (!categories || categories.length === 0) return [];
 
-  // 1. Direct match by event's configured categoryName from backend/service
-  if (eventCategoryName) {
-    const direct = categories.filter(
-      c => c.name.trim().toLowerCase() === eventCategoryName.trim().toLowerCase()
-    );
-    if (direct.length > 0) return [direct[0]];
-  }
-
   const eName = (eventName || "").toLowerCase();
   const sportKey = detectSport(sportName || eventName || "").toLowerCase();
 
+  // Exclude categories explicitly belonging to other sports FIRST
+  const ALL_OTHER_SPORTS = [
+    "cricket", "football", "soccer", "volleyball", "basketball",
+    "badminton", "kabaddi", "hockey", "throwball", "table tennis",
+    "tennis", "chess", "carrom", "swimming", "pickleball", "padel", "squash",
+    "skating", "running", "athletics", "cycling", "billiard", "snooker", "bowling",
+    "pool", "rowing", "triathlon", "dart", "foosball", "golf", "karate", "taekwondo"
+  ].filter(s => s !== sportKey && !sportKey.includes(s) && !s.includes(sportKey));
+
+  const poolForSport = categories.filter(c => {
+    const cName = (c.name || "").toLowerCase();
+    const cDesc = (c.description || "").toLowerCase();
+    return !ALL_OTHER_SPORTS.some(other => cName.includes(other) || cDesc.includes(other));
+  });
+
+  // Never fall back to categories of other sports if this sport has no categories in DB!
+  const availableCategories = poolForSport;
+  if (availableCategories.length === 0) return [];
+
+  // 1. Direct match by event's configured categoryName from backend/service
+  if (eventCategoryName) {
+    const direct = availableCategories.filter(
+      c => c.name.trim().toLowerCase() === eventCategoryName.trim().toLowerCase()
+    );
+    if (direct.length > 0) return direct;
+  }
+
   // 2. Check if event name directly mentions a specific category name (e.g. "Under 18", "Above 18", "Men's Singles", "Kids", "Open")
   // Sort categories by name length descending so specific names like "Under 18" match before shorter sub-tokens
-  const sortedCats = [...categories].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
-  for (const cat of sortedCats) {
+  const sortedCats = [...availableCategories].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
+  const matchedDirectCats = sortedCats.filter(cat => {
     const cName = (cat.name || "").toLowerCase().trim();
-    if (cName && (eName.includes(cName) || (cName.length > 3 && cName.split(" ").every(w => eName.includes(w))))) {
-      return [cat];
-    }
+    return cName && (eName.includes(cName) || (cName.length > 3 && cName.split(" ").every(w => eName.includes(w))));
+  });
+  if (matchedDirectCats.length > 0) {
+    return matchedDirectCats;
   }
 
   // 3. Keyword-based age bracket matching from event title
@@ -293,35 +337,138 @@ function getEventCategories(
 
   for (const { key, match } of ageKeywords) {
     if (eName.includes(key)) {
-      const matched = categories.filter(c => match((c.name || "").toLowerCase()));
-      if (matched.length > 0) return [matched[0]];
+      const matched = availableCategories.filter(c => match((c.name || "").toLowerCase()));
+      if (matched.length > 0) return matched;
     }
   }
 
   // 4. Sport-specific category (categories that specifically mention this sport)
-  const sportSpecific = categories.filter(c => {
+  const sportSpecific = availableCategories.filter(c => {
     const cName = (c.name || "").toLowerCase();
     const cDesc = (c.description || "").toLowerCase();
     return cName.includes(sportKey) || cDesc.includes(sportKey);
   });
   if (sportSpecific.length > 0) {
-    return [sportSpecific[0]];
+    return sportSpecific;
   }
 
-  // 5. Exclude categories belonging to other sports
-  const ALL_OTHER_SPORTS = [
-    "cricket", "football", "soccer", "volleyball", "basketball",
-    "badminton", "kabaddi", "hockey", "throwball", "table tennis",
-    "tennis", "chess", "carrom", "swimming", "pickleball", "padel", "squash"
-  ].filter(s => s !== sportKey && !sportKey.includes(s) && !s.includes(sportKey));
+  return availableCategories;
+}
 
-  const nonOther = categories.filter(c => {
-    const cName = (c.name || "").toLowerCase();
-    const cDesc = (c.description || "").toLowerCase();
-    return !ALL_OTHER_SPORTS.some(other => cName.includes(other) || cDesc.includes(other));
+export interface EventEligibilityInput {
+  name?: string | null;
+  sportName?: string | null;
+  categoryName?: string | null;
+  categoryId?: number | null;
+  categoryIds?: number[] | null;
+  category?: any;
+  playerCategory?: any;
+  minAge?: number | null;
+  maxAge?: number | null;
+  gender?: string | null;
+  allowedGenders?: string[] | null;
+  categories?: any[] | null;
+  playerCategories?: any[] | null;
+  playerCategoryIds?: number[] | null;
+  eventCategories?: any[] | null;
+}
+
+/**
+ * Evaluates the event itself (name, category name, event min/max age, gender) with the exact validator
+ * used by the sports dashboard, so both pages agree.
+ */
+export function getEventOwnEligibility(ev: EventEligibilityInput, age: number | null, gender: string) {
+  const r = checkDashboardEligibility(
+    {
+      name: ev.name,
+      categoryName: ev.categoryName,
+      minAge: ev.minAge ?? null,
+      maxAge: ev.maxAge ?? null,
+      gender: ev.gender ?? null,
+      allowedGenders: ev.allowedGenders ?? null,
+      categories: ev.categories ?? null,
+    },
+    age ?? 0,
+    gender
+  );
+  const hasOwnRestriction =
+    r.minAge != null || r.maxAge != null || r.requiredGender === "MALE" || r.requiredGender === "FEMALE";
+  let badgeText = "Ineligible";
+  if (r.isAgeUnknown) badgeText = "Age/DOB required";
+  else if (r.isUnderAge) badgeText = r.minAge != null ? `Ineligible: Min age ${r.minAge} yrs` : "Ineligible: Under age";
+  else if (r.isOverAge) badgeText = `Ineligible: Max age ${r.maxAge} yrs`;
+  else if (r.isGenderMismatch) badgeText = r.requiredGender === "FEMALE" ? "Ineligible: Female only" : "Ineligible: Male only";
+  return { ...r, hasOwnRestriction, badgeText };
+}
+
+/** Category pool for an event, narrowed to the event's own age window / gender when it declares one. */
+export function getEventCategories(
+  categories: PlayerCategory[],
+  sportName: string,
+  eventName?: string,
+  eventCategoryName?: string
+): PlayerCategory[] {
+  const pool = getEventCategoriesRaw(categories, sportName, eventName, eventCategoryName);
+  if (pool.length <= 1) return pool;
+  const own = getEventOwnEligibility({ name: eventName, categoryName: eventCategoryName }, null, "MALE");
+  if (!own.hasOwnRestriction) return pool;
+  const evMin = own.minAge;
+  const evMax = own.maxAge;
+  const narrowed = pool.filter(c => {
+    const cMin = c.minAge != null && !isNaN(Number(c.minAge)) ? Number(c.minAge) : null;
+    const cMax = c.maxAge != null && !isNaN(Number(c.maxAge)) ? Number(c.maxAge) : null;
+    if (evMin != null && cMax != null && cMax < evMin) return false;
+    if (evMax != null && cMin != null && cMin > evMax) return false;
+    const cg = normalizeGender(c.gender);
+    if ((own.requiredGender === "MALE" && cg === "FEMALE") || (own.requiredGender === "FEMALE" && cg === "MALE")) return false;
+    return true;
   });
+  return narrowed.length > 0 ? narrowed : pool;
+}
 
-  return nonOther.length > 0 ? [nonOther[0]] : categories.slice(0, 1);
+function categoryGenderForEventMatch(category: PlayerCategory): "MALE" | "FEMALE" | "MIXED" | "ALL" | "" {
+  const raw = String(category.gender || "").trim().toUpperCase();
+  const type = String(category.categoryType || "").trim().toUpperCase();
+  const text = `${category.name || ""} ${category.description || ""}`;
+  if (raw === "MALE" || ["MENS", "BOYS"].includes(type)) return "MALE";
+  if (raw === "FEMALE" || ["WOMENS", "GIRLS"].includes(type)) return "FEMALE";
+  if (raw === "MIXED" || type === "MIXED" || /\bmixed\b/i.test(text)) return "MIXED";
+  if (["ALL", "OPEN", "GENERAL"].includes(raw) || /\b(open|general|all ages|all genders)\b/i.test(text)) return "ALL";
+  if (/\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text)) return "FEMALE";
+  if (/(?<![a-z])(?:mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text)) return "MALE";
+  return "";
+}
+
+function getEventCategoryGenderLabel(category: PlayerCategory, event?: SportEventSelection): string {
+  const eventGender = String(event?.gender || "").trim().toUpperCase();
+  const allowedGenders = (event?.allowedGenders || []).map(value => String(value).trim().toUpperCase());
+  if (eventGender === "MIXED" || (allowedGenders.includes("MALE") && allowedGenders.includes("FEMALE"))) return "MIXED";
+  const categoryGender = categoryGenderForEventMatch(category);
+  if (categoryGender === "MIXED") return "MIXED";
+  if (categoryGender === "ALL" || categoryGender === "") return "";
+  return categoryGender;
+}
+
+function categoryMatchesEventRules(category: PlayerCategory, event: SportEventSelection): boolean {
+  const eventMin = event.minAge != null && Number.isFinite(Number(event.minAge)) ? Number(event.minAge) : null;
+  const eventMax = event.maxAge != null && Number.isFinite(Number(event.maxAge)) ? Number(event.maxAge) : null;
+  const categoryMin = category.minAge != null && Number.isFinite(Number(category.minAge)) ? Number(category.minAge) : null;
+  const categoryMax = category.maxAge != null && Number.isFinite(Number(category.maxAge)) ? Number(category.maxAge) : null;
+  if (eventMin != null && categoryMin != null && categoryMin !== eventMin) return false;
+  // Some event APIs encode “Under N” as maxAge N while category records store the inclusive N-1.
+  if (eventMax != null && categoryMax != null && categoryMax !== eventMax && categoryMax !== eventMax - 1) return false;
+  if ((eventMin != null && categoryMin == null) || (eventMax != null && categoryMax == null)) return false;
+
+  const eventGender = String(event.gender || "").trim().toUpperCase();
+  const allowed = (event.allowedGenders || []).map(value => String(value).trim().toUpperCase());
+  const mixedEvent = ["MIXED", "ALL", "OPEN", "OPEN (ALL GENDERS)"].includes(eventGender) ||
+    allowed.some(value => ["MIXED", "ALL", "OPEN", "OPEN (ALL GENDERS)"].includes(value)) ||
+    (allowed.includes("MALE") && allowed.includes("FEMALE"));
+  const categoryGender = categoryGenderForEventMatch(category);
+  if (mixedEvent && ["MALE", "FEMALE"].includes(categoryGender)) return false;
+  if (["MALE", "MEN", "BOYS"].includes(eventGender) && categoryGender === "FEMALE") return false;
+  if (["FEMALE", "WOMEN", "GIRLS"].includes(eventGender) && categoryGender === "MALE") return false;
+  return true;
 }
 
 function getMultiCategoryMatchScore(
@@ -363,7 +510,7 @@ function getMultiCategoryMatchScore(
   return score;
 }
 
-function findBestEligibleCategory(
+export function findBestEligibleCategory(
   categories: PlayerCategory[],
   sportName: string,
   age: number | null,
@@ -373,9 +520,7 @@ function findBestEligibleCategory(
 ): PlayerCategory | undefined {
   if (!categories || categories.length === 0) return undefined;
   const eventPool = getEventCategories(categories, sportName, eventName, eventCategoryName);
-  if (eventPool.length === 1) {
-    return eventPool[0];
-  }
+  if (eventPool.length === 0) return undefined;
 
   let best: PlayerCategory | undefined;
   let bestScore = -1;
@@ -388,7 +533,86 @@ function findBestEligibleCategory(
     }
   }
 
-  return best || eventPool[0];
+  // Only return if an eligible category was found (score > -1)
+  return best;
+}
+
+/**
+ * Eligibility of a whole event for a participant. Mirrors the sports dashboard: the event's own
+ * name/category/min-max age/gender rules decide; the category bracket is only consulted for
+ * events that declare no restrictions of their own.
+ */
+export function evaluateEventEligibility(
+  ev: EventEligibilityInput,
+  categories: PlayerCategory[],
+  age: number | null,
+  gender: string
+): EligibilityResult & { category?: PlayerCategory } {
+  if (!gender || !gender.trim()) {
+    return { eligible: false, reason: "Gender is required to verify sports eligibility.", badgeText: "Missing Gender" };
+  }
+  const own = getEventOwnEligibility(ev, age, gender);
+  if (!own.eligible) {
+    return { eligible: false, reason: own.warningMsg, badgeText: own.badgeText };
+  }
+  const eventPool = getCategoriesForSelection(categories, {
+    eventId: 0,
+    name: ev.name || "",
+    sportName: ev.sportName || ev.name || "",
+    categoryName: ev.categoryName || undefined,
+    categoryId: ev.categoryId ?? undefined,
+    categoryIds: ev.categoryIds || ev.playerCategoryIds || null,
+    category: ev.category || null,
+    playerCategory: ev.playerCategory || null,
+    minAge: ev.minAge ?? null,
+    maxAge: ev.maxAge ?? null,
+    gender: ev.gender ?? null,
+    allowedGenders: ev.allowedGenders || null,
+    categories: ev.categories || ev.playerCategories || ev.eventCategories || null,
+    selected: false,
+    matchType: "SINGLES",
+    role: "",
+  });
+  const category = findBestEligibleCategory(eventPool, ev.sportName || ev.name || "", age, gender, ev.name || undefined, ev.categoryName || undefined);
+  if (own.hasOwnRestriction) {
+    if (eventPool.length === 0) {
+      return { eligible: false, reason: "No category bracket matching this event’s age and gender rules is linked to the event.", badgeText: "Event category unavailable" };
+    }
+    if (!category) {
+      return { eligible: false, reason: "Participant does not fit any category linked to this event.", badgeText: "Ineligible for event category" };
+    }
+    return { eligible: true, badgeText: "Eligible", category };
+  }
+  if (eventPool.length > 0 && !category) {
+    return {
+      eligible: false,
+      reason: age != null ? `Participant (${age} yrs, ${gender}) is not eligible for any age/gender bracket in this event.` : "Age/DOB required to verify eligibility.",
+      badgeText: "Ineligible for category",
+    };
+  }
+  const catElig = checkCategoryEligibility(category, age, gender);
+  return { ...catElig, category };
+}
+
+
+/** Submit-time check: event rules first, then the bracket the user actually chose. */
+export function checkSelectionEligibility(
+  ev: EventEligibilityInput,
+  categories: PlayerCategory[],
+  selectedCategory: PlayerCategory | undefined,
+  age: number | null,
+  gender: string
+): EligibilityResult {
+  const eventPool = getCategoriesForSelection(categories, ev as SportEventSelection);
+  if (!selectedCategory || !eventPool.some(category => Number(category.id) === Number(selectedCategory.id))) {
+    return { eligible: false, reason: "Selected category is not linked to this event.", badgeText: "Wrong event category" };
+  }
+  const own = getEventOwnEligibility(ev, age, gender);
+  if (!own.eligible) return { eligible: false, reason: own.warningMsg, badgeText: own.badgeText };
+  const categoryEligibility = checkCategoryEligibility(selectedCategory, age, gender);
+  if (!categoryEligibility.eligible) return categoryEligibility;
+  if (own.hasOwnRestriction) return { eligible: true };
+  return categoryEligibility;
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {
@@ -676,6 +900,81 @@ function getAvailableEventFormats(
   return ["SINGLES", "DOUBLES"];
 }
 
+export function getEventRoles(ev: any, participantGender?: string): string[] {
+  if (!ev) return ["Player"];
+  const sName = (ev.sportName || "").toLowerCase();
+  const eName = (ev.name || "").toLowerCase();
+  const cName = (ev.categoryName || "").toLowerCase();
+  const combined = `${sName} ${eName} ${cName}`;
+  const sportKey = detectSport(combined);
+  const cfg = SPORT_CONFIGS[sportKey];
+
+  // Team sports with specialized position roles (Cricket, Football, Volleyball, etc.)
+  if (["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball"].includes(sportKey)) {
+    return cfg ? cfg.categories.flatMap(c => c.roles) : ["Player"];
+  }
+
+  // Racket / Court / Board sports (Badminton, Tennis, Table Tennis, Pickleball, Squash, Padel, Carrom, Chess, etc.)
+  const normGender = normalizeGender(participantGender); // "MALE" | "FEMALE" | "OTHER" | ""
+  const formats: string[] = (ev.availableFormats && ev.availableFormats.length > 0)
+    ? ev.availableFormats
+    : (ev.matchTypes && ev.matchTypes.length > 0)
+      ? ev.matchTypes
+      : [ev.matchType || "SINGLES"];
+
+  const hasMixedFormat = formats.some((f: string) => f.includes("MIXED")) || /mixed/i.test(combined);
+  const hasDoublesFormat = formats.some((f: string) => f.includes("DOUBLE")) || /doubles?/i.test(combined);
+  const hasSinglesFormat = formats.some((f: string) => f.includes("SINGLE")) || /singles?/i.test(combined);
+
+  // If event specifically only mentions doubles (and not singles)
+  const isStrictlyDoubles = (hasDoublesFormat || hasMixedFormat) && !hasSinglesFormat && !/singles?/i.test(combined);
+  // If event specifically only mentions singles (and not doubles)
+  const isStrictlySingles = hasSinglesFormat && !hasDoublesFormat && !hasMixedFormat && !/doubles?/i.test(combined);
+
+  const roles: string[] = [];
+
+  if (isStrictlyDoubles) {
+    if (hasMixedFormat || /mixed/i.test(combined)) {
+      roles.push("Mixed Doubles Partner");
+    }
+    if (!hasMixedFormat || hasDoublesFormat) {
+      if (normGender === "MALE") {
+        roles.push("Men's Doubles", "Doubles Partner");
+      } else if (normGender === "FEMALE") {
+        roles.push("Women's Doubles", "Doubles Partner");
+      } else {
+        roles.push("Men's Doubles", "Women's Doubles", "Doubles Partner");
+      }
+    }
+    return roles.length > 0 ? roles : ["Doubles Partner"];
+  }
+
+  if (isStrictlySingles) {
+    if (normGender === "MALE") {
+      roles.push("Men's Singles", "Singles Player");
+    } else if (normGender === "FEMALE") {
+      roles.push("Women's Singles", "Singles Player");
+    } else {
+      roles.push("Men's Singles", "Women's Singles", "Singles Player");
+    }
+    return roles.length > 0 ? roles : ["Singles Player"];
+  }
+
+  // Mixed/both or unspecified formats: include singles & doubles filtered by gender
+  if (normGender === "MALE") {
+    roles.push("Men's Singles", "Singles Player", "Men's Doubles", "Doubles Partner");
+  } else if (normGender === "FEMALE") {
+    roles.push("Women's Singles", "Singles Player", "Women's Doubles", "Doubles Partner");
+  } else {
+    roles.push("Men's Singles", "Women's Singles", "Singles Player", "Men's Doubles", "Women's Doubles", "Doubles Partner");
+  }
+  if (hasMixedFormat || /mixed/i.test(combined)) {
+    roles.push("Mixed Doubles Partner");
+  }
+
+  return roles.length > 0 ? Array.from(new Set(roles)) : (cfg ? cfg.categories.flatMap(c => c.roles) : ["Player"]);
+}
+
 interface SportEventSelection {
   eventId: number;
   uuid?: string;
@@ -686,6 +985,7 @@ interface SportEventSelection {
   eventDateStart?: string;
   eventDateEnd?: string;
   isRegistered?: boolean;
+  registrationId?: number;
   selected: boolean;
   matchType: string;
   matchTypes?: string[];
@@ -695,10 +995,114 @@ interface SportEventSelection {
   partnerUserId?: number | null;
   partnerInfo?: SelectedPartnerInfo | null;
   captainNomination?: boolean;
+  captainNominationOpen?: boolean;
   proposedTeamName?: string;
   minAge?: number | null;
   maxAge?: number | null;
   allowHigherAgeCategory?: boolean;
+  gender?: string | null;
+  allowedGenders?: string[] | null;
+  categories?: any[] | null;
+  categoryIds?: number[] | null;
+  playerCategories?: any[] | null;
+  eventCategories?: any[] | null;
+  eligibleCategories?: any[] | null;
+  playerCategoryIds?: number[] | null;
+  allowedCategoryIds?: number[] | null;
+  category?: any;
+  playerCategory?: any;
+}
+
+/** Prefer categories linked to this event; only infer from the global catalog for legacy events without links. */
+function getCategoriesForSelection(categories: PlayerCategory[], event: SportEventSelection): PlayerCategory[] {
+  const rawEvent = event as any;
+  const rawIds = event.categoryIds || rawEvent.playerCategoryIds || rawEvent.allowedCategoryIds || [];
+  const directId = rawEvent.categoryId ?? event.categoryId;
+  const ids = [...rawIds, ...(directId != null ? [directId] : [])];
+  const linkedCategories = event.categories || rawEvent.playerCategories || rawEvent.eventCategories || rawEvent.eligibleCategories || [];
+  let linkedPool: PlayerCategory[] | null = null;
+
+  if (ids.length > 0) {
+    linkedPool = ids
+      .map((id: any) => categories.find(category => Number(category.id) === Number(id)))
+      .filter((category): category is PlayerCategory => Boolean(category));
+  } else if (Array.isArray(linkedCategories) && linkedCategories.length > 0) {
+    linkedPool = linkedCategories
+      .map((linked: any) => {
+        const id = typeof linked === "number" || typeof linked === "string" ? linked : linked?.id ?? linked?.categoryId;
+        const name = typeof linked === "object" ? linked?.name : undefined;
+        return categories.find(category =>
+          (id != null && Number(category.id) === Number(id)) ||
+          (name && category.name.trim().toLowerCase() === String(name).trim().toLowerCase())
+        ) || (typeof linked === "object" && id != null && name ? linked as PlayerCategory : undefined);
+      })
+      .filter((category): category is PlayerCategory => Boolean(category));
+  } else {
+    const directCategory = rawEvent.category || rawEvent.playerCategory;
+    if (directCategory) {
+      const direct = categories.find(category =>
+        (directCategory.id != null && Number(category.id) === Number(directCategory.id)) ||
+        (directCategory.name && category.name.trim().toLowerCase() === String(directCategory.name).trim().toLowerCase())
+      );
+      if (direct) linkedPool = [direct];
+    }
+  }
+
+  if (linkedPool !== null) {
+    const filtered = linkedPool.filter(category => categoryMatchesEventRules(category, event));
+    return filtered;
+  }
+
+  const exactName = event.categoryName
+    ? categories.filter(category => category.name.trim().toLowerCase() === event.categoryName!.trim().toLowerCase())
+    : [];
+  if (exactName.length > 0) return exactName.filter(category => categoryMatchesEventRules(category, event));
+
+  const hasEventRules = event.minAge != null || event.maxAge != null || event.gender != null || (event.allowedGenders?.length || 0) > 0;
+  if (hasEventRules) {
+    return categories.filter(category => categoryMatchesEventRules(category, event));
+  }
+
+  return getEventCategories(categories, event.sportName || event.name, event.name, event.categoryName);
+}
+
+
+function registrationEventId(registration: any): number {
+  return Number(registration?.eventId ?? registration?.event?.id ?? registration?.sportsEvent?.id);
+}
+
+function registrationFamilyMemberId(registration: any): string | number | undefined {
+  return registration?.familyMemberId ?? registration?.familyMember?.id ?? registration?.memberId ?? registration?.member?.id;
+}
+
+function registrationPlayerName(registration: any): string {
+  return String(registration?.playerName ?? registration?.participantName ?? registration?.name ?? registration?.user?.fullName ?? "").trim();
+}
+
+function isActiveSportsRegistration(registration: any): boolean {
+  const status = String(registration?.status ?? registration?.registrationStatus ?? registration?.registration?.status ?? "")
+    .toUpperCase()
+    .trim();
+  return !["WITHDRAWN", "CANCELLED", "REJECTED"].includes(status);
+}
+
+function mergeSportsRegistrations(...lists: any[][]): any[] {
+  const merged = new Map<string, any>();
+  lists.flat().forEach((registration) => {
+    if (!registration) return;
+    const id = registration.id ?? registration.registrationId;
+    const key = id != null ? String(id) : `${registrationEventId(registration)}:${registrationPlayerName(registration).toLowerCase()}:${registrationFamilyMemberId(registration) ?? ""}`;
+    merged.set(key, { ...merged.get(key), ...registration });
+  });
+  return Array.from(merged.values());
+}
+
+async function getRegistrationsForEvents(eventIds: number[]): Promise<any[]> {
+  const uniqueEventIds = Array.from(new Set(eventIds.map(Number).filter(id => Number.isFinite(id) && id > 0)));
+  const registrationsByEvent = await Promise.all(
+    uniqueEventIds.map(eventId => sportsService.getTournamentRegistrations(eventId).catch(() => [] as any[]))
+  );
+  return mergeSportsRegistrations(...registrationsByEvent);
 }
 
 export function SportsMultiRegister() {
@@ -709,7 +1113,8 @@ export function SportsMultiRegister() {
   const backDestination = typeof requestedReturnTo === "string" && requestedReturnTo.startsWith("/")
     ? requestedReturnTo
     : "/sports";
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
+  const isSportsAdminUser = Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [searchParams] = useSearchParams();
   const queryFor = searchParams.get("for");
   const queryMemberId = searchParams.get("memberId");
@@ -719,14 +1124,17 @@ export function SportsMultiRegister() {
   const [tournament, setTournament] = useState<DashboardTournamentCard | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [eventSelections, setEventSelections] = useState<SportEventSelection[]>([]);
+  const [tournamentRegistrations, setTournamentRegistrations] = useState<any[]>([]);
+  const [unregisteringEventId, setUnregisteringEventId] = useState<number | null>(null);
 
   // User / Registrant details
   const [liveUser, setLiveUser] = useState<any>(user);
   const [regType, setRegType] = useState<"self" | "family">(() => queryFor === "family" || queryFor === "community" ? "family" : "self");
   const [playerName, setPlayerName] = useState(() => queryFor === "community" ? "" : user?.fullName || "");
   const [email, setEmail] = useState(() => queryFor === "community" ? "" : user?.email || "");
-  const [gender, setGender] = useState(() => queryFor === "community" ? "" : (user as any)?.gender || "");
+  const [gender, setGender] = useState(() => queryFor === "community" ? "" : normalizeGender((user as any)?.gender) || "");
   const [dateOfBirth, setDateOfBirth] = useState(() => queryFor === "community" ? "" : (user as any)?.dateOfBirth || (user as any)?.dob || "");
+  const [explicitAge, setExplicitAge] = useState<number | null>(null);
   const [relation, setRelation] = useState("");
   const [flatNumber, setFlatNumber] = useState(() => queryFor === "community" ? "" : (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "");
   const [familyMemberId, setFamilyMemberId] = useState<number | string | undefined>();
@@ -737,9 +1145,15 @@ export function SportsMultiRegister() {
   const [selectedCommunityResident, setSelectedCommunityResident] = useState<UserResponse | null>(null);
   const [communityFamilyMembers, setCommunityFamilyMembers] = useState<FamilyMemberSlim[]>([]);
   const [communityFamilyLoading, setCommunityFamilyLoading] = useState(false);
+  const selectedParticipantKey = selectedCommunityResident
+    ? `community:${selectedCommunityResident.id}:${familyMemberId ?? "self"}`
+    : regType === "family"
+      ? `family:${familyMemberId ?? "unselected"}`
+      : `self:${user?.userId ?? "current"}`;
+  const lastRegistrationParticipantKey = useRef(selectedParticipantKey);
 
   const userProfileName = liveUser?.fullName || user?.fullName || "";
-  const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
+  const userProfileGender = normalizeGender(liveUser?.gender || (user as any)?.gender) || "";
   const userProfileDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob || "";
   
   const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
@@ -759,15 +1173,7 @@ export function SportsMultiRegister() {
   const userProfileFlat = useMemo(() => {
     const b = userBlock?.trim() || "";
     const f = (rawUserFlat?.trim() || flatNumber?.trim()) || "";
-    if (b && f) {
-      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
-        return f;
-      }
-      return `Block ${b}, Flat ${f}`;
-    }
-    if (f) return f;
-    if (b) return `Block ${b}`;
-    return "";
+    return formatFlatLabel(f, b);
   }, [userBlock, rawUserFlat, flatNumber]);
 
   const missingProfileFields = useMemo(() => {
@@ -802,10 +1208,12 @@ export function SportsMultiRegister() {
   }, [communitySearch, regType, user?.communityId, user?.userId]);
 
   // Unified Edit / Add Details Modal State (Self or Family Member)
+  // Unified Edit / Add Details Modal State (Self, Coordinator Family, Community Resident, or Community Family Member)
   const [profileModalState, setProfileModalState] = useState<{
     open: boolean;
-    mode: "self" | "family_edit" | "family_add";
+    mode: "self" | "family_edit" | "family_add" | "community_resident" | "community_family_edit";
     memberId?: number | string;
+    residentId?: number | string;
     name: string;
     relation: string;
     gender: string;
@@ -829,41 +1237,12 @@ export function SportsMultiRegister() {
 
   const [savingProfileModal, setSavingProfileModal] = useState(false);
 
-  const openUpdateDetailsModal = (mode: "self" | "family_edit" | "family_add", targetMemberId?: number | string) => {
-    if (mode === "self") {
-      setProfileModalState({
-        open: true,
-        mode: "self",
-        name: playerName || userProfileName || user?.fullName || "",
-        relation: "SELF",
-        gender: gender || userProfileGender || "",
-        dob: dateOfBirth || userProfileDob || "",
-        phone: liveUser?.phone || user?.phone || "",
-        flatNo: flatNumber || userProfileFlat || "",
-        gotram: "",
-        bloodGroup: "",
-      });
-    } else if (mode === "family_edit") {
-      const targetId = targetMemberId || familyMemberId;
-      const mem = familyMembersOnly.find(m => String(m.id) === String(targetId)) || familyMembersOnly[0];
-      if (mem) {
-        setProfileModalState({
-          open: true,
-          mode: "family_edit",
-          memberId: mem.id,
-          name: mem.name || "",
-          relation: mem.relation || (mem as any).relationship || "Son",
-          gender: mem.gender || "",
-          dob: mem.dob || (mem as any).dateOfBirth || "",
-          phone: mem.phone || "",
-          flatNo: userProfileFlat,
-          gotram: mem.gotram || "",
-          bloodGroup: mem.bloodGroup || "",
-        });
-      } else {
-        openUpdateDetailsModal("family_add");
-      }
-    } else {
+  const openParticipantUpdateModal = (
+    mode?: "self" | "family_edit" | "family_add" | "community_resident" | "community_family_edit",
+    targetMemberId?: number | string
+  ) => {
+    // 1. Explicit family_add (adding a family member for coordinator/self)
+    if (mode === "family_add") {
       setProfileModalState({
         open: true,
         mode: "family_add",
@@ -876,8 +1255,104 @@ export function SportsMultiRegister() {
         gotram: "",
         bloodGroup: "",
       });
+      return;
     }
+
+    // 2. Community registration mode: for=community or a resident is selected
+    if (queryFor === "community" || selectedCommunityResident) {
+      if (!selectedCommunityResident) {
+        toast.info("Please search and select a community resident first.");
+        return;
+      }
+
+      const activeMemberId = targetMemberId || familyMemberId;
+      if (mode === "community_family_edit" || activeMemberId) {
+        const mem = communityFamilyMembers.find(m => String(m.id) === String(activeMemberId)) || communityFamilyMembers[0];
+        if (mem) {
+          const rawGen = mem.gender || gender || "";
+          const normGen = rawGen ? (rawGen.charAt(0).toUpperCase() + rawGen.slice(1).toLowerCase()) : "Male";
+          setProfileModalState({
+            open: true,
+            mode: "community_family_edit",
+            memberId: mem.id,
+            residentId: selectedCommunityResident.id,
+            name: mem.name || "",
+            relation: mem.relation || "Son",
+            gender: normGen,
+            dob: formatToDateString(mem.dob || ""),
+            phone: mem.phone || "",
+            flatNo: flatNumber || selectedCommunityResident.flatNo,
+            gotram: "",
+            bloodGroup: "",
+          });
+          return;
+        }
+      }
+
+      // If no family member selected, edit the selected resident
+      const rawGen = selectedCommunityResident.gender || gender || "";
+      const normGen = rawGen ? (rawGen.charAt(0).toUpperCase() + rawGen.slice(1).toLowerCase()) : "Male";
+      setProfileModalState({
+        open: true,
+        mode: "community_resident",
+        residentId: selectedCommunityResident.id,
+        name: selectedCommunityResident.fullName || playerName || "",
+        relation: "SELF",
+        gender: normGen,
+        dob: formatToDateString(selectedCommunityResident.dateOfBirth || dateOfBirth || ""),
+        phone: selectedCommunityResident.phone || "",
+        flatNo: selectedCommunityResident.flatNo || flatNumber || "",
+        gotram: "",
+        bloodGroup: "",
+      });
+      return;
+    }
+
+    // 3. Coordinator/User's own family member
+    if (regType === "family" || mode === "family_edit") {
+      const activeMemberId = targetMemberId || familyMemberId;
+      const mem = familyMembersOnly.find(m => String(m.id) === String(activeMemberId)) || familyMembersOnly[0];
+      if (mem) {
+        const rawGen = mem.gender || "";
+        const normGen = rawGen ? (rawGen.charAt(0).toUpperCase() + rawGen.slice(1).toLowerCase()) : "Male";
+        setProfileModalState({
+          open: true,
+          mode: "family_edit",
+          memberId: mem.id,
+          name: mem.name || "",
+          relation: mem.relation || (mem as any).relationship || "Son",
+          gender: normGen,
+          dob: formatToDateString(mem.dob || (mem as any).dateOfBirth || (mem as any).birthDate || ""),
+          phone: mem.phone || "",
+          flatNo: userProfileFlat,
+          gotram: mem.gotram || "",
+          bloodGroup: mem.bloodGroup || "",
+        });
+        return;
+      } else {
+        openParticipantUpdateModal("family_add");
+        return;
+      }
+    }
+
+    // 4. Default: Self (logged-in coordinator/user)
+    const rawGen = gender || userProfileGender || "";
+    const normGen = rawGen ? (rawGen.charAt(0).toUpperCase() + rawGen.slice(1).toLowerCase()) : "Male";
+    setProfileModalState({
+      open: true,
+      mode: "self",
+      name: playerName || userProfileName || user?.fullName || "",
+      relation: "SELF",
+      gender: normGen,
+      dob: formatToDateString(dateOfBirth || userProfileDob || ""),
+      phone: liveUser?.phone || user?.phone || "",
+      flatNo: flatNumber || userProfileFlat || "",
+      gotram: "",
+      bloodGroup: "",
+    });
   };
+
+  const openUpdateDetailsModal = openParticipantUpdateModal;
 
   const handleProfileModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -902,7 +1377,85 @@ export function SportsMultiRegister() {
     try {
       const computedAge = calculateAge(profileModalState.dob) || 18;
 
-      if (profileModalState.mode === "self") {
+      if (profileModalState.mode === "community_resident") {
+        const targetResidentId = Number(profileModalState.residentId || selectedCommunityResident?.id);
+        if (!targetResidentId) {
+          toast.error("Community resident ID not found");
+          return;
+        }
+
+        const updatePayload: Partial<UserResponse> = {
+          fullName: profileModalState.name.trim(),
+          gender: profileModalState.gender,
+          dateOfBirth: profileModalState.dob,
+          flatNo: profileModalState.flatNo?.trim() || undefined,
+          phone: profileModalState.phone?.trim() || undefined,
+        };
+
+        await userService.updateUser(targetResidentId, updatePayload);
+
+        // Update selectedCommunityResident in state
+        setSelectedCommunityResident(prev => prev ? {
+          ...prev,
+          fullName: updatePayload.fullName || prev.fullName,
+          gender: updatePayload.gender || prev.gender,
+          dateOfBirth: updatePayload.dateOfBirth || prev.dateOfBirth,
+          flatNo: updatePayload.flatNo || prev.flatNo,
+          phone: updatePayload.phone || prev.phone,
+        } : prev);
+
+        // Update active participant form fields (WITHOUT touching AuthContext / coordinator profile)
+        setPlayerName(updatePayload.fullName || "");
+        setGender(updatePayload.gender || "");
+        setDateOfBirth(updatePayload.dateOfBirth || "");
+        setExplicitAge(calculateAge(updatePayload.dateOfBirth || "") || null);
+        if (updatePayload.flatNo) setFlatNumber(updatePayload.flatNo);
+
+        setFormErrors({});
+        setEventErrors({});
+        toast.success(`Resident "${updatePayload.fullName}" updated successfully!`);
+      } else if (profileModalState.mode === "community_family_edit") {
+        const targetMemberId = profileModalState.memberId;
+        if (!targetMemberId) {
+          toast.error("Family member ID not found");
+          return;
+        }
+
+        const payload = {
+          name: profileModalState.name.trim(),
+          relation: profileModalState.relation,
+          dob: profileModalState.dob,
+          gender: profileModalState.gender,
+          phone: profileModalState.phone?.trim() || undefined,
+          gotram: profileModalState.gotram?.trim() || undefined,
+          bloodGroup: profileModalState.bloodGroup?.trim() || undefined,
+          age: computedAge,
+          status: "ACTIVE",
+        };
+
+        await familyService.updateFamilyMemberForUser(targetMemberId, payload);
+
+        // Refresh community resident's family members list
+        if (selectedCommunityResident?.id) {
+          try {
+            const refreshed = await sportsService.getCommunityResidentFamilyMembers(Number(selectedCommunityResident.id));
+            setCommunityFamilyMembers(refreshed || []);
+          } catch (err) {
+            console.warn("Could not reload community family members:", err);
+          }
+        }
+
+        // Update active participant form fields (WITHOUT touching AuthContext / coordinator profile)
+        setPlayerName(payload.name);
+        setGender(payload.gender);
+        setDateOfBirth(payload.dob);
+        setExplicitAge(computedAge || calculateAge(payload.dob) || null);
+        setRelation(payload.relation);
+
+        setFormErrors({});
+        setEventErrors({});
+        toast.success(`Family member "${payload.name}" updated successfully!`);
+      } else if (profileModalState.mode === "self") {
         if (user?.userId) {
           try {
             await userService.updateUser(Number(user.userId), {
@@ -931,6 +1484,7 @@ export function SportsMultiRegister() {
         setPlayerName(profileModalState.name.trim());
         setGender(profileModalState.gender);
         setDateOfBirth(profileModalState.dob);
+        setExplicitAge(calculateAge(profileModalState.dob) || null);
         if (profileModalState.flatNo) setFlatNumber(profileModalState.flatNo.trim());
         setFormErrors({});
         setEventErrors({});
@@ -947,12 +1501,13 @@ export function SportsMultiRegister() {
           age: computedAge,
           status: "ACTIVE",
         };
-        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        await familyService.updateFamilyMember(profileModalState.memberId!, payload);
         const refreshed = await familyService.getFamilyMembers(true);
         setSavedFamilyMembers(refreshed);
         setPlayerName(payload.name);
         setGender(payload.gender);
         setDateOfBirth(payload.dob);
+        setExplicitAge(computedAge || calculateAge(payload.dob) || null);
         setRelation(payload.relation);
         setFormErrors({});
         setEventErrors({});
@@ -1015,7 +1570,7 @@ export function SportsMultiRegister() {
     }));
   };
 
-  const currentAge = useMemo(() => calculateAge(dateOfBirth), [dateOfBirth]);
+  const currentAge = useMemo(() => calculateAge(dateOfBirth, explicitAge), [dateOfBirth, explicitAge]);
 
   // Load user profile & family members
   useEffect(() => {
@@ -1057,6 +1612,49 @@ export function SportsMultiRegister() {
     return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
   }, [updateUser, regType]);
 
+  // Keep active family member form data in sync if savedFamilyMembers or communityFamilyMembers change
+  useEffect(() => {
+    if (selectedCommunityResident && familyMemberId && communityFamilyMembers.length > 0) {
+      const activeMember = communityFamilyMembers.find(m => String(m.id) === String(familyMemberId));
+      if (activeMember) {
+        let activeDob = formatToDateString(activeMember.dob || "");
+        const rawAge = activeMember.age ?? (activeMember as any).approxAge ?? null;
+        const memberAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+        if (!activeDob && memberAgeNum) {
+          activeDob = synthesizeDobFromAge(memberAgeNum);
+        }
+        if (memberAgeNum !== null && explicitAge !== memberAgeNum) {
+          setExplicitAge(memberAgeNum);
+        }
+        if (activeDob && (!dateOfBirth || dateOfBirth !== activeDob)) {
+          setDateOfBirth(activeDob);
+        }
+        if (activeMember.gender && (!gender || gender !== activeMember.gender.toUpperCase())) {
+          setGender(activeMember.gender.toUpperCase());
+        }
+      }
+    } else if (regType === "family" && familyMemberId && savedFamilyMembers.length > 0) {
+      const activeMember = savedFamilyMembers.find(m => String(m.id) === String(familyMemberId));
+      if (activeMember) {
+        let activeDob = formatToDateString(activeMember.dob || (activeMember as any).dateOfBirth || (activeMember as any).birthDate || "");
+        const rawAge = activeMember.age ?? (activeMember as any).approxAge ?? null;
+        const memberAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+        if (!activeDob && memberAgeNum) {
+          activeDob = synthesizeDobFromAge(memberAgeNum);
+        }
+        if (memberAgeNum !== null && explicitAge !== memberAgeNum) {
+          setExplicitAge(memberAgeNum);
+        }
+        if (activeDob && (!dateOfBirth || dateOfBirth !== activeDob)) {
+          setDateOfBirth(activeDob);
+          if (!gender && activeMember.gender) {
+            setGender(activeMember.gender);
+          }
+        }
+      }
+    }
+  }, [savedFamilyMembers, communityFamilyMembers, selectedCommunityResident, regType, familyMemberId, dateOfBirth, gender, explicitAge]);
+
   useEffect(() => {
     if (queryFor === "family") {
       const targetMember = queryMemberId
@@ -1066,8 +1664,8 @@ export function SportsMultiRegister() {
       if (targetMember) {
         setPlayerName(targetMember.name);
         setEmail(targetMember.email || "");
-        setGender(inferGender(targetMember, userProfileGender) || targetMember.gender || "");
-        setDateOfBirth(targetMember.dob || (targetMember as any).dateOfBirth || "");
+        setGender(normalizeGender(inferGender(targetMember, userProfileGender)) || normalizeGender(targetMember.gender) || "");
+        setDateOfBirth(formatToDateString(targetMember.dob || (targetMember as any).dateOfBirth || (targetMember as any).birthDate || ""));
         setRelation(targetMember.relation || (targetMember as any).relationship || "");
         setFamilyMemberId(targetMember.id);
       } else {
@@ -1082,7 +1680,7 @@ export function SportsMultiRegister() {
       setRegType("self");
       setPlayerName(userProfileName);
       setEmail(liveUser?.email || user?.email || "");
-      setGender(userProfileGender);
+      setGender(normalizeGender(userProfileGender) || "");
       setDateOfBirth(userProfileDob);
       setRelation("");
       setFamilyMemberId(undefined);
@@ -1094,19 +1692,24 @@ export function SportsMultiRegister() {
     const fetchTournamentData = async () => {
       setLoading(true);
       try {
-        const [openTourneys, cats, metaList, directTourney] = await Promise.all([
+        const [openTourneys, cats, metaList, directTourney, myRegs, tourneyRegs] = await Promise.all([
           sportsDashboardService.getOpenTournaments().catch(() => [] as DashboardTournamentCard[]),
           sportsService.getCategories().catch(() => [] as PlayerCategory[]),
           sportsService.getSportsMeta().catch(() => [] as any[]),
           tournamentId ? sportsService.getTournamentById(Number(tournamentId)).catch(() => null) : Promise.resolve(null),
+          sportsDashboardService.getMyRegistrations().catch(() => [] as DashboardMyRegistration[]),
+          tournamentId ? sportsService.getTournamentRegistrations(Number(tournamentId)).catch(() => [] as any[]) : Promise.resolve([] as any[]),
         ]);
         setCategories(cats);
+
+        const combinedRegs = mergeSportsRegistrations(myRegs || [], tourneyRegs || []);
+        setTournamentRegistrations(combinedRegs);
 
         let targetTourney = openTourneys.find(t => String(t.id) === String(tournamentId));
 
         if (directTourney) {
           const rawTourney = directTourney;
-          const childEvents = (rawTourney as any).childEvents || (rawTourney as any).events;
+          const childEvents = (rawTourney as any).childEvents || (rawTourney as any).events || (rawTourney as any).sportsEvents;
           targetTourney = {
             id: rawTourney.id,
             name: rawTourney.name,
@@ -1117,30 +1720,46 @@ export function SportsMultiRegister() {
             communityId: (rawTourney as any).communityId || targetTourney?.communityId || null,
             communityName: (rawTourney as any).community?.name || targetTourney?.communityName || null,
             events: childEvents && childEvents.length > 0
-              ? childEvents.map((ce: any) => ({
-                  id: ce.id,
-                  uuid: ce.uuid || null,
-                  name: ce.name,
-                  eventDateStart: ce.eventDateStart || null,
-                  eventDateEnd: ce.eventDateEnd || null,
-                  sportName: ce.sportName || ce.sport?.name || (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
-                  categoryName: ce.categoryName || ce.category?.name || null,
-                  venueName: ce.venueName || ce.venue?.name || null,
-                  maxParticipants: ce.maxParticipants || null,
-                  registrationStatus: ce.registrationStatus || ce.status || null,
-                  auctionStatus: ce.auctionStatus || null,
-                  teamSport: Boolean(ce.teamSport),
-                  format: ce.format || ce.formats || (rawTourney as any).format || (rawTourney as any).formats || null,
-                  formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
-                  myRegistrationId: ce.myRegistrationId || null,
-                  myRegistrationStatus: ce.myRegistrationStatus || null,
-                }))
-              : targetTourney?.events && targetTourney.events.length > 0
-                ? targetTourney.events.map(te => ({
-                    ...te,
-                    format: (rawTourney as any).format || (rawTourney as any).formats || (te as any).format || (te as any).formats || null,
-                    formats: (rawTourney as any).formats || (rawTourney as any).format || (te as any).formats || (te as any).format || null,
+              ? childEvents
+                  .filter((ce: any) => String(ce.registrationStatus || ce.status || "").toUpperCase().trim() !== "DRAFT")
+                  .map((ce: any) => ({
+                    id: ce.id,
+                    uuid: ce.uuid || null,
+                    name: ce.name,
+                    eventDateStart: ce.eventDateStart || null,
+                    eventDateEnd: ce.eventDateEnd || null,
+                    sportName: ce.sportName || ce.sport?.name || (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
+                    categoryName: ce.categoryName || ce.category?.name || ce.playerCategory?.name || null,
+                    venueName: ce.venueName || ce.venue?.name || null,
+                    maxParticipants: ce.maxParticipants || null,
+                    registrationStatus: ce.registrationStatus || ce.status || null,
+                    auctionStatus: ce.auctionStatus || null,
+                    teamSport: Boolean(ce.teamSport),
+                    format: ce.format || ce.formats || (rawTourney as any).format || (rawTourney as any).formats || null,
+                    formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
+                    myRegistrationId: ce.myRegistrationId || null,
+                    myRegistrationStatus: ce.myRegistrationStatus || null,
+                    minAge: ce.minAge != null && !isNaN(Number(ce.minAge)) ? Number(ce.minAge) : null,
+                    maxAge: ce.maxAge != null && !isNaN(Number(ce.maxAge)) ? Number(ce.maxAge) : null,
+                    gender: ce.gender || (ce as any).genderCategory || null,
+                    allowedGenders: ce.allowedGenders || null,
+                    categories: ce.categories || ce.playerCategories || ce.eventCategories || ce.eligibleCategories || null,
+                    categoryIds: ce.categoryIds || ce.playerCategoryIds || ce.allowedCategoryIds || (ce.categoryId != null ? [ce.categoryId] : null),
                   }))
+              : targetTourney?.events && targetTourney.events.length > 0
+                ? targetTourney.events
+                    .filter((te: any) => String(te.registrationStatus || te.status || "").toUpperCase().trim() !== "DRAFT")
+                    .map(te => ({
+                      ...te,
+                      format: (rawTourney as any).format || (rawTourney as any).formats || (te as any).format || (te as any).formats || null,
+                      formats: (rawTourney as any).formats || (rawTourney as any).format || (te as any).formats || (te as any).format || null,
+                      minAge: (te as any).minAge != null && !isNaN(Number((te as any).minAge)) ? Number((te as any).minAge) : null,
+                      maxAge: (te as any).maxAge != null && !isNaN(Number((te as any).maxAge)) ? Number((te as any).maxAge) : null,
+                      gender: (te as any).gender || (te as any).genderCategory || null,
+                      allowedGenders: (te as any).allowedGenders || null,
+                      categories: (te as any).categories || (te as any).playerCategories || (te as any).eventCategories || (te as any).eligibleCategories || null,
+                      categoryIds: (te as any).categoryIds || (te as any).playerCategoryIds || (te as any).allowedCategoryIds || ((te as any).categoryId != null ? [(te as any).categoryId] : null),
+                    }))
                 : [{
                     id: rawTourney.id,
                     uuid: (rawTourney as any).uuid || null,
@@ -1148,7 +1767,7 @@ export function SportsMultiRegister() {
                     eventDateStart: rawTourney.eventDateStart || null,
                     eventDateEnd: rawTourney.eventDateEnd || null,
                     sportName: (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
-                    categoryName: (rawTourney as any).categoryName || (rawTourney as any).category?.name || null,
+                    categoryName: (rawTourney as any).categoryName || (rawTourney as any).category?.name || (rawTourney as any).playerCategory?.name || null,
                     venueName: (rawTourney as any).venueName || (rawTourney as any).venue?.name || null,
                     maxParticipants: rawTourney.maxParticipants || null,
                     registrationStatus: rawTourney.registrationStatus || (rawTourney as any).status || null,
@@ -1158,58 +1777,179 @@ export function SportsMultiRegister() {
                     formats: (rawTourney as any).formats || (rawTourney as any).format || null,
                     myRegistrationId: null,
                     myRegistrationStatus: null,
+                    minAge: (rawTourney as any).minAge != null && !isNaN(Number((rawTourney as any).minAge)) ? Number((rawTourney as any).minAge) : null,
+                    maxAge: (rawTourney as any).maxAge != null && !isNaN(Number((rawTourney as any).maxAge)) ? Number((rawTourney as any).maxAge) : null,
+                    gender: (rawTourney as any).gender || (rawTourney as any).genderCategory || null,
+                    allowedGenders: (rawTourney as any).allowedGenders || null,
+                    categories: (rawTourney as any).categories || (rawTourney as any).playerCategories || (rawTourney as any).eventCategories || null,
+                    categoryIds: (rawTourney as any).categoryIds || (rawTourney as any).playerCategoryIds || (rawTourney as any).allowedCategoryIds || ((rawTourney as any).categoryId != null ? [(rawTourney as any).categoryId] : null),
                   }],
           };
         }
 
         if (targetTourney) {
-          setTournament(targetTourney);
+          // Tournament summaries may omit the event's allowed categories. Hydrate those events
+          // from the same registration-details endpoint used by single-event registration.
+          const hydratedEvents = await Promise.all(targetTourney.events.map(async (event: any) => {
+            const hasCategoryLinks =
+              (Array.isArray(event.categoryIds) && event.categoryIds.length > 0) ||
+              (Array.isArray(event.playerCategoryIds) && event.playerCategoryIds.length > 0) ||
+              (Array.isArray(event.categories) && event.categories.length > 0) ||
+              (Array.isArray(event.playerCategories) && event.playerCategories.length > 0) ||
+              (Array.isArray(event.eventCategories) && event.eventCategories.length > 0) ||
+              event.categoryId != null || Boolean(event.category?.id || event.playerCategory?.id);
+            if (hasCategoryLinks || !(event.uuid || event.id)) return event;
+            try {
+              const details = await sportsService.getRegistrationDetails(event.uuid || event.id);
+              // The registration-details endpoint can include category associations that are
+              // not part of the base SportsEvent interface.
+              const detailedEvent = (details?.event || {}) as any;
+              return {
+                ...event,
+                ...detailedEvent,
+                id: event.id ?? detailedEvent.id,
+                uuid: event.uuid ?? detailedEvent.uuid,
+                name: event.name || detailedEvent.name,
+                sportName: event.sportName || detailedEvent.sportName || detailedEvent.sport?.name,
+                categoryName: event.categoryName || detailedEvent.categoryName || detailedEvent.category?.name,
+                categories: event.categories || event.playerCategories || detailedEvent.categories || detailedEvent.playerCategories || details?.categories || null,
+                categoryIds: event.categoryIds || event.playerCategoryIds || detailedEvent.categoryIds || detailedEvent.playerCategoryIds || (detailedEvent.categoryId != null ? [detailedEvent.categoryId] : null),
+                minAge: event.minAge ?? detailedEvent.minAge ?? detailedEvent.category?.minAge,
+                maxAge: event.maxAge ?? detailedEvent.maxAge ?? detailedEvent.category?.maxAge,
+                gender: event.gender || event.genderCategory || detailedEvent.gender || detailedEvent.genderCategory || detailedEvent.category?.gender,
+                allowedGenders: event.allowedGenders || detailedEvent.allowedGenders,
+              };
+            } catch {
+              return event;
+            }
+          }));
+          const hydratedTourney = { ...targetTourney, events: hydratedEvents };
+          targetTourney = hydratedTourney;
+
+          const eventIds = Array.from(new Set(hydratedTourney.events.map(event => Number(event.id)).filter(id => Number.isFinite(id) && id > 0)));
+          const eventRegs = await getRegistrationsForEvents(eventIds.length > 0 ? eventIds : [Number(tournamentId)]);
+          const combinedRegs = mergeSportsRegistrations(myRegs || [], tourneyRegs || [], eventRegs || []);
+          setTournamentRegistrations(combinedRegs);
+          setTournament(hydratedTourney);
           const initialAge = calculateAge(dateOfBirth);
 
-          const initialSelections: SportEventSelection[] = targetTourney.events.map(ev => {
-            const resolvedSportName = ev.sportName || (targetTourney as any).sportName || (targetTourney as any).sport?.name || targetTourney.name || "Sports";
-            const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
+          const initialSelections: SportEventSelection[] = hydratedTourney.events.map(ev => {
+            const resolvedSportName = ev.sportName || (hydratedTourney as any).sportName || (hydratedTourney as any).sport?.name || hydratedTourney.name || "Sports";
+            const sportKey = detectSport(`${resolvedSportName} ${hydratedTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
-            const defaultRole = cfg.categories[0]?.roles[0] || "Player";
-            const rawStatus = String(ev.myRegistrationStatus || "").toUpperCase().trim();
+
+            const matchedRegs = combinedRegs.filter(r => {
+              const rEvId = registrationEventId(r);
+              if (rEvId !== ev.id) return false;
+              if (!isActiveSportsRegistration(r)) return false;
+
+              if (queryFor === "community" || selectedCommunityResident) {
+                if (regType === "family" && familyMemberId) {
+                  const mFamId = registrationFamilyMemberId(r);
+                  if (mFamId && String(mFamId) === String(familyMemberId)) return true;
+                  const regName = registrationPlayerName(r);
+                  if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
+                  return false;
+                } else {
+                  const resUserId = Number(selectedCommunityResident?.id);
+                  const regUserId = Number(r.user?.id ?? r.participantUserId ?? r.registeredForUserId ?? r.residentId ?? r.userId);
+                  const mFamId = registrationFamilyMemberId(r);
+                  const regName = registrationPlayerName(r);
+                  if (resUserId && regUserId && resUserId === regUserId && !mFamId) return true;
+                  if (selectedCommunityResident?.fullName && regName && regName.toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase() && !mFamId) return true;
+                  if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
+                  return false;
+                }
+              }
+
+              if (regType === "family" && familyMemberId) {
+                return isRegistrationForMemberHelper({
+                  ...r,
+                  playerName: registrationPlayerName(r),
+                  familyMemberId: registrationFamilyMemberId(r),
+                  relation: r.relation || r.relationship,
+                }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName, user?.userId);
+              }
+
+              return isRegistrationForMemberHelper({
+                ...r,
+                playerName: registrationPlayerName(r),
+                familyMemberId: registrationFamilyMemberId(r),
+                relation: r.relation || r.relationship,
+              }, "self", familyMembersOnly, userProfileName || user?.fullName, user?.userId);
+            });
+
+            const matchedReg = matchedRegs[0];
+            const isCurrentUserTarget = regType === "self" && queryFor !== "community" && !selectedCommunityResident;
             const isAlreadyRegistered = Boolean(
-              ev.myRegistrationId &&
-              rawStatus &&
-              rawStatus !== "WITHDRAWN" &&
-              rawStatus !== "CANCELLED" &&
-              rawStatus !== "REJECTED"
+              matchedReg ||
+              (isCurrentUserTarget && ev.myRegistrationId && isActiveSportsRegistration({ status: ev.myRegistrationStatus }))
             );
+            const resolvedRegId = matchedReg?.id ? Number(matchedReg.id) : (ev.myRegistrationId ? Number(ev.myRegistrationId) : undefined);
 
             // Find single related category from service categories for this specific event
-            const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
-            const isEligible = matchedCategory ? checkCategoryEligibility(matchedCategory, initialAge, gender).eligible : false;
+            const evAny = ev as any;
+            const toNum = (v: any) => (v != null && v !== "" && !isNaN(Number(v)) ? Number(v) : null);
+            const evMinAge = toNum(evAny.minAge ?? evAny.category?.minAge ?? evAny.playerCategory?.minAge);
+            const evMaxAge = toNum(evAny.maxAge ?? evAny.category?.maxAge ?? evAny.playerCategory?.maxAge);
+            const evGender = evAny.gender || evAny.genderCategory || evAny.category?.gender || evAny.playerCategory?.gender || null;
+            const evAllowedGenders = evAny.allowedGenders || null;
+            const eventCategoryPool = getCategoriesForSelection(cats, {
+              eventId: ev.id,
+              name: ev.name,
+              sportName: resolvedSportName,
+              categoryName: ev.categoryName || evAny.category?.name || evAny.playerCategory?.name || undefined,
+              categories: evAny.categories || evAny.playerCategories || evAny.eventCategories || evAny.eligibleCategories || null,
+              categoryIds: evAny.categoryIds || evAny.playerCategoryIds || evAny.allowedCategoryIds || (evAny.categoryId != null ? [evAny.categoryId] : null),
+              minAge: evMinAge,
+              maxAge: evMaxAge,
+              gender: evGender,
+              allowedGenders: evAllowedGenders,
+              selected: false,
+              matchType: "SINGLES",
+              role: "",
+            });
+            const matchedCategory = findBestEligibleCategory(eventCategoryPool, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
+            const isEligible = evaluateEventEligibility(
+              { name: ev.name, sportName: resolvedSportName, categoryName: ev.categoryName || evAny.category?.name || evAny.playerCategory?.name, minAge: evMinAge, maxAge: evMaxAge, gender: evGender, allowedGenders: evAllowedGenders, categories: evAny.categories || evAny.playerCategories || evAny.eventCategories || evAny.eligibleCategories, categoryIds: evAny.categoryIds || evAny.playerCategoryIds || evAny.allowedCategoryIds, categoryId: evAny.categoryId },
+              eventCategoryPool, initialAge, gender
+            ).eligible;
 
             // Detect available participation formats (e.g. Singles, Doubles, Mixed Doubles)
-            const availableFormats = getAvailableEventFormats(ev, resolvedSportName, ev.name, targetTourney.name, metaList);
+            const availableFormats = getAvailableEventFormats(ev, resolvedSportName, ev.name, hydratedTourney.name, metaList);
             const defaultFormat = availableFormats[0] || "SINGLES";
+            const eventRoles = getEventRoles({ ...ev, availableFormats, matchType: defaultFormat }, gender);
+            const defaultRole = eventRoles[0] || cfg.categories[0]?.roles[0] || "Player";
 
             return {
               eventId: ev.id,
               uuid: ev.uuid ?? undefined,
               name: ev.name,
               sportName: resolvedSportName,
-              categoryName: ev.categoryName || undefined,
+              categoryName: ev.categoryName || evAny.category?.name || evAny.playerCategory?.name || undefined,
               venueName: ev.venueName || undefined,
               eventDateStart: ev.eventDateStart || undefined,
               eventDateEnd: ev.eventDateEnd || undefined,
               isRegistered: isAlreadyRegistered,
+              registrationId: resolvedRegId,
               selected: !isAlreadyRegistered && isEligible, // Pre-select only eligible un-registered events
               matchType: defaultFormat,
               matchTypes: availableFormats.length > 0 ? [defaultFormat] : ["SINGLES"],
               availableFormats: availableFormats,
               role: defaultRole,
               categoryId: matchedCategory?.id,
-              minAge: (ev as any).minAge ?? matchedCategory?.minAge ?? null,
-              maxAge: (ev as any).maxAge ?? matchedCategory?.maxAge ?? null,
+              categoryIds: evAny.categoryIds || evAny.playerCategoryIds || evAny.allowedCategoryIds || (evAny.categoryId != null ? [evAny.categoryId] : null),
+              minAge: evMinAge,
+              maxAge: evMaxAge,
+              gender: evGender,
+              allowedGenders: evAllowedGenders,
+              categories: evAny.categories || evAny.playerCategories || evAny.eventCategories || evAny.eligibleCategories || null,
               allowHigherAgeCategory: (ev as any).allowHigherAgeCategory ?? true,
+              captainNominationOpen: Boolean((ev as any).captainNominationOpen ?? (ev as any).rawEvent?.captainNominationOpen),
             };
           });
           setEventSelections(initialSelections);
+
         } else {
           toast.error("Tournament not found or no longer open for registration");
         }
@@ -1225,24 +1965,50 @@ export function SportsMultiRegister() {
     }
   }, [tournamentId]);
 
+  // Query-driven family selection and community search resolve after the tournament loads.
+  // Refresh registrations when that active participant changes so their Register/Unregister state is current.
+  useEffect(() => {
+    if (!tournamentId || lastRegistrationParticipantKey.current === selectedParticipantKey) return;
+    lastRegistrationParticipantKey.current = selectedParticipantKey;
+    let isActive = true;
+
+    const refreshParticipantRegistrations = async () => {
+      const eventIds = tournament?.events
+        ? Array.from(new Set(tournament.events.map(e => Number(e.id)).filter(id => Number.isFinite(id) && id > 0)))
+        : (tournamentId ? [Number(tournamentId)] : []);
+      const [myRegistrations, eventRegistrations, childEventRegistrations] = await Promise.all([
+        sportsDashboardService.getMyRegistrations().catch(() => [] as DashboardMyRegistration[]),
+        sportsService.getTournamentRegistrations(Number(tournamentId)).catch(() => [] as any[]),
+        eventIds.length > 0 ? getRegistrationsForEvents(eventIds) : Promise.resolve([] as any[]),
+      ]);
+
+      if (isActive) {
+        setTournamentRegistrations(mergeSportsRegistrations(myRegistrations || [], eventRegistrations || [], childEventRegistrations || []));
+      }
+    };
+
+    void refreshParticipantRegistrations();
+    return () => { isActive = false; };
+  }, [tournamentId, selectedParticipantKey, tournament]);
+
   // Auto-adjust categories when age or gender changes to ensure participant is assigned to an eligible category
   useEffect(() => {
     if (categories.length === 0 || eventSelections.length === 0) return;
-    const age = calculateAge(dateOfBirth);
+    const age = calculateAge(dateOfBirth, explicitAge);
 
     setEventSelections(prev => prev.map(ev => {
       let catId = ev.categoryId;
-      const currentCat = categories.find(c => c.id === ev.categoryId);
-      let isEligible = checkCategoryEligibility(currentCat, age, gender).eligible;
+      const pool = getCategoriesForSelection(categories, ev);
+      const currentCat = pool.find(c => Number(c.id) === Number(ev.categoryId));
+      const currentInPool = Boolean(currentCat && pool.some(c => c.id === currentCat.id));
+      const currentOk = currentInPool && checkCategoryEligibility(currentCat, age, gender).eligible;
 
-      // If current category is ineligible or not set, switch to best eligible category for this event
-      if (!isEligible) {
-        const best = findBestEligibleCategory(categories, ev.sportName || ev.name, age, gender, ev.name, ev.categoryName);
-        if (best && best.id !== ev.categoryId) {
-          catId = best.id;
-          isEligible = checkCategoryEligibility(best, age, gender).eligible;
-        }
+      // Keep the user's bracket only if it belongs to this event's pool and fits; otherwise pick the best one
+      const evaluation = evaluateEventEligibility(ev, categories, age, gender);
+      if (!currentOk && evaluation.category && evaluation.category.id !== ev.categoryId) {
+        catId = evaluation.category.id;
       }
+      const isEligible = evaluation.eligible;
 
       // If ineligible or already registered, uncheck it
       const shouldBeSelected = ev.isRegistered ? false : (isEligible ? ev.selected : false);
@@ -1256,7 +2022,71 @@ export function SportsMultiRegister() {
 
     // Clear event errors when user updates participant demographic details
     setEventErrors({});
-  }, [dateOfBirth, gender, categories]);
+  }, [dateOfBirth, explicitAge, gender, categories]);
+
+  const findAllRegistrationsForParticipant = useCallback((eventId: number) => {
+    return tournamentRegistrations.filter(r => {
+      const regEvId = registrationEventId(r);
+      if (regEvId !== eventId) return false;
+      if (!isActiveSportsRegistration(r)) return false;
+
+      if (queryFor === "community" || selectedCommunityResident) {
+        if (regType === "family" && familyMemberId) {
+          const matchFamId = registrationFamilyMemberId(r);
+          if (matchFamId && String(matchFamId) === String(familyMemberId)) return true;
+          const regName = registrationPlayerName(r);
+          if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !matchFamId) return true;
+          return false;
+        } else {
+          const resUserId = Number(selectedCommunityResident?.id);
+          const regUserId = Number(r.user?.id ?? r.participantUserId ?? r.registeredForUserId ?? r.residentId ?? r.userId);
+          const mFamId = registrationFamilyMemberId(r);
+          const regName = registrationPlayerName(r);
+          if (resUserId && regUserId && resUserId === regUserId && !mFamId) return true;
+          if (selectedCommunityResident?.fullName && regName && regName.toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase() && !mFamId) return true;
+          if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
+          return false;
+        }
+      }
+
+      if (regType === "family" && familyMemberId) {
+        return isRegistrationForMemberHelper({
+          ...r,
+          playerName: registrationPlayerName(r),
+          familyMemberId: registrationFamilyMemberId(r),
+          relation: r.relation || r.relationship,
+        }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName, user?.userId);
+      }
+
+      return isRegistrationForMemberHelper({
+        ...r,
+        playerName: registrationPlayerName(r),
+        familyMemberId: registrationFamilyMemberId(r),
+        relation: r.relation || r.relationship,
+      }, "self", familyMembersOnly, userProfileName || user?.fullName, user?.userId);
+    });
+  }, [tournamentRegistrations, queryFor, selectedCommunityResident, regType, familyMemberId, playerName, familyMembersOnly, userProfileName, user?.fullName, user?.userId]);
+
+  // Synchronize eventSelections whenever active participant or registrations change
+  useEffect(() => {
+    if (eventSelections.length === 0) return;
+
+    setEventSelections(prev => prev.map(ev => {
+      const activeRegs = findAllRegistrationsForParticipant(ev.eventId);
+      const isAlreadyRegistered = activeRegs.length > 0;
+      const regId = activeRegs[0] ? Number(activeRegs[0].id) : undefined;
+
+      if (ev.isRegistered !== isAlreadyRegistered || (regId && ev.registrationId !== regId)) {
+        return {
+          ...ev,
+          isRegistered: isAlreadyRegistered,
+          registrationId: regId,
+          selected: isAlreadyRegistered ? false : ev.selected,
+        };
+      }
+      return ev;
+    }));
+  }, [findAllRegistrationsForParticipant]);
 
   // Handle registrant type switch
   const handleRegTypeChange = (type: "self" | "family") => {
@@ -1270,7 +2100,7 @@ export function SportsMultiRegister() {
     if (type === "self") {
       setPlayerName(userProfileName);
       setEmail(liveUser?.email || user?.email || "");
-      setGender(userProfileGender);
+      setGender(normalizeGender(userProfileGender) || "");
       setDateOfBirth(userProfileDob);
       setFlatNumber(userProfileFlat);
       setRelation("");
@@ -1279,13 +2109,21 @@ export function SportsMultiRegister() {
       setFlatNumber(userProfileFlat);
       if (familyMembersOnly.length > 0) {
         const first = familyMembersOnly[0];
+        let firstDob = formatToDateString(first.dob || (first as any).dateOfBirth || (first as any).birthDate || "");
+        const rawAge = first.age ?? (first as any).approxAge ?? null;
+        const memberAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+        if (!firstDob && memberAgeNum) {
+          firstDob = synthesizeDobFromAge(memberAgeNum);
+        }
+        setExplicitAge(memberAgeNum);
         setPlayerName(first.name);
         setEmail(first.email || "");
-        setGender(first.gender || "");
-        setDateOfBirth(first.dob || (first as any).dateOfBirth || "");
+        setGender(normalizeGender(first.gender) || normalizeGender(inferGender(first, userProfileGender)) || "");
+        setDateOfBirth(firstDob);
         setRelation(first.relation || (first as any).relationship || "");
         setFamilyMemberId(first.id);
       } else {
+        setExplicitAge(null);
         setPlayerName("");
         setEmail("");
         setGender("");
@@ -1301,39 +2139,76 @@ export function SportsMultiRegister() {
     if (member) {
       setSelectedCommunityResident(null);
       setCommunityFamilyMembers([]);
+      let memberDob = formatToDateString(member.dob || (member as any).dateOfBirth || (member as any).birthDate || "");
+      const rawAge = member.age ?? (member as any).approxAge ?? null;
+      const memberAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+      if (!memberDob && memberAgeNum) {
+        memberDob = synthesizeDobFromAge(memberAgeNum);
+      }
+      const memberGender = normalizeGender(member.gender) || normalizeGender(inferGender(member, userProfileGender)) || "";
+      const memberAge = calculateAge(memberDob, memberAgeNum);
+
+      setExplicitAge(memberAgeNum);
       setPlayerName(member.name);
       setEmail(member.email || "");
-      setGender(member.gender || "");
-      setDateOfBirth(member.dob || (member as any).dateOfBirth || "");
+      setGender(memberGender);
+      setDateOfBirth(memberDob);
       setRelation(member.relation || (member as any).relationship || "");
       setFlatNumber(userProfileFlat);
       setFamilyMemberId(member.id);
       setFormErrors({});
       setEventErrors({});
+
+      setEventSelections(prev => prev.map(ev => {
+        const best = findBestEligibleCategory(getCategoriesForSelection(categories, ev), ev.sportName || ev.name, memberAge, memberGender, ev.name, ev.categoryName);
+        const isElig = evaluateEventEligibility(ev, categories, memberAge, memberGender).eligible;
+        return {
+          ...ev,
+          categoryId: best ? best.id : ev.categoryId,
+          selected: isElig && !ev.isRegistered,
+        };
+      }));
     }
   };
 
   const handleCommunityResidentSelect = async (resident: UserResponse) => {
-    const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
+    const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string; age?: number };
     const block = resident.block || resident.tower || residentDetails.wing || "";
     const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
-    const residentFlat = block && flat
-      ? (flat.toUpperCase().includes(block.toUpperCase()) ? flat : `Block ${block}, Flat ${flat}`)
-      : flat || (block ? `Block ${block}` : "");
-    const dob = resident.dateOfBirth || "";
+    const residentFlat = formatFlatLabel(flat, block);
+    let dob = resident.dateOfBirth || (resident as any).dob || "";
+    const rawAge = residentDetails.age ?? (resident as any).approxAge ?? null;
+    const residentAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+    if (!dob && residentAgeNum) {
+      dob = synthesizeDobFromAge(residentAgeNum);
+    }
+    const residentAge = calculateAge(dob, residentAgeNum);
+    const residentGender = resident.gender?.toUpperCase() || "";
+
+    setExplicitAge(residentAgeNum);
     setSelectedCommunityResident(resident);
     setCommunitySearch("");
     setCommunityResults([]);
     setCommunityFamilyMembers([]);
     setPlayerName(resident.fullName || "");
     setEmail(resident.email || "");
-    setGender(resident.gender?.toUpperCase() || "");
+    setGender(residentGender);
     setDateOfBirth(dob);
     setRelation("SELF");
     setFlatNumber(residentFlat);
     setFamilyMemberId(undefined);
     setFormErrors({});
     setEventErrors({});
+
+    setEventSelections(prev => prev.map(ev => {
+      const best = findBestEligibleCategory(getCategoriesForSelection(categories, ev), ev.sportName || ev.name, residentAge, residentGender, ev.name, ev.categoryName);
+      const isElig = evaluateEventEligibility(ev, categories, residentAge, residentGender).eligible;
+      return {
+        ...ev,
+        categoryId: best ? best.id : ev.categoryId,
+        selected: isElig && !ev.isRegistered,
+      };
+    }));
 
     setCommunityFamilyLoading(true);
     try {
@@ -1348,23 +2223,42 @@ export function SportsMultiRegister() {
   };
 
   const handleCommunityFamilyMemberSelect = (member: FamilyMemberSlim) => {
-    const memberDob = member.dob || "";
+    let memberDob = member.dob || (member as any).dateOfBirth || (member as any).birthDate || "";
+    const rawAge = member.age ?? (member as any).approxAge ?? null;
+    const memberAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+    if (!memberDob && memberAgeNum) {
+      memberDob = synthesizeDobFromAge(memberAgeNum);
+    }
+    const memberGender = normalizeGender(member.gender) || normalizeGender(inferGender(member, selectedCommunityResident?.gender)) || "";
+    const memberAge = calculateAge(memberDob, memberAgeNum);
+
+    setExplicitAge(memberAgeNum);
     setPlayerName(member.name);
     setEmail(member.email || selectedCommunityResident?.email || "");
-    setGender(member.gender?.toUpperCase() || "");
+    setGender(memberGender);
     setDateOfBirth(memberDob);
     setRelation(member.relation || "Family Member");
     setFamilyMemberId(member.id);
     setFormErrors({});
     setEventErrors({});
+
+    setEventSelections(prev => prev.map(ev => {
+      const best = findBestEligibleCategory(getCategoriesForSelection(categories, ev), ev.sportName || ev.name, memberAge, memberGender, ev.name, ev.categoryName);
+      const isElig = evaluateEventEligibility(ev, categories, memberAge, memberGender).eligible;
+      return {
+        ...ev,
+        categoryId: best ? best.id : ev.categoryId,
+        selected: isElig && !ev.isRegistered,
+      };
+    }));
   };
 
   const toggleEventSelection = (eventId: number) => {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
         if (ev.isRegistered) return ev;
-        const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-        const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+        const eventCats = getCategoriesForSelection(categories, ev);
+        const selectedCat = eventCats.find(c => Number(c.id) === Number(ev.categoryId)) || eventCats[0];
         const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
         if (!isEligible) {
           return { ...ev, selected: false };
@@ -1386,8 +2280,8 @@ export function SportsMultiRegister() {
       if (ev.eventId === eventId) {
         const updated = { ...ev, [field]: value };
         if (field === "categoryId") {
-          const selectedCat = categories.find(c => c.id === value);
-          const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+          const selectedCat = getCategoriesForSelection(categories, ev).find(c => Number(c.id) === Number(value));
+          const isEligible = Boolean(selectedCat && checkCategoryEligibility(selectedCat, currentAge, gender).eligible);
           if (!isEligible) {
             updated.selected = false;
           }
@@ -1405,6 +2299,15 @@ export function SportsMultiRegister() {
   };
 
   const toggleEventFormat = (eventId: number, formatToToggle: string) => {
+    const activeRegs = findAllRegistrationsForParticipant(eventId);
+    const isFmtReg = activeRegs.some(r => {
+      const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
+      return rawFmt === formatToToggle.toUpperCase() || (formatToToggle.toUpperCase().includes("DOUBLES") && Boolean(r.partnerId || r.partnerFamilyMemberId));
+    });
+    if (isFmtReg) {
+      toast.info(`${formatToToggle.replace(/_/g, " ").toLowerCase()} format is already registered`);
+      return;
+    }
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
         const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
@@ -1431,31 +2334,106 @@ export function SportsMultiRegister() {
 
   const [registeringEventId, setRegisteringEventId] = useState<number | null>(null);
 
+  // Direct Unregister / Withdrawal Handler
+  const handleUnregister = async (eventId: number, passedRegId?: number) => {
+    const ev = eventSelections.find(e => e.eventId === eventId);
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+    const isClosed = checkClosed((ev as any)?.registrationStatus)
+      || checkClosed(tournament?.registrationStatus)
+      || checkClosed((tournament as any)?.status);
+
+    if (isClosed && !isSportsAdminUser) {
+      toast.error("Registration is closed for this event. Unregistering is not allowed.");
+      return;
+    }
+
+    const regsToWithdraw = findAllRegistrationsForParticipant(eventId);
+    const targetRegIds: number[] = [];
+
+    if (passedRegId && !targetRegIds.includes(passedRegId)) targetRegIds.push(passedRegId);
+    if (ev?.registrationId && !targetRegIds.includes(ev.registrationId)) targetRegIds.push(ev.registrationId);
+    regsToWithdraw.forEach(r => {
+      const id = Number(r.id);
+      if (id && !targetRegIds.includes(id)) targetRegIds.push(id);
+    });
+
+    if (targetRegIds.length === 0) {
+      toast.error("Registration ID not found for this event.");
+      return;
+    }
+
+    const participantLabel = playerName?.trim() || "this participant";
+    const eventName = ev?.name || "this sports event";
+    const confirmed = window.confirm(
+      `Are you sure you want to unregister ${participantLabel} from ${eventName}? You will lose your reserved spot.`
+    );
+    if (!confirmed) return;
+
+    setUnregisteringEventId(eventId);
+    try {
+      for (const rId of targetRegIds) {
+        await sportsService.withdraw(rId);
+      }
+      toast.success(`Successfully unregistered from ${eventName}!`);
+
+      // Update local registrations list: mark as WITHDRAWN
+      setTournamentRegistrations(prev =>
+        prev.map(r => targetRegIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
+      );
+
+      // Update eventSelections: mark as not registered and re-enable selection if eligible
+      setEventSelections(prev => prev.map(e => {
+        if (e.eventId === eventId) {
+          const age = calculateAge(dateOfBirth, explicitAge);
+          const isElig = evaluateEventEligibility(e, categories, age, gender).eligible;
+          return {
+            ...e,
+            isRegistered: false,
+            registrationId: undefined,
+            selected: isElig,
+          };
+        }
+        return e;
+      }));
+
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || `Failed to unregister from ${eventName}`;
+      toast.error(msg);
+    } finally {
+      setUnregisteringEventId(null);
+    }
+  };
+
   // Single Event Direct Registration Handler
   const handleSingleRegister = async (eventId: number) => {
+    if (queryFor === "community" && !selectedCommunityResident) {
+      toast.error("Please search and select a community resident first.");
+      return;
+    }
     if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
       toast.error("Select or add a family member before registering.");
       return;
     }
-    if (regType === "self" && (!gender || !dateOfBirth)) {
-      openUpdateDetailsModal("self");
-      toast.error("Please update your Gender and Date of Birth to proceed with registration.");
-      return;
+    let effectiveDob = dateOfBirth;
+    if (!effectiveDob && explicitAge !== null && explicitAge > 0) {
+      effectiveDob = synthesizeDobFromAge(explicitAge);
+      setDateOfBirth(effectiveDob);
     }
-    if (regType === "family" && (!gender || !dateOfBirth)) {
-      if (selectedCommunityResident) {
-        toast.error("The selected community participant needs a Gender and Date of Birth in their profile before registration.");
-      } else {
-        openUpdateDetailsModal(familyMemberId ? "family_edit" : "family_add", familyMemberId);
-        toast.error("Please update Gender and Date of Birth for the selected family member.");
-      }
+    if (!gender || (!effectiveDob && explicitAge === null)) {
+      openParticipantUpdateModal();
+      toast.error("Please update Gender and Date of Birth to proceed with registration.");
       return;
     }
 
     const errors: { playerName?: string; gender?: string; dateOfBirth?: string } = {};
     if (!playerName.trim()) errors.playerName = "Participant name is required";
     if (!gender) errors.gender = "Gender is required";
-    if (!dateOfBirth) errors.dateOfBirth = "Date of birth is mandatory for category validation";
+    if (!effectiveDob && explicitAge === null) errors.dateOfBirth = "Date of birth is mandatory for category validation";
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -1467,8 +2445,21 @@ export function SportsMultiRegister() {
     const ev = eventSelections.find(e => e.eventId === eventId);
     if (!ev) return;
 
-    const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-    const selectedCategory = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+    const checkClosed = (st?: string | null) => {
+      if (!st) return false;
+      const s = String(st).toUpperCase().trim();
+      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+    };
+    const isClosed = checkClosed((ev as any)?.registrationStatus)
+      || checkClosed(tournament?.registrationStatus)
+      || checkClosed((tournament as any)?.status);
+    if (isClosed && !isSportsAdminUser) {
+      toast.error("Registration is closed for this event.");
+      return;
+    }
+
+    const eventCats = getCategoriesForSelection(categories, ev);
+    const selectedCategory = eventCats.find(c => Number(c.id) === Number(ev.categoryId));
     if (!selectedCategory) {
       setEventErrors(prev => ({ ...prev, [eventId]: "Please select a category bracket" }));
       toast.error("Please select a category bracket for this sport");
@@ -1481,7 +2472,7 @@ export function SportsMultiRegister() {
     }
 
     const calculatedAge = currentAge !== null ? currentAge : 25;
-    const eligibility = checkCategoryEligibility(selectedCategory, calculatedAge, gender);
+    const eligibility = checkSelectionEligibility(ev, categories, selectedCategory, currentAge, gender);
     if (!eligibility.eligible) {
       setEventErrors(prev => ({ ...prev, [eventId]: eligibility.reason || "Ineligible for selected category" }));
       toast.error(`Ineligible: ${eligibility.reason}`);
@@ -1504,6 +2495,7 @@ export function SportsMultiRegister() {
     }
 
     try {
+      const createdRegs: any[] = [];
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
         const registrationRequest = {
@@ -1525,14 +2517,23 @@ export function SportsMultiRegister() {
           captainNomination: ev.captainNomination || undefined,
           proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
         };
-        await (selectedCommunityResident
+        const regRes = await (selectedCommunityResident
           ? sportsService.registerForOthers(registrationRequest)
           : regType === "family" && familyMemberId
             ? sportsService.registerForFamilyMember(registrationRequest)
             : sportsService.registerForEvent(registrationRequest));
+        if (regRes) {
+          createdRegs.push(regRes);
+        }
       }
 
-      if (ev.captainNomination && ev.eventId) {
+      if (createdRegs.length > 0) {
+        setTournamentRegistrations(prev => [...createdRegs, ...prev]);
+      }
+
+      const primaryRegId = createdRegs[0]?.id ? Number(createdRegs[0].id) : undefined;
+
+      if (ev.captainNomination && ev.eventId && !selectedCommunityResident && regType === "self") {
         try {
           await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
         } catch (capErr) {
@@ -1544,14 +2545,19 @@ export function SportsMultiRegister() {
         ? ` (${formatsToRegister.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})`
         : "";
       toast.success(`Successfully registered for ${ev.name}${formatText}!`);
-      if (ev.captainNomination) {
+      if (ev.captainNomination && !selectedCommunityResident && regType === "self") {
         toast.info(`Captain nomination recorded for ${ev.name}${ev.proposedTeamName ? ` (Team: "${ev.proposedTeamName.trim()}")` : ""}.`);
       }
 
       // Update state: mark this event as registered and unselect from batch
       setEventSelections(prev => prev.map(e => {
         if (e.eventId === eventId) {
-          return { ...e, isRegistered: true, selected: false };
+          return {
+            ...e,
+            isRegistered: true,
+            registrationId: primaryRegId || e.registrationId,
+            selected: false
+          };
         }
         return e;
       }));
@@ -1617,9 +2623,7 @@ export function SportsMultiRegister() {
         if (ev.isRegistered) {
           registered.push(ev);
         } else {
-          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
-          const elig = checkCategoryEligibility(selectedCat, currentAge, gender);
+          const elig = evaluateEventEligibility(ev, categories, currentAge, gender);
           if (elig.eligible) {
             eligible.push(ev);
           } else {
@@ -1639,36 +2643,48 @@ export function SportsMultiRegister() {
         registered,
         allEvents: events,
       };
-    });
+    }).filter(group => group.eligible.length > 0 || group.registered.length > 0 || group.ineligible.length > 0);
   }, [eventSelections, categories, currentAge, gender]);
 
   const selectAll = () => {
-    if (!gender || !dateOfBirth || currentAge === null) {
+    let effectiveDob = dateOfBirth;
+    if (!effectiveDob && explicitAge !== null && explicitAge > 0) {
+      effectiveDob = synthesizeDobFromAge(explicitAge);
+      setDateOfBirth(effectiveDob);
+    }
+    if (!gender || (!effectiveDob && explicitAge === null) || currentAge === null) {
       toast.error("Please provide Gender and Date of Birth to select sports events.");
-      openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId);
+      openParticipantUpdateModal();
       return;
     }
     setEventSelections(prev => prev.map(e => {
       if (e.isRegistered) return e;
-      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
-      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
-      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      const evaluation = evaluateEventEligibility(e, categories, currentAge, gender);
+      const best = evaluation.category;
+      const isEligible = evaluation.eligible;
+      if (isEligible && best) return { ...e, categoryId: best.id, selected: true };
       return { ...e, selected: isEligible };
     }));
   };
 
   const toggleSportSelectAll = (sportName: string, select: boolean) => {
-    if (select && (!gender || !dateOfBirth || currentAge === null)) {
+    let effectiveDob = dateOfBirth;
+    if (!effectiveDob && explicitAge !== null && explicitAge > 0) {
+      effectiveDob = synthesizeDobFromAge(explicitAge);
+      setDateOfBirth(effectiveDob);
+    }
+    if (select && (!gender || (!effectiveDob && explicitAge === null) || currentAge === null)) {
       toast.error("Please provide Gender and Date of Birth to select sports events.");
-      openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId);
+      openParticipantUpdateModal();
       return;
     }
     setEventSelections(prev => prev.map(e => {
       if ((e.sportName || "Other") !== sportName || e.isRegistered) return e;
       if (!select) return { ...e, selected: false };
-      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
-      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
-      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      const evaluation = evaluateEventEligibility(e, categories, currentAge, gender);
+      const best = evaluation.category;
+      const isEligible = evaluation.eligible;
+      if (isEligible && best) return { ...e, categoryId: best.id, selected: true };
       return { ...e, selected: isEligible };
     }));
   };
@@ -1679,22 +2695,29 @@ export function SportsMultiRegister() {
 
   // Comprehensive Submission Handler with Client-Side Eligibility Validation
   const handleSubmit = async () => {
+    if (queryFor === "community" && !selectedCommunityResident) {
+      toast.error("Please search and select a community resident first.");
+      return;
+    }
     if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
       toast.error("Select or add a family member before registering.");
       return;
     }
-    if (!gender || !dateOfBirth || currentAge === null) {
+    let effectiveDob = dateOfBirth;
+    if (!effectiveDob && explicitAge !== null && explicitAge > 0) {
+      effectiveDob = synthesizeDobFromAge(explicitAge);
+      setDateOfBirth(effectiveDob);
+    }
+    if (!gender || (!effectiveDob && explicitAge === null) || currentAge === null) {
       toast.error("Please provide Gender and Date of Birth to proceed with sports registration.");
-      if (!selectedCommunityResident) {
-        openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId);
-      }
+      openParticipantUpdateModal();
       return;
     }
 
     const errors: { playerName?: string; gender?: string; dateOfBirth?: string; email?: string } = {};
     if (!playerName.trim()) errors.playerName = "Participant name is required";
     if (!gender) errors.gender = "Gender is required";
-    if (!dateOfBirth) errors.dateOfBirth = "Date of birth is mandatory for category validation";
+    if (!effectiveDob && explicitAge === null) errors.dateOfBirth = "Date of birth is mandatory for category validation";
     if (email.trim() && !isValidEmail(email)) errors.email = "Please enter a valid email address";
 
     if (Object.keys(errors).length > 0) {
@@ -1715,13 +2738,28 @@ export function SportsMultiRegister() {
     let hasEligibilityIssues = false;
 
     for (const ev of selectedEvents) {
-      const selectedCategory = categories.find(c => c.id === ev.categoryId);
-      if (!selectedCategory) {
-        newEventErrors[ev.eventId] = "Please select a category bracket for this sport";
+      const checkClosed = (st?: string | null) => {
+        if (!st) return false;
+        const s = String(st).toUpperCase().trim();
+        return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+      };
+      const isClosed = checkClosed((ev as any)?.registrationStatus)
+        || checkClosed(tournament?.registrationStatus)
+        || checkClosed((tournament as any)?.status);
+      if (isClosed && !isSportsAdminUser) {
+        newEventErrors[ev.eventId] = "Registration is closed for this event";
         hasEligibilityIssues = true;
         continue;
       }
-      const eligibility = checkCategoryEligibility(selectedCategory, calculatedAge, gender);
+
+      const eventCats = getCategoriesForSelection(categories, ev);
+      const selectedCategory = eventCats.find(c => Number(c.id) === Number(ev.categoryId));
+      if (!selectedCategory) {
+        newEventErrors[ev.eventId] = "Choose a category linked to this event. The selected category is not available for this event.";
+        hasEligibilityIssues = true;
+        continue;
+      }
+      const eligibility = checkSelectionEligibility(ev, categories, selectedCategory, currentAge, gender);
       if (!eligibility.eligible) {
         newEventErrors[ev.eventId] = eligibility.reason || "Ineligible for selected category";
         hasEligibilityIssues = true;
@@ -1786,7 +2824,7 @@ export function SportsMultiRegister() {
         }
       }
 
-      if (ev.captainNomination && ev.eventId) {
+      if (ev.captainNomination && ev.eventId && !selectedCommunityResident && regType === "self") {
         try {
           await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
         } catch (capErr) {
@@ -1804,7 +2842,7 @@ export function SportsMultiRegister() {
     const nominatedCount = selectedEvents.filter(e => e.captainNomination).length;
     if (successCount > 0 && failedCount === 0) {
       toast.success(`Successfully registered for ${successCount} sport${successCount > 1 ? "s" : ""}!`);
-      if (nominatedCount > 0) {
+      if (nominatedCount > 0 && !selectedCommunityResident && regType === "self") {
         toast.info(`Captain nomination recorded for ${nominatedCount} event${nominatedCount > 1 ? "s" : ""}.`);
       }
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
@@ -1994,7 +3032,7 @@ export function SportsMultiRegister() {
                         const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
                         const block = resident.block || resident.tower || residentDetails.wing || "";
                         const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
-                        const location = [block ? `Block ${block}` : "", flat ? `Flat ${flat}` : ""].filter(Boolean).join(" · ");
+                        const location = formatFlatLabel(flat, block);
                         return (
                           <button key={resident.id} type="button" onClick={() => void handleCommunityResidentSelect(resident)} className="flex w-full items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-indigo-50/60">
                             <span className="min-w-0">
@@ -2018,18 +3056,115 @@ export function SportsMultiRegister() {
                         <p className="truncate text-xs font-bold text-slate-800">{selectedCommunityResident.fullName}</p>
                         <p className="truncate text-[10px] text-slate-500">{flatNumber || "Community resident"}</p>
                       </div>
-                      <button type="button" onClick={() => { setSelectedCommunityResident(null); setCommunityFamilyMembers([]); setFamilyMemberId(undefined); setPlayerName(""); setEmail(""); setGender(""); setDateOfBirth(""); setRelation(""); setFlatNumber(userProfileFlat); }} className="shrink-0 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Change resident</button>
+                      <button type="button" onClick={() => { setSelectedCommunityResident(null); setCommunityFamilyMembers([]); setFamilyMemberId(undefined); setPlayerName(""); setEmail(""); setGender(""); setDateOfBirth(""); setRelation(""); setFlatNumber(""); setEventSelections(prev => prev.map(e => ({ ...e, selected: false, isRegistered: false, registrationId: undefined }))); }} className="shrink-0 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Change resident</button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
-                      <button type="button" onClick={() => { setPlayerName(selectedCommunityResident.fullName || ""); setEmail(selectedCommunityResident.email || ""); setGender(selectedCommunityResident.gender?.toUpperCase() || ""); setDateOfBirth(selectedCommunityResident.dateOfBirth || ""); setRelation("SELF"); setFamilyMemberId(undefined); }} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${!familyMemberId ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"}`}>
-                        {selectedCommunityResident.fullName} · Self
-                      </button>
+                      <div className="inline-flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const resident = selectedCommunityResident;
+                            const residentDetails = resident as any;
+                            let dob = resident.dateOfBirth || residentDetails?.dob || "";
+                            const rawAge = residentDetails?.age ?? residentDetails?.approxAge ?? null;
+                            const residentAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+                            if (!dob && residentAgeNum) {
+                              dob = synthesizeDobFromAge(residentAgeNum);
+                            }
+                            const residentAge = calculateAge(dob, residentAgeNum);
+                            const residentGender = resident.gender?.toUpperCase() || "";
+
+                            setExplicitAge(residentAgeNum);
+                            setPlayerName(resident.fullName || "");
+                            setEmail(resident.email || "");
+                            setGender(residentGender);
+                            setDateOfBirth(dob);
+                            setRelation("SELF");
+                            setFamilyMemberId(undefined);
+                            setFormErrors({});
+                            setEventErrors({});
+
+                            setEventSelections(prev => prev.map(ev => {
+                              const best = findBestEligibleCategory(getCategoriesForSelection(categories, ev), ev.sportName || ev.name, residentAge, residentGender, ev.name, ev.categoryName);
+                              const isElig = evaluateEventEligibility(ev, categories, residentAge, residentGender).eligible;
+                              return {
+                                ...ev,
+                                categoryId: best ? best.id : ev.categoryId,
+                                selected: isElig && !ev.isRegistered,
+                              };
+                            }));
+                          }}
+                          className={`rounded-l-md border border-r-0 px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                            !familyMemberId
+                              ? "border-indigo-600 bg-indigo-600 text-white"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"
+                          }`}
+                        >
+                          {selectedCommunityResident.fullName} · Self
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const resident = selectedCommunityResident;
+                            const residentDetails = resident as any;
+                            let dob = resident.dateOfBirth || residentDetails?.dob || "";
+                            const rawAge = residentDetails?.age ?? residentDetails?.approxAge ?? null;
+                            const residentAgeNum = rawAge != null && !isNaN(Number(rawAge)) && Number(rawAge) > 0 ? Number(rawAge) : null;
+                            if (!dob && residentAgeNum) {
+                              dob = synthesizeDobFromAge(residentAgeNum);
+                            }
+                            setExplicitAge(residentAgeNum);
+                            setPlayerName(resident.fullName || "");
+                            setEmail(resident.email || "");
+                            setGender(resident.gender?.toUpperCase() || "");
+                            setDateOfBirth(dob);
+                            setRelation("SELF");
+                            setFamilyMemberId(undefined);
+                            openParticipantUpdateModal("community_resident");
+                          }}
+                          title={`Edit ${selectedCommunityResident.fullName} details`}
+                          className={`rounded-r-md border px-1.5 py-1.5 text-[11px] font-semibold transition cursor-pointer ${
+                            !familyMemberId
+                              ? "border-indigo-600 bg-indigo-700 text-white hover:bg-indigo-800"
+                              : "border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                          }`}
+                        >
+                          ✏️
+                        </button>
+                      </div>
                       {communityFamilyLoading ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-slate-500"><Loader2 className="h-3 w-3 animate-spin" />Loading family…</span>
                       ) : communityFamilyMembers.map(member => (
-                        <button key={member.id} type="button" onClick={() => handleCommunityFamilyMemberSelect(member)} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${String(familyMemberId) === String(member.id) ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"}`}>
-                          {member.relation ? `${member.relation}: ` : ""}{member.name}{member.age ? ` · ${member.age} yrs` : ""}
-                        </button>
+                        <div key={member.id} className="inline-flex items-center">
+                          <button
+                            type="button"
+                            onClick={() => handleCommunityFamilyMemberSelect(member)}
+                            className={`rounded-l-md border border-r-0 px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                              String(familyMemberId) === String(member.id)
+                                ? "border-indigo-600 bg-indigo-600 text-white"
+                                : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"
+                            }`}
+                          >
+                            {member.relation ? `${member.relation}: ` : ""}{member.name}{member.age ? ` · ${member.age} yrs` : ""}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCommunityFamilyMemberSelect(member);
+                              openParticipantUpdateModal("community_family_edit", member.id);
+                            }}
+                            title={`Edit ${member.name} details`}
+                            className={`rounded-r-md border px-1.5 py-1.5 text-[11px] font-semibold transition cursor-pointer ${
+                              String(familyMemberId) === String(member.id)
+                                ? "border-indigo-600 bg-indigo-700 text-white hover:bg-indigo-800"
+                                : "border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                            }`}
+                          >
+                            ✏️
+                          </button>
+                        </div>
                       ))}
                       {!communityFamilyLoading && communityFamilyMembers.length === 0 && <span className="text-[10px] text-slate-500">No family members listed for this resident.</span>}
                     </div>
@@ -2080,7 +3215,7 @@ export function SportsMultiRegister() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openUpdateDetailsModal("family_edit", m.id);
+                              openParticipantUpdateModal("family_edit", m.id);
                             }}
                             title="Edit details"
                             className={`ml-0.5 p-0.5 rounded text-xs transition ${
@@ -2099,17 +3234,17 @@ export function SportsMultiRegister() {
                   </div>
                 )}
 
-                {regType === "family" && !selectedCommunityResident && playerName && (!gender || !dateOfBirth) && (
+                {playerName && (!gender || (!dateOfBirth && explicitAge === null)) && (
                   <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 flex items-center justify-between gap-2 text-left animate-in fade-in">
                     <div className="flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
-                        Missing {(!gender && !dateOfBirth) ? "Gender & DOB" : !gender ? "Gender" : "Date of Birth"} for {playerName}.
+                        Missing {(!gender && !dateOfBirth && explicitAge === null) ? "Gender & DOB" : !gender ? "Gender" : "Date of Birth"} for {playerName}.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
+                      onClick={() => openParticipantUpdateModal()}
                       className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
                     >
                       <span>Update</span>
@@ -2138,7 +3273,7 @@ export function SportsMultiRegister() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => openUpdateDetailsModal("self")}
+                  onClick={() => openParticipantUpdateModal("self")}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   <span>Update Profile</span>
@@ -2150,7 +3285,7 @@ export function SportsMultiRegister() {
             {/* Registrant Details Display */}
             {regType === "family" ? (
               playerName ? (
-                <div className="hidden md:block bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 space-y-2">
+                <div className="block bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 space-y-2">
                   <div className="grid grid-cols-2 gap-2 items-start">
                     {/* Participant Full Name */}
                     <div className="min-w-0">
@@ -2161,7 +3296,7 @@ export function SportsMultiRegister() {
                         <span className="truncate">{playerName}</span>
                         <button
                           type="button"
-                          onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
+                          onClick={() => openParticipantUpdateModal()}
                           className="text-xs font-bold text-indigo-600 hover:underline shrink-0 ml-1 cursor-pointer"
                         >
                           Edit
@@ -2191,7 +3326,7 @@ export function SportsMultiRegister() {
                         {!gender && (
                           <button
                             type="button"
-                            onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
+                            onClick={() => openParticipantUpdateModal()}
                             className="text-xs font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
                           >
                             Add
@@ -2207,16 +3342,23 @@ export function SportsMultiRegister() {
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center justify-between truncate">
                         <span className="truncate">
-                          {dateOfBirth ? (
-                            <span>{format(new Date(dateOfBirth), "dd MMM yyyy")} {currentAge !== null ? `(${currentAge}y)` : ""}</span>
+                          {dateOfBirth ? (() => {
+                            const d = parseDobDate(dateOfBirth);
+                            return d ? (
+                              <span>{format(d, "dd MMM yyyy")} {currentAge !== null ? `(${currentAge}y)` : ""}</span>
+                            ) : (
+                              <span>{dateOfBirth} {currentAge !== null ? `(${currentAge}y)` : ""}</span>
+                            );
+                          })() : currentAge !== null ? (
+                            <span>Approx. {currentAge} yrs</span>
                           ) : (
                             <span className="text-amber-600 font-semibold">Not provided</span>
                           )}
                         </span>
-                        {!dateOfBirth && (
+                        {!dateOfBirth && explicitAge === null && (
                           <button
                             type="button"
-                            onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
+                            onClick={() => openParticipantUpdateModal()}
                             className="text-xs font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
                           >
                             Add
@@ -2231,7 +3373,7 @@ export function SportsMultiRegister() {
                         Block & Flat
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
-                        {flatNumber || userProfileFlat || "Not specified"}
+                        {formatFlatLabel(flatNumber || userProfileFlat, userBlock) || "Not specified"}
                       </div>
                     </div>
                   </div>
@@ -2395,8 +3537,8 @@ export function SportsMultiRegister() {
               <div className="mb-2.5 space-y-1.5 max-h-44 overflow-y-auto pr-1">
                 {selectedEvents.map(e => {
                   const meta = getSportMeta(e.sportName || e.name);
-                  const selCat = categories.find(c => c.id === e.categoryId);
-                  const el = checkCategoryEligibility(selCat, currentAge, gender);
+                  const selCat = getCategoriesForSelection(categories, e).find(c => Number(c.id) === Number(e.categoryId));
+                  const el = evaluateEventEligibility(e, categories, currentAge, gender);
 
                   return (
                     <div
@@ -2444,7 +3586,7 @@ export function SportsMultiRegister() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || selectedCount === 0 || !gender || !dateOfBirth || currentAge === null}
+              disabled={submitting || selectedCount === 0 || !gender || (!dateOfBirth && explicitAge === null) || currentAge === null}
               className="w-full min-h-[40px] py-2 px-3.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-semibold shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
@@ -2452,7 +3594,7 @@ export function SportsMultiRegister() {
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   <span>Submitting ({selectedCount})...</span>
                 </>
-              ) : !gender || !dateOfBirth || currentAge === null ? (
+              ) : !gender || (!dateOfBirth && explicitAge === null) || currentAge === null ? (
                 <>
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
                   <span>Provide DOB &amp; Gender to Register</span>
@@ -2475,7 +3617,7 @@ export function SportsMultiRegister() {
                 <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs shrink-0">2</span>
                 <h3 className="text-xs font-semibold text-slate-900 m-0 mb-0">Choose Sports</h3>
                 <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                  {selectedSportsCount}/{totalSportsCount}
+                  {selectedSportsCount}/{sportGroups.length > 0 ? sportGroups.length : totalSportsCount}
                 </span>
               </div>
 
@@ -2483,7 +3625,7 @@ export function SportsMultiRegister() {
                 <button
                   type="button"
                   onClick={selectAll}
-                  disabled={!gender || !dateOfBirth || currentAge === null}
+                  disabled={!gender || (!dateOfBirth && explicitAge === null) || currentAge === null}
                   className="min-h-[32px] text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   All
@@ -2499,23 +3641,23 @@ export function SportsMultiRegister() {
             </div>
 
             {/* Progress bar */}
-            {totalSportsCount > 0 && (
+            {(sportGroups.length > 0 ? sportGroups.length : totalSportsCount) > 0 && (
               <div className="mb-2.5">
                 <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
-                  <span>{registeredSportsCount} of {totalSportsCount} registered</span>
-                  <span>{Math.round((registeredSportsCount / totalSportsCount) * 100)}%</span>
+                  <span>{registeredSportsCount} of {sportGroups.length > 0 ? sportGroups.length : totalSportsCount} registered</span>
+                  <span>{Math.round((registeredSportsCount / (sportGroups.length > 0 ? sportGroups.length : totalSportsCount)) * 100)}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                    style={{ width: `${(registeredSportsCount / totalSportsCount) * 100}%` }}
+                    style={{ width: `${(registeredSportsCount / (sportGroups.length > 0 ? sportGroups.length : totalSportsCount)) * 100}%` }}
                   />
                 </div>
               </div>
             )}
 
             {/* Registration Disabled Banner if Gender or DOB missing */}
-            {(!gender || !dateOfBirth || currentAge === null) && (
+            {(!gender || (!dateOfBirth && explicitAge === null) || currentAge === null) && (
               <div className="mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-left shadow-2xs animate-in fade-in">
                 <div className="flex items-start gap-2.5">
                   <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 rounded-lg shrink-0 mt-0.5">
@@ -2526,13 +3668,13 @@ export function SportsMultiRegister() {
                       Sports Event Registration Disabled
                     </h4>
                     <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
-                      Please provide {(!gender && !dateOfBirth) ? "Gender and Date of Birth" : !gender ? "Gender" : "Date of Birth"} to verify category eligibility and unlock event registration.
+                      Please provide {(!gender && !dateOfBirth && explicitAge === null) ? "Gender and Date of Birth" : !gender ? "Gender" : "Date of Birth"} to verify category eligibility and unlock event registration.
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId)}
+                  onClick={() => openParticipantUpdateModal()}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
                 >
                   <span>Update Details</span>
@@ -2610,9 +3752,15 @@ export function SportsMultiRegister() {
                             {group.registered.length} Reg
                           </span>
                         )}
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/70 border text-slate-700">
-                          {group.allEvents.length} {group.allEvents.length === 1 ? "Cat" : "Cats"}
-                        </span>
+                        {group.eligible.length + group.registered.length > 0 ? (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/70 border text-slate-700">
+                            {group.eligible.length + group.registered.length} {group.eligible.length + group.registered.length === 1 ? "Cat" : "Cats"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100/90 border border-slate-200 text-slate-500">
+                            {group.ineligible.length} Ineligible
+                          </span>
+                        )}
                         <button
                           type="button"
                           aria-label={isExpanded ? "Collapse sport" : "Expand sport"}
@@ -2632,9 +3780,17 @@ export function SportsMultiRegister() {
                       <div className="divide-y divide-slate-100 bg-white">
                         {/* Eligible categories */}
                         {group.eligible.map((ev) => {
-                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-                          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+                          const eventCats = getCategoriesForSelection(categories, ev);
+                          const selectedCat = eventCats.find(c => Number(c.id) === Number(ev.categoryId)) || eventCats[0];
                           const hasError = Boolean(eventErrors[ev.eventId]);
+                          const checkClosed = (st?: string | null) => {
+                            if (!st) return false;
+                            const s = String(st).toUpperCase().trim();
+                            return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                          };
+                          const isEvClosed = checkClosed((ev as any)?.registrationStatus)
+                            || checkClosed(tournament?.registrationStatus)
+                            || checkClosed((tournament as any)?.status);
 
                           return (
                             <div key={ev.eventId} className={`px-2.5 py-2 sm:px-3 sm:py-2.5 transition-colors ${
@@ -2644,8 +3800,9 @@ export function SportsMultiRegister() {
                                 <input
                                   type="checkbox"
                                   checked={ev.selected}
+                                  disabled={isEvClosed && !isSportsAdminUser}
                                   onChange={() => toggleEventSelection(ev.eventId)}
-                                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0"
+                                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
 
                                 <div className="flex-1 min-w-0">
@@ -2653,7 +3810,7 @@ export function SportsMultiRegister() {
                                     <span className="text-[10px] font-semibold text-slate-900">{ev.name}</span>
                                     {selectedCat && (
                                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium whitespace-nowrap">
-                                        {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
+                                        {getEventCategoryGenderLabel(selectedCat, ev) ? `${getEventCategoryGenderLabel(selectedCat, ev)} · ` : ""}
                                         {selectedCat.minAge != null && selectedCat.maxAge != null
                                           ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
                                           : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
@@ -2678,19 +3835,31 @@ export function SportsMultiRegister() {
                                   ))}
                                 </select>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleSingleRegister(ev.eventId)}
-                                  disabled={registeringEventId === ev.eventId}
-                                  className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
-                                >
-                                  {registeringEventId === ev.eventId ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle2 className="w-3 h-3" />
-                                  )}
-                                  <span className="hidden sm:inline">Register</span>
-                                </button>
+                                {isEvClosed && !isSportsAdminUser ? (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    title="Registration is closed for this event"
+                                    className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed opacity-75 flex items-center gap-1 shrink-0"
+                                  >
+                                    <Lock className="w-3 h-3 text-slate-400" />
+                                    <span className="hidden sm:inline">Closed</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSingleRegister(ev.eventId)}
+                                    disabled={registeringEventId === ev.eventId}
+                                    className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
+                                  >
+                                    {registeringEventId === ev.eventId ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="w-3 h-3" />
+                                    )}
+                                    <span className="hidden sm:inline">Register</span>
+                                  </button>
+                                )}
                               </div>
                               {/* Dropdowns & Options section (participant formats, category bracket & mobile role) */}
                               <div className="mt-1.5 pl-6 sm:pl-6 space-y-2 w-full max-w-full overflow-hidden">
@@ -2711,24 +3880,42 @@ export function SportsMultiRegister() {
                                       {ev.availableFormats.map((fmt) => {
                                         const selectedList = ev.matchTypes || [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
                                         const isFmtSelected = selectedList.some(f => f.toUpperCase() === fmt.toUpperCase());
+                                        const activeRegs = findAllRegistrationsForParticipant(ev.eventId);
+                                        const isFmtRegistered = activeRegs.some(r => {
+                                          const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
+                                          return rawFmt === fmt.toUpperCase() || (fmt.toUpperCase().includes("DOUBLES") && Boolean(r.partnerId || r.partnerFamilyMemberId));
+                                        });
                                         const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
                                         return (
                                           <button
                                             key={fmt}
                                             type="button"
+                                            disabled={isFmtRegistered}
                                             onClick={() => toggleEventFormat(ev.eventId, fmt)}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition select-none cursor-pointer border ${
-                                              isFmtSelected
-                                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs"
-                                                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition select-none border ${
+                                              isFmtRegistered
+                                                ? "bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80 cursor-not-allowed"
+                                                : isFmtSelected
+                                                  ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs cursor-pointer"
+                                                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 cursor-pointer"
                                             }`}
+                                            title={isFmtRegistered ? `${formatLabel} format is already registered or confirmed` : undefined}
                                           >
                                             <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition ${
-                                              isFmtSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 bg-white"
+                                              isFmtRegistered
+                                                ? "border-emerald-600 bg-emerald-600 text-white"
+                                                : isFmtSelected
+                                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                                  : "border-slate-300 bg-white"
                                             }`}>
-                                              {isFmtSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                              {(isFmtSelected || isFmtRegistered) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                             </div>
                                             <span>{formatLabel}</span>
+                                            {isFmtRegistered && (
+                                              <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-emerald-100 text-emerald-700">
+                                                Registered
+                                              </span>
+                                            )}
                                           </button>
                                         );
                                       })}
@@ -2758,11 +3945,11 @@ export function SportsMultiRegister() {
                                         (ev.matchType && ev.matchType.toUpperCase().includes("DOUBLES") ? ev.matchType : "DOUBLES")
                                       }
                                       currentGender={gender}
-                                      currentUserId={user?.userId || (user as any)?.id}
-                                      currentFamilyMemberId={regType === "family" ? familyMemberId : undefined}
-                                      currentUserName={playerName || user?.fullName}
+                                      currentUserId={selectedCommunityResident ? Number(selectedCommunityResident.id) : (user?.userId || (user as any)?.id)}
+                                      currentFamilyMemberId={selectedCommunityResident ? (familyMemberId ? Number(familyMemberId) : undefined) : (regType === "family" ? familyMemberId : undefined)}
+                                      currentUserName={playerName || selectedCommunityResident?.fullName || user?.fullName}
                                       communityId={user?.communityId}
-                                      familyMembers={savedFamilyMembers}
+                                      familyMembers={selectedCommunityResident ? communityFamilyMembers : savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
                                       eventId={ev.eventId}
                                       minAge={ev.minAge}
@@ -2772,7 +3959,7 @@ export function SportsMultiRegister() {
                                   </div>
                                 )}
                                 {/* Team Captain Nomination (Cricket, Football, and other Team Sports) */}
-                                {isTeamSport(ev.sportName || ev.name) && (
+                                {!selectedCommunityResident && regType === "self" && isTeamSport(ev.sportName || ev.name) && (
                                   <div className="w-full mt-2 pt-2 border-t border-slate-100">
                                     <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-3 space-y-2.5">
                                       <div className="flex items-start justify-between gap-2">
@@ -2785,14 +3972,22 @@ export function SportsMultiRegister() {
                                               <span className="text-[10px] font-bold text-slate-800">
                                                 Nominate as Team Captain
                                               </span>
-                                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                                Optional
-                                              </span>
+                                              {ev.captainNominationOpen ? (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                                  Optional
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                  Closed
+                                                </span>
+                                              )}
                                               <button
                                                 type="button"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  toast.info("Lead a team & participate in the player auction/draft");
+                                                  toast.info(ev.captainNominationOpen
+                                                    ? "Lead a team & participate in the player auction/draft"
+                                                    : "Captain nominations are currently closed for this event.");
                                                 }}
                                                 className="inline-flex text-slate-400 hover:text-amber-600 cursor-pointer p-0.5 active:scale-95"
                                                 title="Team Captain Information"
@@ -2804,29 +3999,35 @@ export function SportsMultiRegister() {
                                           </div>
                                         </div>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEventSelections(prev => prev.map(item => {
-                                              if (item.eventId === ev.eventId) {
-                                                return { ...item, captainNomination: !item.captainNomination };
-                                              }
-                                              return item;
-                                            }));
-                                          }}
-                                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                            ev.captainNomination ? "bg-amber-600" : "bg-slate-300"
-                                          }`}
-                                        >
-                                          <span
-                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                              ev.captainNomination ? "translate-x-4" : "translate-x-0"
+                                        {ev.captainNominationOpen ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEventSelections(prev => prev.map(item => {
+                                                if (item.eventId === ev.eventId) {
+                                                  return { ...item, captainNomination: !item.captainNomination };
+                                                }
+                                                return item;
+                                              }));
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                              ev.captainNomination ? "bg-amber-600" : "bg-slate-300"
                                             }`}
-                                          />
-                                        </button>
+                                          >
+                                            <span
+                                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                ev.captainNomination ? "translate-x-4" : "translate-x-0"
+                                              }`}
+                                            />
+                                          </button>
+                                        ) : (
+                                          <span className="text-[11px] font-medium text-slate-400 italic">
+                                            Nominations closed
+                                          </span>
+                                        )}
                                       </div>
 
-                                      {ev.captainNomination && (
+                                      {ev.captainNominationOpen && ev.captainNomination && (
                                         <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1.5">
                                           <label className="block text-xs font-bold text-slate-700">
                                             Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
@@ -2851,86 +4052,87 @@ export function SportsMultiRegister() {
                                     </div>
                                   </div>
                                 )}
-                                {/* Category selection for multi-category events */}
-                                {eventCats.length > 1 && (
-                                  <div className="w-full max-w-full">
-                                    <label className="sm:hidden block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
-                                      Age Bracket:
-                                    </label>
-                                    {/* Desktop Select */}
-                                    <select
-                                      value={ev.categoryId || ""}
-                                      onChange={(e) => updateEventField(ev.eventId, "categoryId", Number(e.target.value))}
-                                      className="hidden sm:block box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-auto min-w-[180px] max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                                    >
-                                      {eventCats.map(c => {
-                                        const itemEl = checkCategoryEligibility(c, currentAge, gender);
-                                        const ageLabel = c.minAge != null && c.maxAge != null
-                                          ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
-                                          : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
-                                        return (
-                                          <option key={c.id} value={c.id} className="text-xs truncate">
-                                            {c.name} ({ageLabel} yrs) {!itemEl.eligible ? "— Ineligible" : ""}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
-                                    {/* Mobile Custom Trigger Button */}
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleInlinePicker(ev.eventId, "category")}
-                                      className="sm:hidden w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
-                                    >
-                                      <span className="truncate">
-                                        {selectedCat?.name || "Select Category"}
-                                      </span>
-                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" ? "rotate-180 text-indigo-600" : ""}`} />
-                                    </button>
+                                {/* Category selection for multi-category events (filtered to only eligible brackets) */}
+                                {(() => {
+                                  const eligibleEventCats = eventCats.filter(c => checkCategoryEligibility(c, currentAge, gender).eligible);
+                                  const displayEventCats = eligibleEventCats.length > 0 ? eligibleEventCats : eventCats;
+                                  if (displayEventCats.length <= 1) return null;
 
-                                    {/* Full-width inline category options list inside parent div */}
-                                    {openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" && (
-                                      <div className="sm:hidden mt-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-xs space-y-1 w-full max-h-56 overflow-y-auto">
-                                        {eventCats.map(c => {
-                                          const itemEl = checkCategoryEligibility(c, currentAge, gender);
-                                          const isSelected = (ev.categoryId || eventCats[0]?.id) === c.id;
+                                  return (
+                                    <div className="w-full max-w-full">
+                                      <label className="sm:hidden block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                                        Age Bracket:
+                                      </label>
+                                      {/* Desktop Select */}
+                                      <select
+                                        value={ev.categoryId || ""}
+                                        onChange={(e) => updateEventField(ev.eventId, "categoryId", Number(e.target.value))}
+                                        className="hidden sm:block box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-auto min-w-[180px] max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                      >
+                                        {displayEventCats.map(c => {
                                           const ageLabel = c.minAge != null && c.maxAge != null
                                             ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
                                             : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
                                           return (
-                                            <button
-                                              key={c.id}
-                                              type="button"
-                                              disabled={!itemEl.eligible}
-                                              onClick={() => {
-                                                updateEventField(ev.eventId, "categoryId", c.id);
-                                                setOpenInlinePicker(null);
-                                              }}
-                                              className={`w-full p-2 rounded-lg text-left transition flex items-center justify-between gap-2 ${
-                                                isSelected
-                                                  ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold"
-                                                  : !itemEl.eligible
-                                                  ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400 border border-transparent"
-                                                  : "hover:bg-slate-50 text-slate-800 border border-transparent"
-                                              }`}
-                                            >
-                                              <div className="min-w-0 flex-1">
-                                                <div className="text-xs font-semibold truncate leading-tight">
-                                                  {c.name}
-                                                </div>
-                                                <div className={`text-xs mt-0.5 ${!itemEl.eligible ? "text-rose-500" : "text-slate-500"}`}>
-                                                  {ageLabel} yrs · {!itemEl.eligible ? `Ineligible (${itemEl.reason || ""})` : "Eligible"}
-                                                </div>
-                                              </div>
-                                              {isSelected && (
-                                                <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[2.5]" />
-                                              )}
-                                            </button>
+                                            <option key={c.id} value={c.id} className="text-xs truncate">
+                                              {c.name} ({ageLabel} yrs)
+                                            </option>
                                           );
                                         })}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                      </select>
+                                      {/* Mobile Custom Trigger Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleInlinePicker(ev.eventId, "category")}
+                                        className="sm:hidden w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
+                                      >
+                                        <span className="truncate">
+                                          {selectedCat?.name || "Select Category"}
+                                        </span>
+                                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" ? "rotate-180 text-indigo-600" : ""}`} />
+                                      </button>
+
+                                      {/* Full-width inline category options list inside parent div */}
+                                      {openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" && (
+                                        <div className="sm:hidden mt-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-xs space-y-1 w-full max-h-56 overflow-y-auto">
+                                          {displayEventCats.map(c => {
+                                            const isSelected = (ev.categoryId || displayEventCats[0]?.id) === c.id;
+                                            const ageLabel = c.minAge != null && c.maxAge != null
+                                              ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
+                                              : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
+                                            return (
+                                              <button
+                                                key={c.id}
+                                                type="button"
+                                                onClick={() => {
+                                                  updateEventField(ev.eventId, "categoryId", c.id);
+                                                  setOpenInlinePicker(null);
+                                                }}
+                                                className={`w-full p-2 rounded-lg text-left transition flex items-center justify-between gap-2 ${
+                                                  isSelected
+                                                    ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold"
+                                                    : "hover:bg-slate-50 text-slate-800 border border-transparent"
+                                                }`}
+                                              >
+                                                <div className="min-w-0 flex-1">
+                                                  <div className="text-xs font-semibold truncate leading-tight">
+                                                    {c.name}
+                                                  </div>
+                                                  <div className="text-xs mt-0.5 text-slate-500">
+                                                    {ageLabel} yrs · Eligible
+                                                  </div>
+                                                </div>
+                                                {isSelected && (
+                                                  <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[2.5]" />
+                                                )}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
 
                                 {/* Mobile role selection */}
                                 <div className="sm:hidden w-full max-w-full">
@@ -2984,8 +4186,14 @@ export function SportsMultiRegister() {
 
                         {/* Registered categories */}
                         {group.registered.map((ev) => {
-                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-                          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+                          const eventCats = getCategoriesForSelection(categories, ev);
+                          const selectedCat = eventCats.find(c => Number(c.id) === Number(ev.categoryId)) || eventCats[0];
+                          const participantRegs = findAllRegistrationsForParticipant(ev.eventId);
+                          const regFormats = participantRegs
+                            .map(r => r.matchType || (r as any).format)
+                            .filter(Boolean)
+                            .map(f => String(f).replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()));
+                          const formatBadgeText = regFormats.length > 0 ? regFormats.join(", ") : null;
 
                           return (
                             <div key={ev.eventId} className="px-2.5 py-2 sm:px-3 sm:py-2.5 bg-emerald-50/30">
@@ -2996,69 +4204,143 @@ export function SportsMultiRegister() {
                                     <span className="text-[10px] font-semibold text-slate-700">{ev.name}</span>
                                     {selectedCat && (
                                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-medium whitespace-nowrap">
-                                        {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
+                                        {getEventCategoryGenderLabel(selectedCat, ev) ? `${getEventCategoryGenderLabel(selectedCat, ev)} · ` : ""}
                                         {selectedCat.minAge != null && selectedCat.maxAge != null
                                           ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
                                           : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
                                         } yrs
                                       </span>
                                     )}
+                                    {formatBadgeText && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 border border-emerald-300 font-semibold whitespace-nowrap">
+                                        {formatBadgeText}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                                <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold flex items-center gap-1 shrink-0">
-                                  <Check className="w-3 h-3 stroke-[2.5]" /> Registered
-                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3 stroke-[2.5]" /> Registered
+                                  </span>
+                                  {(() => {
+                                    const checkClosed = (st?: string | null) => {
+                                      if (!st) return false;
+                                      const s = String(st).toUpperCase().trim();
+                                      return s === "REGISTRATION_CLOSED" || s === "CLOSED" || s === "COMPLETED" || s === "CANCELLED";
+                                    };
+                                    const isEvClosed = checkClosed((ev as any)?.registrationStatus)
+                                      || checkClosed(tournament?.registrationStatus)
+                                      || checkClosed((tournament as any)?.status);
+
+                                    if (isEvClosed && !isSportsAdminUser) {
+                                      return (
+                                        <span
+                                          className="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-semibold flex items-center gap-1"
+                                          title="Registration is closed for this event"
+                                        >
+                                          <Lock className="w-3 h-3 text-slate-400" />
+                                          <span>Registration Closed</span>
+                                        </span>
+                                      );
+                                    }
+
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnregister(ev.eventId, ev.registrationId)}
+                                        disabled={unregisteringEventId === ev.eventId}
+                                        title="Unregister from this sports event"
+                                        className="min-h-[28px] px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 transition active:scale-95"
+                                      >
+                                        {unregisteringEventId === ev.eventId ? (
+                                          <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
+                                        ) : (
+                                          <UserMinus className="w-3 h-3 text-rose-600" />
+                                        )}
+                                        <span>Unregister</span>
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             </div>
                           );
                         })}
 
-                        {/* Ineligible categories */}
+                        {/* Ineligible categories / events for participant */}
                         {group.ineligible.length > 0 && (
-                          <>
-                            <div className="px-2.5 sm:px-3 py-1.5 bg-rose-50/40 border-t border-rose-100">
-                              <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" /> Ineligible
+                          <div className="border-t border-slate-100 bg-slate-50/70 p-2.5 sm:p-3 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                              <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                <span>Ineligible Events ({group.ineligible.length})</span>
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                Age: {currentAge !== null ? `${currentAge} yrs` : "Not set"} · Gender: {gender || "Not set"}
                               </span>
                             </div>
-                            {group.ineligible.map((ev) => {
-                              const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
-                              const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
-                              const eligibility = checkCategoryEligibility(selectedCat, currentAge, gender);
-
-                              return (
-                                <div key={ev.eventId} className="px-2.5 py-2 sm:px-3 sm:py-2 bg-rose-50/20 opacity-60">
-                                  <div className="flex items-center gap-2 sm:gap-2.5">
-                                    <div className="w-4 h-4 rounded border-2 border-slate-200 bg-slate-50 shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                                        <span className="text-[10px] font-medium text-slate-500">{ev.name}</span>
-                                        {selectedCat && (
-                                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-400 border border-rose-200 font-medium whitespace-nowrap">
-                                            {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
-                                            {selectedCat.minAge != null && selectedCat.maxAge != null
-                                              ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
-                                              : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
-                                            } yrs
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-rose-500 mt-0.5">{eligibility.reason}</p>
+                            <div className="space-y-1.5">
+                              {group.ineligible.map((ev) => {
+                                const eventCats = getCategoriesForSelection(categories, ev);
+                                const selectedCat = eventCats.find(c => Number(c.id) === Number(ev.categoryId)) || eventCats[0];
+                                const el = evaluateEventEligibility(ev, categories, currentAge, gender);
+                                return (
+                                  <div
+                                    key={ev.eventId}
+                                    className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-slate-200/80 text-xs"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="font-semibold text-slate-800 truncate block sm:inline">{ev.name}</span>
+                                      {(ev.categoryName || selectedCat?.name) && (
+                                        <span className="text-[10px] text-slate-500 sm:ml-1.5">
+                                          ({ev.categoryName || selectedCat?.name})
+                                        </span>
+                                      )}
                                     </div>
-                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 text-[10px] font-bold shrink-0">
-                                      Ineligible
+                                    <span
+                                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+                                      title={el.reason}
+                                    >
+                                      {el.badgeText || el.reason || "Ineligible"}
                                     </span>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
+
                       </div>
                     )}
                   </div>
                 );
               })}
+
+              {sportGroups.length === 0 && (
+                <div className="p-6 sm:p-8 text-center bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-2.5">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-800 mb-1">
+                    {!gender || (!dateOfBirth && explicitAge === null) ? "Participant Details Needed" : "No Eligible Sports Available"}
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mb-3">
+                    {!gender || (!dateOfBirth && explicitAge === null)
+                      ? "Please provide Gender and Date of Birth to check eligibility and view eligible sports."
+                      : `There are currently no sports events matching this participant's age (${currentAge ?? "?"} yrs) and gender (${gender || "Not specified"}).`}
+                  </p>
+                  {(!gender || (!dateOfBirth && explicitAge === null)) && (
+                    <button
+                      type="button"
+                      onClick={() => openParticipantUpdateModal()}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition shadow-2xs inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Provide Gender &amp; DOB</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3078,17 +4360,17 @@ export function SportsMultiRegister() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting || selectedCount === 0 || !gender || !dateOfBirth || currentAge === null}
+            disabled={submitting || selectedCount === 0 || !gender || (!dateOfBirth && explicitAge === null) || currentAge === null}
             className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[13px] font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 active:scale-95"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
-            ) : !gender || !dateOfBirth || currentAge === null ? (
+            ) : !gender || (!dateOfBirth && explicitAge === null) || currentAge === null ? (
               <AlertTriangle className="w-4 h-4 text-amber-300" />
             ) : (
               <CheckCircle2 className="w-4 h-4" />
             )}
-            <span>{!gender || !dateOfBirth || currentAge === null ? "Provide DOB & Gender" : "Register Now"}</span>
+            <span>{!gender || (!dateOfBirth && explicitAge === null) || currentAge === null ? "Provide DOB & Gender" : "Register Now"}</span>
           </button>
         </div>
       </div>
@@ -3101,15 +4383,15 @@ export function SportsMultiRegister() {
             <div className="flex items-center justify-between border-b border-slate-100 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className={`p-2 rounded-xl ${
-                  profileModalState.mode === "self"
+                  profileModalState.mode === "self" || profileModalState.mode === "community_resident"
                     ? "bg-indigo-50 text-indigo-600"
-                    : profileModalState.mode === "family_edit"
+                    : profileModalState.mode === "family_edit" || profileModalState.mode === "community_family_edit"
                     ? "bg-amber-50 text-amber-600"
                     : "bg-emerald-50 text-emerald-600"
                 }`}>
-                  {profileModalState.mode === "self" ? (
+                  {profileModalState.mode === "self" || profileModalState.mode === "community_resident" ? (
                     <User className="w-5 h-5" />
-                  ) : profileModalState.mode === "family_edit" ? (
+                  ) : profileModalState.mode === "family_edit" || profileModalState.mode === "community_family_edit" ? (
                     <Edit3 className="w-5 h-5" />
                   ) : (
                     <UserPlus className="w-5 h-5" />
@@ -3119,14 +4401,16 @@ export function SportsMultiRegister() {
                   <h3 className="text-xs font-sans font-bold text-slate-900 m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Details (Self)"
-                      : profileModalState.mode === "family_edit"
+                      : profileModalState.mode === "community_resident"
+                      ? "Update Resident Details"
+                      : profileModalState.mode === "family_edit" || profileModalState.mode === "community_family_edit"
                       ? "Update Family Member Details"
                       : "Add Family Member"}
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {profileModalState.mode === "self"
+                    {profileModalState.mode === "self" || profileModalState.mode === "community_resident"
                       ? "Gender & DOB are required to verify sports category eligibility"
-                      : profileModalState.mode === "family_edit"
+                      : profileModalState.mode === "family_edit" || profileModalState.mode === "community_family_edit"
                       ? `Update Gender & DOB for ${profileModalState.name || "member"}`
                       : "Add details to register them for sports"}
                   </p>
@@ -3159,7 +4443,7 @@ export function SportsMultiRegister() {
                 />
               </div>
 
-              {profileModalState.mode !== "self" ? (
+              {profileModalState.mode !== "self" && profileModalState.mode !== "community_resident" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="multi-profile-modal-relation" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
@@ -3245,7 +4529,7 @@ export function SportsMultiRegister() {
                 </div>
                 <DatePicker
                   value={profileModalState.dob}
-                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  onChange={(val) => setProfileModalState(prev => ({ ...prev, dob: val || "" }))}
                   max={new Date().toISOString().split("T")[0]}
                   presets={false}
                   placeholder="Select Date of Birth"
@@ -3269,7 +4553,7 @@ export function SportsMultiRegister() {
                   />
                 </div>
 
-                {profileModalState.mode === "self" ? (
+                {profileModalState.mode === "self" || profileModalState.mode === "community_resident" ? (
                   <div>
                     <label htmlFor="multi-profile-modal-flat-no" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Flat / Villa No.
@@ -3324,7 +4608,13 @@ export function SportsMultiRegister() {
                   ) : (
                     <>
                       <UserCheck className="w-4 h-4" />
-                      <span>{profileModalState.mode === "self" ? "Save Profile" : "Save Details"}</span>
+                      <span>
+                        {profileModalState.mode === "self"
+                          ? "Save Profile"
+                          : profileModalState.mode === "community_resident"
+                          ? "Save Resident Details"
+                          : "Save Details"}
+                      </span>
                     </>
                   )}
                 </button>

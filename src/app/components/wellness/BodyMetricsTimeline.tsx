@@ -212,7 +212,7 @@ export default function BodyMetricsTimeline() {
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 8 }}
-                  formatter={(v: number) => [`${v} kg`, 'Weight']}
+                  formatter={(v: any) => [`${v ?? ''} kg`, 'Weight']}
                 />
                 {profile?.targetWeightKg && (
                   <ReferenceLine y={profile.targetWeightKg} stroke="#16a34a" strokeDasharray="4 4" label={{ value: 'Goal', position: 'right', fontSize: 10, fill: '#16a34a' }} />

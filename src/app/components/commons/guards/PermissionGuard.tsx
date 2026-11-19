@@ -153,5 +153,14 @@ const MODULE_LABELS: Record<string, string> = {
   MANA_PAY: "Mana Pay",
   ENTERTAINMENT: "Entertainment & Movies",
   MOVIES: "Entertainment & Movies",
+  FOOD_OS: "Food & Lifestyle",
+  VENDOR_MANAGEMENT: "Vendor Management",
+  GROUP_BUYING: "Group Buying",
+  EMERGENCY: "Emergency & SOS",
+  TRIPS: "Community Trips",
+  DISCOVER: "Discover",
+  MAINTENANCE: "Maintenance",
+  INSURANCE: "Insurance Hub",
+  ACADEMY: "Academy Hub",
 };
 

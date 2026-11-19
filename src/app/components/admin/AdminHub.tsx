@@ -33,6 +33,9 @@ import {
   Mail,
   MailOpen,
   Film,
+  UtensilsCrossed,
+  Truck,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -60,6 +63,9 @@ import { NoticeBoard } from "../notices/NoticeBoard";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
+import { SuperAdminPaymentSettings } from "./SuperAdminPaymentSettings";
+import { CommunityPaymentSettings } from "./CommunityPaymentSettings";
+import { PaymentAnalyticsDashboard } from "../payments/PaymentAnalyticsDashboard";
 import { communityService } from "../../../services/community/communityService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
@@ -94,6 +100,9 @@ const TAB_ITEMS = [
   { id: "sports-meta", label: "Sports Meta",  icon: Dumbbell },
   { id: "operations", label: "Platform Ops", icon: Server },
   { id: "privacy", label: "Privacy & Retention", icon: Shield },
+  { id: "platform-payments", label: "Platform Payments", icon: CreditCard },
+  { id: "community-payments", label: "Payment Settings", icon: CreditCard },
+  { id: "payment-analytics", label: "Payment Analytics", icon: TrendingUp },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -428,6 +437,8 @@ const ALL_MODULES = [
   { key: "COMMUNITY_MGMT",  label: "Community Mgmt",   icon: Package,     color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
   { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,    color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
   // ADMIN_HUB is intentionally excluded: disabling it would lock all admins out of this panel.
+  { key: "FOOD_OS",         label: "Food & Lifestyle", icon: UtensilsCrossed, color: "#ea580c", bg: "rgba(234,88,12,0.12)" },
+  { key: "VENDOR_MANAGEMENT",label: "Vendor Management",icon: Truck,          color: "#0284c7", bg: "rgba(2,132,199,0.12)" },
   { key: "GROUP_BUYING",    label: "Group Buying",     icon: Package,      color: "#10b981", bg: "rgba(16,185,129,0.12)" },
   { key: "SERVICE_PLATFORM",label: "Home Services",    icon: Server,       color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
   { key: "EMERGENCY",       label: "Emergency & SOS",  icon: AlertTriangle,color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
@@ -729,6 +740,9 @@ export function AdminHub() {
     if (t.id === "community") return canManageCommunities;
     if (t.id === "users-roles" || t.id === "access-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
     if (t.id === "sports-meta") return isSuperAdmin || isAdmin;
+    if (t.id === "platform-payments") return isSuperAdmin;
+    if (t.id === "community-payments") return isAdmin || isSuperAdmin;
+    if (t.id === "payment-analytics") return isAdmin || isSuperAdmin;
     return true;
   });
 
@@ -824,6 +838,11 @@ export function AdminHub() {
         {activeTab === "sports-meta" && <AdminSportsMeta isTab />}
         {activeTab === "operations" && <PlatformOperationsConsole />}
         {activeTab === "privacy" && <PrivacyAdminHub />}
+        {activeTab === "platform-payments" && <SuperAdminPaymentSettings />}
+        {activeTab === "community-payments" && <CommunityPaymentSettings />}
+        {activeTab === "payment-analytics" && (
+          <PaymentAnalyticsDashboard communityId={user?.communityId as number} />
+        )}
       </div>
     </div>
   );

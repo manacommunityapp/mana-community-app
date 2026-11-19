@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   UtensilsCrossed, ChefHat, ShoppingCart, Package, CalendarDays,
   BookOpen, Heart, PartyPopper, Refrigerator, Truck, Search,
-  Bell, LayoutDashboard, Menu, X
+  Bell, LayoutDashboard, Menu, X, Sparkles, ShoppingBag
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -12,6 +12,8 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 const foodTabs = [
   { to: "/food", icon: LayoutDashboard, label: "Dashboard", end: true },
+  { to: "/food/fresh-kitchen", icon: Sparkles, label: "Fresh Kitchen" },
+  { to: "/food/daily-basket", icon: ShoppingBag, label: "Daily Basket" },
   { to: "/food/restaurants", icon: UtensilsCrossed, label: "Restaurants" },
   { to: "/food/home-chefs", icon: ChefHat, label: "Home Chefs" },
   { to: "/food/orders", icon: ShoppingCart, label: "Orders" },

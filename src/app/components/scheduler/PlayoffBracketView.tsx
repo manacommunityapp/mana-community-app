@@ -1,4 +1,5 @@
-import { Pencil, MapPin } from 'lucide-react';
+import { Pencil, MapPin, Download } from 'lucide-react';
+import { isByeParticipant } from './playoffSchedule';
 import type { PlayoffMatchDraft, PlayoffParticipantRef } from './playoffSchedule';
 import './PlayoffBracketView.css';
 
@@ -8,8 +9,12 @@ const DEFAULT_AVATAR =
 type Props = {
   matches: PlayoffMatchDraft[];
   onEditMatch?: (match: PlayoffMatchDraft) => void;
+  onDownloadBracket?: () => void;
   resolveVenueName?: (venueId: number | null) => string;
-  resolveCourtName?: (courtId: string | null) => string;
+  resolveCourtName?: (courtId: string | null, venueId?: number | null) => string;
+  showByes?: boolean;
+  onToggleShowByes?: () => void;
+  totalDrawCount?: number;
 };
 
 function formatBracketDateOnly(dateStr: string): string {
@@ -43,10 +48,6 @@ function isPlaceholder(id: string, name: string): boolean {
     /\b(winner|loser)\b/i.test(name) ||
     /group\s+\d+/i.test(name)
   );
-}
-
-function isByeParticipant(participant: PlayoffParticipantRef): boolean {
-  return participant.id === 'bye' || participant.name === 'BYE';
 }
 
 function ParticipantRow({ participant }: { participant: PlayoffParticipantRef }) {
@@ -102,33 +103,38 @@ type MatchCardProps = {
 function MatchCard({
   match,
   top,
-  showConnector = false,
-  connectorTop = 0,
-  connectorHeight = 180,
-  showMergerRight = false,
-  showMergerLeft = false,
   onEdit,
   venueName,
   courtName,
 }: MatchCardProps) {
   // A bye match has no real opponent, so date/time/venue/court are meaningless.
   const isByeMatch = isByeParticipant(match.home) || isByeParticipant(match.away);
+  const isPendingSlot = match.status === 'PENDING_SLOT';
+  const assignedCourt = courtName || (match as any).courtName || match.courtId;
 
   return (
     <div
       className="matchup absolute transition-all duration-700 ease-in-out"
       id={`WB-match-${match.id}`}
-      style={{ top }}
+      style={{ top, zIndex: 2 }}
     >
-      <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
-        {!isByeMatch && (
-          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#6b7094]">
+      <div className="relative mb-2 flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
+        {isPendingSlot ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-slate-400">
+            Awaiting bracket slot
+          </div>
+        ) : isByeMatch ? (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <span>BYE • Advances to R2</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-indigo-100 bg-indigo-50/80 px-2 py-1 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap text-indigo-800">
             <span>{formatBracketDateOnly(match.date)}</span>
-            <span className="opacity-40">|</span>
+            <span className="text-indigo-300">·</span>
             <span>{match.time}</span>
           </div>
         )}
-        {onEdit && (
+        {onEdit && !isPendingSlot && (
           <button
             type="button"
             onClick={onEdit}
@@ -145,27 +151,22 @@ function MatchCard({
           <ParticipantRow participant={match.home} />
           <ParticipantRow participant={match.away} />
         </div>
-        {showConnector && (
-          <div 
-            className="connector" 
-            style={{ 
-              height: connectorHeight, 
-              transform: `translateY(${connectorTop}px)` 
-            }} 
-            aria-hidden 
-          />
-        )}
-        {showMergerRight && <div className="merger-right" style={{ width: 20 }} aria-hidden />}
-        {showMergerLeft && <div className="merger-left" style={{ width: 20 }} aria-hidden />}
       </div>
 
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
-        <div className="flex flex-row gap-1.5 items-center mt-1">
-          <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
-          <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
-            {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
-          </span>
+        <div className="flex flex-row items-center justify-between gap-1 mt-3 pt-2 border-t border-slate-100">
+          <div className="inline-flex min-w-0 items-center gap-1.5 rounded-md bg-slate-50 px-2 py-1">
+            <MapPin className="w-3 h-3 text-indigo-600 shrink-0" />
+            <span className="font-bold text-slate-600 text-[11px] line-clamp-1" title={[venueName, assignedCourt].filter(Boolean).join(' · ')}>
+              {[venueName, assignedCourt].filter(Boolean).join(' · ') || 'TBD'}
+            </span>
+          </div>
+          {match.conflicts && match.conflicts.length > 0 && (
+            <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0" title={match.conflicts.join('\n')}>
+              ⚠️ Conflict
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -176,7 +177,10 @@ function getRoundHeader(roundName: string): string {
   if (roundName === 'FINAL') return 'Finals';
   if (roundName === 'SEMI_FINAL') return 'Semi-Finals';
   if (roundName === 'QUARTER_FINAL') return 'Quarter-Finals';
-  return roundName;
+  if (roundName === 'ROUND_OF_16') return 'Round of 16';
+  if (roundName === 'ROUND_OF_32') return 'Round of 32';
+  if (roundName === 'ROUND_OF_64') return 'Round of 64';
+  return roundName.replace(/_/g, ' ');
 }
 
 function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: number }) {
@@ -217,7 +221,16 @@ function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: numb
   );
 }
 
-export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, resolveCourtName }: Props) {
+export function PlayoffBracketView({
+  matches,
+  onEditMatch,
+  onDownloadBracket,
+  resolveVenueName,
+  resolveCourtName,
+  showByes,
+  onToggleShowByes,
+  totalDrawCount,
+}: Props) {
   if (matches.length === 0) return null;
 
   const bracketMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
@@ -232,11 +245,12 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
 
   // Calculate match positions (tops)
   const matchTops: Record<string, number> = {};
-  const baseSpacing = 160;
 
   const firstRoundIdx = roundIndices[0];
   const firstRoundMatches = roundsMatches[firstRoundIdx] || [];
   const M0 = firstRoundMatches.length;
+  // Give each match card enough vertical room for its time, players, and venue row.
+  const baseSpacing = 148;
 
   // 1. Initialize first round tops
   firstRoundMatches.forEach((m, idx) => {
@@ -251,8 +265,13 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
     const rMatches = roundsMatches[rIndex] || [];
     
     rMatches.forEach((m, idx) => {
-      const homeParentId = findParentMatchId(m.home.id, prevMatches);
-      const awayParentId = findParentMatchId(m.away.id, prevMatches);
+      let homeParentId = findParentMatchId(m.home.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
 
       const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
       const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
@@ -275,12 +294,117 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
   // Find final match
   const lastRoundIdx = roundIndices[roundIndices.length - 1];
   const finalMatch = (roundsMatches[lastRoundIdx] || [])[0];
-  const finalMatchTop = finalMatch ? (matchTops[finalMatch.id] ?? 160) : 160;
+  const finalMatchTop = finalMatch ? (matchTops[finalMatch.id] ?? 140) : 140;
+
+  // Compute SVG tree connector paths
+  const colWidth = 278;
+  const cardLeft = 8;
+  const cardWidth = 248;
+  const cardCenterYOffset = 72;
+
+  interface ConnectorPath {
+    d: string;
+    dashed?: boolean;
+    stroke?: string;
+  }
+  const connectorPaths: ConnectorPath[] = [];
+
+  for (let c = 1; c < roundIndices.length; c++) {
+    const rIndex = roundIndices[c];
+    const prevRoundIndex = roundIndices[c - 1];
+    const prevMatches = roundsMatches[prevRoundIndex] || [];
+    const rMatches = roundsMatches[rIndex] || [];
+
+    rMatches.forEach((m, idx) => {
+      let homeParentId = findParentMatchId(m.home.id, prevMatches);
+      let awayParentId = findParentMatchId(m.away.id, prevMatches);
+
+      if (!homeParentId && !awayParentId && prevMatches.length >= (idx + 1) * 2) {
+        homeParentId = prevMatches[idx * 2]?.id;
+        awayParentId = prevMatches[idx * 2 + 1]?.id;
+      }
+
+      const xChildLeft = c * colWidth + cardLeft;
+      const xParentRight = (c - 1) * colWidth + cardLeft + cardWidth;
+      const xMid = Math.round((xParentRight + xChildLeft) / 2);
+      const yChild = (matchTops[m.id] ?? 40) + cardCenterYOffset;
+
+      const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
+      const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
+
+      if (homeTop !== undefined && awayTop !== undefined) {
+        const yHome = homeTop + cardCenterYOffset;
+        const yAway = awayTop + cardCenterYOffset;
+        connectorPaths.push({
+          d: `M ${xParentRight} ${yHome} H ${xMid} V ${yAway} H ${xParentRight} M ${xMid} ${yChild} H ${xChildLeft}`,
+        });
+      } else if (homeTop !== undefined) {
+        const yHome = homeTop + cardCenterYOffset;
+        connectorPaths.push({
+          d: `M ${xParentRight} ${yHome} H ${xMid} V ${yChild} H ${xChildLeft}`,
+        });
+      } else if (awayTop !== undefined) {
+        const yAway = awayTop + cardCenterYOffset;
+        connectorPaths.push({
+          d: `M ${xParentRight} ${yAway} H ${xMid} V ${yChild} H ${xChildLeft}`,
+        });
+      }
+    });
+  }
+
+  if (finalMatch) {
+    const lastColIdx = roundIndices.length - 1;
+    const xFinalRight = lastColIdx * colWidth + cardLeft + cardWidth;
+    const xResultsLeft = (lastColIdx + 1) * colWidth + cardLeft;
+    const xResultsMid = Math.round((xFinalRight + xResultsLeft) / 2);
+    const yFinal = finalMatchTop + cardCenterYOffset;
+    const yResults = finalMatchTop + 40 + 55;
+
+    connectorPaths.push({
+      d: `M ${xFinalRight} ${yFinal} H ${xResultsMid} V ${yResults} H ${xResultsLeft}`,
+      dashed: true,
+      stroke: 'rgba(245, 158, 11, 0.7)',
+    });
+  }
 
   return (
     <div className="playoff-bracket flex flex-col">
-      <div className="flex items-center justify-between text-xs text-[#6b7094] mb-2 px-1">
-        <span className="font-semibold">Bracket Structure</span>
+      <div className="flex items-center justify-between text-xs text-[#6b7094] mb-3 px-1">
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+            {totalDrawCount && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {totalDrawCount} Draw
+              </span>
+            )}
+          </div>
+          {onToggleShowByes && (
+            <button
+              type="button"
+              onClick={onToggleShowByes}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                showByes
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+              title="Toggle display of 1st round BYE match slots (16/32/64/128 draw)"
+            >
+              <span>{showByes ? '✓ Showing BYEs' : 'Show BYEs (Draw)'}</span>
+            </button>
+          )}
+          {onDownloadBracket && (
+            <button
+              type="button"
+              onClick={onDownloadBracket}
+              className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold shadow-sm hover:border-indigo-400 transition-all cursor-pointer"
+              title="Download and print the visual tournament bracket tree"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Download Bracket Draw</span>
+            </button>
+          )}
+        </div>
         <span className="flex items-center gap-1 text-[10px] bg-[#4f46e5]/10 text-[#4f46e5] border border-[#4f46e5]/20 px-2.5 py-0.5 rounded-full animate-pulse md:hidden">
           Swipe to scroll ↔
         </span>
@@ -290,12 +414,25 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
           className="bracket py-6 relative flex flex-row rounded-xl bg-white/30 border border-[rgba(99,102,241,0.12)]"
           style={{ height: bracketHeight }}
         >
+          <svg className="absolute inset-0 pointer-events-none w-full h-full" style={{ zIndex: 1 }}>
+            {connectorPaths.map((p, idx) => (
+              <path
+                key={idx}
+                d={p.d}
+                stroke={p.stroke || 'rgba(99, 102, 241, 0.35)'}
+                strokeWidth={2}
+                strokeDasharray={p.dashed ? '4 3' : undefined}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+          </svg>
           {roundIndices.map((rIndex, colIdx) => {
             const rMatches = roundsMatches[rIndex] || [];
             if (rMatches.length === 0) return null;
             const roundName = rMatches[0].round;
             const header = getRoundHeader(roundName);
-            const isLastRound = colIdx === roundIndices.length - 1;
 
             return (
               <section 
@@ -308,48 +445,15 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
                 </div>
                 {rMatches.map((m, idx) => {
                   const top = matchTops[m.id] ?? (40 + idx * baseSpacing);
-                  
-                  let showConnector = false;
-                  let connectorHeight = 0;
-                  let connectorTop = 0;
-
-                  if (colIdx > 0) {
-                    const prevRoundIdx = roundIndices[colIdx - 1];
-                    const prevMatches = roundsMatches[prevRoundIdx] || [];
-                    const homeParentId = findParentMatchId(m.home.id, prevMatches);
-                    const awayParentId = findParentMatchId(m.away.id, prevMatches);
-
-                    const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
-                    const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
-
-                    if (homeTop !== undefined && awayTop !== undefined) {
-                      showConnector = true;
-                      connectorHeight = Math.abs(awayTop - homeTop);
-                      connectorTop = Math.min(homeTop, awayTop) - top;
-                    } else if (homeTop !== undefined) {
-                      showConnector = true;
-                      connectorHeight = Math.abs(homeTop - top);
-                      connectorTop = Math.min(homeTop, top) - top;
-                    } else if (awayTop !== undefined) {
-                      showConnector = true;
-                      connectorHeight = Math.abs(awayTop - top);
-                      connectorTop = Math.min(awayTop, top) - top;
-                    }
-                  }
 
                   return (
                     <MatchCard
                       key={m.id}
                       match={m}
                       top={top}
-                      showConnector={showConnector}
-                      connectorTop={connectorTop}
-                      connectorHeight={connectorHeight}
-                      showMergerRight={!isLastRound}
-                      showMergerLeft={colIdx > 0}
                       onEdit={onEditMatch ? () => onEditMatch(m) : undefined}
                       venueName={resolveVenueName ? resolveVenueName(m.venueId) : undefined}
-                      courtName={resolveCourtName ? resolveCourtName(m.courtId) : undefined}
+                      courtName={resolveCourtName ? resolveCourtName(m.courtId, m.venueId) : undefined}
                     />
                   );
                 })}

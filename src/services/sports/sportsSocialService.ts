@@ -8,7 +8,7 @@ import type {
   SportsMessage,
 } from "../../types/sportsSocial";
 
-const STORAGE_FEED = "mana_sports_feed_v1";
+const STORAGE_FEED = "mana_sports_feed_v2";
 const STORAGE_COMMENTS = "mana_sports_feed_comments_v1";
 const STORAGE_MATCHMAKING = "mana_sports_matchmaking_v1";
 const STORAGE_CONVERSATIONS = "mana_sports_conversations_v1";
@@ -44,9 +44,15 @@ const SEED_FEED: SportsFeedPost[] = [
       scoreA: "142/6 (20 ov)",
       scoreB: "139/8 (20 ov)",
       result: "Whitefield Warriors won by 3 runs",
+      winner: "A",
+      winnerName: "Whitefield Warriors",
+      winMargin: "3 runs",
+      stage: "Weekend Box Cup · Quarter-Final",
       venue: "SmashZone Arena, Whitefield",
       date: "2026-10-28",
       playerOfMatch: "Deepak Nair",
+      playerOfMatchStats: "4/18 (4 ov) & 2 catches",
+      playerOfMatchTeam: "Whitefield Warriors",
     },
     likes: 24,
     comments: 8,
@@ -84,8 +90,15 @@ const SEED_FEED: SportsFeedPost[] = [
       scoreA: "3",
       scoreB: "1",
       result: "HSR FC won 3-1",
+      winner: "A",
+      winnerName: "HSR FC",
+      winMargin: "3 - 1",
+      stage: "Bangalore Community Cup · Semi-Final",
       venue: "HSR Sports Ground",
       date: "2026-10-27",
+      playerOfMatch: "Vikram Singh",
+      playerOfMatchStats: "2 Goals, 1 Assist",
+      playerOfMatchTeam: "HSR FC",
     },
     likes: 18,
     comments: 6,

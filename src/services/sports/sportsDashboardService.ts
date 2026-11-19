@@ -50,6 +50,15 @@ export interface DashboardUpcomingEvent {
   playerName?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
+  partnerUserId?: number | string | null;
+  partnerFamilyMemberId?: number | string | null;
+  partnerName?: string | null;
+  partnerPhone?: string | null;
+  partnerFlatNumber?: string | null;
+  partnerStatus?: string | null;
+  partnerConfirmationStatus?: string | null;
+  partner?: any;
+  partnerFamilyMember?: any;
 }
 
 export interface DashboardMyRegistration {
@@ -65,8 +74,19 @@ export interface DashboardMyRegistration {
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
   playerName?: string | null;
+  flatNumber?: string | null;
+  flatNo?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
+  partnerUserId?: number | string | null;
+  partnerFamilyMemberId?: number | string | null;
+  partnerName?: string | null;
+  partnerPhone?: string | null;
+  partnerFlatNumber?: string | null;
+  partnerStatus?: string | null;
+  partnerConfirmationStatus?: string | null;
+  partner?: any;
+  partnerFamilyMember?: any;
 }
 
 export interface DashboardTournamentCard {
@@ -121,6 +141,9 @@ export const sportsDashboardService = {
   },
   async getClosedTournaments(): Promise<DashboardTournamentCard[]> {
     return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/closed-tournaments");
+  },
+  async getCompletedTournaments(): Promise<DashboardTournamentCard[]> {
+    return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/completed-tournaments");
   },
   async getMyRegistrations(): Promise<DashboardMyRegistration[]> {
     return apiClient.get<DashboardMyRegistration[]>("/sports/dashboard/my-registrations");

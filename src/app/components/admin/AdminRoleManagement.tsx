@@ -43,10 +43,16 @@ import {
   Sliders,
   Tag,
   Layers,
+  Heart,
+  UserPlus2,
+  Droplets,
+  PlusCircle,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
 import type { UserStatsResponse, RoleDetailsItem } from "../../../services/common/userService";
+import { familyService } from "../../../services/common/familyService";
+import type { FamilyMember } from "../../../services/common/familyService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
@@ -177,6 +183,122 @@ export function AdminRoleManagement() {
     govtIdNumber: string;
   } | null>(null);
   const [savingUserDetails, setSavingUserDetails] = useState(false);
+
+  // ── Family Details Modal State ────────────────────────────────────────────
+  const [familyModalUser, setFamilyModalUser] = useState<UserItem | null>(null);
+  const [familyMembersList, setFamilyMembersList] = useState<FamilyMember[]>([]);
+  const [loadingFamilyMembers, setLoadingFamilyMembers] = useState(false);
+  const [familyMemberFormOpen, setFamilyMemberFormOpen] = useState(false);
+  const [editingFamilyMember, setEditingFamilyMember] = useState<FamilyMember | null>(null);
+  const [familyMemberForm, setFamilyMemberForm] = useState<Partial<FamilyMember>>({
+    name: "", relation: "Spouse", dob: "", gender: "Female",
+    phone: "", email: "", bloodGroup: "", gotram: "",
+    emergencyContact: false, isDevotee: true, notes: "",
+  });
+  const [savingFamilyMember, setSavingFamilyMember] = useState(false);
+  const [deletingFamilyMemberId, setDeletingFamilyMemberId] = useState<string | number | null>(null);
+
+  const loadFamilyMembersForUser = async (userId: number) => {
+    setLoadingFamilyMembers(true);
+    try {
+      const members = await familyService.getAdminFamilyMembers(userId);
+      setFamilyMembersList(members);
+    } catch {
+      toast.error("Failed to load family members");
+    } finally {
+      setLoadingFamilyMembers(false);
+    }
+  };
+
+  const openFamilyModal = (u: UserItem) => {
+    setFamilyModalUser(u);
+    setFamilyMembersList([]);
+    setFamilyMemberFormOpen(false);
+    loadFamilyMembersForUser(u.id);
+  };
+
+  const openAddFamilyMemberForm = () => {
+    setEditingFamilyMember(null);
+    setFamilyMemberForm({
+      name: "", relation: "Spouse", dob: "", gender: "Female",
+      phone: "", email: "", bloodGroup: "", gotram: "",
+      emergencyContact: false, isDevotee: true, notes: "",
+    });
+    setFamilyMemberFormOpen(true);
+  };
+
+  const openEditFamilyMemberForm = (m: FamilyMember) => {
+    setEditingFamilyMember(m);
+    setFamilyMemberForm({
+      name: m.name || "",
+      relation: m.relation || "Family",
+      dob: m.dob || "",
+      gender: m.gender || "Other",
+      phone: m.phone || "",
+      email: m.email || "",
+      bloodGroup: m.bloodGroup || "",
+      gotram: m.gotram || "",
+      emergencyContact: Boolean(m.emergencyContact),
+      isDevotee: m.isDevotee !== undefined ? m.isDevotee : true,
+      notes: m.notes || "",
+    });
+    setFamilyMemberFormOpen(true);
+  };
+
+  const handleSaveFamilyMemberForUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!familyModalUser || !familyMemberForm.name?.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    setSavingFamilyMember(true);
+    try {
+      if (editingFamilyMember && !String(editingFamilyMember.id).startsWith("fam-")) {
+        const updated = await familyService.updateFamilyMemberForUser(editingFamilyMember.id, familyMemberForm);
+        setFamilyMembersList((prev) =>
+          prev.map((m) => String(m.id) === String(editingFamilyMember.id) ? { ...m, ...updated } : m)
+        );
+        toast.success(`Updated ${familyMemberForm.name}`);
+      } else {
+        const created = await familyService.addFamilyMemberForUser(familyModalUser.id, familyMemberForm);
+        setFamilyMembersList((prev) => [created, ...prev]);
+        toast.success(`Added ${familyMemberForm.name} to family`);
+      }
+      setFamilyMemberFormOpen(false);
+      setEditingFamilyMember(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save family member");
+    } finally {
+      setSavingFamilyMember(false);
+    }
+  };
+
+  const handleDeleteFamilyMemberForUser = async (member: FamilyMember) => {
+    const idStr = String(member.id);
+    if (idStr.startsWith("fam-") || idStr === "self") {
+      toast.error("Cannot delete this entry from admin view");
+      return;
+    }
+    const confirmed = await confirmAction({
+      title: "Remove Family Member?",
+      text: `Remove ${member.name} from this user's family list?`,
+      confirmButtonText: "Yes, Remove",
+      cancelButtonText: "Cancel",
+      icon: "warning",
+      confirmButtonColor: "#dc2626",
+    });
+    if (!confirmed) return;
+    setDeletingFamilyMemberId(member.id);
+    try {
+      await familyService.adminDeleteFamilyMember(member.id);
+      setFamilyMembersList((prev) => prev.filter((m) => String(m.id) !== idStr));
+      toast.success(`Removed ${member.name}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove family member");
+    } finally {
+      setDeletingFamilyMemberId(null);
+    }
+  };
 
   const loadPermissions = async () => {
     try {
@@ -1251,6 +1373,14 @@ export function AdminRoleManagement() {
                                 >
                                   <UserCog className="w-3 h-3" />
                                   <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => openFamilyModal(user)}
+                                  className="flex items-center gap-1 px-1.5 py-1 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-md transition-colors border border-pink-200 text-xs font-semibold cursor-pointer"
+                                  title="View & Manage Family Members"
+                                >
+                                  <Heart className="w-3 h-3" />
+                                  <span>Family</span>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteUser(user)}
@@ -2737,19 +2867,34 @@ export function AdminRoleManagement() {
 
             {/* Modal Footer */}
             <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  const targetUser = selectedUser;
-                  setSelectedUser(null);
-                  setSavedRoles(null);
-                  if (targetUser) openEditUserDetails(targetUser);
-                }}
-                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-              >
-                <UserCog className="w-3.5 h-3.5" />
-                <span>Edit Full Profile</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetUser = selectedUser;
+                    setSelectedUser(null);
+                    setSavedRoles(null);
+                    if (targetUser) openEditUserDetails(targetUser);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  <UserCog className="w-3.5 h-3.5" />
+                  <span>Edit Full Profile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetUser = selectedUser;
+                    setSelectedUser(null);
+                    setSavedRoles(null);
+                    if (targetUser) openFamilyModal(targetUser);
+                  }}
+                  className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs rounded-lg border border-pink-200 transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  <Heart className="w-3.5 h-3.5" />
+                  <span>Family</span>
+                </button>
+              </div>
 
               <button
                 onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
@@ -2761,6 +2906,285 @@ export function AdminRoleManagement() {
           </div>
         </div>
       )}
+      {/* ── ADMIN FAMILY DETAILS MODAL ─────────────────────────────────────── */}
+      {familyModalUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs"
+          onClick={() => { setFamilyModalUser(null); setFamilyMemberFormOpen(false); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-pink-600 via-rose-600 to-pink-700 text-white px-4 py-3 sm:px-5 sm:py-3.5 shrink-0">
+              <button
+                onClick={() => { setFamilyModalUser(null); setFamilyMemberFormOpen(false); }}
+                className="absolute top-3 right-3 p-1 text-pink-200 hover:text-white hover:bg-white/10 rounded-md transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3 pr-6">
+                <div className="w-9 h-9 rounded-lg bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                  <Heart className="w-4.5 h-4.5 text-pink-200" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-white leading-tight">Family Members</h3>
+                  <p className="text-pink-200 text-[11px] font-medium mt-0.5">
+                    {familyModalUser.name} · #{familyModalUser.id} · {familyModalUser.flatNo ? `Flat ${familyModalUser.flatNo}` : familyModalUser.block ? `Block ${familyModalUser.block}` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Add / Edit Form */}
+              {familyMemberFormOpen && (
+                <div className="border-b border-pink-100 bg-pink-50/50 p-4">
+                  <h4 className="text-xs font-bold text-pink-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    {editingFamilyMember ? <Edit className="w-3.5 h-3.5" /> : <PlusCircle className="w-3.5 h-3.5" />}
+                    {editingFamilyMember ? `Edit — ${editingFamilyMember.name}` : "Add New Family Member"}
+                  </h4>
+                  <form onSubmit={handleSaveFamilyMemberForUser} className="space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Full Name *</label>
+                        <input
+                          required
+                          value={familyMemberForm.name || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="e.g. Priya Sharma"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Relation</label>
+                        <select
+                          value={familyMemberForm.relation || "Spouse"}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, relation: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        >
+                          {["Spouse","Son","Daughter","Father","Mother","Brother","Sister","Grandfather","Grandmother","Father-in-law","Mother-in-law","Other"].map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Gender</label>
+                        <select
+                          value={familyMemberForm.gender || "Female"}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, gender: e.target.value as FamilyMember["gender"] }))}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={familyMemberForm.dob || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, dob: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Phone</label>
+                        <input
+                          value={familyMemberForm.phone || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, phone: e.target.value }))}
+                          placeholder="+91 9876543210"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={familyMemberForm.email || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, email: e.target.value }))}
+                          placeholder="optional"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Blood Group</label>
+                        <select
+                          value={familyMemberForm.bloodGroup || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, bloodGroup: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        >
+                          <option value="">— Select —</option>
+                          {["A+","A-","B+","B-","O+","O-","AB+","AB-"].map((bg) => (
+                            <option key={bg} value={bg}>{bg}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Gotram</label>
+                        <input
+                          value={familyMemberForm.gotram || ""}
+                          onChange={(e) => setFamilyMemberForm((p) => ({ ...p, gotram: e.target.value }))}
+                          placeholder="optional"
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-pink-400 outline-none bg-white"
+                        />
+                      </div>
+                      <div className="flex items-end gap-3 pb-0.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(familyMemberForm.emergencyContact)}
+                            onChange={(e) => setFamilyMemberForm((p) => ({ ...p, emergencyContact: e.target.checked }))}
+                            className="w-3.5 h-3.5 accent-pink-600 cursor-pointer"
+                          />
+                          <span className="text-[10px] font-bold text-slate-600">Emergency Contact</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(familyMemberForm.isDevotee)}
+                            onChange={(e) => setFamilyMemberForm((p) => ({ ...p, isDevotee: e.target.checked }))}
+                            className="w-3.5 h-3.5 accent-pink-600 cursor-pointer"
+                          />
+                          <span className="text-[10px] font-bold text-slate-600">Devotee</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setFamilyMemberFormOpen(false); setEditingFamilyMember(null); }}
+                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-50 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingFamilyMember}
+                        className="px-3.5 py-1.5 bg-pink-600 hover:bg-pink-700 disabled:bg-pink-400 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer active:scale-95 transition-all"
+                      >
+                        {savingFamilyMember ? (
+                          <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</>
+                        ) : (
+                          <><Save className="w-3 h-3" /> {editingFamilyMember ? "Update Member" : "Add Member"}</>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* Members List */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5 text-pink-500" />
+                    {loadingFamilyMembers ? "Loading…" : `${familyMembersList.length} Member${familyMembersList.length !== 1 ? "s" : ""}`}
+                  </span>
+                  {!familyMemberFormOpen && (
+                    <button
+                      type="button"
+                      onClick={openAddFamilyMemberForm}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-bold rounded-lg border border-pink-200 transition-colors cursor-pointer"
+                    >
+                      <UserPlus2 className="w-3.5 h-3.5" />
+                      Add Member
+                    </button>
+                  )}
+                </div>
+
+                {loadingFamilyMembers ? (
+                  <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin text-pink-500" />
+                    <span className="text-xs">Loading family members…</span>
+                  </div>
+                ) : familyMembersList.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <Heart className="w-8 h-8 mx-auto opacity-20 mb-2" />
+                    <p className="text-xs font-semibold">No family members found for this user.</p>
+                    <p className="text-[11px] mt-0.5">Click "Add Member" to add the first entry.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {familyMembersList.map((m) => {
+                      const avatarVal = (m as any).avatar;
+                      const isEmoji = avatarVal && avatarVal.length <= 4;
+                      const dobDisplay = m.dob
+                        ? new Date(m.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                        : m.age ? `Age ${m.age}` : "—";
+                      const isDeleting = deletingFamilyMemberId === m.id;
+                      return (
+                        <div key={String(m.id)} className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-3 hover:border-pink-200 transition-colors">
+                          <div className="w-9 h-9 rounded-full bg-pink-100 border border-pink-200 flex items-center justify-center text-sm font-black text-pink-700 shrink-0 overflow-hidden">
+                            {isEmoji ? avatarVal : (m.name?.charAt(0) || "?").toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-800 truncate">{m.name}</span>
+                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-pink-100 text-pink-700 border border-pink-200">{m.relation}</span>
+                              {m.emergencyContact && (
+                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-red-50 text-red-600 border border-red-200">Emergency</span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[10.5px] text-slate-500">
+                              <span>{m.gender || "—"}</span>
+                              {m.dob || m.age ? <span>DOB: {dobDisplay}</span> : null}
+                              {m.phone && <span>{m.phone}</span>}
+                              {m.bloodGroup && (
+                                <span className="flex items-center gap-0.5 text-red-600 font-semibold">
+                                  <Droplets className="w-2.5 h-2.5" />{m.bloodGroup}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openEditFamilyMemberForm(m)}
+                              className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-md border border-indigo-100 cursor-pointer transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            {!String(m.id).startsWith("fam-") && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFamilyMemberForUser(m)}
+                                disabled={isDeleting}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md border border-rose-100 cursor-pointer transition-colors disabled:opacity-50"
+                                title="Remove"
+                              >
+                                {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+              <span className="text-[10px] text-slate-400 font-medium">
+                Admin view — changes are saved to the database immediately
+              </span>
+              <button
+                onClick={() => { setFamilyModalUser(null); setFamilyMemberFormOpen(false); }}
+                className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors shadow-2xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CREATE CUSTOM ROLE MODAL */}
       {isCreateRoleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setIsCreateRoleOpen(false)}>

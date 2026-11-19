@@ -27,28 +27,3 @@
   width: 248px;
 }
 
-.playoff-bracket .connector {
-  position: absolute;
-  left: -15px;
-  top: 50%;
-  border-left: 3px solid rgba(99, 102, 241, 0.3);
-  pointer-events: none;
-}
-
-.playoff-bracket .merger-right {
-  position: absolute;
-  right: -15px;
-  bottom: 50%;
-  width: 15px;
-  border-bottom: 3px solid rgba(99, 102, 241, 0.3);
-  pointer-events: none;
-}
-
-.playoff-bracket .merger-left {
-  position: absolute;
-  left: -15px;
-  bottom: 50%;
-  width: 15px;
-  border-bottom: 3px solid rgba(99, 102, 241, 0.3);
-  pointer-events: none;
-}

@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
-import { Gavel, Loader2, Clock, TrendingUp, Users, IndianRupee, ChevronRight, History } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Gavel, Loader2, TrendingUp, Users, IndianRupee, ChevronRight, History, Eye, EyeOff, Calendar, Radio } from "lucide-react";
 import { auctionService } from "../../../services/sports/auctionService";
-import type { AuctionConfigResponse, AuctionTeam, AuctionBidResponse } from "../../../types/api";
+import type { AuctionConfigResponse, AuctionTeam } from "../../../types/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
 
@@ -13,12 +13,21 @@ interface AuctionSummary {
   totalSpent: number;
 }
 
-type AuctionTab = "active" | "history";
+interface WatchedAuction {
+  id: number;
+  configId: number;
+  seasonName: string;
+  status: string;
+  createdAt: string;
+}
+
+type AuctionTab = "active" | "history" | "watching";
 
 export function SportsMyAuctions() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [auctions, setAuctions] = useState<AuctionSummary[]>([]);
+  const [watchList, setWatchList] = useState<WatchedAuction[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AuctionTab>("active");
 
@@ -61,10 +70,26 @@ export function SportsMyAuctions() {
 
         setAuctions(summaries);
       } catch { setAuctions([]); }
+
+      try {
+        const watched = await auctionService.getWatchList();
+        setWatchList(watched);
+      } catch { setWatchList([]); }
+
       setLoading(false);
     };
     load();
   }, [user]);
+
+  const toggleWatch = useCallback(async (configId: number) => {
+    setWatchList((prev) => prev.filter((w) => w.configId !== configId));
+    try {
+      await auctionService.unwatchAuction(configId);
+    } catch {
+      const watched = await auctionService.getWatchList().catch(() => []);
+      setWatchList(watched);
+    }
+  }, []);
 
   const active = useMemo(() =>
     auctions.filter(a => ["LIVE", "ACTIVE", "IN_PROGRESS", "CONFIGURED", "READY", "DRAFT"].includes(a.config.status?.toUpperCase())),
@@ -97,6 +122,14 @@ export function SportsMyAuctions() {
         }}>
           {auctions.length}
         </span>
+        {watchList.length > 0 && (
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8,
+            background: "rgba(99,102,241,0.1)", color: "#6366f1", marginLeft: 2,
+          }}>
+            {watchList.length} watching
+          </span>
+        )}
       </div>
 
       {/* Tabs */}
@@ -104,6 +137,7 @@ export function SportsMyAuctions() {
         {([
           { key: "active" as AuctionTab, label: "Active", icon: TrendingUp, count: active.length },
           { key: "history" as AuctionTab, label: "History", icon: History, count: history.length },
+          { key: "watching" as AuctionTab, label: "Watching", icon: Eye, count: watchList.length },
         ]).map(tab => {
           const isActive = activeTab === tab.key;
           const Icon = tab.icon;
@@ -131,8 +165,84 @@ export function SportsMyAuctions() {
         })}
       </div>
 
-      {/* Content */}
-      {(() => {
+      {/* Content — Watching Tab */}
+      {activeTab === "watching" && (
+        <div>
+          {watchList.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "var(--muted)" }}>
+              <Eye size={28} style={{ margin: "0 auto 8px", opacity: 0.2 }} />
+              <div style={{ fontSize: 12 }}>No watched auctions</div>
+              <div style={{ fontSize: 11, marginTop: 4, opacity: 0.7 }}>Watch auctions from the Auction tab to track them here</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {watchList.map((w) => {
+                const statusUpper = w.status?.toUpperCase();
+                const isLive = ["LIVE", "ACTIVE", "IN_PROGRESS"].includes(statusUpper);
+                const isUpcoming = ["UPCOMING", "DRAFT", "CONFIGURED", "READY"].includes(statusUpper);
+                const statusColor = isLive ? "#ef4444" : isUpcoming ? "#3b82f6" : "#10b981";
+                const StatusIcon = isLive ? Radio : isUpcoming ? Calendar : History;
+                return (
+                  <div
+                    key={w.id}
+                    onClick={() => navigate(`/sports/auction?configId=${w.configId}`)}
+                    style={{
+                      padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+                      border: `1px solid ${isLive ? "rgba(239,68,68,0.2)" : "rgba(148,163,184,0.12)"}`,
+                      background: isLive ? "rgba(239,68,68,0.02)" : "rgba(148,163,184,0.02)",
+                      transition: "transform 0.1s, box-shadow 0.1s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: `${statusColor}12`, border: `1.5px solid ${statusColor}30`,
+                      }}>
+                        <StatusIcon size={16} style={{ color: statusColor }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 2 }}>
+                          {w.seasonName}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
+                            background: `${statusColor}15`, color: statusColor, textTransform: "uppercase",
+                          }}>
+                            {w.status}
+                          </span>
+                          {isLive && (
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", animation: "pulse 1.5s infinite" }} />
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleWatch(w.configId); }}
+                          title="Unwatch auction"
+                          style={{
+                            background: "rgba(99,102,241,0.08)", border: "none", borderRadius: 7,
+                            padding: 5, cursor: "pointer", display: "flex", alignItems: "center",
+                          }}
+                        >
+                          <EyeOff size={13} style={{ color: "#6366f1" }} />
+                        </button>
+                        <ChevronRight size={15} style={{ color: "var(--muted)", opacity: 0.5 }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content — Active / History Tabs */}
+      {activeTab !== "watching" && (() => {
         const items = activeTab === "active" ? active : history;
         if (items.length === 0) {
           return (

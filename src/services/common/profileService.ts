@@ -233,12 +233,17 @@ export const profileService = {
 
   /** PUT /api/profile with fallback to /api/users/{id} */
   async updateProfile(data: UserProfileRequest): Promise<UserProfileResponse> {
+    const cleanPayload: UserProfileRequest = {
+      ...data,
+      dob: data.dob && data.dob.trim() !== "" ? data.dob.trim() : undefined,
+    };
+
     try {
-      const res = await apiClient.put<UserProfileResponse>("/profile", data);
+      const res = await apiClient.put<UserProfileResponse>("/profile", cleanPayload);
       if (res && (res.userId || res.email)) {
         return {
           ...res,
-          skills: parseSkills(res.skills ?? data.skills),
+          skills: parseSkills(res.skills ?? cleanPayload.skills),
         };
       }
     } catch {
@@ -247,17 +252,17 @@ export const profileService = {
 
     const me = await apiClient.get<UserResponse>("/users/me");
     const updated = await apiClient.put<UserResponse>(`/users/${me.id}`, {
-      fullName: data.fullName,
-      email: data.email,
-      phone: data.phone,
-      dateOfBirth: data.dob,
-      gender: data.gender,
-      flatNo: data.flatNo,
-      block: data.block,
-      profilePicUrl: data.profilePicUrl,
-      profilePic: data.profilePicUrl,
-      bio: data.bio,
-      skills: data.skills,
+      fullName: cleanPayload.fullName,
+      email: cleanPayload.email,
+      phone: cleanPayload.phone,
+      dateOfBirth: cleanPayload.dob,
+      gender: cleanPayload.gender,
+      flatNo: cleanPayload.flatNo,
+      block: cleanPayload.block,
+      profilePicUrl: cleanPayload.profilePicUrl,
+      profilePic: cleanPayload.profilePicUrl,
+      bio: cleanPayload.bio,
+      skills: cleanPayload.skills,
     });
 
     return {

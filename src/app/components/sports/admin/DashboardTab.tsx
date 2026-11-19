@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck, XCircle } from "lucide-react";
+import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck, XCircle, ArrowUpRight } from "lucide-react";
 
 interface PendingReg {
   id: number;
@@ -31,6 +31,8 @@ interface DashboardTabProps {
   approveTeam: (id: number) => void;
   rejectTeam?: (id: number) => void;
   setActiveTab: (tab: any) => void;
+  setSportsEventSubTab?: (tab: "list" | "config") => void;
+  setTeamsViewMode?: (mode: "approved" | "pending" | "all") => void;
 }
 
 export function DashboardTab({
@@ -42,6 +44,8 @@ export function DashboardTab({
   approveTeam,
   rejectTeam,
   setActiveTab,
+  setSportsEventSubTab,
+  setTeamsViewMode,
 }: DashboardTabProps) {
   const [showAllPending, setShowAllPending] = useState(false);
   const [showAllTournaments, setShowAllTournaments] = useState(false);
@@ -83,68 +87,161 @@ export function DashboardTab({
 
       {/* Quick Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSportsEventSubTab?.("list");
+            setActiveTab("sports-event");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setSportsEventSubTab?.("list");
+              setActiveTab("sports-event");
+            }
+          }}
+          title="Go to Active Tournaments in Sports Events"
+          className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-indigo-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
-            <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider group-hover:text-indigo-600 transition-colors">
+              Active Tournaments
+            </span>
+            <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200 flex items-center gap-0.5">
               <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
           <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
             <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 uppercase tracking-wider">Events</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 uppercase tracking-wider group-hover:bg-indigo-100 transition-colors">Events</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setSportsEventSubTab?.("config");
+            setActiveTab("sports-event");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setSportsEventSubTab?.("config");
+              setActiveTab("sports-event");
+            }
+          }}
+          title="Go to Scheduled Events in Sports Events"
+          className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-violet-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
-            <div className="p-1 sm:p-1.5 bg-violet-50 text-violet-600 rounded-lg">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider group-hover:text-violet-600 transition-colors">
+              Active Events
+            </span>
+            <div className="p-1 sm:p-1.5 bg-violet-50 text-violet-600 rounded-lg group-hover:bg-violet-600 group-hover:text-white transition-all duration-200 flex items-center gap-0.5">
               <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
           <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
             <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 uppercase tracking-wider">Scheduled</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 uppercase tracking-wider group-hover:bg-violet-100 transition-colors">Scheduled</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setTeamsViewMode?.("approved");
+            setActiveTab("teams");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setTeamsViewMode?.("approved");
+              setActiveTab("teams");
+            }
+          }}
+          title="Go to Approved Teams in Teams Management"
+          className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
-            <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-600 transition-colors">
+              Registered Teams
+            </span>
+            <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200 flex items-center gap-0.5">
               <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
           <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
             <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 uppercase tracking-wider">Approved</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 uppercase tracking-wider group-hover:bg-emerald-100 transition-colors">Approved</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setTeamsViewMode?.("pending");
+            setActiveTab("teams");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setTeamsViewMode?.("pending");
+              setActiveTab("teams");
+            }
+          }}
+          title="Review Pending Team Approvals"
+          className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-amber-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
-            <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider group-hover:text-amber-600 transition-colors">
+              Pending Approval
+            </span>
+            <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg group-hover:bg-amber-600 group-hover:text-white transition-all duration-200 flex items-center gap-0.5">
               <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
           <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
             <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 uppercase tracking-wider animate-pulse">Pending</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 uppercase tracking-wider animate-pulse group-hover:bg-amber-100 transition-colors">Pending</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setActiveTab("create-venue");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveTab("create-venue");
+            }
+          }}
+          title="Manage Sports Venues & Locations"
+          className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-blue-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
-            <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider group-hover:text-blue-600 transition-colors">
+              Total Venues
+            </span>
+            <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all duration-200 flex items-center gap-0.5">
               <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
           <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
             <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 uppercase tracking-wider">Locations</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 uppercase tracking-wider group-hover:bg-blue-100 transition-colors">Locations</span>
           </div>
         </div>
       </div>
