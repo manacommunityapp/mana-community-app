@@ -64,7 +64,7 @@ describe("WinnerScorecard Logic & Sports Feed Presentation", () => {
     const cardB: FeedScorecard = {
       ...cardA,
       winner: "B",
-      winningName: "Tigers",
+      winnerName: "Tigers",
       result: "Tigers won by 2 wickets",
     };
     expect(testResolveWinner(cardB).winnerSide).toBe("B");

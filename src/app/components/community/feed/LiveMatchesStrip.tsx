@@ -1053,7 +1053,7 @@ export function LiveMatchesStrip() {
                         </span>
                       ) : isCompleted ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-900 bg-gradient-to-r from-amber-100 to-yellow-100 border border-amber-300/80 px-2 py-0.5 rounded-full shadow-2xs">
-                          <Trophy className="w-2.5 h-2.5 text-amber-600 fill-amber-500" /> FINAL
+                          <Trophy className="w-2.5 h-2.5 text-amber-600 fill-amber-500" /> COMPLETED
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-full">
@@ -1849,7 +1849,7 @@ export function LiveMatchesStrip() {
                                 {formatCompletedTime(m.completedAt || m.scheduledAt)}
                               </span>
                               <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
-                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> FINAL
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> COMPLETED
                               </span>
                             </div>
                           </div>

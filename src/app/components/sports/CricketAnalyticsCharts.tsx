@@ -120,7 +120,7 @@ export function ManhattanChart({ balls, team1, team2 }: { balls: BallEvent[]; te
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.08)" vertical={false} />
           <XAxis dataKey="over" tick={AXIS_TICK} axisLine={false} tickLine={false} label={{ value: "Over", position: "insideBottom", offset: -2, fill: "#8b8fc8", fontSize: 10 }} />
           <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL} labelFormatter={(v) => `Over ${v}`} formatter={(val: any, name: string) => [val ?? "—", name]} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL} labelFormatter={(v) => `Over ${v}`} formatter={(val: any, name?: any) => [val ?? "—", String(name || "")]} />
           <Legend wrapperStyle={{ fontSize: "11px", color: "#8b8fc8", paddingTop: "8px" }} />
           <Bar dataKey={team1} fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={18} />
           <Bar dataKey={team2} fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={18} />
@@ -153,7 +153,7 @@ export function WormChart({ balls, team1, team2 }: { balls: BallEvent[]; team1: 
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.08)" vertical={false} />
           <XAxis dataKey="over" tick={AXIS_TICK} axisLine={false} tickLine={false} label={{ value: "Over", position: "insideBottom", offset: -2, fill: "#8b8fc8", fontSize: 10 }} />
           <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL} labelFormatter={(v) => `Over ${v}`} formatter={(val: any, name: string) => [val ?? "—", name]} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL} labelFormatter={(v) => `Over ${v}`} formatter={(val: any, name?: any) => [val ?? "—", String(name || "")]} />
           <Legend wrapperStyle={{ fontSize: "11px", color: "#8b8fc8", paddingTop: "8px" }} />
           <Line connectNulls dataKey={team1} stroke="#6366f1" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
           <Line connectNulls dataKey={team2} stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
