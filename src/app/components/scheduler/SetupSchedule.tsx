@@ -1271,6 +1271,10 @@ export function SetupSchedule({
   const handleEventChange = async (id: string) => {
 
     setSelectedEvent(id);
+    setConfirmedRegistrations([]);
+    setOpenPoolPairs([]);
+    setUnpairedPoolPlayers([]);
+    setAllParticipantOptions([]);
     const ev = events.find(e => e.id.toString() === id);
     if (ev) {
       if (ev.eventDateStart) setStartDate(ev.eventDateStart);
@@ -1516,6 +1520,10 @@ export function SetupSchedule({
     if (target.eventId) {
       const evIdStr = String(target.eventId);
       setSelectedEvent(evIdStr);
+      setConfirmedRegistrations([]);
+      setOpenPoolPairs([]);
+      setUnpairedPoolPlayers([]);
+      setAllParticipantOptions([]);
       const ev = events.find(e => e.id === target.eventId);
       if (ev) {
         if (ev.tournamentId) setSelectedTournamentFilter(String(ev.tournamentId));
@@ -2038,6 +2046,25 @@ export function SetupSchedule({
     }
     return allParts;
   };
+
+  useEffect(() => {
+    if (!selectedEvent || confirmedRegistrations.length === 0) {
+      setAllParticipantOptions([]);
+      return;
+    }
+    const order = (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder;
+    setAllParticipantOptions(buildParticipantList(Number(participants) || 8, order));
+  }, [
+    selectedEvent,
+    confirmedRegistrations,
+    participants,
+    seedingOrder,
+    playoffSeedingOrder,
+    isGroupKnockout,
+    openPoolPairs,
+    useCustomNames,
+    customParticipantNames,
+  ]);
 
   const buildGroupsState = (overrideNumGroups?: number) => {
     const numGroups = overrideNumGroups ?? (isRoundRobin ? 1 : (Number(numberOfGroups) || 2));
@@ -2562,9 +2589,9 @@ export function SetupSchedule({
     overrideOrder?: PlayoffSeedingOrder,
     overrideShowByes?: boolean
   ): PlayoffMatchDraft[] => {
-    // When editing an already saved tournament configuration or if schedule is published,
-    // preserve the saved tournament bracket matches; never re-generate from scratch!
-    if (currentConfigId) {
+    // Preserve saved matches during ordinary refreshes, but allow an explicit seeding
+    // selection to rebuild an unpublished draft. Published schedules are locked.
+    if (currentConfigId && (!overrideOrder || isSchedulePublished)) {
       return playoffDraft;
     }
     const activeOrder = overrideOrder || ((isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder);
@@ -2588,6 +2615,7 @@ export function SetupSchedule({
       return;
     }
     setSeedingOrder(newOrder);
+    setAllParticipantOptions(buildParticipantList(Number(participants) || 8, newOrder));
     setMatchOverrides({});
     generateLocalPlayoffDraft(newOrder);
     if (newOrder === 'RANDOM') {
@@ -2604,6 +2632,7 @@ export function SetupSchedule({
       return;
     }
     setPlayoffSeedingOrder(newOrder);
+    setAllParticipantOptions(buildParticipantList(Number(participants) || 8, newOrder));
     setMatchOverrides({});
     generateLocalPlayoffDraft(newOrder);
     if (newOrder === 'RANDOM') {
@@ -2630,18 +2659,20 @@ export function SetupSchedule({
         let away = m.away;
         if (home) {
           const found = allParticipantOptions.find(p => p.id === home.id || p.name === home.name);
-          if (found && (!home.flatNumber || !(home as any).phone)) home = {
+          if (found) home = {
             ...home,
             flatNumber: home.flatNumber || found.flatNumber,
             phone: (home as any).phone || found.phone,
+            seedRank: home.seedRank ?? found.seedRank,
           } as typeof home;
         }
         if (away) {
           const found = allParticipantOptions.find(p => p.id === away.id || p.name === away.name);
-          if (found && (!away.flatNumber || !(away as any).phone)) away = {
+          if (found) away = {
             ...away,
             flatNumber: away.flatNumber || found.flatNumber,
             phone: (away as any).phone || found.phone,
+            seedRank: away.seedRank ?? found.seedRank,
           } as typeof away;
         }
         return { ...m, home, away };
@@ -3218,6 +3249,8 @@ export function SetupSchedule({
         const matches = getActiveGroupMatches(group, gIdx);
         matches.forEach((m, mIdx) => {
           const key = `${gIdx}-${mIdx}`;
+          const homeOption = allParticipantOptions.find(p => p.id === m.home.id || p.name === m.home.name);
+          const awayOption = allParticipantOptions.find(p => p.id === m.away.id || p.name === m.away.name);
           const v = venues.find(ven => ven.id === m.venueId);
           const c = v?.courts?.find(crt => crt.name === m.courtId || String(crt.id) === String(m.courtId));
           rows.push({
@@ -3235,8 +3268,8 @@ export function SetupSchedule({
             courtId: m.courtId,
             venueName: v?.name,
             courtName: c?.name,
-            home: m.home,
-            away: m.away,
+            home: { ...m.home, seedRank: m.home.seedRank ?? homeOption?.seedRank },
+            away: { ...m.away, seedRank: m.away.seedRank ?? awayOption?.seedRank },
             conflicts: scheduleConflicts[key] || [],
             rawMatch: m,
           });
@@ -3273,7 +3306,7 @@ export function SetupSchedule({
     }
 
     return rows;
-  }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft]);
+  }, [generatedGroups, isGroupKnockout, isRoundRobin, isKnockoutOnly, playoffsGenerated, venues, scheduleConflicts, matchOverrides, playoffDraft, allParticipantOptions]);
 
   const allVisibleFixturesTableRows = useMemo(
     () => allFixturesTableRows.filter(row => !isPlaceholderBracketSlot(row.rawMatch)),
@@ -5458,6 +5491,7 @@ export function SetupSchedule({
               <FixturesTableView
                 fixtures={visibleFixturesTableRows}
                 breaks={tournamentBreaks}
+                showSeedRank={(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING'}
                 onEditMatch={handleEditFromTable}
                 onExportCSV={handleExportCSV}
                 onExportExcel={handleExportExcel}
@@ -5473,6 +5507,7 @@ export function SetupSchedule({
               <FixturesListView
                 fixtures={allVisibleFixturesTableRows}
                 breaks={tournamentBreaks}
+                showSeedRank={(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING'}
                 onEditMatch={handleEditFromTable}
                 sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
                 showAutoAdvanced={showByesInBracket}
@@ -5805,6 +5840,7 @@ export function SetupSchedule({
                   return (
                     <PlayoffBracketView
                       matches={playoffMatches}
+                      showSeedRank={(isGroupKnockout ? playoffSeedingOrder : seedingOrder) === 'RANKING'}
                       onEditMatch={handleOpenEditPlayoffMatch}
                       onDownloadBracket={handleExportBracketPDF}
                       resolveVenueName={resolveVenueName}
