@@ -302,6 +302,7 @@ import { ParcelRoom } from "./components/parcels/ParcelRoom";
 import { StaffManagement } from "./components/staff/StaffManagement";
 import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
 import { GeneratorMaintenanceDashboard } from "./components/maintenance/GeneratorMaintenanceDashboard";
+import { WaterMaintenanceDashboard } from "./components/maintenance/WaterMaintenanceDashboard";
 import { AccessCardsManagement } from "./components/access/AccessCardsManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
@@ -966,6 +967,10 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
       },
       {
+        path: "maintenance/water",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><WaterMaintenanceDashboard /></PermissionGuard>
+      },
+      {
         path: "parking",
         element: <PermissionGuard permission={VIEW_PARKING} requiredModule="PARKING"><ParkingManagement /></PermissionGuard>
       },
@@ -1034,6 +1039,10 @@ export const router = createBrowserRouter([
           {
             path: "generator-maintenance",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
+          },
+          {
+            path: "water-maintenance",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><WaterMaintenanceDashboard /></PermissionGuard>
           },
           {
             path: "audit",

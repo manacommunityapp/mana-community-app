@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { NavLink } from "react-router";
 import {
   Droplets,
@@ -11,7 +11,6 @@ import {
   Database,
   Radio,
   Clock,
-  ShieldCheck,
   Send,
   Battery,
   Layers
@@ -29,7 +28,6 @@ interface Props {
 
 export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
   const [meters, setMeters] = useState<SmartMeterDto[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [billingMonth, setBillingMonth] = useState<string>("2026-10");
   const [syncingCfbos, setSyncingCfbos] = useState<boolean>(false);
@@ -43,59 +41,54 @@ export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
   const [simResult, setSimResult] = useState<IngestTelemetryResult | null>(null);
   const [simulating, setSimulating] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadMeters();
-  }, [communityId]);
-
-  const loadMeters = async () => {
-    setLoading(true);
+  const loadMeters = useCallback(async () => {
     try {
       const data = await meteringService.getCommunityMeters(communityId);
       if (data && data.length > 0) {
         setMeters(data);
       } else {
-        // Mock fallback for UI demo
+        // Fallback default meters with mock readings
         setMeters([
           {
             id: 1,
-            meterSerialNumber: "WM-T1-102",
+            meterSerialNumber: "WM-T1-101",
             meterType: "WATER_METER",
             communityId,
-            unitNumber: "A-102",
-            blockName: "Tower A",
+            unitNumber: "T1-101",
+            blockName: "Tower 1",
             protocol: "MQTT",
             pulseMultiplier: 1.0,
-            lastReading: 14250.0,
+            lastReading: 4850.5,
             lastTelemetryTime: new Date().toISOString(),
             status: "ACTIVE",
-            batteryLevel: 94,
+            batteryLevel: 98,
             leakDetected: false,
           },
           {
             id: 2,
-            meterSerialNumber: "WM-T1-103",
+            meterSerialNumber: "WM-T1-102",
             meterType: "WATER_METER",
             communityId,
-            unitNumber: "A-103",
-            blockName: "Tower A",
-            protocol: "MODBUS_TCP",
+            unitNumber: "T1-102",
+            blockName: "Tower 1",
+            protocol: "MQTT",
             pulseMultiplier: 1.0,
-            lastReading: 38400.0,
+            lastReading: 7320.0,
             lastTelemetryTime: new Date().toISOString(),
             status: "ACTIVE",
-            batteryLevel: 88,
+            batteryLevel: 95,
             leakDetected: true,
           },
           {
             id: 3,
-            meterSerialNumber: "EM-T1-102",
+            meterSerialNumber: "EM-COMM-01",
             meterType: "ELECTRICITY_METER",
             communityId,
-            unitNumber: "A-102",
-            blockName: "Tower A",
-            protocol: "MQTT",
-            pulseMultiplier: 0.5,
-            lastReading: 312.5,
+            unitNumber: "COMMON",
+            blockName: "Clubhouse",
+            protocol: "MODBUS_TCP",
+            pulseMultiplier: 1.0,
+            lastReading: 12450.0,
             lastTelemetryTime: new Date().toISOString(),
             status: "ACTIVE",
             batteryLevel: 100,
@@ -120,10 +113,17 @@ export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
       }
     } catch (err) {
       console.error("Failed to load meters", err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [communityId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    meteringService.getCommunityMeters(communityId).then((data) => {
+      if (!isMounted) return;
+      if (data && data.length > 0) setMeters(data);
+    }).catch((err) => console.error("Failed to load meters", err));
+    return () => { isMounted = false; };
+  }, [communityId]);
 
   const handleSyncToCfbos = async () => {
     setSyncingCfbos(true);
@@ -392,6 +392,19 @@ export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
                 <span className="flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-rose-600" />
                   Generator Maintenance & Logbook
+                </span>
+                <span className="text-[11px] underline">Open →</span>
+              </NavLink>
+            )}
+
+            {meter.meterType === "WATER_METER" && (
+              <NavLink
+                to="/maintenance/water"
+                className="p-2.5 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-800 rounded-xl flex items-center justify-between text-xs font-semibold transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Droplets className="w-4 h-4 text-cyan-600" />
+                  Water Sump Telemetry & Tankers
                 </span>
                 <span className="text-[11px] underline">Open →</span>
               </NavLink>
