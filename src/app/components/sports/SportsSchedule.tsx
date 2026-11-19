@@ -1267,13 +1267,16 @@ export function SportsSchedule() {
     }
     setScoreSaving(false);
 
-    setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
-      score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
-      status: "COMPLETED",
-      winnerTeamId: scoreResultType === "WIN" ? (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.teamAId : f.teamBId : winnerId ?? undefined) : undefined,
-      winnerName: scoreResultType === "WIN" ? (scoreWinnerName || (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.team1 : f.team2 : winnerId === f.teamAId ? f.team1 : winnerId === f.teamBId ? f.team2 : undefined)) : undefined,
-    } : f));
+    setFixturesList(prev => {
+      const updated = prev.map(f => f.id === scoringFixtureId ? {
+        ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
+        score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
+        status: "COMPLETED",
+        winnerTeamId: scoreResultType === "WIN" ? (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.teamAId : f.teamBId : winnerId ?? undefined) : undefined,
+        winnerName: scoreResultType === "WIN" ? (scoreWinnerName || (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.team1 : f.team2 : winnerId === f.teamAId ? f.team1 : winnerId === f.teamBId ? f.team2 : undefined)) : undefined,
+      } : f);
+      return propagateByeAdvancements(updated);
+    });
     setShowScoreModal(false);
     setScoringFixtureId(null);
     setFixtureScore1("");
