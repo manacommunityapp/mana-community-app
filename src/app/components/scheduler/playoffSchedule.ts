@@ -72,7 +72,7 @@ export type PlayoffScheduleInput = {
   venueId: number | null;
   courtId: string | number | null;
   /** Seeded players for the player-aware knockout draw (knockout-only). */
-  participants?: Array<{ id: string; name: string; flatNumber: string | null; rating?: number | null }>;
+  participants?: Array<{ id: string; name: string; flatNumber: string | null; rating?: number | null; seed?: number | null }>;
   /** Selected court IDs for parallel allocation (Rule 4). */
   courtIds?: number[];
   matchDays?: number[];
@@ -624,8 +624,12 @@ function buildKnockoutFromPlayers(input: PlayoffScheduleInput): PlayoffMatchDraf
       orderedPlayers[j] = tmp;
     }
   } else if (seedingOrder === 'RANKING') {
-    // Order by skill rating descending: highest rating -> Seed 1
+    // Explicit registration seeds define bracket priority (lowest seed number goes first),
+    // falling back to skill rating descending (highest rating first).
     orderedPlayers.sort((a, b) => {
+      const seedA = a.seed != null ? Number(a.seed) : Number.POSITIVE_INFINITY;
+      const seedB = b.seed != null ? Number(b.seed) : Number.POSITIVE_INFINITY;
+      if (seedA !== seedB) return seedA - seedB;
       const rA = a.rating != null ? Number(a.rating) : -Infinity;
       const rB = b.rating != null ? Number(b.rating) : -Infinity;
       if (rB !== rA) return rB - rA;
