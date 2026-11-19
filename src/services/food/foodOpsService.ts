@@ -1,188 +1,174 @@
-import { apiClient } from '../common/apiClient';
+import { apiClient } from '@/services/common/apiClient';
 
-export type SlotStatus = 'OPEN' | 'FULL' | 'CUTOFF_PASSED' | 'CANCELLED';
+export type SlotStatus = 'OPEN' | 'FULL' | 'CUTOFF' | 'CANCELLED';
 export type BasketFrequency = 'DAILY' | 'WEEKLY' | 'FORTNIGHTLY' | 'MONTHLY';
+export type BasketStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED';
+export type RefundTrigger = 'OUT_OF_STOCK' | 'SUBSTITUTION_REJECTED' | 'DAMAGED' | 'NOT_DELIVERED' | 'WRONG_ITEM' | 'QUALITY_ISSUE' | 'MANUAL';
+export type RefundStatus = 'INITIATED' | 'APPROVED' | 'REJECTED' | 'PROCESSED';
 export type ColdChainType = 'AMBIENT' | 'CHILLED' | 'FROZEN';
-export type RefundStatus = 'PENDING' | 'AUTO_APPROVED' | 'APPROVED' | 'REJECTED' | 'PROCESSED';
-export type RefundTrigger =
-  | 'OUT_OF_STOCK' | 'SUBSTITUTION_REJECTED' | 'LATE_DELIVERY'
-  | 'QUALITY_ISSUE' | 'WRONG_ITEM' | 'CANCELLED_BY_VENDOR' | 'MANUAL';
 
-export interface SlotTemplateDto {
+export interface DeliverySlotTemplate {
   id: number;
-  dayOfWeek: number;
-  slotStart: string;
-  slotEnd: string;
-  cutoffHours: number;
-  capacity: number;
+  communityId: number;
+  vendorId: number;
+  startTime: string;
+  endTime: string;
+  capacityPerSlot: number;
+  cutoffMinutesBefore: number;
+  activeDays: string;
   active: boolean;
 }
 
-export interface DeliverySlotDto {
+export interface DeliverySlot {
   id: number;
+  templateId: number;
+  communityId: number;
+  vendorId: number;
   slotDate: string;
-  slotStart: string;
-  slotEnd: string;
-  cutoffAt: string;
+  startTime: string;
+  endTime: string;
   capacity: number;
   bookedCount: number;
   status: SlotStatus;
+  cutoffAt: string;
 }
 
-export interface StockItemDto {
-  productId: number;
-  productName: string;
-  productType: string;
-  inStock: boolean;
-  restockDate?: string;
-  substitutes: SubstituteDto[];
-}
-
-export interface SubstituteDto {
+export interface RecurringBasket {
   id: number;
-  substituteProductId: number;
-  substituteProductName: string;
-  priority: number;
-}
-
-export interface RecurringBasketItemDto {
-  id: number;
-  productId: number;
-  productName: string;
-  quantity: number;
-  unit: string;
-  unitPrice: number;
-  acceptSubstitute: boolean;
-}
-
-export interface RecurringBasketDto {
-  id: number;
+  communityId: number;
+  userId: number;
+  vendorId: number;
   name: string;
   frequency: BasketFrequency;
+  status: BasketStatus;
   nextOrderDate: string;
-  status: 'ACTIVE' | 'PAUSED' | 'CANCELLED';
-  items: RecurringBasketItemDto[];
-  vendorId: number;
-  vendorName: string;
-  slotId?: number;
+  createdAt: string;
+  items?: RecurringBasketItem[];
 }
 
-export interface BatchOrderDto {
-  id: number;
-  orderId: number;
-  flatNumber: string;
-  coldChain: ColdChainType;
-  delivered: boolean;
-  deliveredAt?: string;
+export interface RecurringBasketItem {
+  id?: number;
+  basketId?: number;
+  productId: number;
+  productType: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
 }
 
-export interface DeliveryBatchDto {
+export interface DeliveryBatch {
   id: number;
-  towerName: string;
-  orderCount: number;
-  assignedTo?: string;
+  slotId: number;
+  towerIdentifier: string;
   assignedUserId?: number;
-  orders: BatchOrderDto[];
+  createdAt: string;
+  orders?: DeliveryBatchOrder[];
 }
 
-export interface RefundDto {
+export interface DeliveryBatchOrder {
   id: number;
+  batchId: number;
   orderId: number;
-  residentName: string;
-  trigger: RefundTrigger;
+  orderType: string;
+  flatNumber: string;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+}
+
+export interface OrderRefund {
+  id: number;
+  communityId: number;
+  orderId: number;
+  orderType: string;
+  requestedBy: number;
+  triggerType: RefundTrigger;
   amount: number;
   status: RefundStatus;
   autoApproved: boolean;
-  notes?: string;
+  itemDetails?: string;
+  reviewedBy?: number;
+  reviewNotes?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-export interface PrepAnalyticsEntryDto {
-  orderId: number;
-  prepStartAt?: string;
-  prepCompleteAt?: string;
-  durationMinutes?: number;
-  onTime: boolean;
-  orderDate: string;
-}
-
-export interface PrepAnalyticsSummaryDto {
+export interface VendorPrepSummary {
+  vendorId: number;
+  orderType: string;
   avgPrepMinutes: number;
-  onTimePercent: number;
+  onTimePct: number;
   totalOrders: number;
-  lateOrders: number;
-  dailyStats: { date: string; orderCount: number; avgPrepMinutes: number }[];
-  recentOrders: PrepAnalyticsEntryDto[];
 }
 
-export const foodOpsService = {
+const foodOpsService = {
   // Slots
-  getSlots: (vendorId: number, communityId: number, date?: string): Promise<DeliverySlotDto[]> => {
-    const params = new URLSearchParams({ vendorId: String(vendorId), communityId: String(communityId) });
-    if (date) params.set('date', date);
-    return apiClient.get(`/food/slots?${params}`);
-  },
-  getSlotTemplates: (vendorId: number, communityId: number): Promise<SlotTemplateDto[]> =>
-    apiClient.get(`/food/slots/templates?vendorId=${vendorId}&communityId=${communityId}`),
-  createSlotTemplate: (body: Partial<SlotTemplateDto>): Promise<SlotTemplateDto> =>
-    apiClient.post('/food/slots/templates', body),
-  updateSlotTemplate: (id: number, body: Partial<SlotTemplateDto>): Promise<SlotTemplateDto> =>
-    apiClient.put(`/food/slots/templates/${id}`, body),
+  getSlotTemplates: (communityId: number): Promise<DeliverySlotTemplate[]> =>
+    apiClient.get(`/api/food/slots/templates?communityId=${communityId}`),
+
+  createSlotTemplate: (template: Partial<DeliverySlotTemplate>): Promise<DeliverySlotTemplate> =>
+    apiClient.post('/api/food/slots/templates', template),
+
+  getAvailableSlots: (communityId: number, date: string): Promise<DeliverySlot[]> =>
+    apiClient.get(`/api/food/slots?communityId=${communityId}&date=${date}`),
+
   bookSlot: (slotId: number): Promise<void> =>
-    apiClient.post(`/food/slots/${slotId}/book`),
+    apiClient.post(`/api/food/slots/${slotId}/book`, {}),
 
   // Stock
-  markOutOfStock: (vendorId: number, productId: number, productType: string, restockDate?: string): Promise<void> =>
-    apiClient.post('/food/stock/out-of-stock', { vendorId, productId, productType, restockDate }),
-  markInStock: (vendorId: number, productId: number, productType: string): Promise<void> =>
-    apiClient.post('/food/stock/in-stock', { vendorId, productId, productType }),
-  getSubstitutes: (vendorId: number, productId: number, productType: string): Promise<SubstituteDto[]> =>
-    apiClient.get(`/food/stock/substitutes?vendorId=${vendorId}&productId=${productId}&productType=${productType}`),
-  addSubstitute: (body: { vendorId: number; productId: number; productType: string; substituteProductId: number; priority: number }): Promise<SubstituteDto> =>
-    apiClient.post('/food/stock/substitutes', body),
-  removeSubstitute: (id: number): Promise<void> =>
-    apiClient.delete(`/food/stock/substitutes/${id}`),
+  markOutOfStock: (payload: { vendorId: number; productId: number; productType: string; communityId: number; updatedBy?: number; restockDate?: string }): Promise<void> =>
+    apiClient.post('/api/food/stock/out-of-stock', payload),
+
+  markInStock: (payload: { vendorId: number; productId: number; productType: string; updatedBy?: number }): Promise<void> =>
+    apiClient.post('/api/food/stock/in-stock', payload),
+
+  getSubstitutes: (vendorId: number, productId: number, productType: string): Promise<RecurringBasketItem[]> =>
+    apiClient.get(`/api/food/stock/substitutes?vendorId=${vendorId}&productId=${productId}&productType=${productType}`),
 
   // Baskets
-  getBaskets: (): Promise<RecurringBasketDto[]> =>
-    apiClient.get('/food/baskets'),
-  createBasket: (body: Partial<RecurringBasketDto>): Promise<RecurringBasketDto> =>
-    apiClient.post('/food/baskets', body),
-  updateBasket: (id: number, body: Partial<RecurringBasketDto>): Promise<RecurringBasketDto> =>
-    apiClient.put(`/food/baskets/${id}`, body),
+  getMyBaskets: (): Promise<RecurringBasket[]> =>
+    apiClient.get('/api/food/baskets'),
+
+  createBasket: (basket: Partial<RecurringBasket>): Promise<RecurringBasket> =>
+    apiClient.post('/api/food/baskets', basket),
+
+  updateBasket: (id: number, updates: Partial<RecurringBasket>): Promise<RecurringBasket> =>
+    apiClient.put(`/api/food/baskets/${id}`, updates),
+
   pauseBasket: (id: number): Promise<void> =>
-    apiClient.post(`/food/baskets/${id}/pause`),
+    apiClient.post(`/api/food/baskets/${id}/pause`, {}),
+
   resumeBasket: (id: number): Promise<void> =>
-    apiClient.post(`/food/baskets/${id}/resume`),
-  deleteBasket: (id: number): Promise<void> =>
-    apiClient.delete(`/food/baskets/${id}`),
+    apiClient.post(`/api/food/baskets/${id}/resume`, {}),
+
+  cancelBasket: (id: number): Promise<void> =>
+    apiClient.delete(`/api/food/baskets/${id}`),
 
   // Batches
-  createBatches: (slotId: number): Promise<DeliveryBatchDto[]> =>
-    apiClient.post(`/food/batches/slot/${slotId}/create-batches`),
-  getBatches: (slotId: number): Promise<DeliveryBatchDto[]> =>
-    apiClient.get(`/food/batches/slot/${slotId}`),
-  assignBatch: (batchId: number, userId: number, name: string): Promise<void> =>
-    apiClient.put(`/food/batches/${batchId}/assign`, { userId, name }),
-  markOrderDelivered: (batchOrderId: number): Promise<void> =>
-    apiClient.put(`/food/batches/order/${batchOrderId}/delivered`),
+  createBatches: (slotId: number, orders: DeliveryBatchOrder[]): Promise<DeliveryBatch[]> =>
+    apiClient.post(`/api/food/batches/slot/${slotId}/create-batches`, orders),
+
+  getBatchesForSlot: (slotId: number): Promise<DeliveryBatch[]> =>
+    apiClient.get(`/api/food/batches/slot/${slotId}`),
+
+  assignDeliveryPerson: (batchId: number, userId: number): Promise<void> =>
+    apiClient.put(`/api/food/batches/${batchId}/assign`, { userId }),
+
+  markOrderDelivered: (batchOrderId: number, notes?: string): Promise<void> =>
+    apiClient.put(`/api/food/batches/order/${batchOrderId}/delivered`, { notes: notes ?? '' }),
 
   // Refunds
-  createRefund: (body: { orderId: number; trigger: RefundTrigger; amount: number; notes?: string }): Promise<RefundDto> =>
-    apiClient.post('/food/refunds', body),
-  getRefunds: (communityId: number, status?: RefundStatus): Promise<RefundDto[]> => {
-    const params = new URLSearchParams({ communityId: String(communityId) });
-    if (status) params.set('status', status);
-    return apiClient.get(`/food/refunds?${params}`);
-  },
-  reviewRefund: (id: number, approved: boolean, notes?: string): Promise<void> =>
-    apiClient.put(`/food/refunds/${id}/review`, { approved, notes }),
+  initiateRefund: (payload: { orderId: number; orderType: string; triggerType: RefundTrigger; amount: number; itemDetails?: string }): Promise<OrderRefund> =>
+    apiClient.post('/api/food/refunds', payload),
+
+  getRefunds: (status?: string): Promise<OrderRefund[]> =>
+    apiClient.get(`/api/food/refunds${status ? `?status=${status}` : ''}`),
+
+  reviewRefund: (id: number, approve: boolean, notes?: string): Promise<OrderRefund> =>
+    apiClient.put(`/api/food/refunds/${id}/review`, { approve, notes }),
 
   // Analytics
-  startPrep: (orderId: number): Promise<void> =>
-    apiClient.post(`/food/analytics/prep/${orderId}/start`),
-  completePrep: (orderId: number): Promise<void> =>
-    apiClient.post(`/food/analytics/prep/${orderId}/complete`),
-  getPrepAnalytics: (vendorId: number, from: string, to: string): Promise<PrepAnalyticsSummaryDto> =>
-    apiClient.get(`/food/analytics/prep?vendorId=${vendorId}&from=${from}&to=${to}`),
+  getPrepAnalytics: (vendorId: number, from: string, to: string): Promise<VendorPrepSummary> =>
+    apiClient.get(`/api/food/analytics/prep?vendorId=${vendorId}&from=${from}&to=${to}`),
 };
+
+export default foodOpsService;
