@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
-import { CalendarDays, Plus, Check, X, ShieldAlert, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Wrench, Clock, PenTool } from "lucide-react";
+import { useSearchParams, NavLink } from "react-router";
+import { CalendarDays, Plus, Check, X, ShieldAlert, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Wrench, Clock, PenTool, Flame } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { maintenanceService, type MaintenanceRecord } from "../../../services/inventory/maintenanceService";
 import { assetService, type Asset } from "../../../services/inventory/assetService";
@@ -171,6 +171,32 @@ export function MaintenanceDashboard() {
           <Plus className="h-5 w-5" />
           Schedule Maintenance
         </button>
+      </div>
+
+      {/* Diesel Generator Spotlight Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 mb-8 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-900/40">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-rose-500/20 text-rose-400 rounded-xl border border-rose-500/30">
+            <Flame className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base">Diesel Generator Maintenance & Operations</h3>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                Live IoT Telemetry
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Track DG run hours, 250h B-check service triggers, fuel consumption logs, and vendor AMC contracts.
+            </p>
+          </div>
+        </div>
+        <NavLink
+          to="/maintenance/generator"
+          className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl self-start md:self-auto transition shadow-sm whitespace-nowrap"
+        >
+          Open Generator Logbook <ChevronRight className="w-4 h-4" />
+        </NavLink>
       </div>
 
       {/* KPI Section */}
