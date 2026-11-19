@@ -24,6 +24,7 @@ export interface FixtureTableRow {
 }
 
 import { type TournamentBreak, getBreakVisualTheme, parseTimeToMinutes } from './breakScheduleUtils';
+import { isTeamSport } from '../sports/utils/sportsConstants';
 
 interface FixturesTableViewProps {
   fixtures: FixtureTableRow[];
@@ -33,20 +34,34 @@ interface FixturesTableViewProps {
   onExportExcel?: () => void;
   onExportPDF?: () => void;
   onExportScorecards?: () => void;
+  sportName?: string;
+  isTeamEvent?: boolean;
 }
 
 const DEFAULT_AVATAR =
   'https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media';
 
 function formatDateSafely(dateStr: string): string {
+  if (!dateStr) return '—';
   try {
-    const parts = dateStr.split('-');
+    let clean = String(dateStr).trim();
+    if (clean.includes('T')) {
+      clean = clean.split('T')[0];
+    }
+    const parts = clean.split('-');
     if (parts.length === 3) {
-      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      return format(d, 'dd MMM yyyy (EEE)');
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const dt = new Date(y, m, d);
+        if (!isNaN(dt.getTime())) {
+          return format(dt, 'dd MMM yyyy (EEE)');
+        }
+      }
     }
     const parsed = parseISO(dateStr);
-    return isNaN(parsed.getTime()) ? dateStr : format(parsed, 'dd MMM yyyy (EEE)');
+    return isNaN(parsed.getTime()) ? clean : format(parsed, 'dd MMM yyyy (EEE)');
   } catch {
     return dateStr;
   }
@@ -60,18 +75,31 @@ export function FixturesTableView({
   onExportExcel,
   onExportPDF,
   onExportScorecards,
+  sportName,
+  isTeamEvent,
 }: FixturesTableViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<'ALL' | 'GROUP' | 'PLAYOFF' | 'CONFLICTS'>('ALL');
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+
+  const isTeam = isTeamEvent ?? isTeamSport(sportName || '');
 
   // Preserve all fixtures (including BYE matches so draw & auto-advancement are visible)
   const sanitizedFixtures = useMemo(() => {
     return fixtures;
   }, [fixtures]);
 
+  const isByeFixture = (f: FixtureTableRow) =>
+    f.home?.id === 'bye' ||
+    f.away?.id === 'bye' ||
+    f.home?.name?.trim().toUpperCase() === 'BYE' ||
+    f.away?.name?.trim().toUpperCase() === 'BYE' ||
+    (f.rawMatch as any)?.status === 'AUTO_ADVANCED';
+
   // Group stats
   const totalCount = sanitizedFixtures.length;
+  const byesCount = useMemo(() => sanitizedFixtures.filter(isByeFixture).length, [sanitizedFixtures]);
+  const playableCount = totalCount - byesCount;
   const groupCount = useMemo(() => sanitizedFixtures.filter(f => !f.isPlayoff).length, [sanitizedFixtures]);
   const playoffCount = useMemo(() => sanitizedFixtures.filter(f => f.isPlayoff).length, [sanitizedFixtures]);
   const conflictCount = useMemo(() => sanitizedFixtures.filter(f => f.conflicts && f.conflicts.length > 0).length, [sanitizedFixtures]);
@@ -119,7 +147,8 @@ export function FixturesTableView({
           <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
             <span>Tournament Fixtures Table</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-              {totalCount} Matches
+              {playableCount} Match{playableCount !== 1 ? 'es' : ''}
+              {byesCount > 0 && <span className="text-amber-700 font-medium"> (+{byesCount} {byesCount === 1 ? 'Bye' : 'Byes'})</span>}
             </span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -297,7 +326,9 @@ export function FixturesTableView({
               <th className="py-2.5 px-3 w-36">Date & Day</th>
               <th className="py-2.5 px-3 w-28">Time</th>
               <th className="py-2.5 px-3 w-44">Venue & Court</th>
-              <th className="py-2.5 px-3">Competitors (Home vs Away)</th>
+              <th className="py-2.5 px-3">
+                {isTeam ? 'Teams (Home vs Away)' : 'Players (Player 1 vs Player 2)'}
+              </th>
               <th className="py-2.5 px-3 w-32 text-center">Status / Conflict</th>
               <th className="py-2.5 px-3 w-16 text-center">Edit</th>
             </tr>
