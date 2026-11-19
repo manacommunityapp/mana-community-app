@@ -552,6 +552,7 @@ import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
 import { FoodOpsHub } from "./components/food-ops/FoodOpsHub";
 import { HealthcareHub } from "./components/healthcare/HealthcareHub";
+import { HealthcareHub as HealthcareOpsHub } from "./components/healthcare-ops/HealthcareHub";
 import SportsOpsHub from "./components/sports-ops/SportsOpsHub";
 import PaymentsHub from "./components/payments/PaymentsHub";
 import HomeServicesHub from "./components/home-services/HomeServicesHub";
@@ -1639,6 +1640,7 @@ export const router = createBrowserRouter([
       { path: "food", element: <FoodOpsHub /> },
       // ── Healthcare Operations ─────────────────────────────────────────────
       { path: "healthcare", element: <HealthcareHub /> },
+      { path: "healthcare-ops", element: <HealthcareOpsHub /> },
       { path: "sports-ops", element: <SportsOpsHub /> },
       { path: "payments-ops", element: <PaymentsHub /> },
       { path: "home-services", element: <HomeServicesHub /> },
