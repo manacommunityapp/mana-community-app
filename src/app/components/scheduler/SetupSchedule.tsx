@@ -1859,8 +1859,8 @@ export function SetupSchedule({
   const buildParticipantList = (
     count: number,
     orderOverride?: PlayoffSeedingOrder
-  ): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
+  ): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null; seed?: number | null }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null; seed?: number | null }> = [];
     const customLines = useCustomNames
       ? customParticipantNames.split('\n').map(l => l.trim()).filter(Boolean)
       : [];
@@ -1876,6 +1876,14 @@ export function SetupSchedule({
         ? openPoolPairs
         : pairOpenPoolPlayers(openPool, { isMixedDoubles: isMixed }).pairedTeams;
       const allDoublesTeams = [...fixedPairs, ...activeOpenPairs];
+      const currentOrder = orderOverride || (isGroupKnockout ? playoffSeedingOrder : seedingOrder);
+      const orderedDoublesTeams = currentOrder === 'RANKING'
+        ? allDoublesTeams.slice().sort((a, b) => {
+            const seedA = a.player1.seed ?? a.player2?.seed ?? Number.POSITIVE_INFINITY;
+            const seedB = b.player1.seed ?? b.player2?.seed ?? Number.POSITIVE_INFINITY;
+            return seedA - seedB;
+          })
+        : allDoublesTeams;
 
       for (let i = 0; i < count; i++) {
         if (customLines[i]) {
@@ -1883,13 +1891,14 @@ export function SetupSchedule({
             id: `P${i + 1}`,
             name: customLines[i],
           });
-        } else if (i < allDoublesTeams.length) {
-          const team = allDoublesTeams[i];
+        } else if (i < orderedDoublesTeams.length) {
+          const team = orderedDoublesTeams[i];
           allParts.push({
             id: `P${i + 1}`,
             name: team.name,
             flatNumber: team.flatNumber,
             rating: team.rating ?? null,
+            seed: team.player1.seed ?? team.player2?.seed ?? null,
           });
         } else {
           allParts.push({ id: `P${i + 1}`, name: `Team ${i + 1}` });
@@ -1898,12 +1907,12 @@ export function SetupSchedule({
       return allParts;
     }
 
-    // For RANKING mode, sort by rating descending so Seed 1 (highest rated) → P1, Seed 2 → P2, etc.
+    // For RANKING mode, sort by the explicitly assigned registration seed (lowest number first).
     // For TRADITIONAL, SEQUENTIAL, and RANDOM, preserve base registration order (RANDOM shuffles bracket seeds).
     const currentOrder = orderOverride || (isGroupKnockout ? playoffSeedingOrder : seedingOrder);
     const baseRegs = deduplicateReciprocalRegistrations(confirmedRegistrations, false);
     const effectiveRegistrations = currentOrder === 'RANKING'
-      ? baseRegs.slice().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+      ? baseRegs.slice().sort((a, b) => (a.seed ?? Number.POSITIVE_INFINITY) - (b.seed ?? Number.POSITIVE_INFINITY))
       : baseRegs;
 
     for (let i = 0; i < count; i++) {
@@ -1921,6 +1930,7 @@ export function SetupSchedule({
           name: displayName,
           flatNumber: flatDisplay,
           rating: reg.rating ?? null,   // Rule 6 — skill rating when available
+          seed: reg.seed ?? null,
         });
       } else {
         allParts.push({ id: `P${i + 1}`, name: `Participant ${i + 1}` });
@@ -2378,6 +2388,7 @@ export function SetupSchedule({
           name: p.name,
           flatNumber: p.flatNumber ?? null,
           rating: p.rating ?? null,   // Rule 6 — forwarded for balanced pairing
+          seed: p.seed ?? null,
         }))
       : undefined;
 
