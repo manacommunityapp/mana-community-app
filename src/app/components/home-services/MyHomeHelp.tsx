@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { HomeServiceBooking, HomeServiceWorker } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
+import { WorkflowTransitionPanel } from "../workflow/WorkflowTransitionPanel";
 import { ServiceAttendanceModal } from "./ServiceAttendanceModal";
 import { HomeServiceChatModal } from "./HomeServiceChatModal";
 import { WorkerGatePassModal } from "./WorkerGatePassModal";
@@ -223,6 +224,21 @@ export function MyHomeHelp() {
                 >
                   {b.status === "PAUSED" ? "Resume" : "Pause"}
                 </button>
+              </div>
+
+              {/* Workflow status transitions */}
+              <div className="mt-4">
+                <WorkflowTransitionPanel
+                  workflowId="BOOKING"
+                  entityId={b.id}
+                  currentStatus={b.status}
+                  onStatusChanged={(s) =>
+                    setBookings((prev) =>
+                      prev.map((x) => (x.id === b.id ? { ...x, status: s as typeof b.status } : x))
+                    )
+                  }
+                  compact
+                />
               </div>
             </div>
           ))}

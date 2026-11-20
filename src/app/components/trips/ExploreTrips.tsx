@@ -51,6 +51,7 @@ import { HostRosterModal } from "./HostRosterModal";
 import { TripReviewModal } from "./TripReviewModal";
 import { TripCancellationModal } from "./TripCancellationModal";
 import { TripSplitModal } from "./TripSplitModal";
+import { TripP2PSettlementModal } from "./TripP2PSettlementModal";
 
 const CATEGORY_ICONS: Record<TripCategory, React.ComponentType<{ className?: string }>> = {
   TREKKING: Mountain,
@@ -84,6 +85,7 @@ export function ExploreTrips() {
   const [cancellingBooking, setCancellingBooking] = useState<TripBooking | null>(null);
   const [qrBoardingPass, setQrBoardingPass] = useState<TripBooking | null>(null);
   const [splitTrip, setSplitTrip] = useState<Trip | null>(null);
+  const [p2pTrip, setP2pTrip] = useState<Trip | null>(null);
 
   const currentUser = {
     id: user?.userId || "user-resident-1",
@@ -415,6 +417,18 @@ export function ExploreTrips() {
                       <Wallet className="w-3.5 h-3.5" />
                       Trip Split &amp; Expenses
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full font-semibold text-xs gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                      onClick={() => {
+                        const tripObj = trips.find((t) => t.id === b.tripId) || tripService.getTripById(b.tripId);
+                        if (tripObj) setP2pTrip(tripObj);
+                      }}
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      My Trip Dues
+                    </Button>
 
                     <div className="flex gap-2 w-full">
                       {b.status === "CONFIRMED" && (
@@ -535,6 +549,15 @@ export function ExploreTrips() {
                       >
                         <Wallet className="w-3.5 h-3.5" />
                         Trip Split &amp; Expenses
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs gap-1.5"
+                        onClick={() => setP2pTrip(trip)}
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        P2P UPI Collect
                       </Button>
                     </CardFooter>
                   </Card>
@@ -759,6 +782,16 @@ export function ExploreTrips() {
           trip={splitTrip}
           currentUserId={currentUser.id}
           isOrganizer={splitTrip.hostId === currentUser.id || splitTrip.host === currentUser.fullName}
+        />
+      )}
+
+      {p2pTrip && (
+        <TripP2PSettlementModal
+          isOpen={!!p2pTrip}
+          onClose={() => setP2pTrip(null)}
+          trip={p2pTrip}
+          currentUserId={currentUser.id}
+          isOrganizer={p2pTrip.hostId === currentUser.id || p2pTrip.host === currentUser.fullName}
         />
       )}
     </div>

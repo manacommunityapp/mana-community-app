@@ -94,6 +94,62 @@ export interface DataRetentionPolicy {
   updatedAt?: string;
 }
 
+// ── DPDP Consent types ──────────────────────────────────────────────────────
+
+export type ConsentPurpose =
+  | 'HEALTH_RECORDS'
+  | 'CAREGIVER_ACCESS'
+  | 'ANALYTICS'
+  | 'MARKETING'
+  | 'COMMUNITY_GRAPH'
+  | 'VENDOR_SHARING';
+
+export type ConsentStatus = 'GRANTED' | 'REVOKED' | 'PENDING';
+
+export interface ConsentRecord {
+  id: number;
+  purpose: ConsentPurpose;
+  status: ConsentStatus;
+  noticeVersion: string;
+  grantedAt?: string;
+  revokedAt?: string;
+  expiresAt?: string;
+}
+
+export interface ConsentGrantRequest {
+  purpose: ConsentPurpose;
+  noticeVersion: string;
+}
+
+export interface HealthAccessEntry {
+  id: number;
+  accessedBy: string;
+  accessType: 'VIEW' | 'EXPORT' | 'SHARE' | 'CAREGIVER';
+  dataCategory: string;
+  justification?: string;
+  accessedAt: string;
+}
+
+// ── DPDP Rights Request ──────────────────────────────────────────────────────
+
+export type RightsRequestType =
+  | 'ACCESS'
+  | 'CORRECTION'
+  | 'ERASURE'
+  | 'PORTABILITY'
+  | 'RESTRICTION'
+  | 'OBJECTION'
+  | 'NOMINATE_NOMINEE';
+
+export interface RightsRequest {
+  id: number;
+  type: RightsRequestType;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
+  details?: string;
+  submittedAt: string;
+  resolvedAt?: string;
+}
+
 export const privacyService = {
   /**
    * Get current user's privacy settings
@@ -170,5 +226,35 @@ export const privacyService = {
    */
   async updateAdminRetentionPolicy(policyId: number, policy: Partial<DataRetentionPolicy>): Promise<DataRetentionPolicy> {
     return apiClient.put<DataRetentionPolicy>(`/privacy/admin/retention-policies/${policyId}`, policy);
+  },
+
+  // ── DPDP Consent ────────────────────────────────────────────────────────────
+
+  async getConsents(): Promise<ConsentRecord[]> {
+    return apiClient.get<ConsentRecord[]>('/privacy/consents');
+  },
+
+  async grantConsent(req: ConsentGrantRequest): Promise<ConsentRecord> {
+    return apiClient.post<ConsentRecord>('/privacy/consents/grant', req);
+  },
+
+  async revokeConsent(purpose: ConsentPurpose): Promise<ConsentRecord> {
+    return apiClient.post<ConsentRecord>('/privacy/consents/revoke', { purpose });
+  },
+
+  // ── Health data access log ───────────────────────────────────────────────────
+
+  async getHealthAccessLog(page = 0, size = 20): Promise<{ items: HealthAccessEntry[]; totalElements: number }> {
+    return apiClient.get(`/privacy/health-access-log?page=${page}&size=${size}`);
+  },
+
+  // ── DPDP Rights Requests ────────────────────────────────────────────────────
+
+  async submitRightsRequest(type: RightsRequestType, details?: string): Promise<RightsRequest> {
+    return apiClient.post<RightsRequest>('/privacy/rights-requests', { type, details });
+  },
+
+  async getRightsRequests(): Promise<RightsRequest[]> {
+    return apiClient.get<RightsRequest[]>('/privacy/rights-requests');
   },
 };

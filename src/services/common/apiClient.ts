@@ -1,6 +1,10 @@
 import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage";
 import { createLogger, setCorrelationId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
+import { requestQueue } from "../../lib/requestQueue";
+import { ApiError, setLastCorrelationId, type ApiResponseEnvelope } from "./apiTypes";
+export type { PageResponse, ApiResponseEnvelope } from "./apiTypes";
+export { ApiError, isPageResponse, getLastCorrelationId } from "./apiTypes";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
@@ -318,8 +322,17 @@ async function handleResponse<T>(res: Response): Promise<T> {
     } catch {
       // ignore
     }
+    // Try to extract correlationId from error envelope
+    let correlationId: string | undefined;
+    try {
+      const parsed = JSON.parse(rawText) as Partial<ApiResponseEnvelope<unknown>>;
+      if (parsed?.correlationId) {
+        correlationId = parsed.correlationId;
+        setLastCorrelationId(correlationId);
+      }
+    } catch { /* ignore */ }
     const message = sanitizeErrorMessage(res.status, rawText);
-    throw new Error(message);
+    throw new ApiError(message, correlationId, res.status);
   }
   // 204 No Content
   if (res.status === 204) return undefined as T;
@@ -328,8 +341,29 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (!text) return undefined as T;
 
   try {
-    return JSON.parse(text) as T;
-  } catch {
+    const parsed = JSON.parse(text);
+    // Unwrap ApiResponse<T> envelope if present
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      'success' in parsed &&
+      typeof parsed.success === 'boolean'
+    ) {
+      const envelope = parsed as ApiResponseEnvelope<T>;
+      if (envelope.correlationId) setLastCorrelationId(envelope.correlationId);
+      if (!envelope.success) {
+        throw new ApiError(
+          envelope.message ?? 'Request failed',
+          envelope.correlationId ?? undefined,
+          res.status,
+        );
+      }
+      // Return .data if present, else the full envelope (backward compat for callers expecting raw body)
+      return (envelope.data !== undefined ? envelope.data : parsed) as T;
+    }
+    return parsed as T;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
     // If it's not valid JSON (e.g., a plain string message), return the raw text
     return text as unknown as T;
   }
@@ -341,6 +375,8 @@ interface RequestInitLike {
   /** When true, skip the JSON Content-Type header (used for FormData uploads). */
   form?: boolean;
   headers?: Record<string, string>;
+  /** Caller-supplied idempotency key; generated automatically for mutations when absent. */
+  idempotencyKey?: string;
 }
 
 /**
@@ -363,6 +399,7 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
+    "X-Correlation-ID": correlationId, // also send canonical casing the backend expects
     [PLATFORM_HEADER]: PLATFORM_VALUE,
     ...(init.headers || {}),
   };
@@ -372,6 +409,15 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
   if (init.method !== "GET") {
     const csrf = getCsrfToken();
     if (csrf) headers[CSRF_HEADER] = csrf;
+    // Idempotency key for safe mutation replay
+    headers["Idempotency-Key"] = init.idempotencyKey ?? generateId();
+  }
+  // Community context — communityId is populated from JWT claims on login
+  // (see AuthContext.login → decodeJwtPayload). Never sourced from arbitrary
+  // localStorage keys. TenantProvider is the React-layer authority.
+  const storedUser = getStoredUser();
+  if (storedUser?.communityId) {
+    headers["X-Community-ID"] = String(storedUser.communityId);
   }
 
   // Normalize path to prevent double /api prefix if path begins with /api
@@ -511,6 +557,67 @@ export const apiClient = {
   async postForm<T>(path: string, formData: FormData): Promise<T> {
     getCache.clear();
     return request<T>(path, { method: "POST", body: formData, form: true });
+  },
+
+  /**
+   * POST that enqueues the request on a network error so it retries on reconnect.
+   * Use for critical mutations (payments, bookings) that must not be silently lost.
+   */
+  async queuedPost<T>(path: string, body?: unknown, tags?: string[]): Promise<T> {
+    getCache.clear();
+    try {
+      return await request<T>(path, {
+        method: "POST",
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      const isNetworkError =
+        err instanceof Error &&
+        err.message.toLowerCase().includes("unable to connect");
+      if (isNetworkError) {
+        const token = getToken();
+        await requestQueue.enqueue({
+          url: path,
+          method: "POST",
+          body,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          maxRetries: 3,
+          tags,
+        });
+        throw new Error("You're offline. This request has been saved and will be sent when you reconnect.");
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * PUT that enqueues on network error.
+   */
+  async queuedPut<T>(path: string, body?: unknown, tags?: string[]): Promise<T> {
+    getCache.clear();
+    try {
+      return await request<T>(path, {
+        method: "PUT",
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      const isNetworkError =
+        err instanceof Error &&
+        err.message.toLowerCase().includes("unable to connect");
+      if (isNetworkError) {
+        const token = getToken();
+        await requestQueue.enqueue({
+          url: path,
+          method: "PUT",
+          body,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          maxRetries: 3,
+          tags,
+        });
+        throw new Error("You're offline. This request has been saved and will be sent when you reconnect.");
+      }
+      throw err;
+    }
   },
 };
 
