@@ -70,6 +70,11 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { ForgotPassword } from "./components/commons/login/ForgotPassword";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
+import { KycWizardPage } from "./components/kyc/KycWizardPage";
+import { ComplianceReportsPage } from "./components/kyc/ComplianceReportsPage";
+import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
+import { GroupOrdersPage } from "./components/marketplace/GroupOrdersPage";
+import { SmartDevicesPage } from "./components/ops/SmartDevicesPage";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -672,6 +677,10 @@ export const router = createBrowserRouter([
   {
     path: "/kyc-verification",
     Component: KYCVerification,
+  },
+  {
+    path: "/profile/kyc",
+    element: <KycWizardPage />,
   },
   {
     path: "/items/:id",
@@ -1739,6 +1748,11 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
+      // ── Next-tier features ────────
+      { path: "social", element: <SocialCirclesPage /> },
+      { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },
+      { path: "marketplace/group-orders", element: <GroupOrdersPage /> },
+      { path: "ops/devices", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><SmartDevicesPage /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
