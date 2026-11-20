@@ -8,6 +8,7 @@ import { ConsentBanner } from "./components/commons/privacy/ConsentBanner";
 import { PendingSyncBanner } from "./components/commons/PendingSyncBanner";
 import { initRequestQueueSync } from "../lib/requestQueue";
 import { apiClient } from "../services/common/apiClient";
+import { showApiError } from "./components/commons/ApiErrorToast";
 
 // Replay queued writes when the browser comes back online
 initRequestQueueSync(async (req) => {
@@ -19,6 +20,9 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+    },
+    mutations: {
+      onError: (err) => showApiError(err),
     },
   },
 });
