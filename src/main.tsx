@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext.tsx'
 import { SessionTimeoutManager } from './app/components/commons/SessionTimeoutManager.tsx'
 import { ErrorBoundary } from './app/components/commons/error/ErrorBoundary.tsx'
 import { TenantProvider } from './contexts/TenantContext.tsx'
+import { PilotProvider } from './contexts/PilotContext.tsx'
 import { createLogger } from './utils/logger.ts'
 import { enforceHttps, validateEnvConfig } from './utils/security.ts'
 
@@ -45,10 +46,12 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <TenantProvider>
-        <ErrorBoundary>
-          <SessionTimeoutManager />
-          <App />
-        </ErrorBoundary>
+        <PilotProvider>
+          <ErrorBoundary>
+            <SessionTimeoutManager />
+            <App />
+          </ErrorBoundary>
+        </PilotProvider>
       </TenantProvider>
     </AuthProvider>
   </StrictMode>,

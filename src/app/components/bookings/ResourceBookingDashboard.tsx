@@ -4,6 +4,7 @@ import {
   CheckCircle, AlertCircle, Timer, Bookmark, ArrowRight, Tag, Percent,
   CreditCard,
 } from "lucide-react";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -1056,6 +1057,7 @@ function BookingModal({
         numberOfGuests: guests > 0 ? guests : undefined,
         couponCode: couponCode.trim() || undefined,
       });
+      analyticsService.track("booking_created", { module: "amenity_booking", paid: isPaidResource });
       if (isPaidResource) {
         setCreatedBookingId(booking.id);
         setStep(4);
@@ -1063,6 +1065,7 @@ function BookingModal({
         onBooked();
       }
     } catch (err: unknown) {
+      analyticsService.track("booking_failed", { module: "amenity_booking" });
       const msg = err instanceof Error ? err.message : "Failed to create booking";
       setError(msg);
     } finally {
