@@ -412,7 +412,9 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     // Idempotency key for safe mutation replay
     headers["Idempotency-Key"] = init.idempotencyKey ?? generateId();
   }
-  // Community context — TODO: replace with TenantContext in next commit
+  // Community context — communityId is populated from JWT claims on login
+  // (see AuthContext.login → decodeJwtPayload). Never sourced from arbitrary
+  // localStorage keys. TenantProvider is the React-layer authority.
   const storedUser = getStoredUser();
   if (storedUser?.communityId) {
     headers["X-Community-ID"] = String(storedUser.communityId);
