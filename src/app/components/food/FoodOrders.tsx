@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "../ui/input";
 import { foodOrderService } from "../../../services/food/foodOrderService";
 import type { FoodOrder, FoodOrderRating } from "../../../types/food";
+import { WorkflowTransitionPanel } from "../workflow/WorkflowTransitionPanel";
 
 const statusSteps = ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -218,6 +219,21 @@ export function FoodOrders() {
                 <RotateCcw className="w-3 h-3 mr-1" /> Reorder
               </Button>
             )}
+          </div>
+
+          {/* Workflow status transitions */}
+          <div className="mt-4">
+            <WorkflowTransitionPanel
+              workflowId="ORDER"
+              entityId={String(order.id)}
+              currentStatus={order.status}
+              onStatusChanged={(s) =>
+                setOrders((prev) =>
+                  prev.map((x) => (x.id === order.id ? { ...x, status: s as typeof order.status } : x))
+                )
+              }
+              compact
+            />
           </div>
         </CardContent>
       </Card>

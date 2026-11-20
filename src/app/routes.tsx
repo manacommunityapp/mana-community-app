@@ -374,6 +374,12 @@ import BulkOrderManagement from "./components/commerce/orders/BulkOrderManagemen
 import CouponManagement from "./components/commerce/vendors/CouponManagement";
 
 // Food & Lifestyle OS pages
+import { DeliverySlotManager } from "./components/food/DeliverySlotManager";
+import { StockManager } from "./components/food/StockManager";
+import { RecurringBasketManager } from "./components/food/RecurringBasketManager";
+import { DeliveryBatchView } from "./components/food/DeliveryBatchView";
+import { RefundManager } from "./components/food/RefundManager";
+import { VendorPrepAnalytics } from "./components/food/VendorPrepAnalytics";
 import { FoodLayout } from "./components/food/FoodLayout";
 import { FoodDashboard } from "./components/food/FoodDashboard";
 import { RestaurantBrowse } from "./components/food/RestaurantBrowse";
@@ -487,6 +493,7 @@ import { OrderDisputePage } from "./components/group-buying/OrderDisputePage";
 import { ExploreTrips } from "./components/trips/ExploreTrips";
 import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashboard";
 import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
+import { DiscoverPage } from "./components/discover/DiscoverPage";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
 import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
@@ -543,6 +550,20 @@ import { AutomationDashboard } from "./components/automation/AutomationDashboard
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
 import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
+import { FoodOpsHub } from "./components/food-ops/FoodOpsHub";
+import { HealthcareHub } from "./components/healthcare/HealthcareHub";
+import { HealthcareHub as HealthcareOpsHub } from "./components/healthcare-ops/HealthcareHub";
+import SportsOpsHub from "./components/sports-ops/SportsOpsHub";
+import PaymentsHub from "./components/payments/PaymentsHub";
+import HomeServicesHub from "./components/home-services/HomeServicesHub";
+import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
+import { StaffAttendance } from "./components/community-ops/StaffAttendance";
+import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
+import { ParcelManager } from "./components/community-ops/ParcelManager";
+import { MoveRequestManager } from "./components/community-ops/MoveRequestManager";
+import { AssetMaintenance } from "./components/community-ops/AssetMaintenance";
+import { WatchlistManager } from "./components/community-ops/WatchlistManager";
+import { RwaReports } from "./components/community-ops/RwaReports";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
 import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
@@ -1378,6 +1399,12 @@ export const router = createBrowserRouter([
           { path: "fresh-kitchen", Component: FreshKitchenHub },
           { path: "fresh-kitchen/combos/:id", Component: BreakfastComboCustomizer },
           { path: "daily-basket", Component: DailyBasketManager },
+          { path: "slots", element: <DeliverySlotManager /> },
+          { path: "stock", element: <StockManager /> },
+          { path: "baskets", element: <RecurringBasketManager /> },
+          { path: "batches", element: <DeliveryBatchView /> },
+          { path: "refunds", element: <RefundManager /> },
+          { path: "prep-analytics", element: <VendorPrepAnalytics /> },
         ],
       },
       {
@@ -1512,6 +1539,7 @@ export const router = createBrowserRouter([
       { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
+      { path: "search", element: <DiscoverPage /> },
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
       { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
@@ -1608,6 +1636,23 @@ export const router = createBrowserRouter([
       { path: "ai-chat", element: <AiChatDashboard /> },
       { path: "calendar", element: <CalendarDashboard /> },
       { path: "commerce", element: <CommerceDashboard /> },
+      // ── Food & Grocery Operations ────────────────────────────────────────
+      { path: "food", element: <FoodOpsHub /> },
+      // ── Healthcare Operations ─────────────────────────────────────────────
+      { path: "healthcare", element: <HealthcareHub /> },
+      { path: "healthcare-ops", element: <HealthcareOpsHub /> },
+      { path: "sports-ops", element: <SportsOpsHub /> },
+      { path: "payments-ops", element: <PaymentsHub /> },
+      { path: "home-services", element: <HomeServicesHub /> },
+      // ── Community Operations ─────────────────────────────────────────────
+      { path: "ops/control-room", element: <OpsControlRoom /> },
+      { path: "ops/attendance", element: <StaffAttendance /> },
+      { path: "ops/passes", element: <DigitalPassManager /> },
+      { path: "ops/parcels", element: <ParcelManager /> },
+      { path: "ops/move-requests", element: <MoveRequestManager /> },
+      { path: "ops/assets", element: <AssetMaintenance /> },
+      { path: "ops/watchlist", element: <WatchlistManager /> },
+      { path: "ops/reports", element: <RwaReports /> },
       // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
       {
         path: "governance",
