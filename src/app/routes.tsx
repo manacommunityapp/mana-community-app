@@ -559,6 +559,9 @@ import SportsOpsHub from "./components/sports-ops/SportsOpsHub";
 import PaymentsHub from "./components/payments/PaymentsHub";
 import HomeServicesHub from "./components/home-services/HomeServicesHub";
 import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
+import { OpsDashboardLive } from "./components/community-ops/OpsDashboardLive";
+import OrderTrackingPage from "./components/commerce/orders/OrderTrackingPage";
+import { HomeChefOnboarding } from "./components/food/HomeChefOnboarding";
 import { StaffAttendance } from "./components/community-ops/StaffAttendance";
 import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
 import { ParcelManager } from "./components/community-ops/ParcelManager";
@@ -1273,6 +1276,14 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "orders/:orderId/track",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <OrderTrackingPage />
+              </PermissionGuard>
+            ),
+          },
+          {
             path: "order-management",
             element: (
               <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
@@ -1395,6 +1406,7 @@ export const router = createBrowserRouter([
           { path: "restaurants", Component: RestaurantBrowse },
           { path: "restaurants/:restaurantId", Component: RestaurantDetail },
           { path: "home-chefs", element: <PermissionGuard permission={VIEW_FOOD_HOME_CHEFS}><HomeChefMarketplace /></PermissionGuard> },
+          { path: "become-seller", element: <HomeChefOnboarding /> },
           { path: "orders", element: <PermissionGuard permission={VIEW_FOOD_ORDERS}><FoodOrders /></PermissionGuard> },
           { path: "subscriptions", element: <PermissionGuard permission={VIEW_FOOD_SUBSCRIPTIONS}><MealSubscriptions /></PermissionGuard> },
           { path: "grocery", element: <PermissionGuard permission={VIEW_FOOD_GROCERY}><GroceryMarketplace /></PermissionGuard> },
@@ -1656,6 +1668,7 @@ export const router = createBrowserRouter([
       { path: "home-services", element: <HomeServicesHub /> },
       // ── Community Operations ─────────────────────────────────────────────
       { path: "ops/control-room", element: <OpsControlRoom /> },
+      { path: "ops/dashboard", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><OpsDashboardLive /></PermissionGuard> },
       { path: "ops/attendance", element: <StaffAttendance /> },
       { path: "ops/passes", element: <DigitalPassManager /> },
       { path: "ops/parcels", element: <ParcelManager /> },
