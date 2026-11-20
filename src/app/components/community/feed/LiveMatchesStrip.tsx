@@ -5,6 +5,7 @@ import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, C
 import { toast } from "sonner";
 import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState, type ScoringConfig, type TossDecision } from "../../../../services/sports/tournamentService";
 import { sportsEventService } from "../../../../services/sports/sportsEventService";
+import { isPlaceholderOrTbd, propagateByeAdvancements } from "../../../../utils/sportsValidationUtils";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { apiClient, getStoredUser } from "../../../../services/common/apiClient";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -596,6 +597,70 @@ export function LiveMatchesStrip() {
         }
       } catch {
         // Continue
+      }
+
+      // Resolve bracket feeder placeholders from the saved schedule so upcoming cards
+      // show the advancing player/team as soon as the previous match has a winner.
+      const unresolvedBracketMatches = Array.from(combinedMap.values()).filter((match) =>
+        isPlaceholderOrTbd(match.teamAName) || isPlaceholderOrTbd(match.teamBName)
+      );
+      if (unresolvedBracketMatches.length > 0) {
+        const configs = await tournamentService.getConfigs().catch(() => []);
+        const relevantConfigs = configs.filter((config) => unresolvedBracketMatches.some((match) => {
+          if (match.configId != null) return Number(match.configId) === Number(config.id);
+          if (match.eventId != null) return Number(match.eventId) === Number(config.eventId);
+          const eventName = normalizeContactMatch(match.eventName);
+          const sportName = normalizeContactMatch(match.sportName);
+          return Boolean(eventName && normalizeContactMatch(config.eventName) === eventName &&
+            (!sportName || normalizeContactMatch(config.sportName) === sportName));
+        }));
+
+        const schedulesByConfig = await Promise.all(relevantConfigs.map(async (config) => ({
+          configId: Number(config.id),
+          matches: await tournamentService.getMatchesByConfigId(config.id).catch(() => [] as any[]),
+        })));
+        const resolvedSchedules = new Map<number, Map<string, any>>();
+        schedulesByConfig.forEach(({ configId, matches: scheduleMatches }) => {
+          const resolved = propagateByeAdvancements(scheduleMatches);
+          resolvedSchedules.set(configId, new Map(resolved.map((match: any) => [
+            String(match.id ?? match.matchId),
+            match,
+          ])));
+        });
+
+        unresolvedBracketMatches.forEach((match) => {
+          const config = relevantConfigs.find((item) =>
+            (match.configId != null && Number(item.id) === Number(match.configId)) ||
+            (match.eventId != null && Number(item.eventId) === Number(match.eventId)) ||
+            (match.configId == null && match.eventId == null &&
+              normalizeContactMatch(item.eventName) === normalizeContactMatch(match.eventName) &&
+              normalizeContactMatch(item.sportName) === normalizeContactMatch(match.sportName))
+          );
+          const resolved = config && resolvedSchedules.get(Number(config.id))?.get(String(match.matchId));
+          if (!resolved) return;
+
+          const resolvedName = (side: "A" | "B") => {
+            const names = side === "A"
+              ? [resolved.teamAName, resolved.homeName, resolved.team1, resolved.teamA?.name, resolved.home?.name]
+              : [resolved.teamBName, resolved.awayName, resolved.team2, resolved.teamB?.name, resolved.away?.name];
+            return names.find((name) => !isPlaceholderOrTbd(name));
+          };
+          const teamAName = resolvedName("A");
+          const teamBName = resolvedName("B");
+          combinedMap.set(match.matchId, {
+            ...match,
+            ...(teamAName ? {
+              teamAName,
+              teamAId: resolved.teamAId ?? resolved.homeId ?? resolved.team1Id ?? resolved.teamA?.id ?? match.teamAId,
+              teamAFlat: resolved.teamAFlat ?? resolved.homeFlat ?? resolved.team1Flat ?? match.teamAFlat,
+            } : {}),
+            ...(teamBName ? {
+              teamBName,
+              teamBId: resolved.teamBId ?? resolved.awayId ?? resolved.team2Id ?? resolved.teamB?.id ?? match.teamBId,
+              teamBFlat: resolved.teamBFlat ?? resolved.awayFlat ?? resolved.team2Flat ?? match.teamBFlat,
+            } : {}),
+          });
+        });
       }
 
       // 2. Query tournament schedule configs ONLY if needed to fill MAX_CARDS, capped at top 2 configs
