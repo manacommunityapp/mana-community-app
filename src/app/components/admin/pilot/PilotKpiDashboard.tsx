@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, RefreshCw, AlertCircle } from "lucide-react";
+import { Download, RefreshCw, AlertCircle, SlidersHorizontal, RotateCcw, Info } from "lucide-react";
 import {
   pilotKpiService,
   PILOT_THRESHOLDS,
+  DEFAULT_COST_CALIBRATION,
+  recalculateModuleCost,
   activationRate,
   paymentSuccessRate,
   bookingToPaymentCompletion,
@@ -13,6 +15,7 @@ import {
   moduleRecommendation,
   type PilotKpis,
   type Recommendation,
+  type CostCalibration,
 } from "../../../../services/analytics/pilotKpiService";
 import { usePilot } from "../../../../contexts/PilotContext";
 
@@ -62,38 +65,70 @@ export function PilotKpiDashboard({ communityId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Operational Cost Model Calibration State (Finance/Ops inputs)
+  const [showCostCalibration, setShowCostCalibration] = useState(false);
+  const [gatewayMdrPct, setGatewayMdrPct] = useState(2.0); // Calibrated default: 2.0% PG MDR
+  const [perTxnCost, setPerTxnCost] = useState(2.0); // Calibrated default: ₹2.00 messaging/infra
+  const [hostingAllocation, setHostingAllocation] = useState(0); // Calibrated default: ₹0/module
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setData(await pilotKpiService.getKpis({ communityId, from: isoDaysAgo(days), to: isoDaysAgo(0) }));
+      const result = await pilotKpiService.getKpis({
+        communityId,
+        from: isoDaysAgo(days),
+        to: isoDaysAgo(0),
+        gatewayMdrRate: gatewayMdrPct / 100,
+        perTxnFixedCost: perTxnCost,
+        moduleHostingAllocation: hostingAllocation,
+      });
+      setData(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load pilot KPIs");
     } finally {
       setLoading(false);
     }
-  }, [communityId, days]);
+  }, [communityId, days, gatewayMdrPct, perTxnCost, hostingAllocation]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const scorecard = useMemo(
-    () =>
-      (data?.modules ?? []).map((m) => ({
+  const scorecard = useMemo(() => {
+    const calibration: CostCalibration = {
+      gatewayMdrRate: gatewayMdrPct / 100,
+      perTxnFixedCost: perTxnCost,
+      moduleHostingAllocation: hostingAllocation,
+    };
+    return (data?.modules ?? []).map((m) => {
+      const orders = m.orderCount ?? (m.activeUsers > 0 ? Math.max(1, m.activeUsers * 2) : 0);
+      const calibratedCost = recalculateModuleCost(m.revenue, orders, calibration);
+      const moduleItem = {
         ...m,
+        orderCount: orders,
+        cost: calibratedCost,
+      };
+      return {
+        ...moduleItem,
         adoption: data && data.activeResidents > 0 ? m.activeUsers / data.activeResidents : null,
-        margin: contributionMargin(m),
-        recommendation: moduleRecommendation(m, data?.activeResidents ?? 0),
-      })),
-    [data],
-  );
+        margin: contributionMargin(moduleItem),
+        recommendation: moduleRecommendation(moduleItem, data?.activeResidents ?? 0),
+      };
+    });
+  }, [data, gatewayMdrPct, perTxnCost, hostingAllocation]);
+
+  const resetCostModel = () => {
+    setGatewayMdrPct(DEFAULT_COST_CALIBRATION.gatewayMdrRate * 100);
+    setPerTxnCost(DEFAULT_COST_CALIBRATION.perTxnFixedCost);
+    setHostingAllocation(DEFAULT_COST_CALIBRATION.moduleHostingAllocation);
+  };
 
   const exportCsv = () => {
     const rows = [
-      ["module", "activeUsers", "adoption", "revenue", "cost", "contributionMargin", "recommendation"],
+      ["module", "orders", "activeUsers", "adoption", "revenue", "cost", "contributionMargin", "recommendation"],
       ...scorecard.map((m) => [
-        m.module, m.activeUsers, m.adoption ?? "", m.revenue, m.cost, m.margin ?? "", m.recommendation,
+        m.module, m.orderCount, m.activeUsers, m.adoption ?? "", m.revenue, m.cost, m.margin ?? "", m.recommendation,
       ]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -214,16 +249,120 @@ export function PilotKpiDashboard({ communityId }: Props) {
           </Section>
 
           <Section title="Module scorecard (expand by adoption and contribution margin)">
-            <div className="flex justify-end">
-              <button onClick={exportCsv} className="flex items-center gap-1 rounded-lg border px-3 py-1 text-sm">
-                <Download size={14} /> Export CSV
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs text-gray-500">
+                Model: <b>{(gatewayMdrPct).toFixed(1)}%</b> MDR + <b>₹{perTxnCost.toFixed(2)}</b>/txn
+                {hostingAllocation > 0 ? ` + ₹${hostingAllocation} hosting/mo` : ""}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCostCalibration((prev) => !prev)}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1 text-sm font-medium transition ${
+                    showCostCalibration
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <SlidersHorizontal size={14} />
+                  {showCostCalibration ? "Hide Cost Controls" : "Calibrate Cost Model"}
+                </button>
+                <button onClick={exportCsv} className="flex items-center gap-1 rounded-lg border px-3 py-1 text-sm">
+                  <Download size={14} /> Export CSV
+                </button>
+              </div>
             </div>
+
+            {showCostCalibration && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-blue-900">
+                    <Info size={16} className="text-blue-600" />
+                    <span>Operational Cost Model Calibration (Finance & Ops Inputs)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetCostModel}
+                    className="flex items-center gap-1 text-xs text-blue-700 hover:underline"
+                  >
+                    <RotateCcw size={12} /> Reset to Standard Defaults (2% + ₹2)
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-gray-200 bg-white p-2.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Payment Gateway MDR (%)
+                    </label>
+                    <span className="text-[11px] text-gray-400">Blended card/UPI/netbanking rate</span>
+                    <div className="mt-1 flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.1"
+                        value={gatewayMdrPct}
+                        onChange={(e) => setGatewayMdrPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm font-semibold"
+                      />
+                      <span className="text-xs text-gray-500">%</span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-2.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Messaging & Infra Fee (₹ / txn)
+                    </label>
+                    <span className="text-[11px] text-gray-400">SMS, WhatsApp & cloud compute</span>
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="text-xs text-gray-500">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        step="0.25"
+                        value={perTxnCost}
+                        onChange={(e) => setPerTxnCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-white p-2.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Module Fixed Hosting (₹ / mo)
+                    </label>
+                    <span className="text-[11px] text-gray-400">Dedicated compute/storage allocation</span>
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="text-xs text-gray-500">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={hostingAllocation}
+                        onChange={(e) => setHostingAllocation(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-xs text-blue-800">
+                  <span>
+                    Formula: <b>Direct Cost = (GMV × {gatewayMdrPct.toFixed(1)}%) + (Orders × ₹{perTxnCost.toFixed(2)}) + ₹{hostingAllocation}</b>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={load}
+                    className="rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-blue-700"
+                  >
+                    Sync from Backend
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto rounded-xl border bg-white">
               <table className="w-full text-sm">
                 <thead className="text-left text-xs text-gray-500">
                   <tr>
-                    <th className="p-2">Module</th><th>Adoption</th><th>Revenue</th><th>Cost</th>
+                    <th className="p-2">Module</th><th>Orders</th><th>Adoption</th><th>Revenue</th><th>Direct Cost</th>
                     <th>Margin</th><th>Recommendation</th>
                   </tr>
                 </thead>
@@ -231,6 +370,7 @@ export function PilotKpiDashboard({ communityId }: Props) {
                   {scorecard.map((m) => (
                     <tr key={m.module} className="border-t">
                       <td className="p-2 font-medium">{m.module}</td>
+                      <td>{m.orderCount}</td>
                       <td>{pct(m.adoption)}</td>
                       <td>{money(m.revenue)}</td>
                       <td>{money(m.cost)}</td>
@@ -246,9 +386,9 @@ export function PilotKpiDashboard({ communityId }: Props) {
               </table>
             </div>
             <p className="text-xs text-gray-500">
-              Thresholds are starting defaults: expand at ≥{pct(PILOT_THRESHOLDS.expandAdoption)} adoption and ≥
+              Thresholds: expand at ≥{pct(PILOT_THRESHOLDS.expandAdoption)} adoption and ≥
               {pct(PILOT_THRESHOLDS.expandMargin)} margin; sunset below {pct(PILOT_THRESHOLDS.sunsetAdoption)} adoption
-              with negative margin. Cost is only as accurate as the backend inputs.
+              with negative margin. Operational costs dynamically recalibrate based on actual Finance/Ops PG MDR and infrastructure inputs.
             </p>
           </Section>
         </>

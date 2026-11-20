@@ -14,15 +14,22 @@ export interface VendorKpi {
 export interface ModuleKpi {
   module: string;
   activeUsers: number;
+  orderCount?: number;
   revenue: number;
   /** Estimated direct cost (gateway fees, messaging, support time, hosting). */
   cost: number;
+}
+export interface CostCalibration {
+  gatewayMdrRate: number;
+  perTxnFixedCost: number;
+  moduleHostingAllocation: number;
 }
 export interface PilotKpis {
   activeResidents: number;
   signups: number;
   activatedResidents: number;
   funnel: FunnelStage[];
+  costCalibration?: CostCalibration;
   transactions: {
     bookingsCreated: number;
     paymentsStarted: number;
@@ -80,6 +87,23 @@ export const ticketsPer100Residents = (k: Pick<PilotKpis, "support" | "activeRes
   return v === null ? null : v * 100;
 };
 
+export const DEFAULT_COST_CALIBRATION: CostCalibration = {
+  gatewayMdrRate: 0.02,
+  perTxnFixedCost: 2.0,
+  moduleHostingAllocation: 0,
+};
+
+export function recalculateModuleCost(
+  revenue: number,
+  orders: number,
+  calibration: CostCalibration = DEFAULT_COST_CALIBRATION,
+): number {
+  const mdr = revenue * calibration.gatewayMdrRate;
+  const txn = orders * calibration.perTxnFixedCost;
+  const host = orders > 0 || revenue > 0 ? calibration.moduleHostingAllocation : 0;
+  return Math.round((mdr + txn + host) * 100) / 100;
+}
+
 export const contributionMargin = (m: Pick<ModuleKpi, "revenue" | "cost">) =>
   ratio(m.revenue - m.cost, m.revenue);
 
@@ -97,9 +121,19 @@ export function moduleRecommendation(m: ModuleKpi, activeResidents: number): Rec
 }
 
 export const pilotKpiService = {
-  async getKpis(params: { communityId?: number; from: string; to: string }): Promise<PilotKpis> {
+  async getKpis(params: {
+    communityId?: number;
+    from: string;
+    to: string;
+    gatewayMdrRate?: number;
+    perTxnFixedCost?: number;
+    moduleHostingAllocation?: number;
+  }): Promise<PilotKpis> {
     const q = new URLSearchParams({ from: params.from, to: params.to });
     if (params.communityId != null) q.set("communityId", String(params.communityId));
+    if (params.gatewayMdrRate != null) q.set("gatewayMdrRate", String(params.gatewayMdrRate));
+    if (params.perTxnFixedCost != null) q.set("perTxnFixedCost", String(params.perTxnFixedCost));
+    if (params.moduleHostingAllocation != null) q.set("moduleHostingAllocation", String(params.moduleHostingAllocation));
     return apiClient.get<PilotKpis>(`/admin/analytics/pilot-kpis?${q}`);
   },
 };
