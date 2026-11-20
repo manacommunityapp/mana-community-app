@@ -170,3 +170,85 @@ These were suspected missing but are actually implemented:
 | Mobile-only (no web needed) | 3 | N/A |
 
 All software-implementable gaps (14 features across 5 partial modules + 9 missing modules) have been implemented in PR #325.
+
+---
+
+# Remaining Sports Module Gaps
+
+Tracked against CricHeroes and Playo as of branch `feat/sports-insurance-integration` (November 2026).
+
+---
+
+## 1. Live Video Streaming (Missing vs CricHeroes)
+
+**Mana Community:** Not implemented
+
+**CricHeroes has:**
+- In-app live streaming of matches
+- Multi-camera support
+- Live commentary overlay
+- Viewer chat during stream
+
+**Implementation notes:**
+- High infrastructure cost — requires CDN + video transcoding pipeline (e.g. AWS IVS, Mux, or Agora)
+- Recommended first step: YouTube/Twitch RTMP embed instead of in-house streaming
+- Backend endpoints to add: `POST /api/matches/{matchId}/stream/start`, `GET /api/matches/{matchId}/stream/status`, `DELETE /api/matches/{matchId}/stream/stop`
+- Web UI to add: Stream viewer overlay on `SportsMatchLive`, stream control panel for scorers, viewer count + live chat widget
+- **Effort:** High — video infrastructure + CDN costs per concurrent stream
+
+---
+
+## 2. AI Highlights & Clips (Missing vs CricHeroes)
+
+**Mana Community:** Not implemented
+
+**CricHeroes has:**
+- AI-generated match highlights
+- Auto boundary/wicket clip detection
+- Shareable social clips
+
+**Implementation notes:**
+- Depends on Live Streaming being available first (source video needed)
+- Alternatively: allow teams to upload match video and run ML inference on upload
+- **Effort:** Very high — ML model (boundary/wicket detection) + clip rendering pipeline
+
+---
+
+## 3. Karma / Rewards System (Missing vs Playo)
+
+**Mana Community:** Badges exist (`SportsBadges`) but no points-based rewards
+
+**Playo has:**
+- Karma points earned per activity (booking, playing, rating)
+- Points redeemable for venue discounts or merchandise
+- Leaderboard-based rewards
+
+**Implementation notes:**
+- Backend: `karma_transactions` table, `POST /api/karma/earn`, `POST /api/karma/redeem`
+- Web UI: Karma balance chip in SportsProfile, rewards catalog page, redemption flow
+- **Effort:** Medium — gamification layer on top of existing activities
+
+---
+
+## 4. Fantasy Sports (Missing vs Playo)
+
+**Mana Community:** Not implemented
+
+**Playo has:**
+- Fantasy sports integration
+- Contest creation
+
+**Implementation notes:**
+- Regulatory complexity (fantasy sports / skill-game laws vary by Indian state)
+- **Effort:** Very high — legal review required before implementation
+
+---
+
+## Sports Gaps Summary
+
+| Gap | Missing vs | Effort | Notes |
+|---|---|---|---|
+| Live Video Streaming | CricHeroes | High | CDN + transcoding infrastructure |
+| AI Highlights & Clips | CricHeroes | Very High | Needs live stream first |
+| Karma / Rewards System | Playo | Medium | Gamification layer |
+| Fantasy Sports | Playo | Very High | Legal review required |

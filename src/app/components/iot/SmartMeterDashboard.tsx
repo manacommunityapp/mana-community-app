@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { NavLink } from "react-router";
 import {
   Droplets,
   Zap,
@@ -381,6 +382,19 @@ export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
                 <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>Continuous Water Leak Anomaly Detected!</span>
               </div>
+            )}
+
+            {meter.meterType === "DIESEL_GENERATOR" && (
+              <NavLink
+                to="/maintenance/generator"
+                className="p-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl flex items-center justify-between text-xs font-semibold transition"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-rose-600" />
+                  Generator Maintenance & Logbook
+                </span>
+                <span className="text-[11px] underline">Open →</span>
+              </NavLink>
             )}
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">

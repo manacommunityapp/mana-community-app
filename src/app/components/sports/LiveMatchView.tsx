@@ -1,3 +1,7 @@
+import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router";
+import { X, Loader2, Wifi, WifiOff, AlertTriangle, Radio, Settings } from "lucide-react";
+import { tournamentService, type LiveMatchStateData } from "../../../services/sports/tournamentService";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
@@ -311,6 +315,27 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               title="Close Scorecard"
             >
               <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Link
+              to={`/sports/match/${matchId}/stream`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-black transition"
+              title="Watch live stream"
+            >
+              <Radio className="w-3 h-3" /> Watch Live
+            </Link>
+            <Link
+              to={`/sports/match/${matchId}/stream/manage`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+              title="Manage stream"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </Link>
+            <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
           </div>
         </div>

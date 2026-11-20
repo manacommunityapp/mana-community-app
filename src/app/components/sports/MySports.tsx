@@ -37,6 +37,9 @@ import {
   Dumbbell,
   X,
   ShieldAlert,
+  Wallet,
+  UserCheck,
+  MessageCircle,
   RotateCcw,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -56,6 +59,11 @@ import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartner
 import type { SportMeta, AuctionTeam, CommunityResponse, Venue } from "../../../types/api";
 import { academyApi } from "../../../services/academy/academyApi";
 import type { TrainerSlot, TrainerSlotBooking, AcademyInstructor } from "../../../types/academy";
+import { SportsFinanceHub } from "./SportsFinanceHub";
+import { SportsMatchmaking } from "./SportsMatchmaking";
+import { SportsMessaging } from "./SportsMessaging";
+import { SportsTeamPolicyWizard } from "./SportsTeamPolicyWizard";
+import { SportsClaimShortcut } from "./SportsClaimShortcut";
 
 const ALL_SPORTS = [
   { id: "cricket",     icon: "🏏", name: "Cricket",     roles: ["Top-order Batsman", "Middle-order Batsman", "All-Rounder", "Fast Bowler", "Spin Bowler", "Wicket-keeper"] },
@@ -82,7 +90,12 @@ const TABS = [
   { id: "teams",       label: "My Teams",        icon: Users },
   { id: "matches",     label: "My Matches",      icon: Calendar },
   { id: "my-training", label: "My Training",     icon: Dumbbell },
-  { id: "settings",    label: "Settings",        icon: Settings },
+  { id: "finance",      label: "Finance",         icon: Wallet        },
+  { id: "matchmaking",  label: "PlayPals",        icon: UserCheck     },
+  { id: "messages",    label: "Messages",        icon: MessageCircle },
+  { id: "team-policy", label: "Team Policy",     icon: ShieldCheck   },
+  { id: "claim",       label: "File Claim",      icon: ShieldAlert   },
+  { id: "settings",    label: "Settings",        icon: Settings      },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -1641,6 +1654,41 @@ export function MySports() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* ════════════════════ FINANCE TAB ════════════════════ */}
+                  {activeTab === "finance" && (
+                    <div className="space-y-4 text-left animate-fade-in-up">
+                      <SportsFinanceHub />
+                    </div>
+                  )}
+
+                  {/* ════════════════════ MATCHMAKING TAB ════════════════════ */}
+                  {activeTab === "matchmaking" && (
+                    <div className="space-y-4 text-left animate-fade-in-up">
+                      <SportsMatchmaking />
+                    </div>
+                  )}
+
+                  {/* ════════════════════ MESSAGES TAB ════════════════════ */}
+                  {activeTab === "messages" && (
+                    <div className="text-left animate-fade-in-up">
+                      <SportsMessaging />
+                    </div>
+                  )}
+
+                  {/* ════════════════════ TEAM POLICY TAB ════════════════════ */}
+                  {activeTab === "team-policy" && (
+                    <div className="text-left animate-fade-in-up">
+                      <SportsTeamPolicyWizard />
+                    </div>
+                  )}
+
+                  {/* ════════════════════ CLAIM TAB ════════════════════ */}
+                  {activeTab === "claim" && (
+                    <div className="text-left animate-fade-in-up">
+                      <SportsClaimShortcut />
                     </div>
                   )}
 
