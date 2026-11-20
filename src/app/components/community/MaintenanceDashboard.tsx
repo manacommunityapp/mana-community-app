@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, NavLink } from "react-router";
-import { CalendarDays, Plus, Check, X, ShieldAlert, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Wrench, Clock, PenTool, Flame } from "lucide-react";
+import { Plus, X, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, Wrench, Clock, PenTool, Flame, Droplets } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { maintenanceService, type MaintenanceRecord } from "../../../services/inventory/maintenanceService";
 import { assetService, type Asset } from "../../../services/inventory/assetService";
@@ -59,19 +59,26 @@ export function MaintenanceDashboard() {
     }
   };
 
-  const fetchAssets = async () => {
-    try {
-      const data = await assetService.getAssets();
-      setAssets(data);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load assets");
-    }
-  };
-
   useEffect(() => {
-    setLoading(true);
-    Promise.all([fetchRecords(), fetchAssets()]).finally(() => setLoading(false));
+    let isMounted = true;
+    Promise.all([
+      maintenanceService.getMaintenanceRecords(),
+      assetService.getAssets(),
+    ])
+      .then(([recData, assetData]) => {
+        if (!isMounted) return;
+        setRecords(recData);
+        setAssets(assetData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleCreateRecord = async (e: React.FormEvent) => {
@@ -196,6 +203,32 @@ export function MaintenanceDashboard() {
           className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl self-start md:self-auto transition shadow-sm whitespace-nowrap"
         >
           Open Generator Logbook <ChevronRight className="w-4 h-4" />
+        </NavLink>
+      </div>
+
+      {/* Water Management & Storage Spotlight Banner */}
+      <div className="bg-gradient-to-r from-cyan-950 via-slate-900 to-blue-950 text-white rounded-2xl p-5 mb-8 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 border border-cyan-800/40">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/30">
+            <Droplets className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base">Water Storage Telemetry & Tanker Management</h3>
+              <span className="text-[10px] bg-cyan-500/20 text-cyan-300 font-semibold px-2 py-0.5 rounded-full border border-cyan-500/30">
+                Sump & OHT Monitoring
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Live sump & OHT levels, tanker delivery logs, HYPN pump rotation, WTP/STP operations, and tank cleaning schedules.
+            </p>
+          </div>
+        </div>
+        <NavLink
+          to="/maintenance/water"
+          className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-xl self-start md:self-auto transition shadow-sm whitespace-nowrap"
+        >
+          Open Water Hub <ChevronRight className="w-4 h-4" />
         </NavLink>
       </div>
 
@@ -459,7 +492,7 @@ export function MaintenanceDashboard() {
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#6b7094] mb-2">Type</label>
                   <select
                     value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value as any })}
+                    onChange={(e) => setForm({ ...form, type: e.target.value as "PREVENTIVE" | "REPAIR" | "INSPECTION" })}
                     className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm text-[#0d0d2b] focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
                     required
                   >
