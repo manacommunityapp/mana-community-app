@@ -7,6 +7,22 @@ export type DiagnosticsStatus = 'ORDERED' | 'SAMPLE_COLLECTED' | 'IN_PROGRESS' |
 export type ReferralStatus = 'ISSUED' | 'ACCEPTED' | 'COMPLETED' | 'EXPIRED';
 export type FollowupStatus = 'SCHEDULED' | 'COMPLETED' | 'MISSED' | 'CANCELLED';
 
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const NoShowStatus = {};
+export const CredentialType = {};
+export const CredentialStatus = {};
+export const DiagnosticsStatus = {};
+export const ReferralStatus = {};
+export const FollowupStatus = {};
+export const AppointmentNoShow = {};
+export const DoctorSlotUtilization = {};
+export const UtilizationSummary = {};
+export const ProviderCredential = {};
+export const PrescriptionFollowup = {};
+export const DiagnosticsOrder = {};
+export const DoctorReferral = {};
+export const CaregiverConsent = {};
+
 export interface AppointmentNoShow {
   id: number;
   appointmentId: number;
@@ -176,3 +192,5 @@ export const healthcareOpsService = {
   revokeConsent: (id: number) =>
     apiClient.delete<void>(`/healthcare/caregiver-consent/${id}`),
 };
+
+export default healthcareOpsService;

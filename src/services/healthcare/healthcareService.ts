@@ -1,5 +1,14 @@
 import { apiClient } from '@/services/common/apiClient';
 
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const AppointmentNoShow = {};
+export const ProviderCredential = {};
+export const PrescriptionFollowup = {};
+export const Referral = {};
+export const DiagnosticsSla = {};
+export const CaregiverConsent = {};
+export const DoctorSlotUtilization = {};
+
 export interface AppointmentNoShow {
   id: number;
   communityId: number;
@@ -159,4 +168,5 @@ const healthcareService = {
     apiClient.get(`/api/healthcare/utilization/doctor/${doctorId}?from=${from}&to=${to}`),
 };
 
+export { healthcareService };
 export default healthcareService;

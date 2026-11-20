@@ -1,6 +1,18 @@
-import { apiClient } from '../apiClient';
+import { apiClient } from '../common/apiClient';
 
 const BASE = '/api/home-services';
+
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const HsWorker = {};
+export const HsWorkerAvailability = {};
+export const HsServicePackage = {};
+export const HsBooking = {};
+export const HsBookingPhoto = {};
+export const HsWarranty = {};
+export const HsReworkRequest = {};
+export const HsBookingRating = {};
+export const HsWorkerPayout = {};
+export const HsRecurringPlan = {};
 
 export interface HsWorker {
   id: number;
@@ -124,3 +136,5 @@ export const homeServicesService = {
   pausePlan: (id: number) => apiClient.put<HsRecurringPlan>(`${BASE}/plans/${id}/pause`, {}),
   cancelPlan: (id: number) => apiClient.delete<HsRecurringPlan>(`${BASE}/plans/${id}`),
 };
+
+export default homeServicesService;

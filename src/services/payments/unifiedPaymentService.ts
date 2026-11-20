@@ -4,6 +4,7 @@
 // Never accept a PG SDK callback as payment confirmation — always call verifyPayment().
 
 import { apiClient } from "../common/apiClient";
+import { analyticsService } from "../analytics/analyticsService";
 
 export type PaymentGateway =
   | "CASHFREE"
@@ -72,8 +73,10 @@ export const unifiedPaymentService = {
    * Step 1 — Create a server-side payment order before launching any PG SDK.
    * Returns the gateway order id and session token needed to open the PG checkout.
    */
-  createOrder: (req: CreatePaymentOrderRequest): Promise<PaymentOrder> =>
-    apiClient.post<PaymentOrder>("/payments/orders", req),
+  createOrder: (req: CreatePaymentOrderRequest): Promise<PaymentOrder> => {
+    analyticsService.track("payment_started", { referenceType: req.referenceType, gateway: req.gateway, amount: req.amount });
+    return apiClient.post<PaymentOrder>("/payments/orders", req);
+  },
 
   /** Retrieve current order state from the server. */
   getOrder: (orderId: number): Promise<PaymentOrder> =>
@@ -84,8 +87,15 @@ export const unifiedPaymentService = {
    * NEVER treat the SDK callback alone as payment confirmation.
    * Always call this; the backend re-queries the gateway.
    */
-  verifyPayment: (orderId: number): Promise<PaymentOrder> =>
-    apiClient.post<PaymentOrder>(`/payments/orders/${orderId}/verify`),
+  verifyPayment: async (orderId: number): Promise<PaymentOrder> => {
+    const order = await apiClient.post<PaymentOrder>(`/payments/orders/${orderId}/verify`);
+    // Server-confirmed outcome only; PENDING is intentionally not reported.
+    const props = { referenceType: order.referenceType, gateway: order.gateway, amount: order.amount };
+    if (order.status === "SUCCESS") analyticsService.track("payment_succeeded", props);
+    else if (order.status === "FAILED" || order.status === "EXPIRED")
+      analyticsService.track("payment_failed", { ...props, reason: order.failureReason ?? order.status });
+    return order;
+  },
 
   /** Initiate a refund for a captured payment. */
   initiateRefund: (orderId: number, amount: number): Promise<PaymentOrder> =>

@@ -9,6 +9,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { TimePicker } from "../ui/time-picker";
 import { DatePicker } from "../ui/date-picker";
 import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 type CulturalEvent = {
   id: number;
@@ -253,6 +254,12 @@ export function EventsCulturalEvents() {
     setRegSaving(true); setRegError("");
     try {
       const count = Number(regForm.devoteeCount) || 1;
+      analyticsService.track("cultural_registration_started", {
+        culturalEventId: regTarget.id,
+        category: regTarget.category,
+        participantCount: count,
+      });
+
       let created: CulturalRegistration;
       if (useMock) {
         created = {
@@ -273,15 +280,33 @@ export function EventsCulturalEvents() {
         });
         created = { ...raw, devoteeCount: Number(raw.devoteeCount ?? count) };
       }
+      analyticsService.track("cultural_registration_completed", {
+        culturalEventId: regTarget.id,
+        category: regTarget.category,
+        participantCount: count,
+        regCode: created.regCode,
+      });
       setRegistrations(prev => [...prev, created]);
       setShowRegModal(false);
       setRegConfirmation(created);   // ← show confirmation card
       setExpandedId(regTarget.id);
-    } catch (err: any) { setRegError(err?.message || "Registration failed. Please try again."); }
+    } catch (err: any) {
+      const errMsg = err?.message || "Registration failed. Please try again.";
+      analyticsService.track("cultural_registration_failed", {
+        culturalEventId: regTarget.id,
+        category: regTarget.category,
+        reason: errMsg,
+      });
+      setRegError(errMsg);
+    }
     finally { setRegSaving(false); }
   };
 
   const handleCheckIn = async (reg: CulturalRegistration) => {
+    analyticsService.track("cultural_checkin_completed", {
+      registrationId: reg.id,
+      culturalEventId: reg.culturalEventId,
+    });
     if (useMock) {
       setRegistrations(prev => prev.map(r => r.id === reg.id
         ? { ...r, checkedIn: true, checkedInAt: new Date().toISOString() } : r));

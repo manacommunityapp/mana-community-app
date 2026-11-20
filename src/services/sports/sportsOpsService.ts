@@ -1,4 +1,18 @@
-import { apiClient } from '../apiClient';
+import { apiClient } from '../common/apiClient';
+
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const TournamentSponsor = {};
+export const TournamentMerchandise = {};
+export const MerchandiseOrder = {};
+export const CourtSlotSubscription = {};
+export const OpenPlaySession = {};
+export const OpenPlayParticipant = {};
+export const CourtSlotWaitlist = {};
+export const SportsNoShowDeposit = {};
+export const PlayerRating = {};
+export const CoachPackage = {};
+export const CoachPackageEnrollment = {};
+export const RefereeAssignment = {};
 
 export interface TournamentSponsor {
   id: number;
@@ -216,3 +230,5 @@ export const sportsOpsService = {
   orderMerchandise: (id: number, quantity: number) => apiClient.post<MerchandiseOrder>(`${BASE}/merchandise/${id}/order`, { quantity }),
   myMerchandiseOrders: () => apiClient.get<MerchandiseOrder[]>(`${BASE}/merchandise/my-orders`),
 };
+
+export default sportsOpsService;
