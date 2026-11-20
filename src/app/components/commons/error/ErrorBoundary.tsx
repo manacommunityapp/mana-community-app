@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Copy } from "lucide-react";
 import { createLogger } from "../../../../utils/logger";
-import { getLastCorrelationId } from "../../../../services/common/apiTypes";
+import { getLastCorrelationId, getLastTraceId } from "../../../../services/common/apiTypes";
 import { clientLogger } from "../../../../utils/clientLogger";
 
 const log = createLogger("ErrorBoundary");
@@ -26,12 +26,33 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const traceId = getLastTraceId();
+    // Dispatch to Sentry / external APM if initialized on window
+    try {
+      const globalSentry = (window as unknown as { Sentry?: { captureException: (err: unknown, ctx: unknown) => void } })?.Sentry;
+      if (globalSentry?.captureException) {
+        globalSentry.captureException(error, {
+          tags: {
+            correlationId: this.state.referenceId,
+            traceId: traceId ?? "none",
+          },
+          extra: {
+            componentStack: info.componentStack,
+          },
+        });
+      }
+    } catch {
+      // Telemetry capture failure must never break component crash rendering
+    }
+
     log.error("Unhandled render error", error, {
       componentStack: info.componentStack,
       correlationId: this.state.referenceId,
+      traceId,
     });
     clientLogger.error("Render error", {
       correlationId: this.state.referenceId,
+      traceId,
       message: error.message,
       componentStack: info.componentStack ?? undefined,
     });

@@ -28,12 +28,13 @@ export function isPageResponse<T>(v: unknown): v is PageResponse<T> {
   );
 }
 
-/** Typed API error carrying correlationId for support tracing. */
+/** Typed API error carrying correlationId and traceId for support tracing. */
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly correlationId?: string,
     public readonly statusCode?: number,
+    public readonly traceId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -49,4 +50,15 @@ export function setLastCorrelationId(id: string | undefined): void {
 
 export function getLastCorrelationId(): string | undefined {
   return _lastCorrelationId;
+}
+
+/** Last traceId seen in an outgoing request or server response. */
+let _lastTraceId: string | undefined;
+
+export function setLastTraceId(id: string | undefined): void {
+  _lastTraceId = id;
+}
+
+export function getLastTraceId(): string | undefined {
+  return _lastTraceId;
 }

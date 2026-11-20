@@ -21,6 +21,7 @@ const IS_PROD = import.meta.env.PROD;
 const MIN_LEVEL: LogLevel = IS_PROD ? LogLevel.WARN : LogLevel.DEBUG;
 
 let sessionCorrelationId: string | null = null;
+let sessionTraceId: string | null = null;
 
 export function setCorrelationId(id: string | null) {
   sessionCorrelationId = id;
@@ -30,12 +31,21 @@ export function getCorrelationId(): string | null {
   return sessionCorrelationId;
 }
 
+export function setTraceId(id: string | null) {
+  sessionTraceId = id;
+}
+
+export function getTraceId(): string | null {
+  return sessionTraceId;
+}
+
 interface LogEntry {
   level: string;
   ts: string;
   tag: string;
   message: string;
   correlationId?: string;
+  traceId?: string;
   error?: string;
   stack?: string;
   data?: unknown;
@@ -55,6 +65,7 @@ function buildEntry(
     message,
   };
   if (sessionCorrelationId) entry.correlationId = sessionCorrelationId;
+  if (sessionTraceId) entry.traceId = sessionTraceId;
   if (error instanceof Error) {
     entry.error = error.message;
     if (error.stack) entry.stack = error.stack;

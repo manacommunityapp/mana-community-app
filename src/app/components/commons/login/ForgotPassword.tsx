@@ -62,6 +62,41 @@ export function ForgotPassword() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
   };
 
+  // Handle magic links / reset tokens via URL query parameters and scrub URL immediately
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      const codeParam = params.get("code") || params.get("otp");
+      let shouldAdvance = false;
+
+      if (emailParam && isValidEmail(emailParam)) {
+        setEmail(emailParam.trim().toLowerCase());
+        shouldAdvance = true;
+      }
+
+      if (codeParam) {
+        const sanitized = codeParam.replace(/\D/g, "").slice(0, 6);
+        if (sanitized.length === 6) {
+          setOtpDigits(sanitized.split(""));
+          shouldAdvance = true;
+        }
+      }
+
+      if (shouldAdvance) {
+        setStep(2);
+      }
+
+      // Security: Scrub parameters from browser URL & history immediately
+      // Prevents token leakage via Referer headers, browser history, or shoulder-surfing
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {
+      // Safe fallback if window is unavailable
+    }
+  }, []);
+
   // Step 1: Send OTP to Email
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();

@@ -1,10 +1,10 @@
 import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage";
-import { createLogger, setCorrelationId } from "../../utils/logger";
+import { createLogger, setCorrelationId, setTraceId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
 import { requestQueue } from "../../lib/requestQueue";
-import { ApiError, setLastCorrelationId, type ApiResponseEnvelope } from "./apiTypes";
+import { ApiError, setLastCorrelationId, setLastTraceId, getLastTraceId, type ApiResponseEnvelope } from "./apiTypes";
 export type { PageResponse, ApiResponseEnvelope } from "./apiTypes";
-export { ApiError, isPageResponse, getLastCorrelationId } from "./apiTypes";
+export { ApiError, isPageResponse, getLastCorrelationId, getLastTraceId } from "./apiTypes";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
@@ -24,6 +24,30 @@ function generateId(): string {
     const r = (Math.random() * 16) | 0;
     return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
+}
+
+/**
+ * Generates a compliant W3C traceparent header value.
+ * Format: 00-{32 hex trace-id}-{16 hex parent-id}-01
+ */
+export function generateW3CTrace(): { traceparent: string; traceId: string; spanId: string } {
+  const hex = (bytes: number): string => {
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      const arr = new Uint8Array(bytes);
+      crypto.getRandomValues(arr);
+      return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    let s = "";
+    for (let i = 0; i < bytes * 2; i++) {
+      s += Math.floor(Math.random() * 16).toString(16);
+    }
+    return s;
+  };
+
+  const traceId = hex(16);
+  const spanId = hex(8);
+  const traceparent = `00-${traceId}-${spanId}-01`;
+  return { traceparent, traceId, spanId };
 }
 
 const TOKEN_KEY = STORAGE_KEYS.TOKEN;
@@ -315,6 +339,15 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
+  // Sync correlation and trace IDs from response headers if returned by server
+  const headerCid = res.headers.get("X-Correlation-Id") ?? res.headers.get("x-correlation-id");
+  if (headerCid) setLastCorrelationId(headerCid);
+  const headerTraceparent = res.headers.get("traceparent");
+  if (headerTraceparent?.startsWith("00-")) {
+    const parts = headerTraceparent.split("-");
+    if (parts[1]) setLastTraceId(parts[1]);
+  }
+
   if (!res.ok) {
     let rawText = "";
     try {
@@ -323,7 +356,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
       // ignore
     }
     // Try to extract correlationId from error envelope
-    let correlationId: string | undefined;
+    let correlationId: string | undefined = headerCid ?? getLastCorrelationId();
     try {
       const parsed = JSON.parse(rawText) as Partial<ApiResponseEnvelope<unknown>>;
       if (parsed?.correlationId) {
@@ -332,7 +365,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
       }
     } catch { /* ignore */ }
     const message = sanitizeErrorMessage(res.status, rawText);
-    throw new ApiError(message, correlationId, res.status);
+    throw new ApiError(message, correlationId, res.status, getLastTraceId());
   }
   // 204 No Content
   if (res.status === 204) return undefined as T;
@@ -356,6 +389,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
           envelope.message ?? 'Request failed',
           envelope.correlationId ?? undefined,
           res.status,
+          getLastTraceId(),
         );
       }
       // Return .data if present, else the full envelope (backward compat for callers expecting raw body)
@@ -389,17 +423,21 @@ interface RequestInitLike {
 async function request<T>(path: string, init: RequestInitLike, isRetry = false): Promise<T> {
   const correlationId = generateId();
   setCorrelationId(correlationId);
+  const { traceparent, traceId } = generateW3CTrace();
+  setLastTraceId(traceId);
+  setTraceId(traceId);
 
   // Pre-flight permission and module access check before sending the request
   const access = canAccessEndpoint(path, init.method, getStoredUser());
   if (!access.allowed) {
-    log.warn(`Pre-flight Access Check blocked ${init.method} ${path}: ${access.reason} - ${access.message}`, { correlationId });
+    log.warn(`Pre-flight Access Check blocked ${init.method} ${path}: ${access.reason} - ${access.message}`, { correlationId, traceId });
     throw new Error(access.message || "You do not have permission to perform this action.");
   }
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
     "X-Correlation-ID": correlationId, // also send canonical casing the backend expects
+    "traceparent": traceparent,
     [PLATFORM_HEADER]: PLATFORM_VALUE,
     ...(init.headers || {}),
   };
