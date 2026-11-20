@@ -7,6 +7,7 @@ import { auctionService } from "../../../services/sports/auctionService";
 import { communityService } from "../../../services/community/communityService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportMeta, PlayerCategory, EventRegistration, AuctionTeam, CommunityResponse } from "../../../types/api";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 const ALL_SPORTS = [
   { id: "cricket",     icon: "🏏", name: "Cricket" },
@@ -120,6 +121,10 @@ export function SportsRegistration() {
     if (!user?.communityId) { toast.error("Community not found. Please log in again."); return; }
 
     setSubmitting(true);
+    analyticsService.track("sports_registration_started", {
+      sportsCount: selectedSports.length,
+      category: autoCategory,
+    });
     try {
       for (const sport of selectedSports) {
         const backendSport = apiSports.find(s => s.name.toLowerCase() === sport.name.toLowerCase());
@@ -133,10 +138,19 @@ export function SportsRegistration() {
           format: matchTypes[sport.id] ? [matchTypes[sport.id]] : undefined,
         });
       }
+      analyticsService.track("sports_registration_completed", {
+        sportsCount: selectedSports.length,
+        category: autoCategory,
+      });
       toast.success(`Registered for ${selectedSports.length} sport(s)!`);
       fetchTabData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Registration failed");
+      const errMsg = err instanceof Error ? err.message : "Registration failed";
+      analyticsService.track("sports_registration_failed", {
+        sportsCount: selectedSports.length,
+        reason: errMsg,
+      });
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }

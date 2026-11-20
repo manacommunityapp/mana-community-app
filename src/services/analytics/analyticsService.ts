@@ -12,15 +12,36 @@ import { privacyService } from "../privacy/privacyService";
 
 export type AnalyticsEventName =
   | "signup_started"
+  | "signup_completed"
   | "otp_verified"
   | "profile_completed"
   | "unit_linked"
   | "first_key_action"
   | "booking_started"
+  | "booking_created"
   | "booking_confirmed"
+  | "booking_failed"
   | "payment_started"
   | "payment_succeeded"
   | "payment_failed"
+  | "checkout_started"
+  | "food_order_started"
+  | "food_order_placed"
+  | "food_order_completed"
+  | "food_order_failed"
+  | "sports_registration_started"
+  | "sports_registration_completed"
+  | "sports_registration_failed"
+  | "sports_multi_registration_completed"
+  | "sports_team_registration_started"
+  | "sports_team_registered"
+  | "sports_team_registration_failed"
+  | "cultural_registration_started"
+  | "cultural_registration_completed"
+  | "cultural_registration_failed"
+  | "cultural_checkin_completed"
+  | "event_ticket_booked"
+  | "event_registration_completed"
   | (string & {});
 
 export interface AnalyticsContext {
@@ -47,7 +68,16 @@ interface QueuedEvent {
 export const ANALYTICS_REQUIRES_EXPLICIT_GRANT = false;
 
 /** Events that count as a resident's first meaningful action (activation). */
-const KEY_ACTIONS = new Set(["booking_created", "payment_succeeded"]);
+const KEY_ACTIONS = new Set([
+  "booking_created",
+  "payment_succeeded",
+  "food_order_completed",
+  "sports_registration_completed",
+  "sports_team_registered",
+  "cultural_registration_completed",
+  "event_ticket_booked",
+  "event_registration_completed",
+]);
 
 const PII_KEYS = /(email|phone|mobile|name|address|aadhaar|pan|otp|password|token|dob)/i;
 const FLUSH_INTERVAL_MS = 10_000;

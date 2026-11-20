@@ -58,6 +58,7 @@ import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 import { resolveEventImage, resolveUserAvatar, resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
@@ -1962,6 +1963,13 @@ export function EventMemberView() {
       };
 
       setPassesList((prev) => [newPass, ...prev]);
+      analyticsService.track("event_ticket_booked", {
+        activityId: selectedActivity.id,
+        category: selectedActivity.category,
+        isPaid,
+        bookingFee: passPayload.bookingFee,
+        devoteeCount: passPayload.devoteeCount,
+      });
       showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
       setSelectedActivity(null);
       setPaymentReceiptUrl("");

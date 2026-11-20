@@ -45,6 +45,23 @@ describe("analyticsService", () => {
     expect(analyticsService._queueLength()).toBe(3);
   });
 
+  it("triggers first_key_action on secondary flow key actions (food, sports, cultural)", () => {
+    analyticsService.setContext({ userId: "u_secondary_1" });
+    analyticsService.track("food_order_completed", { module: "food_kitchen", amount: 250 });
+    // food_order_completed + first_key_action
+    expect(analyticsService._queueLength()).toBe(2);
+
+    // Another key action for same user should not trigger second first_key_action
+    analyticsService.track("sports_team_registered", { eventId: 10 });
+    expect(analyticsService._queueLength()).toBe(3);
+
+    // Cultural event ticket for another user
+    analyticsService.setContext({ userId: "u_secondary_2" });
+    analyticsService.track("cultural_registration_completed", { culturalEventId: 5 });
+    // previous 3 + cultural_registration_completed + first_key_action
+    expect(analyticsService._queueLength()).toBe(5);
+  });
+
   it("drops queued events and sends nothing when ANALYTICS consent is revoked", async () => {
     vi.spyOn(privacyService, "getConsents").mockResolvedValue([
       { id: 1, purpose: "ANALYTICS", status: "REVOKED", noticeVersion: "1" },

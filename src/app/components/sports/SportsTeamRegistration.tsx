@@ -7,6 +7,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import type { UserResponse, PlayerCategory } from "../../../types/api";
 import { TeamImageUploader } from "./teams/TeamImageUploader";
 import { setCachedTeamLogo } from "./teams/teamImageUtils";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 interface SportsEvent {
   id: number;
@@ -86,6 +87,12 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
     if (!categoryId) { setError("Select a category"); return; }
 
     setSubmitting(true);
+    analyticsService.track("sports_team_registration_started", {
+      eventId,
+      categoryId,
+      teamName: teamName.trim(),
+      memberCount: selectedMembers.length,
+    });
     try {
       if (logoUrl) {
         setCachedTeamLogo(teamName.trim(), logoUrl);
@@ -98,11 +105,23 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
         memberUserIds: selectedMembers.map((m) => m.id),
         captainUserId: captainId ?? undefined,
       });
+      analyticsService.track("sports_team_registered", {
+        eventId,
+        categoryId,
+        teamName: teamName.trim(),
+        memberCount: selectedMembers.length,
+      });
       setSuccess(true);
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       onSuccess?.();
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? err?.message ?? "Registration failed");
+      const errMsg = err?.response?.data?.message ?? err?.message ?? "Registration failed";
+      analyticsService.track("sports_team_registration_failed", {
+        eventId,
+        categoryId,
+        reason: errMsg,
+      });
+      setError(errMsg);
     }
     setSubmitting(false);
   };

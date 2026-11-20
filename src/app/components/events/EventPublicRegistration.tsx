@@ -22,6 +22,7 @@ import { CollapsibleFormSection, type RegistrationFormConfig, type FormField } f
 import { userService } from "../../../services/common/userService";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -1277,8 +1278,20 @@ export function EventPublicRegistration() {
           }
         }
 
+        analyticsService.track("event_registration_completed", {
+          eventId: event.id,
+          isPaid: eventPrice > 0,
+          price: eventPrice,
+          paymentMethod: form.paymentMethod,
+        });
+
         setIsRegistered(true);
       } catch (e: any) {
+        analyticsService.track("booking_failed", {
+          module: "cultural_events",
+          eventId: event?.id,
+          reason: e?.message ?? "Registration failed",
+        });
         setRegError(e.message ?? "Registration failed");
       } finally {
         setRegistering(false);
