@@ -218,14 +218,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
         };
         MOCK_ORDERS.unshift(order);
       } else {
-        order = await orderService.create({
-          listingId: typeof firstItem.id === "number" ? firstItem.id : 1,
-          quantity: firstItem.quantity,
-          notes: deliveryNotes,
-          deliveryAddress: deliveryInfo,
-          deliveryMethod,
-          paymentMode,
-        });
+        const createdOrders = await Promise.all(
+          items.map((item) =>
+            orderService.create({
+              listingId: typeof item.id === "number" ? item.id : Number(item.id) || 1,
+              quantity: item.quantity,
+              notes: deliveryNotes,
+              deliveryAddress: deliveryInfo,
+              deliveryMethod,
+              paymentMode,
+            })
+          )
+        );
+        order = createdOrders[0];
       }
 
       showSuccess(`Order #${order.orderNumber || order.id} placed successfully!`);

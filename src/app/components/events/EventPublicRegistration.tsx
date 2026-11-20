@@ -21,6 +21,7 @@ import { eventProgramService, type ActivityRegistrationResponse, type EventProgr
 import { CollapsibleFormSection, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { userService } from "../../../services/common/userService";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { unifiedPaymentService } from "../../../services/payments/unifiedPaymentService";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -1259,6 +1260,23 @@ export function EventPublicRegistration() {
         } else {
           await eventService.register(event.id);
         }
+
+        // If event requires payment and user chose an online payment method
+        const eventPrice = "price" in displayEvent ? Number(displayEvent.price) : 0;
+        if (eventPrice && eventPrice > 0 && form.paymentMethod !== "cash") {
+          try {
+            await unifiedPaymentService.createOrder({
+              amount: eventPrice,
+              referenceType: "EVENT_REGISTRATION",
+              referenceId: event.id,
+              description: `Event Registration: ${eventTitle || "Community Event"}`,
+              gateway: form.paymentMethod === "upi" ? "CASHFREE" : "RAZORPAY",
+            });
+          } catch (payErr) {
+            console.warn("Payment order creation notice:", payErr);
+          }
+        }
+
         setIsRegistered(true);
       } catch (e: any) {
         setRegError(e.message ?? "Registration failed");

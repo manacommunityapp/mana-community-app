@@ -570,6 +570,8 @@ import { AssetMaintenance } from "./components/community-ops/AssetMaintenance";
 import { WatchlistManager } from "./components/community-ops/WatchlistManager";
 import { RwaReports } from "./components/community-ops/RwaReports";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+import { ManaCommerceHub } from "./components/commerce/ManaCommerceHub";
+import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
 import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
 // Mana Academy
@@ -1309,6 +1311,14 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "admin-settlements",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <SettlementManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
             path: "commerce-analytics",
             element: (
               <PermissionGuard permission={VIEW_COMMERCE_ANALYTICS} requiredModule="COMMERCE">
@@ -1659,6 +1669,8 @@ export const router = createBrowserRouter([
       { path: "ai-chat", element: <AiChatDashboard /> },
       { path: "calendar", element: <CalendarDashboard /> },
       { path: "commerce", element: <CommerceDashboard /> },
+      { path: "commerce-hub", element: <ManaCommerceHub /> },
+      { path: "commerce/handover", element: <ManaCommerceHub /> },
       // ── Food & Grocery Operations ────────────────────────────────────────
       { path: "food", element: <FoodOpsHub /> },
       // ── Healthcare Operations ─────────────────────────────────────────────

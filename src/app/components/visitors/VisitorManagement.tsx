@@ -1510,7 +1510,8 @@ interface InvitationProps {
 function InvitationModal({ pass, onClose }: InvitationProps) {
   const [copied, setCopied] = useState(false);
 
-  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${pass.otp}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
+  const otpCode = pass.otpOnCreation || pass.otp || "—";
+  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${otpCode}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(invitationText);
@@ -1564,7 +1565,7 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
 
           <div className="border-t border-slate-200/80 pt-4">
             <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry OTP (6-digits)</div>
-            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{pass.otp}</div>
+            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{otpCode}</div>
           </div>
         </div>
 

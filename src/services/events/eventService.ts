@@ -1223,4 +1223,8 @@ export const eventService = {
     const qs = eventId ? `?eventId=${eventId}` : "";
     return apiClient.get<EventAuctionStatsResponse>(`/events/auction-items/stats${qs}`);
   },
+
+  async toggleCheckIn(regId: number | string, checkedIn = true): Promise<any> {
+    return apiClient.put(`/events/registrations/${regId}/check-in?checkedIn=${checkedIn}`, {});
+  },
 };
