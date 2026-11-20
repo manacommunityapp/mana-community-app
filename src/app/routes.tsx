@@ -597,6 +597,7 @@ import { VotingCenter } from "./components/governance/VotingCenter";
 import { ResolutionsBoard } from "./components/governance/ResolutionsBoard";
 import { DigitalVault } from "./components/governance/DigitalVault";
 import { CommitteeAndElections } from "./components/governance/CommitteeAndElections";
+import { NocRequests } from "./components/governance/NocRequests";
 
 // Permission constants
 import {
@@ -1689,6 +1690,7 @@ export const router = createBrowserRouter([
           { path: "resolutions", element: <ResolutionsBoard /> },
           { path: "vault", element: <DigitalVault /> },
           { path: "committee", element: <CommitteeAndElections /> },
+          { path: "noc", element: <NocRequests /> },
         ],
       },
       // ── Mana HRM (Human Resource Management) ────────
