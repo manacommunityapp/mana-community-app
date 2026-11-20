@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router";
-import { Shield, FileText, Lock, Database, FileCheck2, Mail } from "lucide-react";
+import { Shield, FileText, Lock, Database, FileCheck2, Mail, CheckSquare, Activity } from "lucide-react";
 import { PrivacySettingsTab } from "./PrivacySettingsTab";
 import { MyDataPage } from "./MyDataPage";
 import { PrivacyPolicyModal } from "../commons/privacy/PrivacyPolicyModal";
 import { DataRightsForm } from "../commons/privacy/DataRightsForm";
+import { ConsentManager } from "./ConsentManager";
+import { HealthAccessLog } from "./HealthAccessLog";
 
 export const PrivacyHub: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,8 +19,10 @@ export const PrivacyHub: React.FC = () => {
 
   const tabs = [
     { id: "settings",    label: "Privacy & Visibility",   icon: Lock },
+    { id: "consents",    label: "Consent Management",     icon: CheckSquare },
     { id: "my-data",     label: "My Data & Export",       icon: Database },
     { id: "data-rights", label: "Exercise My Rights",     icon: FileCheck2 },
+    { id: "health-log",  label: "Health Access Log",      icon: Activity },
     { id: "contact",     label: "Grievance Contact",      icon: Mail },
   ];
 
@@ -66,7 +70,9 @@ export const PrivacyHub: React.FC = () => {
       {/* Tab Content */}
       <div className="pt-2">
         {activeTab === "settings"    && <PrivacySettingsTab />}
+        {activeTab === "consents"    && <ConsentManager />}
         {activeTab === "my-data"     && <MyDataPage />}
+        {activeTab === "health-log"  && <HealthAccessLog />}
         {activeTab === "data-rights" && (
           <div className="max-w-2xl mx-auto">
             <DataRightsForm />

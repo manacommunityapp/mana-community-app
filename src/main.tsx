@@ -7,6 +7,10 @@ import { SessionTimeoutManager } from './app/components/commons/SessionTimeoutMa
 import { ErrorBoundary } from './app/components/commons/error/ErrorBoundary.tsx'
 import { TenantProvider } from './contexts/TenantContext.tsx'
 import { createLogger } from './utils/logger.ts'
+import { enforceHttps, validateEnvConfig } from './utils/security.ts'
+
+enforceHttps();
+validateEnvConfig();
 
 const log = createLogger("Global");
 

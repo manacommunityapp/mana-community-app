@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 import { authService } from "../../../../services/common/authService";
 import { otpService } from "../../../../services/common/otpService";
+import { useRateLimitHandler } from "../../../../hooks/useRateLimitHandler";
+import { RateLimitBanner } from "../../../../components/security/RateLimitBanner";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 
@@ -43,6 +45,8 @@ export function ForgotPassword() {
 
   // OTP Input refs for autofocus
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const { rateLimitState, handleError: handleRateLimit, isLimited } = useRateLimitHandler();
 
   // Resend OTP countdown timer
   useEffect(() => {
@@ -99,6 +103,7 @@ export function ForgotPassword() {
         inputRefs.current[0]?.focus();
       }, 150);
     } catch (err: any) {
+      if (handleRateLimit(err)) return;
       const message = err instanceof Error ? err.message : "Unable to send verification code. Please try again.";
       toast.error(message);
     } finally {
@@ -181,6 +186,7 @@ export function ForgotPassword() {
       toast.success(res?.message || "Password updated successfully!");
       setStep(3);
     } catch (err: any) {
+      if (handleRateLimit(err)) return;
       const message = err instanceof Error ? err.message : "Password reset failed. Please check the code and try again.";
       toast.error(message);
     } finally {
@@ -249,9 +255,17 @@ export function ForgotPassword() {
                 </p>
               </div>
 
+              {rateLimitState && (
+                <RateLimitBanner
+                  secondsRemaining={rateLimitState.secondsRemaining}
+                  type={rateLimitState.type}
+                  initialSeconds={rateLimitState.secondsRemaining}
+                />
+              )}
+
               <button
                 type="submit"
-                disabled={isSendingOtp || !email.trim()}
+                disabled={isSendingOtp || !email.trim() || isLimited}
                 className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-lg shadow-primary/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer border-none text-sm"
               >
                 {isSendingOtp ? (
@@ -429,10 +443,18 @@ export function ForgotPassword() {
               </div>
 
               {/* Submit Button */}
+              {rateLimitState && (
+                <RateLimitBanner
+                  secondsRemaining={rateLimitState.secondsRemaining}
+                  type={rateLimitState.type}
+                  initialSeconds={rateLimitState.secondsRemaining}
+                />
+              )}
               <button
                 type="submit"
                 disabled={
                   isResettingPassword ||
+                  isLimited ||
                   otpDigits.join("").length !== 6 ||
                   !newPassword ||
                   newPassword !== confirmPassword ||

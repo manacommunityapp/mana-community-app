@@ -14,7 +14,7 @@ import type {
   CampaignAnalytics,
 } from '../../types/offers';
 
-const OFFERS_API_URL = 'http://localhost:8102/api/offers';
+const OFFERS_API_URL = (import.meta as any).env?.VITE_OFFERS_API_URL ?? '/api/offers';
 
 // In-memory seed fallback for offline / mock resilience
 const SEED_CATEGORIES: CommerceCategory[] = [

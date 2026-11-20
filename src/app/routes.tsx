@@ -117,6 +117,7 @@ import { AdminRetentionPolicies } from "./components/privacy/admin/AdminRetentio
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
+import { ConsentGate } from "../components/privacy/ConsentGate";
 
 // CPN (Community Professional Network) pages
 import { CPNHub } from "./components/cpn/CPNHub";
@@ -1553,7 +1554,7 @@ export const router = createBrowserRouter([
       { path: "safety/trust", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} anyModules={["VISITORS", "SAFETY"]}><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "admin/trust-safety", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]} requiredModule="ADMIN_HUB"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
-      { path: "health", element: <HealthPortal /> },
+      { path: "health", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthPortal /></ConsentGate> },
       { path: "insurance", element: <InsurancePortal /> },
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
@@ -1588,7 +1589,7 @@ export const router = createBrowserRouter([
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "khatabook", element: <KhataBook /> },
-      { path: "health", element: <HealthDashboard /> },
+      { path: "health", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthDashboard /></ConsentGate> },
       {
         path: "wellness",
         children: [
@@ -1639,7 +1640,7 @@ export const router = createBrowserRouter([
       // ── Food & Grocery Operations ────────────────────────────────────────
       { path: "food", element: <FoodOpsHub /> },
       // ── Healthcare Operations ─────────────────────────────────────────────
-      { path: "healthcare", element: <HealthcareHub /> },
+      { path: "healthcare", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthcareHub /></ConsentGate> },
       { path: "healthcare-ops", element: <HealthcareOpsHub /> },
       { path: "sports-ops", element: <SportsOpsHub /> },
       { path: "payments-ops", element: <PaymentsHub /> },
