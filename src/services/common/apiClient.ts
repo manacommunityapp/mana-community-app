@@ -1,6 +1,7 @@
 import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage";
 import { createLogger, setCorrelationId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
+import { requestQueue } from "../../lib/requestQueue";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
@@ -511,6 +512,67 @@ export const apiClient = {
   async postForm<T>(path: string, formData: FormData): Promise<T> {
     getCache.clear();
     return request<T>(path, { method: "POST", body: formData, form: true });
+  },
+
+  /**
+   * POST that enqueues the request on a network error so it retries on reconnect.
+   * Use for critical mutations (payments, bookings) that must not be silently lost.
+   */
+  async queuedPost<T>(path: string, body?: unknown, tags?: string[]): Promise<T> {
+    getCache.clear();
+    try {
+      return await request<T>(path, {
+        method: "POST",
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      const isNetworkError =
+        err instanceof Error &&
+        err.message.toLowerCase().includes("unable to connect");
+      if (isNetworkError) {
+        const token = getToken();
+        await requestQueue.enqueue({
+          url: path,
+          method: "POST",
+          body,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          maxRetries: 3,
+          tags,
+        });
+        throw new Error("You're offline. This request has been saved and will be sent when you reconnect.");
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * PUT that enqueues on network error.
+   */
+  async queuedPut<T>(path: string, body?: unknown, tags?: string[]): Promise<T> {
+    getCache.clear();
+    try {
+      return await request<T>(path, {
+        method: "PUT",
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } catch (err) {
+      const isNetworkError =
+        err instanceof Error &&
+        err.message.toLowerCase().includes("unable to connect");
+      if (isNetworkError) {
+        const token = getToken();
+        await requestQueue.enqueue({
+          url: path,
+          method: "PUT",
+          body,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          maxRetries: 3,
+          tags,
+        });
+        throw new Error("You're offline. This request has been saved and will be sent when you reconnect.");
+      }
+      throw err;
+    }
   },
 };
 

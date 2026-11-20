@@ -5,6 +5,14 @@ import { ToastContainer } from "react-toastify";
 import { Toaster } from "sonner";
 import "react-toastify/dist/ReactToastify.css";
 import { ConsentBanner } from "./components/commons/privacy/ConsentBanner";
+import { PendingSyncBanner } from "./components/commons/PendingSyncBanner";
+import { initRequestQueueSync } from "../lib/requestQueue";
+import { apiClient } from "../services/common/apiClient";
+
+// Replay queued writes when the browser comes back online
+initRequestQueueSync(async (req) => {
+  await apiClient.post(req.url, req.body, req.headers);
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +39,7 @@ export default function App() {
       />
       {/* DPDP Act 2023 s.6 — consent banner for non-essential trackers */}
       <ConsentBanner />
+      <PendingSyncBanner />
     </QueryClientProvider>
   );
 }
