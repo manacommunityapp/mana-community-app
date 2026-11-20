@@ -5,8 +5,8 @@ import {
   Sparkles, Check, Download, Share2, RefreshCw, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { governanceService, type Poll } from "../../../../services/governance/governanceService";
-import { useTenantContext } from "../../../../contexts/TenantContext";
+import { governanceService, type Poll } from "../../../services/governance/governanceService";
+import { useTenantContext } from "../../../contexts/TenantContext";
 
 interface VotingOption {
   id: string;

@@ -1,4 +1,14 @@
-import { apiClient } from '../apiClient';
+import { apiClient } from '../common/apiClient';
+
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const PaymentTimelineEvent = {};
+export const BillReminder = {};
+export const PaymentMandate = {};
+export const PaymentReceipt = {};
+export const PaymentReconciliation = {};
+export const PaymentDispute = {};
+export const PaymentRequestLink = {};
+export const PaymentReward = {};
 
 export interface PaymentTimelineEvent {
   id: number;
@@ -127,3 +137,5 @@ export const paymentsService = {
   rewardBalance: () => apiClient.get<{ userId: number; points: number }>(`${BASE}/rewards/my/balance`),
   redeemReward: (id: number) => apiClient.post<PaymentReward>(`${BASE}/rewards/redeem/${id}`, {}),
 };
+
+export default paymentsService;

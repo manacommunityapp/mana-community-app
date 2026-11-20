@@ -1,9 +1,31 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { communityFinanceService } from "../finance/communityFinanceService";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { communityFinanceService, type MaintenanceBill } from "../finance/communityFinanceService";
 import { personalFinanceService } from "../finance/personalFinanceService";
 import { manaSplitService } from "../split/manaSplitService";
 import { manaRewardsService } from "../rewards/manaRewardsService";
 import { manaPayService } from "../payments/manaPayService";
+import { apiClient } from "../common/apiClient";
+
+vi.mock("../common/apiClient", () => ({
+  apiClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  },
+  getStoredUser: vi.fn(() => ({
+    userId: "user-me",
+    role: "ADMIN",
+    roles: ["ADMIN", "RESIDENT"],
+    communityId: 1,
+  })),
+  getToken: vi.fn(() => "mock-jwt-token"),
+  storeUser: vi.fn(),
+  setToken: vi.fn(),
+  setTokens: vi.fn(),
+  removeToken: vi.fn(),
+  clearUserStorage: vi.fn(),
+}));
 
 // Mock localStorage in Node/Vitest environment
 if (typeof globalThis.localStorage === "undefined") {
@@ -27,16 +49,48 @@ if (typeof globalThis.localStorage === "undefined") {
 describe("Money Systems Strict Separation & Authoritative Boundaries", () => {
   beforeEach(() => {
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
-  it("1. Community Finance: Paying a maintenance bill does NOT automatically create a My Money transaction", () => {
+  it("1. Community Finance: Paying a maintenance bill does NOT automatically create a My Money transaction", async () => {
     const initialTxCount = personalFinanceService.getTransactions().length;
 
+    const mockBill: MaintenanceBill = {
+      id: "bill-302",
+      billNumber: "INV-2026-302",
+      flatNumber: "302",
+      tower: "A",
+      month: 11,
+      year: 2026,
+      charges: [{ item: "Maintenance", amount: 1000 }],
+      subtotal: 1000,
+      penaltyAmount: 0,
+      discountAmount: 0,
+      totalAmount: 1000,
+      paidAmount: 0,
+      dueAmount: 1000,
+      dueDate: "2026-11-30",
+      status: "ISSUED",
+      generatedAt: "2026-11-01T00:00:00Z",
+    };
+
+    (apiClient.get as any).mockResolvedValueOnce(mockBill);
+    (apiClient.post as any).mockResolvedValueOnce({
+      bill: { ...mockBill, status: "PARTIAL", paidAmount: 500, dueAmount: 500 },
+      receipt: {
+        receiptNumber: "RCP-101",
+        billId: "bill-302",
+        amountPaid: 500,
+        paymentMode: "UPI",
+        paidAt: "2026-11-20T10:00:00Z",
+      },
+    });
+
     // Record payment in Community Finance
-    const bill = communityFinanceService.getMyBill("302");
+    const bill = await communityFinanceService.getMyBill(1, "302");
     expect(bill).toBeDefined();
 
-    const result = communityFinanceService.recordPayment(bill.id, 500, "UPI");
+    const result = await communityFinanceService.recordPayment(bill!.id, 500, "UPI", 1);
     expect(result).not.toBeNull();
     expect(result?.bill.status).toBe("PARTIAL");
     expect(result?.receipt.amountPaid).toBe(500);
@@ -113,6 +167,15 @@ describe("Money Systems Strict Separation & Authoritative Boundaries", () => {
 
   it("4. Mana Pay: Creates isolated payment intent without modifying My Money, Community, or Split until invoked by their workflows", async () => {
     const initialTxCount = personalFinanceService.getTransactions().length;
+
+    (apiClient.post as any).mockResolvedValueOnce({
+      intentId: "PI_TEST_INTENT_101",
+      status: "PENDING",
+      amount: 4500,
+      idempotencyKey: "test-idem-1",
+      domain: "MAINTENANCE_BILL",
+      orderReferenceId: "ORD-TEST-101",
+    });
 
     const intent = await manaPayService.createPaymentIntent({
       idempotencyKey: "test-idem-" + Date.now(),

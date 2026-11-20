@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CheckCircle2, FileText, RefreshCw } from "lucide-react";
-import { governanceService, type Resolution as ApiResolution } from "../../../../services/governance/governanceService";
-import { useTenantContext } from "../../../../contexts/TenantContext";
+import { governanceService, type Resolution as ApiResolution } from "../../../services/governance/governanceService";
+import { useTenantContext } from "../../../contexts/TenantContext";
 
 export function ResolutionsBoard() {
   const { communityId } = useTenantContext();

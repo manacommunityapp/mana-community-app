@@ -31,39 +31,61 @@ export const STORAGE_KEYS = {
   DRAFT_STEP: (targetId: string | number) => `mana_draft_step_${targetId}`,
 } as const;
 
+const memoryStorage = new Map<string, string>();
+
+function getUnderlyingStorage(): Storage | null {
+  try {
+    if (typeof localStorage !== "undefined") return localStorage;
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  } catch {}
+  return null;
+}
+
 export const safeStorage = {
   /**
    * Safely read a raw string value from localStorage. Returns null if unavailable.
    */
   getItem(key: string): string | null {
-    try {
-      return localStorage.getItem(key);
-    } catch (e) {
-      console.warn(`[Storage] Failed to read key "${key}" from localStorage:`, e);
-      return null;
+    const s = getUnderlyingStorage();
+    if (s) {
+      try {
+        return s.getItem(key);
+      } catch (e) {
+        console.warn(`[Storage] Failed to read key "${key}" from localStorage:`, e);
+      }
     }
+    return memoryStorage.get(key) ?? null;
   },
 
   /**
    * Safely write a raw string value to localStorage. No-op if unavailable.
    */
   setItem(key: string, value: string): void {
-    try {
-      localStorage.setItem(key, value);
-    } catch (e) {
-      console.warn(`[Storage] Failed to write key "${key}" to localStorage:`, e);
+    const s = getUnderlyingStorage();
+    if (s) {
+      try {
+        s.setItem(key, value);
+        return;
+      } catch (e) {
+        console.warn(`[Storage] Failed to write key "${key}" to localStorage:`, e);
+      }
     }
+    memoryStorage.set(key, value);
   },
 
   /**
    * Safely delete a key from localStorage. No-op if unavailable.
    */
   removeItem(key: string): void {
-    try {
-      localStorage.removeItem(key);
-    } catch (e) {
-      console.warn(`[Storage] Failed to remove key "${key}" from localStorage:`, e);
+    const s = getUnderlyingStorage();
+    if (s) {
+      try {
+        s.removeItem(key);
+      } catch (e) {
+        console.warn(`[Storage] Failed to remove key "${key}" from localStorage:`, e);
+      }
     }
+    memoryStorage.delete(key);
   },
 
   /**

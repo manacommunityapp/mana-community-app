@@ -7,7 +7,7 @@ import {
   governanceService,
   type NocRequest,
   type NocType,
-} from "../../../../services/governance/governanceService";
+} from "../../../services/governance/governanceService";
 
 const NOC_TYPES: { value: NocType; label: string }[] = [
   { value: "RENOVATION", label: "Renovation / Interior Work" },
