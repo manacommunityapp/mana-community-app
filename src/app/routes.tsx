@@ -75,6 +75,8 @@ import { ComplianceReportsPage } from "./components/kyc/ComplianceReportsPage";
 import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
 import { GroupOrdersPage } from "./components/marketplace/GroupOrdersPage";
 import { SmartDevicesPage } from "./components/ops/SmartDevicesPage";
+import ReputationPage from "./components/profile/ReputationPage";
+import InsightsDashboard from "./components/community-ops/InsightsDashboard";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -1765,6 +1767,8 @@ export const router = createBrowserRouter([
       { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },
       { path: "marketplace/group-orders", element: <GroupOrdersPage /> },
       { path: "ops/devices", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><SmartDevicesPage /></PermissionGuard> },
+      { path: "profile/reputation", element: <ReputationPage /> },
+      { path: "ops/insights", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><InsightsDashboard /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
