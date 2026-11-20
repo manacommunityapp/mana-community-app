@@ -84,6 +84,8 @@ automation/workflows/
 ├── finance/        (Dues, bill, wallet and investment review plus receipt OCR)
 ├── community/      (Weekly digests & feed moderation)
 ├── sports/         (7 workflows: fixtures, scoring, disputes, auction, etc.)
+├── governance/     (4 workflows: AGM quorum sentinel, MoM extractor, secret ballot auditor, legal formatter)
+├── amenities/      (4 workflows: court booking, fair-usage enforcer, blackout rescheduler, deposit arbitrator)
 ├── auth/           (3 workflows: registration screener, login security, lockout)
 ├── profile/        (KYC fraud detection & directory coherence)
 ├── admin/          (4 workflows: KYC verify, bulk import audit, announcements, ops)

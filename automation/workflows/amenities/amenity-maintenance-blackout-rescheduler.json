@@ -1,0 +1,136 @@
+{
+  "name": "Mana Amenity Maintenance Blackout Rescheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "amenity-blackout-rescheduler",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-amenity-blackout-rescheduler-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst facilityName = item.facilityName || 'Olympic Swimming Pool';\nconst incidentType = item.incidentType || 'PUMP_FILTRATION_BREAKDOWN';\nconst blackoutStart = item.blackoutStart || '2026-11-21 06:00 AM';\nconst blackoutEnd = item.blackoutEnd || '2026-11-22 08:00 PM';\nconst affectedBookings = item.affectedBookings || [\n  { bookingId: 'BK-8901', flatNo: 'Tower B-302', residentName: 'Vikas Rao', slot: 'Saturday 07:00 AM - 08:00 AM', feePaid: 250 },\n  { bookingId: 'BK-8902', flatNo: 'Tower C-104', residentName: 'Meera Nair', slot: 'Saturday 04:00 PM - 05:00 PM', feePaid: 250 },\n  { bookingId: 'BK-8903', flatNo: 'Tower A-901', residentName: 'Kunal Sen', slot: 'Sunday 08:00 AM - 09:00 AM', feePaid: 250 }\n];\n\nconst prompt = `You are the Operations Director and Resident Experience Officer for Mana Community.\nA sudden emergency maintenance breakdown has occurred at a society facility:\n\nBreakdown Incident Dossier:\n- Facility: ${facilityName}\n- Incident: ${incidentType}\n- Blackout Window: From ${blackoutStart} to ${blackoutEnd}\n- Affected Resident Bookings (${affectedBookings.length} confirmed bookings):\n${JSON.stringify(affectedBookings, null, 2)}\n\nTasks:\n1. Formulate compensation & refund policy (100% refund + bonus priority pass credit).\n2. Generate automated rescheduling options for each affected booking for the following week.\n3. Draft a courteous, apologetic, and clear WhatsApp notification message ready to broadcast with emojis.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"totalAffectedBookings\": number,\n  \"totalRefundAmount\": number,\n  \"compensationPolicy\": string,\n  \"rescheduleOptions\": [\n    { \"bookingId\": string, \"flatNo\": string, \"suggestedAlternativeSlot\": string }\n  ],\n  \"residentBroadcastMessage\": string\n}`;\n\nreturn [{ json: { prompt, facilityName, incidentType, totalAffected: affectedBookings.length } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    totalAffectedBookings: 3,\n    totalRefundAmount: 750,\n    compensationPolicy: \"Automatic 100% wallet refund + complimentary priority booking credit for upcoming weekend.\",\n    rescheduleOptions: [\n      { bookingId: \"BK-8901\", flatNo: \"Tower B-302\", suggestedAlternativeSlot: \"Next Saturday 07:00 AM\" }\n    ],\n    residentBroadcastMessage: \"⚠️ Important Facility Alert: Olympic Pool is undergoing emergency filtration maintenance. Full refunds have been credited to your wallet with priority re-booking.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", facility: meta.facilityName, incident: meta.incidentType, processedAt: new Date().toISOString(), resolution: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

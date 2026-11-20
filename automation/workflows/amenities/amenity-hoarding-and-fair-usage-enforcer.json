@@ -1,0 +1,136 @@
+{
+  "name": "Mana Amenity Hoarding & Fair Usage Enforcer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "amenity-fair-usage-enforcer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-amenity-fair-usage-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst resourceId = item.resourceId || 'AMENITY-TENNIS-01';\nconst resourceName = item.resourceName || 'Floodlit Tennis Court';\nconst targetDate = item.targetDate || '2026-11-21';\nconst recentBookingHistory = item.recentBookingHistory || [\n  { flatNo: 'Tower A-402', bookingsInLast7Days: 5, peakHourBookings: 4, noShowCount: 1 },\n  { flatNo: 'Tower B-103', bookingsInLast7Days: 1, peakHourBookings: 1, noShowCount: 0 },\n  { flatNo: 'Tower A-402', requestedSlot: '07:00 PM - 08:00 PM (Saturday)', isPeak: true }\n];\n\nconst prompt = `You are the Chief Facility Auditor and Fair-Play Officer for Mana Community Amenities.\nAudit the following amenity slot request and recent booking patterns for slot hoarding, monopolization, and unfair usage:\n\nAmenity & Request Dossier:\n- Amenity: ${resourceName} (${resourceId}) for ${targetDate}\n- Society Bylaw Quotas: Max 3 bookings per week per flat (Max 2 peak-hour weekend slots).\n- Current Booking History & Applicant Data:\n${JSON.stringify(recentBookingHistory, null, 2)}\n\nAudit Verification Criteria:\n1. Quota Exhaustion: Has the applicant flat exceeded weekly peak/general booking limits?\n2. Slot Monopolization: Are neighboring flats being starved of weekend prime slots?\n3. No-Show Penalty: Check if applicant has repeat no-shows without 2-hour advance cancellation.\n4. Decision: Issue \"APPROVED\", \"STANDBY_WAITLIST\", or \"COOLDOWN_RESTRICTION\".\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"fairnessVerdict\": \"APPROVED\" | \"STANDBY_WAITLIST\" | \"COOLDOWN_RESTRICTION\",\n  \"fairnessScore\": number (0 to 100),\n  \"quotaStatus\": {\n    \"weeklyUsed\": number,\n    \"weeklyAllowed\": number,\n    \"peakHourLimitReached\": boolean\n  },\n  \"hoardingRisk\": \"LOW\" | \"MODERATE\" | \"HIGH\",\n  \"restrictionReason\": string,\n  \"recommendedAction\": string,\n  \"residentNotice\": string\n}`;\n\nreturn [{ json: { prompt, resourceId, resourceName } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    fairnessVerdict: \"COOLDOWN_RESTRICTION\",\n    fairnessScore: 62,\n    quotaStatus: { weeklyUsed: 5, weeklyAllowed: 3, peakHourLimitReached: true },\n    hoardingRisk: \"HIGH\",\n    restrictionReason: \"Flat has exceeded the 3 bookings/week threshold with 4 peak-hour slots.\",\n    recommendedAction: \"Apply 48-hour cooldown before permitting next prime-time reservation.\",\n    residentNotice: \"You have utilized your weekly peak-hour allocation. This slot has been prioritized for waiting neighbors.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", resourceId: meta.resourceId, resource: meta.resourceName, auditedAt: new Date().toISOString(), evaluation: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

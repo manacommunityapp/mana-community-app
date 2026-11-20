@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, FileText, RefreshCw } from "lucide-react";
+import { CheckCircle2, FileText, RefreshCw, Sparkles, Scale, Copy, X } from "lucide-react";
+import { toast } from "react-toastify";
 import { governanceService, type Resolution as ApiResolution } from "../../../services/governance/governanceService";
 import { useTenantContext } from "../../../contexts/TenantContext";
+import { automationService, type ResolutionLegalFormatResponse } from "../../../services/automation/automationService";
 
 export function ResolutionsBoard() {
   const { communityId } = useTenantContext();
   const [apiResolutions, setApiResolutions] = useState<ApiResolution[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [legalDraft, setLegalDraft] = useState<ResolutionLegalFormatResponse | null>(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
 
   useEffect(() => {
     if (!communityId) return;
@@ -19,6 +24,27 @@ export function ResolutionsBoard() {
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selectedResolution = apiResolutions.find(r => r.id === selectedId) ?? apiResolutions[0] ?? null;
+
+  const handleFormatResolution = async (res: ApiResolution) => {
+    setIsFormatting(true);
+    try {
+      const response = await automationService.formatGovernanceResolution({
+        resolutionId: String(res.id),
+        title: res.title,
+        rawContent: res.description || res.title,
+        resolutionType: (res.resolutionType as any) || "ORDINARY",
+        proposedBy: "Managing Committee / General Body",
+        bylawFramework: "Model Apartment Association Byelaws & Societies Act"
+      });
+      setLegalDraft(response);
+      setShowLegalModal(true);
+      toast.success("Resolution converted to statutory legal format!");
+    } catch {
+      toast.error("Failed to generate legal resolution format.");
+    } finally {
+      setIsFormatting(false);
+    }
+  };
 
   const statusColor: Record<string, string> = {
     PASSED:        "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
@@ -107,13 +133,25 @@ export function ResolutionsBoard() {
             {selectedResolution ? (
               <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 space-y-5 shadow-xs">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${statusColor[selectedResolution.status] ?? statusColor.WITHDRAWN}`}>
-                      {selectedResolution.status === "OPEN_FOR_VOTE" ? "Open for Vote" : selectedResolution.status.charAt(0) + selectedResolution.status.slice(1).toLowerCase()}
-                    </span>
-                    <span className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                      {selectedResolution.resolutionType.charAt(0) + selectedResolution.resolutionType.slice(1).toLowerCase()} Resolution
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${statusColor[selectedResolution.status] ?? statusColor.WITHDRAWN}`}>
+                        {selectedResolution.status === "OPEN_FOR_VOTE" ? "Open for Vote" : selectedResolution.status.charAt(0) + selectedResolution.status.slice(1).toLowerCase()}
+                      </span>
+                      <span className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                        {selectedResolution.resolutionType.charAt(0) + selectedResolution.resolutionType.slice(1).toLowerCase()} Resolution
+                      </span>
+                    </div>
+
+                    {/* AI Legal & Bylaw Formatter Trigger */}
+                    <button
+                      onClick={() => handleFormatResolution(selectedResolution)}
+                      disabled={isFormatting}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 ${isFormatting ? "animate-spin text-indigo-500" : "text-indigo-600"}`} />
+                      {isFormatting ? "Drafting Legal Text..." : "AI Legal & Bylaw Formatter"}
+                    </button>
                   </div>
                   <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">{selectedResolution.title}</h2>
                   {selectedResolution.description && (
@@ -152,6 +190,115 @@ export function ResolutionsBoard() {
                 <p className="text-xs text-slate-500">Select a resolution to view details.</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Legal & Bylaw Formatter Modal ───────────────────────────────────── */}
+      {showLegalModal && legalDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    Statutory Legal Resolution Draft
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                      Bylaw Sentinel
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Ref: {legalDraft.legalDraft.refNumber}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLegalModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Title & Quorum Requirement Header */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex justify-between items-start gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                  {legalDraft.legalDraft.resolutionClassification}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  {legalDraft.legalDraft.bylawComplianceStatus.replace(/_/g, " ")}
+                </span>
+              </div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                {legalDraft.legalDraft.formalTitle}
+              </h4>
+              <p className="text-xs text-slate-500">
+                Required Quorum & Threshold: <strong className="text-slate-700 dark:text-slate-300">{legalDraft.legalDraft.votingRequirement}</strong>
+              </p>
+            </div>
+
+            {/* Recitals / WHEREAS clauses */}
+            <div className="space-y-2">
+              <div className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Recitals & Preamble
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-serif leading-relaxed text-slate-700 dark:text-slate-300 italic">
+                {legalDraft.legalDraft.preamble}
+              </div>
+            </div>
+
+            {/* Operative Clauses */}
+            <div className="space-y-2">
+              <div className="text-[11px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Operative Clauses
+              </div>
+              <div className="space-y-2">
+                {legalDraft.legalDraft.operativeClauses.map((clause, idx) => (
+                  <div key={idx} className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/40 text-xs font-mono text-slate-800 dark:text-slate-200">
+                    <strong className="text-indigo-600 dark:text-indigo-400">Clause {idx + 1}: </strong>
+                    {clause}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Statutory Citations */}
+            {legalDraft.legalDraft.statutoryCitations?.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold text-slate-500">Statutory Citations:</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {legalDraft.legalDraft.statutoryCitations.map((cite, i) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                      § {cite}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  const clauses = legalDraft.legalDraft.operativeClauses.map((c, i) => `\n${i + 1}. ${c}`).join("");
+                  navigator.clipboard.writeText(
+                    `FORMAL RESOLUTION DRAFT\nRef: ${legalDraft.legalDraft.refNumber}\nTitle: ${legalDraft.legalDraft.formalTitle}\nClassification: ${legalDraft.legalDraft.resolutionClassification}\n\nPREAMBLE:\n${legalDraft.legalDraft.preamble}\n\nRESOLVED THAT:${clauses}\n\nVOTING REQUIREMENT:\n${legalDraft.legalDraft.votingRequirement}`
+                  );
+                  toast.success("Statutory legal draft copied to clipboard!");
+                }}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy Formal Draft
+              </button>
+              <button
+                onClick={() => setShowLegalModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

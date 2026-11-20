@@ -21,6 +21,7 @@
     "test:e2e:profile": "playwright test e2e/profile",
     "test:e2e:jewellery": "playwright test e2e/jewellery",
     "n8n:sports": "node automation/scripts/run-sports-workflows.cjs",
+    "n8n:governance": "node automation/scripts/run-governance-workflows.cjs",
     "n8n:start": "npx n8n"
   },
   "dependencies": {

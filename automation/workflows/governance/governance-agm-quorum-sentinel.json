@@ -1,0 +1,136 @@
+{
+  "name": "Mana Governance AGM Quorum Sentinel",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "governance-agm-quorum-sentinel",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-gov-agm-quorum-sentinel-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst meetingId = item.meetingId || 'AGM-2026';\nconst meetingTitle = item.title || 'Annual General Meeting 2026';\nconst meetingDate = item.meetingDate || '2026-11-29 10:00 AM';\nconst totalEligibleOwners = Number(item.totalEligibleOwners || 320);\nconst statutoryQuorumPercent = Number(item.statutoryQuorumPercent || 33.3);\nconst confirmedPhysical = Number(item.confirmedPhysical || 45);\nconst confirmedVirtual = Number(item.confirmedVirtual || 55);\nconst proxyVotesReceived = Number(item.proxyVotesReceived || 12);\nconst towerBreakdown = item.towerBreakdown || [\n  { tower: 'Tower A', confirmed: 35, total: 100 },\n  { tower: 'Tower B', confirmed: 40, total: 100 },\n  { tower: 'Tower C', confirmed: 25, total: 80 },\n  { tower: 'Villas', confirmed: 12, total: 40 }\n];\n\nconst totalAttending = confirmedPhysical + confirmedVirtual + proxyVotesReceived;\nconst requiredQuorumCount = Math.ceil((statutoryQuorumPercent / 100) * totalEligibleOwners);\n\nconst prompt = `You are the Official Legal & Governance Auditor for the Mana Residency Management Committee.\nAudit the following General Body Assembly attendee count for quorum compliance under State Apartment Ownership bylaws:\n\nAssembly Dossier:\n- Meeting: ${meetingTitle} (${meetingId}) on ${meetingDate}\n- Total Registered Flat Owners: ${totalEligibleOwners}\n- Statutory Quorum Requirement: ${statutoryQuorumPercent}% (${requiredQuorumCount} owners required)\n- Current Confirmations: Physical: ${confirmedPhysical}, Virtual: ${confirmedVirtual}, Proxies: ${proxyVotesReceived}\n- Total Present / Confirmed: ${totalAttending}\n- Tower Breakdown: ${JSON.stringify(towerBreakdown)}\n\nAudit Tasks:\n1. Determine quorumStatus: \"QUORUM_MET\" | \"NEAR_QUORUM\" (within 10%) | \"QUORUM_DEFICIT\".\n2. Calculate shortfall (number of owners needed to achieve legal quorum).\n3. Identify low-turnout clusters/towers.\n4. Formulate an adjournment risk advisory (e.g. 30-min adjournment procedure per bylaws).\n5. Generate an urgent, professional WhatsApp notification bulletin ready to broadcast with emojis.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"quorumStatus\": \"QUORUM_MET\" | \"NEAR_QUORUM\" | \"QUORUM_DEFICIT\",\n  \"quorumPercentageCurrent\": number,\n  \"statutoryQuorumRequired\": number,\n  \"attendeesCount\": number,\n  \"shortfall\": number,\n  \"adjournmentRisk\": \"NONE\" | \"LOW\" | \"HIGH\" | \"CRITICAL\",\n  \"towerOutreachTargets\": [\n    { \"tower\": string, \"shortfallNotes\": string, \"recommendedAction\": string }\n  ],\n  \"governanceVerdict\": string,\n  \"whatsappBroadcastBulletin\": string\n}`;\n\nreturn [{ json: { prompt, meetingId, meetingTitle, totalAttending, requiredQuorumCount } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  const meta = $('Prepare AI Prompt').first().json;\n  const isMet = meta.totalAttending >= meta.requiredQuorumCount;\n  parsed = {\n    quorumStatus: isMet ? \"QUORUM_MET\" : \"QUORUM_DEFICIT\",\n    quorumPercentageCurrent: Math.round((meta.totalAttending / 320) * 100),\n    statutoryQuorumRequired: 33.3,\n    attendeesCount: meta.totalAttending,\n    shortfall: Math.max(0, meta.requiredQuorumCount - meta.totalAttending),\n    adjournmentRisk: isMet ? \"NONE\" : \"HIGH\",\n    towerOutreachTargets: [{ tower: \"All Towers\", shortfallNotes: \"Attendance below 33% threshold\", recommendedAction: \"Door-to-door steward reminder\" }],\n    governanceVerdict: isMet ? \"Statutory quorum successfully achieved.\" : \"Quorum not yet met. Active mobilization required.\",\n    whatsappBroadcastBulletin: \"📢 *URGENT AGM NOTICE*\\nQuorum count is currently at \" + meta.totalAttending + \". Please confirm your presence to avoid meeting adjournment!\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", meetingId: meta.meetingId, title: meta.meetingTitle, auditedAt: new Date().toISOString(), evaluation: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
