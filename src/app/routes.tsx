@@ -75,6 +75,8 @@ import { ComplianceReportsPage } from "./components/kyc/ComplianceReportsPage";
 import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
 import { GroupOrdersPage } from "./components/marketplace/GroupOrdersPage";
 import { SmartDevicesPage } from "./components/ops/SmartDevicesPage";
+import CommunityWalletPage from "./components/finance/CommunityWalletPage";
+import IoTSensorDashboard from "./components/iot/IoTSensorDashboard";
 import ReputationPage from "./components/profile/ReputationPage";
 import InsightsDashboard from "./components/community-ops/InsightsDashboard";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
@@ -1767,6 +1769,9 @@ export const router = createBrowserRouter([
       { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },
       { path: "marketplace/group-orders", element: <GroupOrdersPage /> },
       { path: "ops/devices", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><SmartDevicesPage /></PermissionGuard> },
+      // ── Future-tier features ────────
+      { path: "finance/wallet", element: <CommunityWalletPage /> },
+      { path: "ops/iot", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><IoTSensorDashboard /></PermissionGuard> },
       { path: "profile/reputation", element: <ReputationPage /> },
       { path: "ops/insights", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><InsightsDashboard /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
