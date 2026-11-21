@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ComponentType } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, Link } from "react-router";
 import {
   UserCircle,
   ShieldCheck,
@@ -1392,6 +1392,16 @@ export function ProfileDashboard() {
                 </button>
               );
             })}
+            <Link
+              to="/my-dashboard"
+              className="flex-1 min-w-[54px] flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 sm:flex-row sm:gap-1.5 sm:px-3 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium transition-all shrink-0 sm:shrink"
+            >
+              <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="text-[8.5px] sm:text-[11.5px] leading-none">
+                <span className="sm:hidden">Home</span>
+                <span className="hidden sm:inline">My Dashboard</span>
+              </span>
+            </Link>
           </div>
         </div>
       </div>
