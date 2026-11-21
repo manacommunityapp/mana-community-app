@@ -80,6 +80,8 @@ import IoTSensorDashboard from "./components/iot/IoTSensorDashboard";
 import ReputationPage from "./components/profile/ReputationPage";
 import InsightsDashboard from "./components/community-ops/InsightsDashboard";
 import PlatformOpsDashboard from "./components/platform/PlatformOpsDashboard";
+import ResidentDashboard from "./components/resident/ResidentDashboard";
+import CommunityManagerDashboard from "./components/community-ops/CommunityManagerDashboard";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
@@ -1776,6 +1778,8 @@ export const router = createBrowserRouter([
       { path: "profile/reputation", element: <ReputationPage /> },
       { path: "ops/insights", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><InsightsDashboard /></PermissionGuard> },
       { path: "platform/ops", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><PlatformOpsDashboard /></PermissionGuard> },
+      { path: "ops/community-manager", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><CommunityManagerDashboard /></PermissionGuard> },
+      { path: "my-dashboard", element: <ResidentDashboard /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },

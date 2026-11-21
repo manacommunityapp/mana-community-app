@@ -138,6 +138,28 @@ export function OpsControlRoom() {
           )}
         </div>
       </div>
+
+      {/* Quick links to full dashboards */}
+      <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => navigate('/ops/community-manager')}
+          style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #6366F1', background: '#EEF2FF', color: '#4338CA', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+        >
+          📊 Community Manager Dashboard
+        </button>
+        <button
+          onClick={() => navigate('/ops/insights')}
+          style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+        >
+          💡 AI Insights
+        </button>
+        <button
+          onClick={() => navigate('/ops/iot')}
+          style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+        >
+          🌡 IoT Sensors
+        </button>
+      </div>
     </div>
   );
 }
