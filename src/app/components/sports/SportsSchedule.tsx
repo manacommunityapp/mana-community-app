@@ -1334,6 +1334,7 @@ export function SportsSchedule() {
       ? null
       : new Set(tournamentConfigs.filter(config => Number(config.eventId) === selectedSportsEventId).map(config => config.id));
     return fixturesList.filter(f => {
+      if (isByeMatch({ ...f, teamAName: f.team1, teamBName: f.team2 })) return false;
       const matchesTournament = selectedTournamentId !== null
         ? f.configId === selectedTournamentId
         : selectedActualTournamentId === null || activeTournamentConfigIds.has(f.configId ?? -1);

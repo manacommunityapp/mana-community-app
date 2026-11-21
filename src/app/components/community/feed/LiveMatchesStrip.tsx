@@ -5,7 +5,7 @@ import { Radio, X, Trophy, Play, Activity, ExternalLink, Search, ChevronRight, C
 import { toast } from "sonner";
 import { tournamentService, type FeedLiveMatch, type LiveMatchStateData, type GenericMatchState, type ScoringConfig, type TossDecision } from "../../../../services/sports/tournamentService";
 import { sportsEventService } from "../../../../services/sports/sportsEventService";
-import { isPlaceholderOrTbd, propagateByeAdvancements } from "../../../../utils/sportsValidationUtils";
+import { isByeMatch, isPlaceholderOrTbd, propagateByeAdvancements } from "../../../../utils/sportsValidationUtils";
 import { stompClient } from "../../../../services/chat/stompClient";
 import { apiClient, getStoredUser } from "../../../../services/common/apiClient";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -885,7 +885,7 @@ export function LiveMatchesStrip() {
   };
 
   const visible = useMemo(() => {
-    return matches.filter((m) => !dismissed.includes(m.matchId));
+    return matches.filter((m) => !isByeMatch(m) && !dismissed.includes(m.matchId));
   }, [matches, dismissed]);
 
   const liveMatches = useMemo(() => {
@@ -924,6 +924,7 @@ export function LiveMatchesStrip() {
 
   const filteredModalMatches = useMemo(() => {
     return matches.filter((m) => {
+      if (isByeMatch(m)) return false;
       if (modalStatusFilter === "LIVE_ONLY" && !isLiveStatus(m.status)) return false;
       if (modalStatusFilter === "UPCOMING_ONLY" && !isUpcomingStatus(m.status)) return false;
       if (modalSportFilter !== "ALL" && (m.sportName || "").toLowerCase() !== modalSportFilter.toLowerCase()) return false;
