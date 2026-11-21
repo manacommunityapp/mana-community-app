@@ -22,6 +22,7 @@ import {
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
+import { GlobalSearchBar } from "../../search/GlobalSearchBar";
 import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
@@ -519,6 +520,7 @@ export function Layout() {
         { to: "/deals", icon: Tag, label: "Mana Deals", menuKey: "deals" },
         { to: "/food", icon: ShoppingCart, label: "Food & Dining", menuKey: "food" },
         { to: "/fresh-kitchen", icon: Sparkles, label: "Fresh Kitchen", badge: "2-4°C", menuKey: "fresh-kitchen" },
+        { to: "/fresh", icon: ShoppingBag, label: "Fresh", badge: "New", menuKey: "fresh" },
         { to: "/daily-basket", icon: ShoppingBag, label: "Daily Basket", badge: "Daily", menuKey: "daily-basket" },
         { to: "/wellness-basket", icon: HeartPulse, label: "Wellness Nutrition", badge: "Sub", menuKey: "wellness-basket" },
         { to: "/academy", icon: GraduationCap, label: "Mana Academy", menuKey: "academy" },
@@ -620,6 +622,7 @@ export function Layout() {
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
     if (label === "Food & Dining") return true;
     if (label === "Fresh Kitchen") return true;
+    if (label === "Fresh") return true;
     if (label === "Daily Basket") return true;
     if (label === "Wellness Nutrition") return true;
     if (label === "Fixed Deposits") return true;
@@ -1269,18 +1272,7 @@ export function Layout() {
 
             {/* Desktop Header Search Bar */}
             <div className="flex-1 max-w-md mx-3 sm:mx-6 hidden lg:block">
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("mana:open-search"))}
-                className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-[#F9FAFC] hover:bg-[#F1F4F7] border border-[#EBEFF2] hover:border-[#A7F3D0] text-xs text-[#7C7E8C] hover:text-[#44475B] transition-all cursor-pointer shadow-2xs group"
-                title="Search features, modules, pages (Ctrl+K / ⌘K)"
-              >
-                <Search className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#00D09C] transition-colors shrink-0" />
-                <span className="flex-1 text-left truncate font-medium">Search features, events, bookings, directory...</span>
-                <kbd className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#7C7E8C] bg-white border border-[#EBEFF2] px-1.5 py-0.5 rounded-md shadow-2xs">
-                  ⌘K
-                </kbd>
-              </button>
+              <GlobalSearchBar />
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">

@@ -260,6 +260,8 @@ import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprov
 import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
 import FreshDispatchRoutingHub from "./components/fresh/vendor/FreshDispatchRoutingHub";
 import FreshVendorSettlementLedger from "./components/fresh/vendor/FreshVendorSettlementLedger";
+import { ManaFreshPage } from "./components/fresh/ManaFreshPage";
+import { GlobalSearchPage } from "./components/search/GlobalSearchPage";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -1467,6 +1469,10 @@ export const router = createBrowserRouter([
           { path: "settings", element: <HrmSettings /> },
         ],
       },
+      // ── Global Search ────────
+      { path: "search", element: <GlobalSearchPage /> },
+      // ── Mana Fresh ────────
+      { path: "fresh", element: <ManaFreshPage /> },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
