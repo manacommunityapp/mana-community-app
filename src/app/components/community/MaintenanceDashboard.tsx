@@ -42,7 +42,7 @@ export function MaintenanceDashboard() {
   const [form, setForm] = useState({
     assetId: "",
     maintenanceDate: new Date().toISOString().split("T")[0],
-    type: "PREVENTIVE" as const,
+    type: "PREVENTIVE" as "PREVENTIVE" | "REPAIR" | "INSPECTION",
     description: "",
     cost: "",
     performedBy: "",

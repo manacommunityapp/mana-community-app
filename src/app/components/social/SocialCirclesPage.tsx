@@ -6,8 +6,8 @@ import {
   type SocialGroup,
   type GroupMessage,
   GROUP_TYPES,
-} from "../../../../services/socialGroupService";
-import { getStoredUser } from "../../../../services/common/apiClient";
+} from "../../../services/socialGroupService";
+import { getStoredUser } from "../../../services/common/apiClient";
 
 type GroupTab = "chat" | "events" | "expenses";
 

@@ -14,7 +14,7 @@ export function ProviderCredentialManager() {
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [doctorId, setDoctorId] = useState('');
-  const [form, setForm] = useState({ credentialType: 'MEDICAL_LICENSE', credentialNumber: '', issuingBody: '', expiryDate: '' });
+  const [form, setForm] = useState({ credentialType: 'MEDICAL_LICENSE' as any, credentialNumber: '', issuingBody: '', expiryDate: '' });
   const user = getStoredUser();
   const communityId = user?.communityId ?? 0;
 

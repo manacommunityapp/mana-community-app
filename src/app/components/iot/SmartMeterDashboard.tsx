@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { NavLink } from "react-router";
+import { automationService, type IotMeterHealthSummaryResponse } from "../../../services/automation/automationService";
 import {
   Droplets,
   Sparkles,
@@ -42,8 +43,8 @@ export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
         meters: meters.map(m => ({
           meterSerialNumber: m.meterSerialNumber,
           meterType: m.meterType,
-          unitNumber: m.unitNumber,
-          blockName: m.blockName,
+          unitNumber: m.unitNumber || 'Common',
+          blockName: m.blockName || 'Main',
           status: m.batteryLevel && m.batteryLevel < 10 ? 'FAULT' : 'ACTIVE',
           lastReading: m.lastReading,
           batteryLevel: m.batteryLevel,

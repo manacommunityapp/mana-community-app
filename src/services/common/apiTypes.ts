@@ -30,14 +30,21 @@ export function isPageResponse<T>(v: unknown): v is PageResponse<T> {
 
 /** Typed API error carrying correlationId and traceId for support tracing. */
 export class ApiError extends Error {
+  readonly correlationId?: string;
+  readonly statusCode?: number;
+  readonly traceId?: string;
+
   constructor(
     message: string,
-    public readonly correlationId?: string,
-    public readonly statusCode?: number,
-    public readonly traceId?: string,
+    correlationId?: string,
+    statusCode?: number,
+    traceId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
+    this.correlationId = correlationId;
+    this.statusCode = statusCode;
+    this.traceId = traceId;
   }
 }
 

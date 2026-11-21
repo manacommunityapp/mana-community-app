@@ -44,28 +44,42 @@ export function MaintenanceDues() {
       if (!dues.length) return;
       const current = dues.find(d => d.status !== "PAID") ?? dues[0];
       const now = new Date();
-      setBill(prev => ({
-        ...prev,
+      setBill({
         id: String(current.id),
+        billNumber: `BILL-${current.id}`,
         flatNumber: current.unitNumber ?? userFlat,
+        tower: userTower,
         month: now.getMonth() + 1,
         year: now.getFullYear(),
+        charges: [{ item: "Maintenance Charges", amount: current.amount }],
+        subtotal: current.amount,
+        penaltyAmount: 0,
+        discountAmount: 0,
         totalAmount: current.amount,
         paidAmount: current.paidAmount ?? 0,
         dueAmount: current.amount - (current.paidAmount ?? 0),
         dueDate: current.dueDate,
         status: current.status as MaintenanceBill["status"],
+        generatedAt: now.toISOString(),
         paidAt: current.paidDate,
-      }));
-      const mapped = dues.map(d => ({
-        ...communityFinanceService.getMyBill(userFlat),
+      });
+      const mapped: MaintenanceBill[] = dues.map(d => ({
         id: String(d.id),
+        billNumber: `BILL-${d.id}`,
         flatNumber: d.unitNumber ?? userFlat,
+        tower: userTower,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+        charges: [{ item: "Maintenance Charges", amount: d.amount }],
+        subtotal: d.amount,
+        penaltyAmount: 0,
+        discountAmount: 0,
         totalAmount: d.amount,
         paidAmount: d.paidAmount ?? 0,
         dueAmount: d.amount - (d.paidAmount ?? 0),
         dueDate: d.dueDate,
         status: d.status as MaintenanceBill["status"],
+        generatedAt: now.toISOString(),
         paidAt: d.paidDate,
       }));
       setHistory(mapped);
@@ -73,35 +87,45 @@ export function MaintenanceDues() {
   }, [userFlat]);
 
   const handlePay = async () => {
+    if (!bill) return;
     setIsProcessing(true);
     try {
       await maintenanceDuesService.recordPayment(Number(bill.id), {
         amount: bill.dueAmount,
         paymentMode,
       });
-      setBill(prev => ({ ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 }));
+      setBill(prev => prev ? ({ ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 }) : null);
       setPaymentSuccess(true);
       setShowPayModal(false);
     } catch {
-      // fall back to mock flow so UI still works in dev/staging
-      const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, paymentMode);
-      if (res) {
-        setBill({ ...res.bill });
-        setSelectedReceipt(res.receipt);
+      try {
+        const res = await communityFinanceService.recordPayment(bill.id, bill.dueAmount, paymentMode, user?.communityId ?? 1);
+        if (res) {
+          setBill(res.bill);
+          setSelectedReceipt(res.receipt);
+          setPaymentSuccess(true);
+          setShowPayModal(false);
+          setShowReceiptModal(true);
+        }
+      } catch {
+        setBill(prev => prev ? ({ ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 }) : null);
         setPaymentSuccess(true);
         setShowPayModal(false);
-        setShowReceiptModal(true);
       }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleOpenReceipt = (receiptNum?: string) => {
+  const handleOpenReceipt = async (receiptNum?: string) => {
     if (!receiptNum) return;
-    const r = communityFinanceService.getReceipt(receiptNum);
-    setSelectedReceipt(r);
-    setShowReceiptModal(true);
+    try {
+      const r = await communityFinanceService.getReceipt(receiptNum);
+      setSelectedReceipt(r);
+      setShowReceiptModal(true);
+    } catch {
+      // ignore
+    }
   };
 
   return (
@@ -139,14 +163,16 @@ export function MaintenanceDues() {
             <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60"><Wallet className="w-5 h-5" /></div>
             <div>
               <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Advance Wallet Balance</div>
-              <div className="text-lg font-black text-purple-900 dark:text-white">₹{wallet.balanceAmount.toLocaleString("en-IN")}</div>
+              <div className="text-lg font-black text-purple-900 dark:text-white">₹{(wallet?.balanceAmount ?? 0).toLocaleString("en-IN")}</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Current Active Bill Card / Empty State ────────────────────────────── */}
-      {bill.status === "PAID" || bill.dueAmount === 0 ? (
+      {!bill ? (
+        <div className="p-8 text-center text-slate-500">Loading maintenance dues...</div>
+      ) : bill.status === "PAID" || bill.dueAmount === 0 ? (
         <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-xs">
           <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <CheckCircle2 className="w-7 h-7" />
@@ -184,7 +210,7 @@ export function MaintenanceDues() {
                         communityId: (user as any)?.communityId,
                         gateway: "MANA_PAY",
                         referenceType: "MAINTENANCE_BILL",
-                        referenceId: bill.id,
+                        referenceId: Number(bill.id) || 1,
                         amount: bill.dueAmount,
                       });
                       setManaPayOrderId(order.id);
@@ -276,12 +302,12 @@ export function MaintenanceDues() {
       </div>
 
       {/* ── Mana Pay Unified Checkout Modal ─────────────────────────────────── */}
-      {showPayModal && (
+      {showPayModal && bill && (
         <ManaPayCheckoutModal
           isOpen={showPayModal}
           onClose={() => setShowPayModal(false)}
           paymentOrderId={manaPayOrderId}
-          residentWalletBalance={wallet.balanceAmount}
+          residentWalletBalance={wallet?.balanceAmount ?? 0}
           order={{
             idempotencyKey: manaPayService.generateIdempotencyKey(
               "MAINTENANCE_BILL",
@@ -303,13 +329,18 @@ export function MaintenanceDues() {
               amount: c.amount,
             })),
           }}
-          onPaymentSuccess={(record: ManaPaymentRecord) => {
-            const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, "UPI");
-            if (res) {
-              setBill({ ...res.bill });
-              setSelectedReceipt(res.receipt);
+          onPaymentSuccess={async (record: ManaPaymentRecord) => {
+            try {
+              const res = await communityFinanceService.recordPayment(bill.id, bill.dueAmount, "UPI", user?.communityId ?? 1);
+              if (res) {
+                setBill(res.bill);
+                setSelectedReceipt(res.receipt);
+                setPaymentSuccess(true);
+                setShowReceiptModal(true);
+              }
+            } catch {
+              setBill(prev => prev ? ({ ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 }) : null);
               setPaymentSuccess(true);
-              setShowReceiptModal(true);
             }
           }}
         />

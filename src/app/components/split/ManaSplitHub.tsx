@@ -951,13 +951,13 @@ export const ManaSplitHub: React.FC = () => {
                     {simplifiedDebtsResult.originalTransferCount} → <span className="text-purple-700">{simplifiedDebtsResult.optimizedTransferCount}</span>
                   </div>
                   <span className="text-[10px] text-emerald-600 font-semibold">
-                    -{Math.round(((simplifiedDebtsResult.originalTransferCount - simplifiedDebtsResult.optimizedTransferCount) / Math.max(simplifiedDebtsResult.originalTransferCount, 1)) * 100)}% steps
+                    -{Math.round((((simplifiedDebtsResult.originalTransferCount ?? 0) - (simplifiedDebtsResult.optimizedTransferCount ?? 0)) / Math.max(simplifiedDebtsResult.originalTransferCount ?? 1, 1)) * 100)}% steps
                   </span>
                 </div>
                 <div>
                   <span className="text-purple-600 block text-[10px] font-bold">FLOW SAVINGS</span>
                   <div className="font-extrabold text-emerald-600 text-sm">
-                    ₹{simplifiedDebtsResult.cashFlowVolumeSavedInr.toLocaleString("en-IN")}
+                    ₹{(simplifiedDebtsResult.cashFlowVolumeSavedInr ?? 0).toLocaleString("en-IN")}
                   </div>
                   <span className="text-[10px] text-slate-400">Circulation saved</span>
                 </div>
@@ -976,7 +976,7 @@ export const ManaSplitHub: React.FC = () => {
               <div>
                 <h4 className="font-bold text-slate-800 mb-2">Recommended Minimized Settlements</h4>
                 <div className="space-y-2">
-                  {simplifiedDebtsResult.simplifiedTransfers?.map((tx, idx) => (
+                  {(simplifiedDebtsResult.simplifiedTransfers ?? []).map((tx: any, idx: number) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-slate-800">{tx.fromName}</span>
@@ -984,12 +984,12 @@ export const ManaSplitHub: React.FC = () => {
                         <span className="font-semibold text-slate-800">{tx.toName}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-purple-700 text-sm">₹{tx.amountInr.toLocaleString("en-IN")}</span>
+                        <span className="font-bold text-purple-700 text-sm">₹{(tx.amountInr ?? tx.amount ?? 0).toLocaleString("en-IN")}</span>
                         <Button
                           size="sm"
                           className="bg-purple-600 hover:bg-purple-700 text-white text-[11px] h-7 px-2.5"
                           onClick={() => {
-                            navigator.clipboard.writeText(`upi://pay?pa=manasplit@okaxis&pn=${encodeURIComponent(tx.toName)}&am=${tx.amountInr}&cu=INR`);
+                            navigator.clipboard.writeText(`upi://pay?pa=manasplit@okaxis&pn=${encodeURIComponent(tx.toName || "")}&am=${tx.amountInr ?? tx.amount ?? 0}&cu=INR`);
                             alert("UPI payment link copied!");
                           }}
                         >
@@ -1029,19 +1029,19 @@ export const ManaSplitHub: React.FC = () => {
                 <div>
                   <span className="text-amber-700 block text-[10px] font-bold">TOTAL OUTSTANDING</span>
                   <div className="font-extrabold text-slate-800 text-sm">
-                    ₹{khataAuditResult.totalOutstandingInr.toLocaleString("en-IN")}
+                    ₹{(khataAuditResult.totalOutstandingInr ?? 0).toLocaleString("en-IN")}
                   </div>
                 </div>
                 <div>
                   <span className="text-amber-700 block text-[10px] font-bold">HIGH RISK OVERDUE</span>
                   <div className="font-extrabold text-rose-600 text-sm">
-                    ₹{khataAuditResult.highRiskOverdueInr.toLocaleString("en-IN")}
+                    ₹{(khataAuditResult.highRiskOverdueInr ?? 0).toLocaleString("en-IN")}
                   </div>
                 </div>
                 <div>
                   <span className="text-amber-700 block text-[10px] font-bold">WRITE-OFF CANDIDATE</span>
                   <div className="font-extrabold text-slate-500 text-sm">
-                    ₹{khataAuditResult.recommendedWriteOffsInr.toLocaleString("en-IN")}
+                    ₹{(khataAuditResult.recommendedWriteOffsInr ?? 0).toLocaleString("en-IN")}
                   </div>
                 </div>
               </div>
@@ -1054,7 +1054,7 @@ export const ManaSplitHub: React.FC = () => {
               <div>
                 <h4 className="font-bold text-slate-800 mb-2">Debtor Ledger & Polite WhatsApp Drafts</h4>
                 <div className="space-y-2">
-                  {khataAuditResult.debtorRiskAnalysis?.map((d, idx) => (
+                  {(khataAuditResult.debtorRiskAnalysis ?? []).map((d: any, idx: number) => (
                     <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
@@ -1080,7 +1080,7 @@ export const ManaSplitHub: React.FC = () => {
                           variant="outline"
                           className="border-amber-300 text-amber-800 hover:bg-amber-100 text-[10px] h-6 px-2 shrink-0"
                           onClick={() => {
-                            navigator.clipboard.writeText(d.customReminderMessage);
+                            navigator.clipboard.writeText(d.customReminderMessage || "");
                             alert(`Copied reminder for ${d.debtorName}`);
                           }}
                         >

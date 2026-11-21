@@ -1,5 +1,5 @@
 import React from 'react';
-import { DocumentCategory } from '@/services/documents/documentService';
+import type { DocumentCategory } from '@/services/documents/documentService';
 
 const CATEGORY_CONFIG: Record<DocumentCategory, { label: string; className: string }> = {
   RENTAL_AGREEMENT:          { label: 'Rental Agreement',       className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },

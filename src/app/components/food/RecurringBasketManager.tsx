@@ -48,7 +48,7 @@ export function RecurringBasketManager() {
     if (!editBasket) return;
     setEditBasket(prev => prev ? {
       ...prev,
-      items: prev.items.map(i => i.id === itemId ? { ...i, acceptSubstitute: !i.acceptSubstitute } : i)
+      items: (prev.items ?? []).map(i => i.id === itemId ? { ...i, acceptSubstitute: !i.acceptSubstitute } : i)
     } : null);
   };
 
@@ -151,14 +151,14 @@ export function RecurringBasketManager() {
                   </tr>
                 </thead>
                 <tbody>
-                  {editBasket.items.map(item => (
+                  {(editBasket.items ?? []).map(item => (
                     <tr key={item.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
                       <td style={{ padding: '8px 10px' }}>{item.productName}</td>
                       <td style={{ padding: '8px 10px' }}>{item.quantity} {item.unit}</td>
                       <td style={{ padding: '8px 10px' }}>₹{item.unitPrice}</td>
                       <td style={{ padding: '8px 10px' }}>
                         <input type="checkbox" checked={item.acceptSubstitute}
-                          onChange={() => toggleSubstitute(item.id)} />
+                          onChange={() => item.id && toggleSubstitute(item.id)} />
                       </td>
                     </tr>
                   ))}

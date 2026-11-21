@@ -488,7 +488,7 @@ export function DiningReservations() {
                         : "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
                     }`}
                   >
-                    {yieldResult.actionRecommended.replace("_", " ")}
+                    {(yieldResult.actionRecommended || "CONFIRM").replace("_", " ")}
                   </Badge>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
@@ -506,7 +506,7 @@ export function DiningReservations() {
               </div>
 
               {/* Deposit Recommendation */}
-              {(yieldResult.dynamicDepositRecommended ?? 0) > 0 && (
+              {Boolean(yieldResult.dynamicDepositRecommended) && (
                 <div className="p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="w-4 h-4 text-amber-600" />

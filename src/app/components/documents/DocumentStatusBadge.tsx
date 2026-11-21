@@ -1,5 +1,5 @@
 import React from 'react';
-import { DocumentStatus } from '@/services/documents/documentService';
+import type { DocumentStatus } from '@/services/documents/documentService';
 
 interface Props {
   status: DocumentStatus;

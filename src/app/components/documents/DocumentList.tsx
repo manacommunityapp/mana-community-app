@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { DocumentDto, DocumentCategory, DocumentStatus, documentService } from '@/services/documents/documentService';
+import { documentService, type DocumentDto, type DocumentCategory, type DocumentStatus } from '@/services/documents/documentService';
 import { useDocumentList } from '@/hooks/documents/useDocumentList';
 import { DocumentCard } from './DocumentCard';
 import { DocumentUploadModal } from './DocumentUploadModal';

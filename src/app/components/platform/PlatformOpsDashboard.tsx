@@ -137,11 +137,10 @@ export default function PlatformOpsDashboard() {
   useEffect(() => {
     load();
     // STOMP subscription for live push; fall back to 30s poll
-    let subbed = false;
+    let unsub: (() => void) | undefined;
     try {
-      stompClient.subscribe("/topic/platform/ops", (body: unknown) => {
+      unsub = stompClient.subscribe("/topic/platform/ops", (body: unknown) => {
         if (body && typeof body === "object") setSnap(body as PlatformOpsSnapshot);
-        subbed = true;
       });
     } catch {
       // STOMP unavailable — poll only
@@ -149,8 +148,8 @@ export default function PlatformOpsDashboard() {
     intervalRef.current = setInterval(load, 30_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (subbed) {
-        try { stompClient.unsubscribe("/topic/platform/ops"); } catch {}
+      if (unsub) {
+        try { unsub(); } catch {}
       }
     };
   }, [load]);

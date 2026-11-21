@@ -114,7 +114,7 @@ describe('manaPayService', () => {
     };
     (apiClient.post as any).mockResolvedValueOnce(mockRecord);
 
-    const mockReceipt: ManaDigitalReceipt = {
+    const mockReceipt: any = {
       receiptNumber: 'RCP-2026-1001',
       transactionNumber: 'TXN-2026-101',
       orderReferenceId: 'SPORTS-09',
@@ -202,6 +202,7 @@ describe('manaPayService', () => {
     const residentMock: ManaPaymentRecord[] = [
       {
         id: '1',
+        payerName: 'Alice Green',
         transactionNumber: 'TXN-1',
         orderReferenceId: 'ORD-1',
         domain: 'MAINTENANCE_BILL',
@@ -220,6 +221,7 @@ describe('manaPayService', () => {
       ...residentMock,
       {
         id: '2',
+        payerName: 'Bob Green',
         transactionNumber: 'TXN-2',
         orderReferenceId: 'ORD-2',
         domain: 'POOJA_BOOKING',
@@ -237,6 +239,7 @@ describe('manaPayService', () => {
     const vendorMock: ManaPaymentRecord[] = [
       {
         id: '3',
+        payerName: 'Charlie Vendor',
         transactionNumber: 'TXN-3',
         orderReferenceId: 'ORD-3',
         domain: 'SPORTS_FEE',
@@ -282,6 +285,7 @@ describe('manaPayService', () => {
     const mockTxns: ManaPaymentRecord[] = [
       {
         id: '1',
+        payerName: 'David Resident',
         transactionNumber: 'TXN-UNREC-1',
         orderReferenceId: 'ORD-1',
         domain: 'MAINTENANCE_BILL',

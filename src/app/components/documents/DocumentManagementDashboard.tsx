@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   documentService,
-  DocumentDto,
-  DocumentCategory,
-  DocumentStatus,
+  type DocumentDto,
+  type DocumentCategory,
+  type DocumentStatus,
 } from '@/services/documents/documentService';
 import { DocumentCategoryBadge, CATEGORY_CONFIG } from './DocumentCategoryBadge';
 import { DocumentStatusBadge } from './DocumentStatusBadge';

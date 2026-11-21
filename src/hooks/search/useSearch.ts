@@ -23,7 +23,7 @@ export function useSearch(initialModules?: SearchModule[]) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [recentSearches, setRecentSearches] = useState<string[]>(getRecentSearches);
 
   const executeSearch = useCallback(async (q: string, modules: SearchModule[], p: number) => {

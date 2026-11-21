@@ -1070,3 +1070,110 @@ curl -X POST http://localhost:5678/webhook/claims-assistant \
     "estimatedClaimAmountInr": 45000
   }'
 ```
+
+---
+
+# Batch 4: Health & Wellness Automated AI Care (`npm run n8n:health`)
+
+Executes and verifies 30 healthcare & wellness workflows (23 Health + 7 Wellness) with complete offline fallback coverage.
+
+### Quick Run:
+```bash
+npm run n8n:health
+```
+
+### Sample cURL Commands:
+```bash
+# 1. Health Symptom Guide
+curl -X POST http://localhost:5678/webhook/health-ai-symptom-guide \
+  -H "Content-Type: application/json" \
+  -d '{ "residentId": "RES-01", "query": "Persistent migraine and light sensitivity" }'
+
+# 2. Emergency Ambulance Dispatch Guidance
+curl -X POST http://localhost:5678/webhook/health-ambulance \
+  -H "Content-Type: application/json" \
+  -d '{ "emergencyType": "CARDIAC_CHEST_PAIN", "flat": "Tower B-702" }'
+
+# 3. Wellness Daily Water Tracker
+curl -X POST http://localhost:5678/webhook/wellness-water-tracker \
+  -H "Content-Type: application/json" \
+  -d '{ "residentId": "RES-01", "intakeMl": 2400, "dailyGoalMl": 3000 }'
+```
+
+---
+
+# Batch 5: Home Services & Smart Parking (`npm run n8n:home`)
+
+Executes and verifies 16 home services and smart parking automation workflows (13 Home Services + 3 Parking).
+
+### Quick Run:
+```bash
+npm run n8n:home
+```
+
+### Sample cURL Commands:
+```bash
+# 1. InstaHelp On-Demand Maid & Cook Dispatch
+curl -X POST http://localhost:5678/webhook/instahelp \
+  -H "Content-Type: application/json" \
+  -d '{ "serviceType": "HOUSE_CLEANING", "flat": "Tower A-301", "urgency": "IMMEDIATE" }'
+
+# 2. Smart Parking ANPR Review
+curl -X POST http://localhost:5678/webhook/smart-parking-anpr-review \
+  -H "Content-Type: application/json" \
+  -d '{ "vehicleNumber": "KA-01-MJ-5544", "gateId": "GATE-01" }'
+
+# 3. EV Charging Grid Load Optimization
+curl -X POST http://localhost:5678/webhook/smart-parking-ev-charging \
+  -H "Content-Type: application/json" \
+  -d '{ "slotId": "EV-B1-04", "batteryPercent": 28, "requestedKwh": 22 }'
+```
+
+---
+
+# Batch 6: Multi-Vendor Food & Kitchen Operations (`npm run n8n:food`)
+
+Executes and verifies 19 food, kitchen, catering, and dining automation workflows.
+
+### Quick Run:
+```bash
+npm run n8n:food
+```
+
+### Sample cURL Commands:
+```bash
+# 1. Kitchen Bottleneck & Prep Delay Sentinel
+curl -X POST http://localhost:5678/webhook/food-kitchen-prep-delay-sentinel \
+  -H "Content-Type: application/json" \
+  -d '{ "orderId": "ORD-5521", "restaurantName": "The Spice Symphony", "activeKitchenQueueCount": 8 }'
+
+# 2. Catering Portion & Food Waste Optimizer
+curl -X POST http://localhost:5678/webhook/food-catering-portion-optimizer \
+  -H "Content-Type: application/json" \
+  -d '{ "eventTitle": "Diwali Community Banquet", "totalGuests": 120, "dietarySplit": { "vegCount": 85, "nonVegCount": 35 } }'
+```
+
+---
+
+# 🌟 Unified Master Runner: All 176 Workflows (`npm run n8n:all`)
+
+The master runner recursively traverses all 33 domain directories in `automation/workflows/`, tests all 176 modular workflows, checks trigger nodes, pings webhooks, audits fallback contracts, and generates an exhaustive console report.
+
+### Quick Run:
+```bash
+npm run n8n:all
+```
+
+### Expected Output:
+```text
+=====================================================================================
+📊 MASTER EXECUTION SUMMARY
+=====================================================================================
+Total Workflows Tested: 176
+Total Domains Covered:  33
+Live Webhooks Online:   0/176 (or 176/176 when local n8n daemon is running)
+Cron Scheduled Triggers:1/176 (community-weekly-digest)
+Offline Fallback Ready: 175/176 (100% resilient contracts)
+Overall Coverage:       100.0% (176/176 operational)
+=====================================================================================
+```

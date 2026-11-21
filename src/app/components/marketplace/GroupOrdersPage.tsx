@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { ShoppingBasket, Plus, Users, Clock, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
-import { groupOrderService, type GroupOrder, type MyGroupOrderEntry } from "../../../../services/groupOrderService";
-import { getStoredUser } from "../../../../services/common/apiClient";
+import { groupOrderService, type GroupOrder, type MyGroupOrderEntry } from "../../../services/groupOrderService";
+import { getStoredUser } from "../../../services/common/apiClient";
 
 const CATEGORIES = ["Groceries", "Dairy", "Produce", "Meat & Fish", "Bakery", "Snacks", "Household", "Other"] as const;
 

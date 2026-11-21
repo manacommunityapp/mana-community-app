@@ -637,7 +637,7 @@ const RentalDashboard: React.FC = () => {
                 <Grid size={{ xs: 6 }}>
                   <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                     <Typography variant="caption" color="text.secondary">Renewal Likelihood</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: churnResult.renewalLikelihoodPercent > 70 ? '#10B981' : '#F59E0B' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: (churnResult.renewalLikelihoodPercent ?? 0) > 70 ? '#10B981' : '#F59E0B' }}>
                       {churnResult.renewalLikelihoodPercent}%
                     </Typography>
                   </Paper>

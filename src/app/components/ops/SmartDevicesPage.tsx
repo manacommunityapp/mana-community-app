@@ -6,8 +6,8 @@ import {
   type SmartDevice,
   type SmartDeviceAction,
   type SmartDeviceType,
-} from "../../../../services/smartDeviceService";
-import { getStoredUser } from "../../../../services/common/apiClient";
+} from "../../../services/smartDeviceService";
+import { getStoredUser } from "../../../services/common/apiClient";
 import { automationService, type IotSubmeterTamperAuditResponse } from "../../../services/automation/automationService";
 
 const DEVICE_ACTIONS: { action: SmartDeviceAction; label: string; color: string }[] = [
@@ -276,7 +276,7 @@ export function SmartDevicesPage() {
                 <h2 className="font-bold text-slate-800 text-base">AI Submeter Tamper & Line Loss Audit</h2>
               </div>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                tamperResult.tamperRiskScore > 60 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+                (tamperResult.tamperRiskScore ?? 0) > 60 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
               }`}>
                 Risk Score: {tamperResult.tamperRiskScore}/100
               </span>
@@ -287,7 +287,7 @@ export function SmartDevicesPage() {
               <div>
                 <span className="text-slate-400 block text-[11px]">CLASSIFICATION</span>
                 <span className="font-bold text-slate-800 block mt-0.5">
-                  {tamperResult.anomalyClassification.replace("_", " ")}
+                  {(tamperResult.anomalyClassification || "NORMAL").replace("_", " ")}
                 </span>
               </div>
               <div>
@@ -299,7 +299,7 @@ export function SmartDevicesPage() {
               <div>
                 <span className="text-slate-400 block text-[11px]">EST. REVENUE LEAK</span>
                 <span className="font-bold text-rose-600 block mt-0.5">
-                  ₹{tamperResult.revenueLeakageEstimatedInr.toLocaleString("en-IN")}
+                  ₹{(tamperResult.revenueLeakageEstimatedInr ?? 0).toLocaleString("en-IN")}
                 </span>
               </div>
             </div>

@@ -30,6 +30,7 @@ import {
   type TripBooking,
 } from "../../../services/trips/tripService";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { manaPayService } from "../../../services/payments/manaPayService";
 import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
 import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
 import { useCheckoutOptions } from "../../../hooks/payments/useCheckoutOptions";
@@ -124,7 +125,7 @@ export function TripBookingDialog({
     try {
       const order = await unifiedPaymentService.createOrder({
         referenceType: "TRIP_SETTLEMENT",
-        referenceId: trip.id,
+        referenceId: Number(trip.id) || 1,
         gateway: gateway as any,
         communityId: user.communityId,
         amount: totalPayable,
@@ -431,6 +432,7 @@ export function TripBookingDialog({
         onClose={() => { setShowManaPayModal(false); setPendingOrder(null); }}
         paymentOrderId={pendingOrder.id}
         order={{
+          idempotencyKey: manaPayService.generateIdempotencyKey("TRIP_BOOKING", String(trip.id), pendingOrder.grossAmount),
           domain: "TRIP_BOOKING",
           orderReferenceId: `TRIP-${trip.id}`,
           title: `Trip: ${trip.title}`,

@@ -2,7 +2,7 @@ import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage
 import { createLogger, setCorrelationId, setTraceId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
 import { requestQueue } from "../../lib/requestQueue";
-import { ApiError, setLastCorrelationId, setLastTraceId, getLastTraceId, type ApiResponseEnvelope } from "./apiTypes";
+import { ApiError, setLastCorrelationId, getLastCorrelationId, setLastTraceId, getLastTraceId, type ApiResponseEnvelope } from "./apiTypes";
 export type { PageResponse, ApiResponseEnvelope } from "./apiTypes";
 export { ApiError, isPageResponse, getLastCorrelationId, getLastTraceId } from "./apiTypes";
 
@@ -82,6 +82,7 @@ export function removeToken(): void {
 
 export interface StoredUser {
   userId: string;
+  name?: string;
   vendorId?: number;
   communityId?: number;
   communityName?: string;
@@ -528,6 +529,8 @@ const DEDUPE_TTL_MS = 1000; // 1 second coalescing window for identical GET requ
 export interface RequestOptions {
   bypassCache?: boolean;
   headers?: Record<string, string>;
+  params?: Record<string, any>;
+  responseType?: string;
 }
 
 export const apiClient = {
@@ -543,7 +546,17 @@ export const apiClient = {
       return existing.promise as Promise<T>;
     }
 
-    const promise = request<T>(path, { method: "GET", headers: options?.headers }).catch((err) => {
+    let finalPath = path;
+    if (options?.params) {
+      const sp = new URLSearchParams();
+      for (const [k, v] of Object.entries(options.params)) {
+        if (v !== undefined && v !== null) sp.append(k, String(v));
+      }
+      const qs = sp.toString();
+      if (qs) finalPath += (finalPath.includes('?') ? '&' : '?') + qs;
+    }
+
+    const promise = request<T>(finalPath, { method: "GET", headers: options?.headers }).catch((err) => {
       // Remove immediately on error so failed requests aren't cached or blocking retries
       getCache.delete(path);
       throw err;

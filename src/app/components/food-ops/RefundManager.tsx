@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import foodOpsService, { OrderRefund, RefundStatus } from '@/services/food/foodOpsService';
 
 const statusStyle: Record<RefundStatus, { bg: string; color: string }> = {
+  PENDING: { bg: '#EFF6FF', color: '#1D4ED8' },
+  AUTO_APPROVED: { bg: '#D1FAE5', color: '#065F46' },
   INITIATED: { bg: '#EFF6FF', color: '#1D4ED8' },
   APPROVED: { bg: '#D1FAE5', color: '#065F46' },
   REJECTED: { bg: '#FEE2E2', color: '#991B1B' },
@@ -79,7 +81,7 @@ export function RefundManager() {
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                      Order #{refund.orderId} · {refund.triggerType.replace(/_/g, ' ')} · {new Date(refund.createdAt).toLocaleDateString()}
+                      Order #{refund.orderId} · {refund.triggerType ? refund.triggerType.replace(/_/g, ' ') : 'Manual'} · {new Date(refund.createdAt || Date.now()).toLocaleDateString()}
                     </div>
                     {refund.itemDetails && <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{refund.itemDetails}</div>}
                   </div>

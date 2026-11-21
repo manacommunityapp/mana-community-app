@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ShieldCheck, Phone, Upload, CheckCircle2, XCircle, Loader2, Copy, AlertCircle } from "lucide-react";
 import { toast } from "react-toastify";
-import { kycService, type KycRequest, type KycStatus } from "../../../../services/kycService";
+import { kycService, type KycRequest, type KycStatus } from "../../../services/kycService";
 
 type WizardStep = "status" | "choose" | "aadhaar_input" | "aadhaar_otp" | "document" | "result";
 

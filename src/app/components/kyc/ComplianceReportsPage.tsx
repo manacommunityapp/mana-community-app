@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileSpreadsheet, Download, RefreshCw, Plus, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "react-toastify";
-import { complianceService, type GeneratedReport, REPORT_TYPES } from "../../../../services/complianceService";
-import { getStoredUser } from "../../../../services/common/apiClient";
+import { complianceService, type GeneratedReport, REPORT_TYPES } from "../../../services/complianceService";
+import { getStoredUser } from "../../../services/common/apiClient";
 
 const PERIODS: string[] = (() => {
   const result: string[] = [];

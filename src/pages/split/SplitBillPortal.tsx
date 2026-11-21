@@ -227,7 +227,7 @@ export function SplitBillPortal() {
               <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                 guardResult.fraudAnomalyRisk === "CLEAN" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
               }`}>
-                {guardResult.fraudAnomalyRisk.replace("_", " ")}
+                {(guardResult.fraudAnomalyRisk || "CLEAN").replace("_", " ")}
               </span>
             </div>
 

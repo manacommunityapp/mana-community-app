@@ -58,7 +58,8 @@ export interface PaymentOrder {
 }
 
 export interface CreatePaymentOrderRequest {
-  communityId: number;
+  communityId?: number;
+  description?: string;
   gateway: PaymentGateway;
   referenceType: PaymentReferenceType;
   referenceId: number;

@@ -71,7 +71,7 @@ export function GeneratorMaintenanceDashboard() {
       const res = await automationService.auditGeneratorFuelAnomaly({
         generatorId: currentGen?.id || 'DG-500KVA-01',
         generatorName: currentGen?.name || 'Main DG 1 (Cummins 500kVA)',
-        fuelCapacityLiters: currentGen?.fuelCapacityLiters || 1000,
+        fuelCapacityLiters: (currentGen as any)?.fuelCapacityLiters || currentGen?.fuelTankCapacityLiters || 1000,
         currentFuelLevelLiters: currentGen?.currentFuelLiters || 680,
         previousFuelLevelLiters: 740,
         runHoursSinceLastRefill: 2.4,

@@ -5,6 +5,7 @@ const statusColor: Record<SlotStatus, { bg: string; color: string }> = {
   OPEN: { bg: '#D1FAE5', color: '#065F46' },
   FULL: { bg: '#FEE2E2', color: '#991B1B' },
   CUTOFF: { bg: '#FEF3C7', color: '#92400E' },
+  CUTOFF_PASSED: { bg: '#FEF3C7', color: '#92400E' },
   CANCELLED: { bg: '#F3F4F6', color: '#6B7280' },
 };
 

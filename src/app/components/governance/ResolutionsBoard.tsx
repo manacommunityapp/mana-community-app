@@ -195,7 +195,7 @@ export function ResolutionsBoard() {
       )}
 
       {/* ── AI Legal & Bylaw Formatter Modal ───────────────────────────────────── */}
-      {showLegalModal && legalDraft && (
+      {showLegalModal && legalDraft?.legalDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -210,7 +210,7 @@ export function ResolutionsBoard() {
                       Bylaw Sentinel
                     </span>
                   </h3>
-                  <p className="text-[11px] text-slate-500">Ref: {legalDraft.legalDraft.refNumber}</p>
+                  <p className="text-[11px] text-slate-500">Ref: {legalDraft.legalDraft?.refNumber}</p>
                 </div>
               </div>
               <button
@@ -225,17 +225,17 @@ export function ResolutionsBoard() {
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 space-y-2">
               <div className="flex justify-between items-start gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  {legalDraft.legalDraft.resolutionClassification}
+                  {legalDraft.legalDraft?.resolutionClassification}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                  {legalDraft.legalDraft.bylawComplianceStatus.replace(/_/g, " ")}
+                  {(legalDraft.legalDraft?.bylawComplianceStatus || "COMPLIANT").replace(/_/g, " ")}
                 </span>
               </div>
               <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                {legalDraft.legalDraft.formalTitle}
+                {legalDraft.legalDraft?.formalTitle}
               </h4>
               <p className="text-xs text-slate-500">
-                Required Quorum & Threshold: <strong className="text-slate-700 dark:text-slate-300">{legalDraft.legalDraft.votingRequirement}</strong>
+                Required Quorum & Threshold: <strong className="text-slate-700 dark:text-slate-300">{legalDraft.legalDraft?.votingRequirement}</strong>
               </p>
             </div>
 
@@ -245,7 +245,7 @@ export function ResolutionsBoard() {
                 Recitals & Preamble
               </div>
               <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800 text-xs font-serif leading-relaxed text-slate-700 dark:text-slate-300 italic">
-                {legalDraft.legalDraft.preamble}
+                {legalDraft.legalDraft?.preamble}
               </div>
             </div>
 
@@ -255,7 +255,7 @@ export function ResolutionsBoard() {
                 Operative Clauses
               </div>
               <div className="space-y-2">
-                {legalDraft.legalDraft.operativeClauses.map((clause, idx) => (
+                {(legalDraft.legalDraft?.operativeClauses ?? []).map((clause: any, idx: number) => (
                   <div key={idx} className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/40 text-xs font-mono text-slate-800 dark:text-slate-200">
                     <strong className="text-indigo-600 dark:text-indigo-400">Clause {idx + 1}: </strong>
                     {clause}
@@ -265,11 +265,11 @@ export function ResolutionsBoard() {
             </div>
 
             {/* Statutory Citations */}
-            {legalDraft.legalDraft.statutoryCitations?.length > 0 && (
+            {(legalDraft.legalDraft.statutoryCitations?.length ?? 0) > 0 && (
               <div className="space-y-1">
                 <div className="text-[10px] font-bold text-slate-500">Statutory Citations:</div>
                 <div className="flex flex-wrap gap-1.5">
-                  {legalDraft.legalDraft.statutoryCitations.map((cite, i) => (
+                  {(legalDraft.legalDraft.statutoryCitations ?? []).map((cite, i) => (
                     <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                       § {cite}
                     </span>
@@ -282,9 +282,9 @@ export function ResolutionsBoard() {
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => {
-                  const clauses = legalDraft.legalDraft.operativeClauses.map((c, i) => `\n${i + 1}. ${c}`).join("");
+                  const clauses = (legalDraft.legalDraft?.operativeClauses ?? []).map((c, i) => `\n${i + 1}. ${c}`).join("");
                   navigator.clipboard.writeText(
-                    `FORMAL RESOLUTION DRAFT\nRef: ${legalDraft.legalDraft.refNumber}\nTitle: ${legalDraft.legalDraft.formalTitle}\nClassification: ${legalDraft.legalDraft.resolutionClassification}\n\nPREAMBLE:\n${legalDraft.legalDraft.preamble}\n\nRESOLVED THAT:${clauses}\n\nVOTING REQUIREMENT:\n${legalDraft.legalDraft.votingRequirement}`
+                    `FORMAL RESOLUTION DRAFT\nRef: ${legalDraft.legalDraft?.refNumber || ""}\nTitle: ${legalDraft.legalDraft?.formalTitle || ""}\nClassification: ${legalDraft.legalDraft?.resolutionClassification || ""}\n\nPREAMBLE:\n${legalDraft.legalDraft?.preamble || ""}\n\nRESOLVED THAT:${clauses}\n\nVOTING REQUIREMENT:\n${legalDraft.legalDraft?.votingRequirement || ""}`
                   );
                   toast.success("Statutory legal draft copied to clipboard!");
                 }}

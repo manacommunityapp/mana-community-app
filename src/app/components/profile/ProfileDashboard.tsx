@@ -461,6 +461,12 @@ export function ProfileDashboard() {
     }
   }, []);
 
+  const loadVehicles = useCallback(async () => {
+    setLoadingVehicles(true);
+    try { setVehicles(await householdService.getMyVehicles()); }
+    finally { setLoadingVehicles(false); }
+  }, []);
+
   useEffect(() => {
     if (activeTab === "security") {
       loadSessions();
@@ -626,11 +632,7 @@ export function ProfileDashboard() {
   const [vehicleForm, setVehicleForm] = useState<HouseholdVehicleRequest>({ vehicleNumber: "", vehicleType: "CAR", isActive: true });
   const [savingVehicle, setSavingVehicle] = useState(false);
 
-  const loadVehicles = useCallback(async () => {
-    setLoadingVehicles(true);
-    try { setVehicles(await householdService.getMyVehicles()); }
-    finally { setLoadingVehicles(false); }
-  }, []);
+
 
   const handleAddVehicle = async () => {
     if (!vehicleForm.vehicleNumber.trim()) { toast.error("Vehicle number is required."); return; }

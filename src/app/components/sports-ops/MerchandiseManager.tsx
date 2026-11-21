@@ -14,11 +14,11 @@ export default function MerchandiseManager() {
 
   const loadItems = (tid: number) => {
     setLoading(true);
-    sportsOpsService.listMerchandise(tid).then(r => setItems(r.data)).finally(() => setLoading(false));
+    sportsOpsService.listMerchandise(tid).then(r => setItems((r as any)?.data ?? r)).finally(() => setLoading(false));
   };
   const loadOrders = () => {
     setLoading(true);
-    sportsOpsService.myMerchandiseOrders().then(r => setOrders(r.data)).finally(() => setLoading(false));
+    sportsOpsService.myMerchandiseOrders().then(r => setOrders((r as any)?.data ?? r)).finally(() => setLoading(false));
   };
 
   useEffect(() => { if (tab === 'shop') loadItems(tournamentId); else loadOrders(); }, [tab, tournamentId]);

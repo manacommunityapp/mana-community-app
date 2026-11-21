@@ -29,6 +29,10 @@
     "n8n:admin": "node automation/scripts/run-admin-ops-workflows.cjs",
     "n8n:services": "node automation/scripts/run-community-services-workflows.cjs",
     "n8n:extended": "node automation/scripts/run-extended-workflows.cjs",
+    "n8n:health": "node automation/scripts/run-health-wellness-workflows.cjs",
+    "n8n:home": "node automation/scripts/run-home-services-workflows.cjs",
+    "n8n:food": "node automation/scripts/run-food-kitchen-workflows.cjs",
+    "n8n:all": "node automation/scripts/run-all-workflows.cjs",
     "n8n:start": "npx n8n"
   },
   "dependencies": {

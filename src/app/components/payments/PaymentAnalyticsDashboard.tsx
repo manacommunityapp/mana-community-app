@@ -249,8 +249,8 @@ export function PaymentAnalyticsDashboard({ communityId }: Props) {
                     tickLine={false}
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Volume"]}
-                    labelFormatter={(label: string) => label}
+                    formatter={(value: any) => [formatCurrency(Number(value) || 0), "Volume"]}
+                    labelFormatter={(label: any) => String(label ?? "")}
                     contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
                   />
                   <Bar dataKey="amount" fill="#7c3aed" radius={[4, 4, 0, 0]} />

@@ -685,3 +685,26 @@ When deploying to a live society server:
 - Place n8n behind Nginx reverse proxy with SSL (`certbot`).
 - Enable webhook authentication checking using the `MANA_WEBHOOK_SECRET` header.
 - For 100% offline environments, run **Ollama** alongside n8n using local open-weight models (`llama3.2`).
+
+## 🧪 Automated Testing & Master Runner Commands
+
+The repository includes modular and master test runner scripts that test all 176 workflows across all 33 domains:
+
+| Command | Workflows Covered | Description |
+| :--- | :---: | :--- |
+| `npm run n8n:all` | **176** | **Master Runner**: Recursively scans all 33 domains, pings all webhooks, validates fallback contracts, and prints an exhaustive audit report. |
+| `npm run n8n:health` | 30 | Healthcare (23) and Wellness (7) AI workflows |
+| `npm run n8n:home` | 16 | Home Services (13) and Smart Parking (3) workflows |
+| `npm run n8n:food` | 19 | Food, Dining, Catering, and Kitchen workflows |
+| `npm run n8n:extended` | 6 | Finance Dues, Utility Autopay, Insurance, CPN, Home Help, Academy |
+| `npm run n8n:services` | 6 | Pet Registry, IoT Smart Meters, Group Buying, Jobs, Inventory |
+| `npm run n8n:safety` | 6 | SOS, Visitor Overstay, ANPR, Staff KYC, Hardware Tamper, Trust Audit |
+| `npm run n8n:admin` | 3 | Admin Ops Incident Analyzer, Bulk CSV Audit, Helpdesk Triage |
+| `npm run n8n:sports` | 7 | Tournament Fixtures, Scoring Anomaly, Match Recap, Auction, Dispute |
+| `npm run n8n:governance` | 4 | AGM Quorum, MoM Extraction, Ballot Audit, Resolution Formatter |
+| `npm run n8n:commerce` | 4 | Kitchen Delays, Catering Portions, FSSAI Screening, Dining Yield |
+| `npm run n8n:infra` | 4 | Generator Fuel, Water Leak, EV Load Balancing, Submeter Tamper |
+| `npm run n8n:mobility` | 4 | Carpool Route Optimizer, Shuttle Dispatch, Statutory Notice, DPDP Audit |
+
+### 100% Offline Fallback Resilience
+Every client method in `src/services/automation/automationService.ts` is resilient to n8n downtime. On timeout (6000ms) or network error, each method falls back to local heuristic domain calculations, ensuring the UI remains 100% operational in disconnected or offline society environments.

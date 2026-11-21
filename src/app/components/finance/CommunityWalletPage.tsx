@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { walletService, type ResidentWallet, type WalletTransaction } from "../../../services/walletService";
 
 const FILTER_OPTIONS = ["All", "Payments", "Top-ups", "Refunds"] as const;
@@ -110,15 +110,10 @@ export default function CommunityWalletPage() {
         <p className="text-4xl font-bold tracking-tight">
           {wallet ? formatINR(wallet.balance) : "₹ —"}
         </p>
-        {wallet?.creditLimit > 0 && (
+        {wallet && wallet.creditLimit != null && wallet.creditLimit > 0 && (
           <p className="text-sm text-blue-200 mt-1">
             {formatINR(wallet.creditLimit)} credit available
           </p>
-        )}
-        {wallet?.upiVirtualId && (
-          <span className="inline-block mt-3 bg-white/20 text-white text-xs font-mono rounded-full px-3 py-1">
-            {wallet.upiVirtualId}
-          </span>
         )}
         <div className="mt-4">
           <button

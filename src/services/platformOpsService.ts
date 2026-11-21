@@ -1,4 +1,4 @@
-import apiClient from "./common/apiClient";
+import { apiClient } from "./common/apiClient";
 
 export type AlertSeverity = "INFO" | "WARNING" | "CRITICAL";
 export type OverallStatus = "HEALTHY" | "DEGRADED" | "DOWN";
@@ -117,15 +117,15 @@ export interface MetricPoint {
 
 export const platformOpsService = {
   async getSnapshot(): Promise<PlatformOpsSnapshot> {
-    const res = await apiClient.get<{ data: PlatformOpsSnapshot }>("/api/platform/ops/snapshot");
-    return res.data.data;
+    const res = await apiClient.get<any>("/api/platform/ops/snapshot");
+    return (res?.data ?? res) as PlatformOpsSnapshot;
   },
 
   async getMetricHistory(type: string, hours: number): Promise<MetricPoint[]> {
-    const res = await apiClient.get<{ data: MetricPoint[] }>("/api/platform/ops/metrics/history", {
+    const res = await apiClient.get<any>("/api/platform/ops/metrics/history", {
       params: { type, hours },
     });
-    return res.data.data;
+    return (res?.data ?? res) as MetricPoint[];
   },
 
   async resolveAlert(alertId: number): Promise<void> {
@@ -133,14 +133,14 @@ export const platformOpsService = {
   },
 
   async getSecurityIncidents(hours = 24): Promise<SecurityIncident[]> {
-    const res = await apiClient.get<{ data: SecurityIncident[] }>("/api/platform/ops/security/incidents", {
+    const res = await apiClient.get<any>("/api/platform/ops/security/incidents", {
       params: { hours },
     });
-    return res.data.data;
+    return (res?.data ?? res) as SecurityIncident[];
   },
 
   async getTenants(): Promise<TenantHealth[]> {
-    const res = await apiClient.get<{ data: TenantHealth[] }>("/api/platform/ops/tenants");
-    return res.data.data;
+    const res = await apiClient.get<any>("/api/platform/ops/tenants");
+    return (res?.data ?? res) as TenantHealth[];
   },
 };
