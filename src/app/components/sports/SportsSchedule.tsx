@@ -1334,6 +1334,7 @@ export function SportsSchedule() {
       ? null
       : new Set(tournamentConfigs.filter(config => Number(config.eventId) === selectedSportsEventId).map(config => config.id));
     return fixturesList.filter(f => {
+      if (isByeMatch({ ...f, teamAName: f.team1, teamBName: f.team2 })) return false;
       const matchesTournament = selectedTournamentId !== null
         ? f.configId === selectedTournamentId
         : selectedActualTournamentId === null || activeTournamentConfigIds.has(f.configId ?? -1);
@@ -2377,7 +2378,7 @@ export function SportsSchedule() {
 
           {/* Tournament & Sport Event Selectors */}
           <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm space-y-2.5">
-            <div className="grid grid-cols-2 items-center gap-2.5">
+            <div className="grid grid-cols-2 items-center gap-2.5 sm:grid-cols-3">
               <div className="flex-1 min-w-0">
                 <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tournament</label>
                 <select
@@ -2395,6 +2396,23 @@ export function SportsSchedule() {
                   <option value="">All Tournaments</option>
                   {tournamentOptions.map(tournament => (
                     <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 min-w-0">
+                <label htmlFor="allEventsSportsEventFilter" className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sports Event</label>
+                <select
+                  id="allEventsSportsEventFilter"
+                  value={selectedSportsEventId ?? ""}
+                  onChange={e => {
+                    setSelectedSportsEventId(e.target.value ? Number(e.target.value) : null);
+                    setSelectedTournamentId(null);
+                  }}
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-sky-300 outline-none text-slate-800"
+                >
+                  <option value="">All Events</option>
+                  {eventsForActiveTournament.map(event => (
+                    <option key={event.id} value={event.id}>{event.name}</option>
                   ))}
                 </select>
               </div>
