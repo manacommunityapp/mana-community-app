@@ -563,6 +563,8 @@ import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDash
 import { ConnectedHealthOverview } from "./components/healthguard/ConnectedHealthOverview";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
+import { SchoolBusLiveTracker } from "./components/mobility/SchoolBusLiveTracker";
+import { BbpsUtilityPaymentHub } from "./components/finance/BbpsUtilityPaymentHub";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
 import { AutomationDashboard } from "./components/automation/AutomationDashboard";
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
@@ -1688,7 +1690,11 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
+      { path: "commute/rides", element: <CommuteDashboard /> },
       { path: "mobility", element: <MobilityDashboard /> },
+      { path: "school-bus", element: <SchoolBusLiveTracker /> },
+      { path: "bbps", element: <BbpsUtilityPaymentHub /> },
+      { path: "finance/bbps", element: <BbpsUtilityPaymentHub /> },
       { path: "projects", element: <ProjectsDashboard /> },
       { path: "automation", element: <AutomationDashboard /> },
       { path: "intelligence", element: <IntelligenceDashboard /> },
