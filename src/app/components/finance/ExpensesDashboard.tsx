@@ -23,6 +23,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/finance/billingService";
+import { automationService } from "../../../services/automation/automationService";
 import { cn } from "../ui/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -91,6 +92,40 @@ export function ExpensesDashboard() {
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isParsingReceipt, setIsParsingReceipt] = useState(false);
+
+  const handleReceiptFileChange = (file: File | null) => {
+    setReceiptFile(file);
+    if (!file) return;
+    setIsParsingReceipt(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = (reader.result as string)?.split(',')[1];
+        const res = await automationService.parseReceipt({
+          expenseId: Date.now(),
+          base64Data,
+          mimeType: file.type,
+        });
+        if (res?.data) {
+          toast.success("AI OCR parsed receipt details successfully!");
+          if (res.data.totalAmount) {
+            setExpenseForm(prev => ({
+              ...prev,
+              amount: String(res.data.totalAmount),
+              title: prev.title || res.data.merchantName || file.name.replace(/\.[^/.]+$/, ""),
+            }));
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      } finally {
+        setIsParsingReceipt(false);
+      }
+    };
+    reader.onerror = () => setIsParsingReceipt(false);
+    reader.readAsDataURL(file);
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -1083,15 +1118,21 @@ export function ExpensesDashboard() {
                   ref={fileInputRef}
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                  onChange={(e) => handleReceiptFileChange(e.target.files?.[0] || null)}
                   className="hidden"
                 />
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm text-[#6b7094] hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white"
+                  disabled={isParsingReceipt}
+                  className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm text-[#6b7094] hover:border-indigo-400 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2 cursor-pointer bg-white disabled:opacity-60"
                 >
-                  <Upload className="w-4 h-4" />
-                  {receiptFile ? receiptFile.name : "Click to upload receipt (PDF, JPG, PNG)"}
+                  <Upload className={`w-4 h-4 ${isParsingReceipt ? "animate-bounce text-indigo-600" : ""}`} />
+                  {isParsingReceipt
+                    ? "AI OCR Scanning Receipt & Extracting GST..."
+                    : receiptFile
+                    ? receiptFile.name
+                    : "Click to upload receipt (PDF, JPG, PNG)"}
                 </button>
               </div>
 

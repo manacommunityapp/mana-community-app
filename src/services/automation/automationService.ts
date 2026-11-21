@@ -3194,6 +3194,1225 @@ export interface HelpdeskSlaBacklogReviewResponse {
   };
 }
 
+
+// ─── Extended Workflows Parity Interfaces ──────────────────────────────────
+
+export interface CommunityWeeklyDigestRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface CommunityWeeklyDigestResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface CateringPlatformRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface CateringPlatformResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface DiningReservationsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface DiningReservationsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface FoodAnalyticsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface FoodAnalyticsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface FoodDashboardRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface FoodDashboardResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface FoodEventsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface FoodEventsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface FoodOrdersRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface FoodOrdersResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface FoodProfileRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface FoodProfileResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface GroceryMarketplaceRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface GroceryMarketplaceResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HomeChefsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HomeChefsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface MealSubscriptionsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface MealSubscriptionsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface NutritionTrackerRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface NutritionTrackerResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface RecipePlatformRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface RecipePlatformResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface RestaurantBrowseRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface RestaurantBrowseResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface RestaurantDetailRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface RestaurantDetailResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface SmartPantryRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface SmartPantryResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthAbhaHealthIdRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthAbhaHealthIdResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthAiSymptomGuideRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthAiSymptomGuideResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthAmbulanceRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthAmbulanceResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthAppointmentsCareJourneyRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthAppointmentsCareJourneyResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthBenefitsWalletRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthBenefitsWalletResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthCampsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthCampsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthCancerCareRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthCancerCareResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthCareJourneyRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthCareJourneyResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthCommunityEmergencyRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthCommunityEmergencyResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthDashboardRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthDashboardResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthDentalCareRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthDentalCareResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthDoctorsClinicsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthDoctorsClinicsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthFamilyHealthHubRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthFamilyHealthHubResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthHospitalFinderRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthHospitalFinderResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthIpdAdmissionRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthIpdAdmissionResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthLabPackagesRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthLabPackagesResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthManaGoldRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthManaGoldResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthMentalHealthRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthMentalHealthResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthPharmacyRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthPharmacyResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthPreventiveWellnessRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthPreventiveWellnessResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthPrivateHealthVaultRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthPrivateHealthVaultResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthProviderOperationsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthProviderOperationsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HealthSurgeryCareRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HealthSurgeryCareResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface HomeServicesDashboardRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface HomeServicesDashboardResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface InstahelpRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface InstahelpResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface MyHomeHelpRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface MyHomeHelpResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ServiceAdminRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ServiceAdminResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ServiceBookingsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ServiceBookingsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ServiceReportsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ServiceReportsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ServiceRequirementsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ServiceRequirementsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ServiceReviewsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ServiceReviewsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WorkerLeavesRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WorkerLeavesResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WorkerPackagesRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WorkerPackagesResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WorkerPaymentsRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WorkerPaymentsResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WorkerScheduleRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WorkerScheduleResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalDirectoryRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalDirectoryResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalEntrepreneurshipRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalEntrepreneurshipResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalFeedRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalFeedResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalLearningRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalLearningResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalMentorshipRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalMentorshipResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface ProfessionalProfileRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface ProfessionalProfileResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessCommunityChallengesRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessCommunityChallengesResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessDashboardCoachRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessDashboardCoachResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessFoodJournalRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessFoodJournalResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessMealLoggerRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessMealLoggerResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessProfileRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessProfileResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessProvidersRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessProvidersResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
+export interface WellnessWaterTrackerRequest {
+  communityId?: string | number;
+  userId?: string | number;
+  residentId?: string;
+  metadata?: Record<string, any>;
+  notes?: string;
+  payload?: any;
+  [key: string]: any;
+}
+
+export interface WellnessWaterTrackerResponse {
+  status: 'success' | 'fallback' | 'error';
+  workflowId: string;
+  executedAt: string;
+  data: Record<string, any>;
+  message?: string;
+  [key: string]: any;
+}
+
 // ─── Client Service ───────────────────────────────────────────────────────────
 
 const AUTOMATION_WEBHOOK_BASE =
@@ -7446,6 +8665,2055 @@ Experience: ${req.experienceRequired} | Verified internal resident referral`,
           complianceRatePercent: 100,
           staffingRecommendation: 'Helpdesk SLA velocity optimal. No extra shift reallocation required.',
           bottlenecksIdentified: [],
+        },
+      };
+    }
+  },
+
+  // ─── Extended Workflows Parity Methods ────────────────────────────────────
+  /**
+   * Mana Weekly Community Digest Generator (POST /webhook/community-weekly-digest)
+   */
+  communityWeeklyDigest: async (req: CommunityWeeklyDigestRequest): Promise<CommunityWeeklyDigestResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/community-weekly-digest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'community-weekly-digest', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'community-weekly-digest',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Catering (POST /webhook/catering-platform)
+   */
+  cateringPlatform: async (req: CateringPlatformRequest): Promise<CateringPlatformResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/catering-platform`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'catering-platform', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'catering-platform',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Dining Reservations (POST /webhook/dining-reservations)
+   */
+  diningReservations: async (req: DiningReservationsRequest): Promise<DiningReservationsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/dining-reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'dining-reservations', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'dining-reservations',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Food Analytics (POST /webhook/food-analytics)
+   */
+  foodAnalytics: async (req: FoodAnalyticsRequest): Promise<FoodAnalyticsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-analytics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'food-analytics', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'food-analytics',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Food Dashboard (POST /webhook/food-dashboard)
+   */
+  foodDashboard: async (req: FoodDashboardRequest): Promise<FoodDashboardResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'food-dashboard', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'food-dashboard',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Food Events (POST /webhook/food-events)
+   */
+  foodEvents: async (req: FoodEventsRequest): Promise<FoodEventsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'food-events', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'food-events',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Food Orders (POST /webhook/food-orders)
+   */
+  foodOrders: async (req: FoodOrdersRequest): Promise<FoodOrdersResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'food-orders', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'food-orders',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Food Profile (POST /webhook/food-profile)
+   */
+  foodProfile: async (req: FoodProfileRequest): Promise<FoodProfileResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'food-profile', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'food-profile',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Grocery Marketplace (POST /webhook/grocery-marketplace)
+   */
+  groceryMarketplace: async (req: GroceryMarketplaceRequest): Promise<GroceryMarketplaceResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/grocery-marketplace`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'grocery-marketplace', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'grocery-marketplace',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Home Chefs (POST /webhook/home-chefs)
+   */
+  homeChefs: async (req: HomeChefsRequest): Promise<HomeChefsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/home-chefs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'home-chefs', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'home-chefs',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Meal Subscriptions (POST /webhook/meal-subscriptions)
+   */
+  mealSubscriptions: async (req: MealSubscriptionsRequest): Promise<MealSubscriptionsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/meal-subscriptions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'meal-subscriptions', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'meal-subscriptions',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Nutrition Tracker (POST /webhook/nutrition-tracker)
+   */
+  nutritionTracker: async (req: NutritionTrackerRequest): Promise<NutritionTrackerResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/nutrition-tracker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'nutrition-tracker', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'nutrition-tracker',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Recipes (POST /webhook/recipe-platform)
+   */
+  recipePlatform: async (req: RecipePlatformRequest): Promise<RecipePlatformResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/recipe-platform`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'recipe-platform', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'recipe-platform',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Restaurant Browse (POST /webhook/restaurant-browse)
+   */
+  restaurantBrowse: async (req: RestaurantBrowseRequest): Promise<RestaurantBrowseResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/restaurant-browse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'restaurant-browse', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'restaurant-browse',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Restaurant Detail (POST /webhook/restaurant-detail)
+   */
+  restaurantDetail: async (req: RestaurantDetailRequest): Promise<RestaurantDetailResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/restaurant-detail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'restaurant-detail', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'restaurant-detail',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Food AI - Smart Pantry (POST /webhook/smart-pantry)
+   */
+  smartPantry: async (req: SmartPantryRequest): Promise<SmartPantryResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/smart-pantry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'smart-pantry', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'smart-pantry',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - ABHA Health ID (POST /webhook/health-abha-health-id)
+   */
+  healthAbhaHealthId: async (req: HealthAbhaHealthIdRequest): Promise<HealthAbhaHealthIdResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-abha-health-id`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-abha-health-id', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-abha-health-id',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - AI Symptom Guide (POST /webhook/health-ai-symptom-guide)
+   */
+  healthAiSymptomGuide: async (req: HealthAiSymptomGuideRequest): Promise<HealthAiSymptomGuideResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-ai-symptom-guide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-ai-symptom-guide', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-ai-symptom-guide',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Ambulance (POST /webhook/health-ambulance)
+   */
+  healthAmbulance: async (req: HealthAmbulanceRequest): Promise<HealthAmbulanceResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-ambulance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-ambulance', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-ambulance',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Appointments & Journey (POST /webhook/health-appointments-care-journey)
+   */
+  healthAppointmentsCareJourney: async (req: HealthAppointmentsCareJourneyRequest): Promise<HealthAppointmentsCareJourneyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-appointments-care-journey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-appointments-care-journey', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-appointments-care-journey',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Benefits & Wallet (POST /webhook/health-benefits-wallet)
+   */
+  healthBenefitsWallet: async (req: HealthBenefitsWalletRequest): Promise<HealthBenefitsWalletResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-benefits-wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-benefits-wallet', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-benefits-wallet',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Health Camps (POST /webhook/health-camps)
+   */
+  healthCamps: async (req: HealthCampsRequest): Promise<HealthCampsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-camps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-camps', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-camps',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Cancer Care (POST /webhook/health-cancer-care)
+   */
+  healthCancerCare: async (req: HealthCancerCareRequest): Promise<HealthCancerCareResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-cancer-care`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-cancer-care', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-cancer-care',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Care Journey (POST /webhook/health-care-journey)
+   */
+  healthCareJourney: async (req: HealthCareJourneyRequest): Promise<HealthCareJourneyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-care-journey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-care-journey', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-care-journey',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Health Immediate Emergency Guidance (POST /webhook/health-community-emergency)
+   */
+  healthCommunityEmergency: async (req: HealthCommunityEmergencyRequest): Promise<HealthCommunityEmergencyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-community-emergency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-community-emergency', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-community-emergency',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Health Dashboard (POST /webhook/health-dashboard)
+   */
+  healthDashboard: async (req: HealthDashboardRequest): Promise<HealthDashboardResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-dashboard', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-dashboard',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Dental Care (POST /webhook/health-dental-care)
+   */
+  healthDentalCare: async (req: HealthDentalCareRequest): Promise<HealthDentalCareResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-dental-care`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-dental-care', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-dental-care',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Doctors & Clinics (POST /webhook/health-doctors-clinics)
+   */
+  healthDoctorsClinics: async (req: HealthDoctorsClinicsRequest): Promise<HealthDoctorsClinicsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-doctors-clinics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-doctors-clinics', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-doctors-clinics',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Family Health Hub (POST /webhook/health-family-health-hub)
+   */
+  healthFamilyHealthHub: async (req: HealthFamilyHealthHubRequest): Promise<HealthFamilyHealthHubResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-family-health-hub`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-family-health-hub', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-family-health-hub',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Hospital Finder (POST /webhook/health-hospital-finder)
+   */
+  healthHospitalFinder: async (req: HealthHospitalFinderRequest): Promise<HealthHospitalFinderResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-hospital-finder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-hospital-finder', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-hospital-finder',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - IPD Admission (POST /webhook/health-ipd-admission)
+   */
+  healthIpdAdmission: async (req: HealthIpdAdmissionRequest): Promise<HealthIpdAdmissionResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-ipd-admission`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-ipd-admission', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-ipd-admission',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Lab Packages (POST /webhook/health-lab-packages)
+   */
+  healthLabPackages: async (req: HealthLabPackagesRequest): Promise<HealthLabPackagesResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-lab-packages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-lab-packages', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-lab-packages',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Mana Gold Health Membership (POST /webhook/health-mana-gold)
+   */
+  healthManaGold: async (req: HealthManaGoldRequest): Promise<HealthManaGoldResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-mana-gold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-mana-gold', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-mana-gold',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Mental Health (POST /webhook/health-mental-health)
+   */
+  healthMentalHealth: async (req: HealthMentalHealthRequest): Promise<HealthMentalHealthResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-mental-health`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-mental-health', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-mental-health',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Pharmacy (POST /webhook/health-pharmacy)
+   */
+  healthPharmacy: async (req: HealthPharmacyRequest): Promise<HealthPharmacyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-pharmacy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-pharmacy', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-pharmacy',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Preventive & Wellness (POST /webhook/health-preventive-wellness)
+   */
+  healthPreventiveWellness: async (req: HealthPreventiveWellnessRequest): Promise<HealthPreventiveWellnessResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-preventive-wellness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-preventive-wellness', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-preventive-wellness',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Private Health Vault (POST /webhook/health-private-health-vault)
+   */
+  healthPrivateHealthVault: async (req: HealthPrivateHealthVaultRequest): Promise<HealthPrivateHealthVaultResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-private-health-vault`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-private-health-vault', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-private-health-vault',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Provider Operations (POST /webhook/health-provider-operations)
+   */
+  healthProviderOperations: async (req: HealthProviderOperationsRequest): Promise<HealthProviderOperationsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-provider-operations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-provider-operations', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-provider-operations',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana health AI - Surgery Care (POST /webhook/health-surgery-care)
+   */
+  healthSurgeryCare: async (req: HealthSurgeryCareRequest): Promise<HealthSurgeryCareResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/health-surgery-care`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'health-surgery-care', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'health-surgery-care',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Home Services Dashboard (POST /webhook/home-services-dashboard)
+   */
+  homeServicesDashboard: async (req: HomeServicesDashboardRequest): Promise<HomeServicesDashboardResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/home-services-dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'home-services-dashboard', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'home-services-dashboard',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - InstaHelp (POST /webhook/instahelp)
+   */
+  instahelp: async (req: InstahelpRequest): Promise<InstahelpResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/instahelp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'instahelp', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'instahelp',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - My Home Help (POST /webhook/my-home-help)
+   */
+  myHomeHelp: async (req: MyHomeHelpRequest): Promise<MyHomeHelpResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/my-home-help`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'my-home-help', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'my-home-help',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Service Admin (POST /webhook/service-admin)
+   */
+  serviceAdmin: async (req: ServiceAdminRequest): Promise<ServiceAdminResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/service-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'service-admin', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'service-admin',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Service Bookings (POST /webhook/service-bookings)
+   */
+  serviceBookings: async (req: ServiceBookingsRequest): Promise<ServiceBookingsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/service-bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'service-bookings', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'service-bookings',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Service Reports (POST /webhook/service-reports)
+   */
+  serviceReports: async (req: ServiceReportsRequest): Promise<ServiceReportsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/service-reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'service-reports', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'service-reports',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Service Requirements (POST /webhook/service-requirements)
+   */
+  serviceRequirements: async (req: ServiceRequirementsRequest): Promise<ServiceRequirementsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/service-requirements`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'service-requirements', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'service-requirements',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Service Reviews (POST /webhook/service-reviews)
+   */
+  serviceReviews: async (req: ServiceReviewsRequest): Promise<ServiceReviewsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/service-reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'service-reviews', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'service-reviews',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Worker Leaves (POST /webhook/worker-leaves)
+   */
+  workerLeaves: async (req: WorkerLeavesRequest): Promise<WorkerLeavesResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/worker-leaves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'worker-leaves', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'worker-leaves',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Worker Packages (POST /webhook/worker-packages)
+   */
+  workerPackages: async (req: WorkerPackagesRequest): Promise<WorkerPackagesResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/worker-packages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'worker-packages', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'worker-packages',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Worker Payments (POST /webhook/worker-payments)
+   */
+  workerPayments: async (req: WorkerPaymentsRequest): Promise<WorkerPaymentsResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/worker-payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'worker-payments', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'worker-payments',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Home Services AI - Worker Schedule (POST /webhook/worker-schedule)
+   */
+  workerSchedule: async (req: WorkerScheduleRequest): Promise<WorkerScheduleResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/worker-schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'worker-schedule', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'worker-schedule',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Professional Directory (POST /webhook/professional-directory)
+   */
+  professionalDirectory: async (req: ProfessionalDirectoryRequest): Promise<ProfessionalDirectoryResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-directory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-directory', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-directory',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Startup & Collaboration (POST /webhook/professional-entrepreneurship)
+   */
+  professionalEntrepreneurship: async (req: ProfessionalEntrepreneurshipRequest): Promise<ProfessionalEntrepreneurshipResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-entrepreneurship`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-entrepreneurship', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-entrepreneurship',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Professional Feed (POST /webhook/professional-feed)
+   */
+  professionalFeed: async (req: ProfessionalFeedRequest): Promise<ProfessionalFeedResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-feed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-feed', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-feed',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Learning & Skills (POST /webhook/professional-learning)
+   */
+  professionalLearning: async (req: ProfessionalLearningRequest): Promise<ProfessionalLearningResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-learning`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-learning', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-learning',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Mentorship (POST /webhook/professional-mentorship)
+   */
+  professionalMentorship: async (req: ProfessionalMentorshipRequest): Promise<ProfessionalMentorshipResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-mentorship`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-mentorship', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-mentorship',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana Professional Network AI - Professional Profile (POST /webhook/professional-profile)
+   */
+  professionalProfile: async (req: ProfessionalProfileRequest): Promise<ProfessionalProfileResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'professional-profile', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'professional-profile',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Community Challenges (POST /webhook/wellness-community-challenges)
+   */
+  wellnessCommunityChallenges: async (req: WellnessCommunityChallengesRequest): Promise<WellnessCommunityChallengesResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-community-challenges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-community-challenges', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-community-challenges',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Wellness Dashboard (POST /webhook/wellness-dashboard-coach)
+   */
+  wellnessDashboardCoach: async (req: WellnessDashboardCoachRequest): Promise<WellnessDashboardCoachResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-dashboard-coach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-dashboard-coach', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-dashboard-coach',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Food Journal (POST /webhook/wellness-food-journal)
+   */
+  wellnessFoodJournal: async (req: WellnessFoodJournalRequest): Promise<WellnessFoodJournalResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-food-journal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-food-journal', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-food-journal',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Meal Logger (POST /webhook/wellness-meal-logger)
+   */
+  wellnessMealLogger: async (req: WellnessMealLoggerRequest): Promise<WellnessMealLoggerResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-meal-logger`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-meal-logger', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-meal-logger',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Wellness Profile (POST /webhook/wellness-profile)
+   */
+  wellnessProfile: async (req: WellnessProfileRequest): Promise<WellnessProfileResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-profile', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-profile',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Wellness Providers (POST /webhook/wellness-providers)
+   */
+  wellnessProviders: async (req: WellnessProvidersRequest): Promise<WellnessProvidersResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-providers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-providers', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-providers',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
+        },
+      };
+    }
+  },
+
+  /**
+   * Mana wellness AI - Water Tracker (POST /webhook/wellness-water-tracker)
+   */
+  wellnessWaterTracker: async (req: WellnessWaterTrackerRequest): Promise<WellnessWaterTrackerResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wellness-water-tracker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', workflowId: 'wellness-water-tracker', executedAt: new Date().toISOString(), data, ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        workflowId: 'wellness-water-tracker',
+        executedAt: new Date().toISOString(),
+        message: 'Executed using resilient local client fallback',
+        data: {
+          communityId: req.communityId || '1',
+          residentId: req.residentId || 'RES-DEMO',
+          handledAt: new Date().toISOString(),
+          ...req,
         },
       };
     }

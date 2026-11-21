@@ -12,6 +12,7 @@ import { escapeHtml } from '../../../utils/sanitize';
 
 
 import { sportsService } from '../../../services/sports/sportsService';
+import { automationService } from '../../../services/automation/automationService';
 import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from '../../../services/sports/tournamentService';
 import type { Venue, EventRegistration, SportsEvent } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
@@ -2202,6 +2203,16 @@ export function SetupSchedule({
       const numParticipants = Number(participants) || 8;
       const allParts = buildParticipantList(numParticipants);
       setAllParticipantOptions(allParts);
+
+      // Trigger AI Fixture Scheduler automation telemetry in background
+      automationService.generateTournamentSchedule({
+        tournamentName: selectedTournamentFilter || 'Mana Tournament',
+        sport: selectedSportFilter || 'SPORTS',
+        format: isKnockoutOnly ? 'KNOCKOUT' : isRoundRobin ? 'ROUND_ROBIN' : 'LEAGUE',
+        teams: allParts.map(p => p.name || `Team ${p.id}`),
+        venues: venues.map(v => v.name),
+        startDate: new Date().toISOString().split('T')[0],
+      }).catch(() => {});
 
       if (isKnockoutOnly) {
         setMatchOverrides({});
