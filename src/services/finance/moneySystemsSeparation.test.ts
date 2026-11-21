@@ -24,19 +24,22 @@ if (typeof globalThis.localStorage === "undefined") {
   } as unknown as Storage;
 }
 
+const COMMUNITY_ID = 1;
+
 describe("Money Systems Strict Separation & Authoritative Boundaries", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it("1. Community Finance: Paying a maintenance bill does NOT automatically create a My Money transaction", () => {
+  it("1. Community Finance: Paying a maintenance bill does NOT automatically create a My Money transaction", async () => {
     const initialTxCount = personalFinanceService.getTransactions().length;
 
     // Record payment in Community Finance
-    const bill = communityFinanceService.getMyBill("302");
-    expect(bill).toBeDefined();
+    const bill = await communityFinanceService.getMyBill(COMMUNITY_ID, "302");
+    expect(bill).not.toBeNull();
+    if (!bill) return;
 
-    const result = communityFinanceService.recordPayment(bill.id, 500, "UPI");
+    const result = await communityFinanceService.recordPayment(bill.id, 500, "UPI", COMMUNITY_ID);
     expect(result).not.toBeNull();
     expect(result?.bill.status).toBe("PARTIAL");
     expect(result?.receipt.amountPaid).toBe(500);

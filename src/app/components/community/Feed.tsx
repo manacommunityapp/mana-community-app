@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify";
 import {
   MessageSquare,
   Heart,
@@ -299,8 +298,46 @@ const getCommunityRole = (authorRole?: string, authorId?: number, leaderMap?: Re
   return authorRole;
 };
 
-const renderHashtags = (content: string) => {
-  return content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>');
+/**
+ * Renders post text with #hashtags and @mentions highlighted.
+ *
+ * Returns React nodes instead of an HTML string. The previous implementation ran
+ * regex replacements over already-sanitized HTML (string surgery *after*
+ * DOMPurify), which mangled markup when a "#fragment" appeared inside a
+ * surviving href and would have turned into an injection point the moment the
+ * capture group was loosened. React escapes every text segment, so no HTML is
+ * constructed and nothing needs re-sanitizing.
+ */
+const renderPostContent = (content?: string | null): React.ReactNode[] => {
+  const text = content ?? "";
+  const nodes: React.ReactNode[] = [];
+  const pattern = /([#@])(\w+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const [token, sigil, label] = match;
+    nodes.push(
+      <span
+        key={`${sigil}${label}-${match.index}`}
+        className={
+          sigil === "#"
+            ? "text-indigo-600 font-semibold cursor-pointer hover:underline"
+            : "text-blue-600 font-semibold"
+        }
+      >
+        {sigil}
+        {label}
+      </span>
+    );
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
 };
 
 interface FeedVideoPlayerProps {
@@ -2742,7 +2779,11 @@ const PostCard = React.memo(function PostCard({
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
 
-      {!isEditing && <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content).replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
+      {!isEditing && (
+        <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left">
+          {renderPostContent(post.content)}
+        </p>
+      )}
 
       {/* Hashtags display */}
       {post.hashtags && (

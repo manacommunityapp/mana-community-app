@@ -103,22 +103,55 @@ export interface CommunityManagerSnapshot {
   engagement: EngagementStats;
 }
 
+/** Standard API response envelope: { success, data, message, correlationId, timestamp }. */
+interface ApiEnvelope<T> {
+  success?: boolean;
+  data?: T | null;
+  message?: string;
+}
+
+/**
+ * Unwraps the API envelope, surfacing `success: false` and a missing payload as errors
+ * instead of returning the envelope itself (which leaves every field `undefined`).
+ */
+async function unwrap<T>(request: Promise<ApiEnvelope<T>>): Promise<T> {
+  const res = await request;
+  if (res?.success === false) {
+    throw new Error(res.message || "Request failed");
+  }
+  const data = res?.data;
+  if (data === undefined || data === null) {
+    throw new Error(res?.message || "Malformed API response: missing data payload");
+  }
+  return data;
+}
+
 export const communityManagerService = {
   getSnapshot(communityId: number): Promise<CommunityManagerSnapshot> {
-    return apiClient.get<CommunityManagerSnapshot>(
-      `/api/community/${communityId}/manager/snapshot`
+    return unwrap(
+      apiClient.get<ApiEnvelope<CommunityManagerSnapshot>>(
+        `/api/community/${communityId}/manager/snapshot`
+      )
     );
   },
-  refreshSnapshot(communityId: number): Promise<void> {
-    return apiClient.post(`/api/community/${communityId}/manager/snapshot/refresh`, {});
+  async refreshSnapshot(communityId: number): Promise<void> {
+    const res = await apiClient.post<ApiEnvelope<unknown>>(
+      `/api/community/${communityId}/manager/snapshot/refresh`,
+      {}
+    );
+    if (res?.success === false) {
+      throw new Error(res.message || "Snapshot refresh failed");
+    }
   },
   getMetricTrend(
     communityId: number,
     metric: string,
     days: number
   ): Promise<{ date: string; value: number }[]> {
-    return apiClient.get(
-      `/api/community/${communityId}/manager/metrics/${metric}?days=${days}`
+    return unwrap(
+      apiClient.get<ApiEnvelope<{ date: string; value: number }[]>>(
+        `/api/community/${communityId}/manager/metrics/${metric}?days=${days}`
+      )
     );
   },
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   communityManagerService,
@@ -102,7 +102,9 @@ function CategoryBars({ data }: { data: Record<string, number> }) {
 export function CommunityManagerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const communityId: number = (user as any)?.communityId ?? 1;
+  // No tenant default: falling back to community 1 would expose another community's
+  // finance, resident, KYC and security stats to a SUPER_ADMIN or an unhydrated user.
+  const communityId: number | undefined = user?.communityId;
 
   const [snap, setSnap] = useState<CommunityManagerSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,11 @@ export function CommunityManagerDashboard() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
+    if (communityId === undefined) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (!silent) setLoading(true);
     else setRefreshing(true);
     setError(null);
@@ -126,10 +133,27 @@ export function CommunityManagerDashboard() {
   }, [communityId]);
 
   useEffect(() => {
+    if (communityId === undefined) {
+      setLoading(false);
+      return;
+    }
     load();
     intervalRef.current = setInterval(() => load(true), 5 * 60 * 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [load]);
+  }, [load, communityId]);
+
+  if (communityId === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500 text-center px-6">
+        <Building2 size={24} className="text-slate-400" />
+        <span className="text-sm font-semibold text-slate-700">No community selected</span>
+        <span className="text-xs max-w-sm">
+          This dashboard is scoped to a single community. Your account is not linked to one
+          (or your profile is still loading), so no community data can be shown.
+        </span>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

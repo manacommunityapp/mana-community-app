@@ -95,7 +95,6 @@ import { AdminRetentionPolicies } from "./components/privacy/admin/AdminRetentio
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
-import PlatformOpsDashboard from "./components/platform/PlatformOpsDashboard";
 import BusinessRevenueDashboard from "./components/platform/BusinessRevenueDashboard";
 import CommunityManagerDashboard from "./components/community-ops/CommunityManagerDashboard";
 
@@ -1470,9 +1469,9 @@ export const router = createBrowserRouter([
         ],
       },
       // ── Global Search ────────
-      { path: "search", element: <GlobalSearchPage /> },
+      { path: "search", element: <PermissionGuard><GlobalSearchPage /></PermissionGuard> },
       // ── Mana Fresh ────────
-      { path: "fresh", element: <ManaFreshPage /> },
+      { path: "fresh", element: <PermissionGuard><ManaFreshPage /></PermissionGuard> },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
@@ -1486,8 +1485,7 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
       // ── Platform & Ops Dashboards ────────
-      { path: "platform/ops", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><PlatformOpsDashboard /></PermissionGuard> },
-      { path: "platform/revenue", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><BusinessRevenueDashboard /></PermissionGuard> },
+      { path: "platform/revenue", element: <PermissionGuard superAdminOnly><BusinessRevenueDashboard /></PermissionGuard> },
       { path: "ops/community-manager", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><CommunityManagerDashboard /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Search, X } from "lucide-react";
-import { globalSearch, GlobalSearchResult } from "../../../services/searchService";
+import { globalSearch, type GlobalSearchResult } from "../../../services/searchService";
 
 const TYPE_ICON: Record<GlobalSearchResult['type'], string> = {
   RESIDENT: '👤',
@@ -20,6 +20,15 @@ const TYPE_LABEL: Record<GlobalSearchResult['type'], string> = {
 };
 
 const TYPE_ORDER: GlobalSearchResult['type'][] = ['RESIDENT', 'EVENT', 'NOTICE', 'MAINTENANCE', 'VISITOR'];
+
+/**
+ * Server-supplied result paths must be relative, same-origin and query-free.
+ * Rejects "//evil.com" (protocol-relative), any scheme, and any "?"/"#" payload.
+ * (`utils/sanitize.sanitizeHref` is deliberately NOT used here: it also permits
+ * absolute http(s)/mailto/tel URLs and query strings, which is too wide for a
+ * router navigation target.)
+ */
+const SAFE_RESULT_PATH = /^\/[A-Za-z0-9/_-]*$/;
 
 function SkeletonCard() {
   return (
@@ -59,31 +68,37 @@ export function GlobalSearchPage() {
   const [results, setResults] = useState<GlobalSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const runSearch = useCallback(async (q: string) => {
+    // Cancel whatever is in flight: its response is stale by definition.
+    abortRef.current?.abort();
     if (!q.trim()) {
+      abortRef.current = null;
       setResults([]);
       setLoading(false);
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     try {
-      const data = await globalSearch(q, 50);
+      const data = await globalSearch(q, 50, controller.signal);
+      if (controller.signal.aborted) return;
       setResults(data);
-    } catch {
+    } catch (err) {
+      // A superseded request must not clear the newer query's results or spinner.
+      if (controller.signal.aborted || (err as Error)?.name === "AbortError") return;
       setResults([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
-  // Auto-search on initial q param
-  useEffect(() => {
-    if (initialQ) runSearch(initialQ);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // The debounced effect below already runs for the initial ?q= value, so there is
+  // no separate mount-time fetch to race against it.
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -100,10 +115,13 @@ export function GlobalSearchPage() {
     }, 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
   }, [query, runSearch, setSearchParams]);
 
+  /** Navigate to a path that came from the server — validated before use. */
   function handleResultClick(url: string) {
+    if (typeof url !== 'string' || !SAFE_RESULT_PATH.test(url)) return;
     navigate(url);
   }
 

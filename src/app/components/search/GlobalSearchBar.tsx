@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { Search, X } from "lucide-react";
-import { globalSearch, GlobalSearchResult } from "../../../services/searchService";
+import { globalSearch, type GlobalSearchResult } from "../../../services/searchService";
 
 const TYPE_ICON: Record<GlobalSearchResult['type'], string> = {
   RESIDENT: '👤',
@@ -18,6 +18,15 @@ const TYPE_LABEL: Record<GlobalSearchResult['type'], string> = {
   NOTICE: 'Notice',
   VISITOR: 'Visitor',
 };
+
+/**
+ * Server-supplied result paths must be relative, same-origin and query-free.
+ * Rejects "//evil.com" (protocol-relative), any scheme, and any "?"/"#" payload.
+ * (`utils/sanitize.sanitizeHref` is deliberately NOT used here: it also permits
+ * absolute http(s)/mailto/tel URLs and query strings, which is too wide for a
+ * router navigation target.)
+ */
+const SAFE_RESULT_PATH = /^\/[A-Za-z0-9/_-]*$/;
 
 function groupByType(results: GlobalSearchResult[]): Record<string, GlobalSearchResult[]> {
   return results.reduce<Record<string, GlobalSearchResult[]>>((acc, r) => {
@@ -37,24 +46,33 @@ export function GlobalSearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const navigate = useNavigate();
 
   const flatResults = results;
 
   const runSearch = useCallback(async (q: string) => {
+    // Cancel whatever is in flight: its response is stale by definition.
+    abortRef.current?.abort();
     if (!q.trim()) {
+      abortRef.current = null;
       setResults([]);
       setLoading(false);
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     try {
-      const data = await globalSearch(q, 20);
+      const data = await globalSearch(q, 20, controller.signal);
+      if (controller.signal.aborted) return;
       setResults(data);
-    } catch {
+    } catch (err) {
+      // A superseded request must not clear the newer query's results or spinner.
+      if (controller.signal.aborted || (err as Error)?.name === "AbortError") return;
       setResults([]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
@@ -71,6 +89,7 @@ export function GlobalSearchBar() {
     }, 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
   }, [query, runSearch]);
 
@@ -115,6 +134,12 @@ export function GlobalSearchBar() {
     navigate(url);
   }
 
+  /** Navigate to a path that came from the server — validated before use. */
+  function navigateToResult(url: string) {
+    if (typeof url !== 'string' || !SAFE_RESULT_PATH.test(url)) return;
+    navigateTo(url);
+  }
+
   function handleKeyboardNav(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!open) return;
     if (e.key === 'ArrowDown') {
@@ -126,7 +151,7 @@ export function GlobalSearchBar() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (activeIdx >= 0 && flatResults[activeIdx]) {
-        navigateTo(flatResults[activeIdx].url);
+        navigateToResult(flatResults[activeIdx].url);
       } else if (query.trim()) {
         navigateTo(`/search?q=${encodeURIComponent(query.trim())}`);
       }
@@ -197,7 +222,7 @@ export function GlobalSearchBar() {
                     type="button"
                     className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-[#F9FAFC] text-left transition-colors cursor-pointer ${idx === activeIdx ? 'bg-[#E6FAF5]' : ''}`}
                     onMouseEnter={() => setActiveIdx(idx)}
-                    onClick={() => navigateTo(item.url)}
+                    onClick={() => navigateToResult(item.url)}
                   >
                     <span className="text-base w-6 text-center shrink-0">{TYPE_ICON[item.type]}</span>
                     <div className="min-w-0 flex-1">

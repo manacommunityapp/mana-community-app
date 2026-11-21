@@ -23,17 +23,30 @@ export function MutualFundsPortal() {
   const [investModal, setInvestModal] = useState<InvestModal>(null);
   const [amount, setAmount] = useState("");
   const [sipDate, setSipDate] = useState(5);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => { loadFunds(); }, [category]);
   useEffect(() => { loadHoldings(); loadSips(); }, []);
 
   async function loadFunds() {
     setLoading(true);
+    setLoadError(null);
     try { setFunds(await mutualFundService.getFunds(category === "ALL" ? undefined : category)); }
+    catch (e) {
+      // Never show invented NAVs or returns a resident might invest against.
+      setFunds([]);
+      setLoadError(e instanceof Error ? e.message : "Could not load mutual funds.");
+    }
     finally { setLoading(false); }
   }
-  async function loadHoldings() { setHoldings(await mutualFundService.getHoldings()); }
-  async function loadSips() { setSips(await mutualFundService.getSips()); }
+  async function loadHoldings() {
+    try { setHoldings(await mutualFundService.getHoldings()); }
+    catch (e) { setHoldings([]); setLoadError(e instanceof Error ? e.message : "Could not load your holdings."); }
+  }
+  async function loadSips() {
+    try { setSips(await mutualFundService.getSips()); }
+    catch (e) { setSips([]); setLoadError(e instanceof Error ? e.message : "Could not load your SIPs."); }
+  }
 
   async function handleInvest() {
     if (!investModal) return;
@@ -41,17 +54,24 @@ export function MutualFundsPortal() {
     const min = investModal.type === "SIP" ? investModal.fund.min_sip : investModal.fund.min_lumpsum;
     if (!amt || amt < min) { showError(`Minimum ₹${min} for ${investModal.type}.`); return; }
     try {
+      // Only a server-created order yields a payment link.
       const result = await mutualFundService.invest(investModal.fund.id, amt, investModal.type, sipDate);
-      window.open(result.phone_pe_url, "_blank");
-      showSuccess(`${investModal.type === "SIP" ? "SIP set up" : "Investing"} ₹${amt.toLocaleString()} — complete payment in UPI app.`);
+      const payUrl = result.phone_pe_url || result.upi_intent_url;
+      if (!payUrl) throw new Error("The investment could not be started. No payment was initiated.");
+      window.open(payUrl, "_blank");
+      showSuccess(`${investModal.type === "SIP" ? "SIP mandate" : "Order"} ${result.transaction_ref} created — payment pending, complete it in your UPI app.`);
       setInvestModal(null); setAmount(""); loadHoldings(); loadSips();
-    } catch { showError("Investment initiation failed."); }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Investment initiation failed. No payment was started.");
+    }
   }
 
   async function handleCancelSip(sipId: string) {
     if (!window.confirm("Cancel this SIP?")) return;
-    try { await fetch(`/api/v1/mf/sips/${sipId}/cancel`, { method: "DELETE" }); showSuccess("SIP cancelled."); loadSips(); }
-    catch { showError("Could not cancel SIP."); }
+    // Routed through the authenticated client so a 4xx/5xx throws instead of
+    // falling through to a success toast.
+    try { await mutualFundService.cancelSip(sipId); showSuccess("SIP cancelled."); loadSips(); }
+    catch (e) { showError(e instanceof Error ? e.message : "Could not cancel SIP. The SIP is still active."); }
   }
 
   const totalInvested = holdings.reduce((s, h) => s + h.invested_amount, 0);
@@ -64,6 +84,13 @@ export function MutualFundsPortal() {
         <div><h1 className="text-xl font-bold text-[#44475B]">Mutual Funds</h1><p className="text-xs text-[#7C7E8C]">SIP · Lumpsum · ELSS Tax Saving · SEBI Registered</p></div>
         <button onClick={() => { loadFunds(); loadHoldings(); loadSips(); }} className="p-2 rounded-lg border border-[#E8E9F0] hover:bg-[#F5F5F7]"><RefreshCw size={14} className={loading ? "animate-spin text-[#7C7E8C]" : "text-[#7C7E8C]"} /></button>
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+          <p className="text-xs text-red-700">{loadError}</p>
+          <button onClick={() => { loadFunds(); loadHoldings(); loadSips(); }} className="mt-1 text-xs font-bold text-red-700 underline">Retry</button>
+        </div>
+      )}
 
       <div className="flex border-b border-[#E8E9F0]">
         {(["explore", "portfolio", "sips"] as const).map(t => (

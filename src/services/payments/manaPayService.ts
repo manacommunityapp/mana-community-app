@@ -1,4 +1,4 @@
-import { apiClient } from '../common/apiClient';
+import { apiClient, getStoredUser } from '../common/apiClient';
 import { safeStorage } from '../../utils/storage';
 import type {
   CreateManaPaymentIntentRequest,
@@ -12,7 +12,32 @@ import type {
   ManaReconciliationStatus,
 } from '../../types/manaPay';
 
-const STORAGE_KEY = 'mana_pay_transactions_v2';
+// Namespaced per user: on a shared device (e.g. a clubhouse tablet) resident B
+// must never see resident A's payment amounts, UTRs or receipt numbers.
+// NOTE: clearUserStorage() in src/utils/storage.ts must sweep every key with
+// this prefix on logout.
+const STORAGE_KEY_PREFIX = 'mana_pay_transactions_v2';
+
+/** Shape of the backend's confirm response. Every identifier here is authoritative. */
+interface ManaPaymentConfirmation {
+  status?: ManaPaymentStatus;
+  utr?: string;
+  gatewayRef?: string;
+  receiptNumber?: string;
+  transactionNumber?: string;
+  orderReferenceId?: string;
+  amount?: number;
+  paidAt?: string;
+  reconciliationStatus?: ManaReconciliationStatus;
+  reconciledAt?: string;
+  reconciledBy?: string;
+}
+
+function transactionsStorageKey(): string {
+  const user = getStoredUser();
+  const scope = user?.userId ? String(user.userId) : 'anonymous';
+  return `${STORAGE_KEY_PREFIX}_${scope}`;
+}
 
 // 6 Core Business Capabilities seed data
 const SEED_TRANSACTIONS: ManaPaymentRecord[] = [
@@ -160,9 +185,9 @@ const SEED_TRANSACTIONS: ManaPaymentRecord[] = [
 
 function loadLocalTransactions(): ManaPaymentRecord[] {
   try {
-    const raw = safeStorage.getItem(STORAGE_KEY);
+    const raw = safeStorage.getItem(transactionsStorageKey());
     if (!raw) {
-      safeStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_TRANSACTIONS));
+      safeStorage.setItem(transactionsStorageKey(), JSON.stringify(SEED_TRANSACTIONS));
       return SEED_TRANSACTIONS;
     }
     return JSON.parse(raw);
@@ -173,7 +198,7 @@ function loadLocalTransactions(): ManaPaymentRecord[] {
 
 function saveLocalTransactions(list: ManaPaymentRecord[]) {
   try {
-    safeStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    safeStorage.setItem(transactionsStorageKey(), JSON.stringify(list));
   } catch (e) {
     console.error('Failed to save Mana Pay transactions to localStorage', e);
   }
@@ -276,66 +301,88 @@ export const manaPayService = {
       amount?: number;
     }
   ): Promise<ManaPaymentRecord> {
-    try {
-      await apiClient.post(`/payments/intents/${req.intentId}/confirm`, {
+    // The server confirmation is the ONLY thing that may produce a paid record.
+    // Any failure here propagates to the caller: nothing is written to the local
+    // ledger, so the resident is never shown a receipt or a reconciled badge for
+    // a payment the backend did not record.
+    const confirmation = await apiClient.post<ManaPaymentConfirmation>(
+      `/payments/intents/${req.intentId}/confirm`,
+      {
         gatewayPaymentId: req.gatewayPaymentId,
         gatewayOrderId: req.gatewayOrderId,
         gatewaySignature: req.gatewaySignature,
         utr: req.utr,
-      });
-    } catch {
-      // Offline fallback
+      }
+    );
+
+    if (!confirmation || typeof confirmation !== 'object') {
+      throw new Error('Payment could not be confirmed. Please check the transaction before paying again.');
     }
 
     const current = loadLocalTransactions();
     const txnIndex = current.findIndex(t => t.id === 'pay-' + req.intentId || t.orderReferenceId === meta?.orderReferenceId);
 
-    const utr = req.utr || (req.rail.startsWith('UPI') ? '6284' + Math.floor(10000000 + Math.random() * 90000000) : undefined);
-    const gatewayRef = req.gatewayPaymentId || (req.rail === 'GATEWAY_CARD_NETBANKING' ? 'pay_rzp_' + Math.random().toString(36).substring(2, 12) : undefined);
-    const receiptNumber = 'RCP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+    // Identifiers are taken from the server (or, for the UTR, from the rail /
+    // resident input that the server just accepted). None of them is generated
+    // locally: a receipt number that exists nowhere server-side is unusable in a
+    // later dispute.
+    const utr = confirmation.utr ?? req.utr;
+    const gatewayRef = confirmation.gatewayRef ?? req.gatewayPaymentId;
+    const receiptNumber = confirmation.receiptNumber;
+
+    // A server that confirms without an explicit status has accepted the
+    // payment; a server that reports PENDING stays pending in the UI.
+    const status: ManaPaymentStatus = confirmation.status ?? 'SUCCESS';
+    const paidAt = confirmation.paidAt ?? (status === 'SUCCESS' ? new Date().toISOString() : undefined);
+
+    // Reconciliation is a treasury fact, never a client assumption.
+    const reconciliationStatus: ManaReconciliationStatus = confirmation.reconciliationStatus ?? 'UNRECONCILED';
+    const reconciledAt = reconciliationStatus === 'RECONCILED' ? confirmation.reconciledAt : undefined;
+    const reconciledBy = reconciliationStatus === 'RECONCILED' ? confirmation.reconciledBy : undefined;
 
     let updatedTxn: ManaPaymentRecord;
 
     if (txnIndex >= 0) {
       updatedTxn = {
         ...current[txnIndex],
-        status: 'SUCCESS',
+        status,
         paymentRail: req.rail,
-        paidAt: new Date().toISOString(),
+        paidAt,
         utr,
         gatewayRef,
         receiptNumber,
-        reconciliationStatus: 'RECONCILED',
-        reconciledAt: new Date().toISOString(),
-        reconciledBy: 'Auto-Matched (Webhook/Rail)',
-        canRefund: true,
+        reconciliationStatus,
+        reconciledAt,
+        reconciledBy,
+        canRefund: status === 'SUCCESS',
       };
       current[txnIndex] = updatedTxn;
     } else {
       updatedTxn = {
         id: 'pay-' + req.intentId,
-        transactionNumber: 'TXN-' + new Date().getFullYear() + '-' + req.intentId.slice(-8),
-        orderReferenceId: meta?.orderReferenceId || 'ORD-' + Math.floor(1000 + Math.random() * 9000),
+        transactionNumber:
+          confirmation.transactionNumber || 'TXN-' + new Date().getFullYear() + '-' + req.intentId.slice(-8),
+        orderReferenceId: confirmation.orderReferenceId || meta?.orderReferenceId || req.intentId,
         domain: meta?.domain || 'MAINTENANCE_BILL',
         title: meta?.title || 'Community Payment',
-        amount: meta?.amount || 0,
+        amount: confirmation.amount ?? meta?.amount ?? 0,
         currency: 'INR',
-        status: 'SUCCESS',
+        status,
         paymentRail: req.rail,
         createdAt: new Date().toISOString(),
-        paidAt: new Date().toISOString(),
-        payerId: meta?.payerId || 'user-302',
+        paidAt,
+        payerId: meta?.payerId,
         payerName: meta?.payerName || 'Community Member',
-        payerUnit: meta?.payerUnit || 'Flat 302, Tower A',
+        payerUnit: meta?.payerUnit,
         vendorId: meta?.vendorId,
         vendorName: meta?.vendorName,
         utr,
         gatewayRef,
         receiptNumber,
-        reconciliationStatus: 'RECONCILED',
-        reconciledAt: new Date().toISOString(),
-        reconciledBy: 'Auto-Matched (Webhook/Rail)',
-        canRefund: true,
+        reconciliationStatus,
+        reconciledAt,
+        reconciledBy,
+        canRefund: status === 'SUCCESS',
       };
       current.unshift(updatedTxn);
     }
@@ -405,13 +452,17 @@ export const manaPayService = {
     const list = loadLocalTransactions();
     const txn = list.find(t => t.transactionNumber === transactionNumber);
     if (!txn) return null;
+    // A receipt is only issued for a payment the server marked paid, and only
+    // with the receipt number the server issued — never an invented one.
+    if (txn.status !== 'SUCCESS' && txn.status !== 'REFUNDED') return null;
+    if (!txn.receiptNumber) return null;
 
     const tax = Math.round(txn.amount * 0.05);
     const convenience = txn.paymentRail === 'GATEWAY_CARD_NETBANKING' ? 20 : 0;
     const base = txn.amount - tax - convenience;
 
     return {
-      receiptNumber: txn.receiptNumber || 'RCP-2026-9999',
+      receiptNumber: txn.receiptNumber,
       receiptDate: txn.paidAt || txn.createdAt,
       transactionNumber: txn.transactionNumber,
       orderReferenceId: txn.orderReferenceId,
@@ -419,7 +470,7 @@ export const manaPayService = {
       status: txn.status,
       payerName: txn.payerName,
       payerUnit: txn.payerUnit,
-      payerPhone: '+91 98450 12345',
+      payerPhone: getStoredUser()?.phone,
       paymentRail: txn.paymentRail,
       amount: base > 0 ? base : txn.amount,
       taxAmount: tax,
@@ -441,7 +492,8 @@ export const manaPayService = {
         },
       ],
       notes: 'This is a computer generated digital receipt issued by Mana Community Pay Core.',
-      verifiedStamp: true,
+      // "Verified" means reconciled against the society bank account, not merely paid.
+      verifiedStamp: txn.reconciliationStatus === 'RECONCILED',
     };
   },
 

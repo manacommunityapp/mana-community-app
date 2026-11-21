@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { TrendingUp, TrendingDown, ShieldCheck, RefreshCw } from "lucide-react";
-import { goldService, type GoldHolding, type GoldTransaction } from "../../services/finance/goldService";
+import { TrendingUp, TrendingDown, ShieldCheck, RefreshCw, AlertTriangle } from "lucide-react";
+import { goldService, type GoldHolding, type GoldTransaction, type GoldPrice } from "../../services/finance/goldService";
 import { showSuccess, showError } from "../../utils/ToastUtils";
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];
@@ -10,49 +10,94 @@ export function GoldPortal() {
   const [purity, setPurity] = useState<"24K" | "22K">("24K");
   const [buyAmount, setBuyAmount] = useState("");
   const [sellGrams, setSellGrams] = useState("");
-  const [price, setPrice] = useState({ per_gram_24k: 7450, per_gram_22k: 6850, change_pct_24h: 0.42 });
+  const [price, setPrice] = useState<GoldPrice | null>(null);
   const [holdings, setHoldings] = useState<GoldHolding[]>([]);
   const [history, setHistory] = useState<GoldTransaction[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   React.useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     setLoading(true);
+    setLoadError(null);
+    // The price feed degrades to an indicative rate; portfolio data never does —
+    // if it cannot be read we show an error rather than an invented portfolio.
+    const p = await goldService.getPrice();
+    setPrice(p);
     try {
-      const [p, h, tx] = await Promise.all([goldService.getPrice(), goldService.getHoldings(), goldService.getHistory()]);
-      setPrice(p); setHoldings(h); setHistory(tx); setLoadedOnce(true);
-    } finally { setLoading(false); }
+      const [h, tx] = await Promise.all([goldService.getHoldings(), goldService.getHistory()]);
+      setHoldings(h);
+      setHistory(tx);
+    } catch (e) {
+      setHoldings([]);
+      setHistory([]);
+      setLoadError(e instanceof Error ? e.message : "Could not load your gold portfolio.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const currentPrice = purity === "24K" ? price.per_gram_24k : price.per_gram_22k;
-  const gramsForBuy = buyAmount && currentPrice ? (parseFloat(buyAmount) / currentPrice).toFixed(4) : "—";
-  const sellValue = sellGrams ? Math.round(parseFloat(sellGrams) * currentPrice) : 0;
+  // A stale/indicative rate must never be used to construct a purchase or sale.
+  const priceIsIndicative = !price || price.indicative === true;
+  const tradingEnabled = !!price && !priceIsIndicative;
+  const currentPrice = price ? (purity === "24K" ? price.per_gram_24k : price.per_gram_22k) : 0;
+  const gramsForBuy = tradingEnabled && buyAmount && currentPrice ? (parseFloat(buyAmount) / currentPrice).toFixed(4) : "—";
+  const sellValue = tradingEnabled && sellGrams ? Math.round(parseFloat(sellGrams) * currentPrice) : 0;
   const totalGrams = holdings.reduce((s, h) => s + h.grams, 0);
   const totalValue = holdings.reduce((s, h) => s + h.current_value, 0);
   const totalPnl = holdings.reduce((s, h) => s + h.unrealised_pnl, 0);
+  const priceLabel = (v: number | undefined) => (tradingEnabled && typeof v === "number" ? `₹${v.toLocaleString()}` : "—");
 
   async function handleBuy() {
     const amt = parseFloat(buyAmount);
-    if (!amt || amt < 10) { showError("Minimum ₹10 to buy gold."); return; }
+    setActionError(null);
+    if (!amt || amt < 10) { setActionError("Minimum ₹10 to buy gold."); showError("Minimum ₹10 to buy gold."); return; }
+    if (!tradingEnabled) {
+      const msg = "Live gold rate unavailable — buying is disabled until the rate feed is back.";
+      setActionError(msg); showError(msg); return;
+    }
+    setSubmitting(true);
     try {
+      // Only a server-created order yields a payment link; nothing is opened otherwise.
       const result = await goldService.buy(amt, purity);
-      window.open(result.phone_pe_url, "_blank");
-      showSuccess(`Buying ${gramsForBuy}g of ${purity} gold — complete payment in UPI app.`);
+      const payUrl = result.phone_pe_url || result.upi_intent_url;
+      if (!payUrl) throw new Error("Gold purchase could not be started. No payment was initiated.");
+      window.open(payUrl, "_blank");
+      showSuccess(`Order ${result.transaction_ref} created for ${result.grams}g ${purity} — payment pending, complete it in your UPI app.`);
       setBuyAmount(""); setTab("overview"); loadData();
-    } catch { showError("Could not initiate gold purchase."); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not initiate gold purchase. No payment was started.";
+      setActionError(msg);
+      showError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleSell() {
     const g = parseFloat(sellGrams);
-    if (!g || g <= 0) { showError("Enter valid grams to sell."); return; }
-    if (g > totalGrams) { showError(`You only hold ${totalGrams.toFixed(4)}g.`); return; }
+    setActionError(null);
+    if (!g || g <= 0) { setActionError("Enter valid grams to sell."); showError("Enter valid grams to sell."); return; }
+    if (g > totalGrams) { const m = `You only hold ${totalGrams.toFixed(4)}g.`; setActionError(m); showError(m); return; }
+    if (!tradingEnabled) {
+      const msg = "Live gold rate unavailable — selling is disabled until the rate feed is back.";
+      setActionError(msg); showError(msg); return;
+    }
+    setSubmitting(true);
     try {
       const result = await goldService.sell(g, purity);
-      showSuccess(`Sell initiated. ₹${result.amount.toLocaleString()} will be credited in 1–2 business days. Ref: ${result.transaction_ref}`);
+      showSuccess(`Sell order ${result.transaction_ref} placed. ₹${result.amount.toLocaleString()} credited on T+1 settlement.`);
       setSellGrams(""); setTab("overview"); loadData();
-    } catch { showError("Could not initiate sale."); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not initiate sale. Nothing was sold.";
+      setActionError(msg);
+      showError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -68,9 +113,35 @@ export function GoldPortal() {
         </button>
       </div>
 
+      {priceIsIndicative && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          <AlertTriangle size={14} className="text-amber-700 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800">
+            Live gold rate unavailable. The rates below are <strong>indicative only</strong> and buying and selling are disabled until the live rate is restored.
+          </p>
+        </div>
+      )}
+
+      {loadError && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
+          <AlertTriangle size={14} className="text-red-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-xs text-red-700">{loadError}</p>
+            <button onClick={loadData} className="mt-1 text-xs font-bold text-red-700 underline">Retry</button>
+          </div>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
+          <AlertTriangle size={14} className="text-red-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-red-700">{actionError}</p>
+        </div>
+      )}
+
       {/* Price Banner */}
       <div className="bg-[#78350F] rounded-xl p-4 flex items-center justify-around">
-        {[{ label: "24K / gram", value: `₹${price.per_gram_24k.toLocaleString()}` }, { label: "22K / gram", value: `₹${price.per_gram_22k.toLocaleString()}` }].map(item => (
+        {[{ label: "24K / gram", value: priceLabel(price?.per_gram_24k) }, { label: "22K / gram", value: priceLabel(price?.per_gram_22k) }].map(item => (
           <div key={item.label} className="text-center">
             <p className="text-[10px] text-amber-200">{item.label}</p>
             <p className="text-white font-bold text-base">{item.value}</p>
@@ -78,17 +149,21 @@ export function GoldPortal() {
         ))}
         <div className="text-center">
           <p className="text-[10px] text-amber-200">24h Change</p>
-          <p className={`font-bold text-sm flex items-center gap-1 ${price.change_pct_24h >= 0 ? "text-green-300" : "text-red-300"}`}>
-            {price.change_pct_24h >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {Math.abs(price.change_pct_24h).toFixed(2)}%
-          </p>
+          {tradingEnabled && price ? (
+            <p className={`font-bold text-sm flex items-center gap-1 ${price.change_pct_24h >= 0 ? "text-green-300" : "text-red-300"}`}>
+              {price.change_pct_24h >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {Math.abs(price.change_pct_24h).toFixed(2)}%
+            </p>
+          ) : (
+            <p className="font-bold text-sm text-amber-100">—</p>
+          )}
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-[#E8E9F0]">
         {(["overview", "buy", "sell"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { setTab(t); setActionError(null); }}
             className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${tab === t ? "border-b-2 border-amber-600 text-amber-700" : "text-[#7C7E8C]"}`}>
             {t === "overview" ? "Portfolio" : t === "buy" ? "Buy Gold" : "Sell Gold"}
           </button>
@@ -160,7 +235,7 @@ export function GoldPortal() {
               <input type="number" className="flex-1 text-lg font-bold text-[#44475B] outline-none bg-transparent" value={buyAmount}
                 onChange={e => setBuyAmount(e.target.value)} placeholder="Min ₹10" />
             </div>
-            {buyAmount && <p className="text-xs text-indigo-600 mt-1.5">You will receive ≈ {gramsForBuy}g of {purity} gold</p>}
+            {buyAmount && tradingEnabled && <p className="text-xs text-indigo-600 mt-1.5">Estimated ≈ {gramsForBuy}g of {purity} gold · final grams confirmed by the order</p>}
           </div>
           <div className="flex gap-2">
             {QUICK_AMOUNTS.map(a => (
@@ -170,9 +245,9 @@ export function GoldPortal() {
               </button>
             ))}
           </div>
-          <button onClick={handleBuy} disabled={!buyAmount || parseFloat(buyAmount) < 10}
+          <button onClick={handleBuy} disabled={!buyAmount || parseFloat(buyAmount) < 10 || !tradingEnabled || submitting}
             className="w-full bg-amber-600 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 hover:bg-amber-700 transition-colors">
-            Buy {gramsForBuy}g Gold · Pay ₹{buyAmount || "0"}
+            {submitting ? "Creating order…" : `Buy ${gramsForBuy}g Gold · Pay ₹${buyAmount || "0"}`}
           </button>
           <div className="flex items-center gap-1.5 text-[10px] text-[#7C7E8C]">
             <ShieldCheck size={11} /> MMTC-PAMP certified · Insured storage · Instant delivery
@@ -194,13 +269,13 @@ export function GoldPortal() {
               <input type="number" className="flex-1 text-lg font-bold text-[#44475B] outline-none bg-transparent" value={sellGrams}
                 onChange={e => setSellGrams(e.target.value)} placeholder="e.g. 0.5" />
             </div>
-            {sellGrams && parseFloat(sellGrams) > 0 && (
-              <p className="text-xs text-green-600 mt-1.5">You will receive ≈ ₹{sellValue.toLocaleString()} in your bank account</p>
+            {sellGrams && parseFloat(sellGrams) > 0 && tradingEnabled && (
+              <p className="text-xs text-green-600 mt-1.5">Estimated ≈ ₹{sellValue.toLocaleString()} · final amount confirmed by the order</p>
             )}
           </div>
-          <button onClick={handleSell} disabled={!sellGrams || parseFloat(sellGrams) <= 0}
+          <button onClick={handleSell} disabled={!sellGrams || parseFloat(sellGrams) <= 0 || !tradingEnabled || submitting}
             className="w-full bg-red-600 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 hover:bg-red-700 transition-colors">
-            Sell Gold · Get ₹{sellValue.toLocaleString()}
+            {submitting ? "Placing order…" : `Sell Gold · Get ₹${sellValue.toLocaleString()}`}
           </button>
           <p className="text-[10px] text-[#7C7E8C]">Amount credited in 1–2 business days · T+1 settlement</p>
         </div>

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { manaCalendarService } from "../../../services/manaCalendarService";
 import type { CalendarDomain, CalendarEventItem } from "../../../types/manaCalendar";
+import { isSafeRedirectUrl, sanitizeHref } from "../../../utils/sanitize";
 
 const DOMAIN_METADATA: Record<
   CalendarDomain,
@@ -245,7 +246,7 @@ export const ManaCommunityCalendar: React.FC = () => {
                       <div className="pl-2 pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
                         {ev.googleCalendarUrl ? (
                           <a
-                            href={ev.googleCalendarUrl}
+                            href={sanitizeHref(ev.googleCalendarUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 transition"
@@ -256,7 +257,9 @@ export const ManaCommunityCalendar: React.FC = () => {
 
                         <button
                           onClick={() => {
-                            if (ev.targetRoute) window.location.href = ev.targetRoute;
+                            if (ev.targetRoute && isSafeRedirectUrl(ev.targetRoute)) {
+                              window.location.href = ev.targetRoute;
+                            }
                           }}
                           className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
                         >

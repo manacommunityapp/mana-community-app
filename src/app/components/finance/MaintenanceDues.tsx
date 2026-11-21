@@ -6,8 +6,9 @@ import {
   Download, ChevronRight, ShieldCheck, ArrowDownRight, Layers, FileText, X, Zap
 } from "lucide-react";
 import { communityFinanceService } from "../../../services/finance/communityFinanceService";
-import type { MaintenanceBill, CommunityReceipt, PaymentMode } from "../../../services/finance/communityFinanceService";
+import type { MaintenanceBill, CommunityReceipt, PaymentMode, AdvanceWallet } from "../../../services/finance/communityFinanceService";
 import { maintenanceDuesService } from "../../../services/finance/maintenanceDuesService";
+import type { MaintenanceDue } from "../../../services/finance/maintenanceDuesService";
 import { personalFinanceService } from "../../../services/finance/personalFinanceService";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
 import { manaPayService } from "../../../services/payments/manaPayService";
@@ -15,14 +16,51 @@ import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../..
 
 import { useAuth } from "../../../contexts/AuthContext";
 
+/**
+ * Projects a maintenance due (dues API) onto the richer MaintenanceBill shape the UI
+ * renders, preserving any fields already known from the community-finance invoice.
+ */
+function mergeDueIntoBill(
+  due: MaintenanceDue,
+  base: MaintenanceBill | null,
+  flatNumber: string,
+  tower: string
+): MaintenanceBill {
+  const now = new Date();
+  const paid = due.paidAmount ?? 0;
+  return {
+    id: String(due.id),
+    billNumber: base?.billNumber ?? `MD-${due.id}`,
+    flatNumber: due.unitNumber ?? base?.flatNumber ?? flatNumber,
+    tower: base?.tower ?? tower,
+    month: base?.month ?? now.getMonth() + 1,
+    year: base?.year ?? now.getFullYear(),
+    charges: base?.charges ?? [{ item: "Monthly Maintenance", amount: due.amount }],
+    subtotal: base?.subtotal ?? due.amount,
+    penaltyAmount: base?.penaltyAmount ?? 0,
+    discountAmount: base?.discountAmount ?? 0,
+    totalAmount: due.amount,
+    paidAmount: paid,
+    dueAmount: due.amount - paid,
+    dueDate: due.dueDate,
+    status: due.status,
+    generatedAt: base?.generatedAt ?? now.toISOString(),
+    paidAt: due.paidDate ?? base?.paidAt,
+    receiptNumber: base?.receiptNumber,
+    pdfUrl: base?.pdfUrl,
+  };
+}
+
 export function MaintenanceDues() {
   const { user } = useAuth();
   const userFlat = user?.flatNumber || user?.flatNo || "302";
   const userTower = user?.tower || user?.block || "A";
+  const communityId = user?.communityId;
 
-  const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill(userFlat));
-  const [wallet, setWallet] = useState(communityFinanceService.getAdvanceWallet(userFlat));
-  const [history, setHistory] = useState<MaintenanceBill[]>(communityFinanceService.getMyBillHistory(userFlat));
+  const [bill, setBill] = useState<MaintenanceBill | null>(null);
+  const [wallet, setWallet] = useState<AdvanceWallet | null>(null);
+  const [history, setHistory] = useState<MaintenanceBill[]>([]);
+  const [isLoadingBill, setIsLoadingBill] = useState(true);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
@@ -33,70 +71,88 @@ export function MaintenanceDues() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
+  // Authoritative community-finance invoice, history and advance wallet.
   useEffect(() => {
-    maintenanceDuesService.getMyDues().then((page) => {
-      const dues = page.content;
-      if (!dues.length) return;
-      const current = dues.find(d => d.status !== "PAID") ?? dues[0];
-      const now = new Date();
-      setBill(prev => ({
-        ...prev,
-        id: String(current.id),
-        flatNumber: current.unitNumber ?? userFlat,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-        totalAmount: current.amount,
-        paidAmount: current.paidAmount ?? 0,
-        dueAmount: current.amount - (current.paidAmount ?? 0),
-        dueDate: current.dueDate,
-        status: current.status as MaintenanceBill["status"],
-        paidAt: current.paidDate,
-      }));
-      const mapped = dues.map(d => ({
-        ...communityFinanceService.getMyBill(userFlat),
-        id: String(d.id),
-        flatNumber: d.unitNumber ?? userFlat,
-        totalAmount: d.amount,
-        paidAmount: d.paidAmount ?? 0,
-        dueAmount: d.amount - (d.paidAmount ?? 0),
-        dueDate: d.dueDate,
-        status: d.status as MaintenanceBill["status"],
-        paidAt: d.paidDate,
-      }));
-      setHistory(mapped);
-    }).catch(() => { /* keep fallback state on error */ });
-  }, [userFlat]);
+    if (communityId === undefined) {
+      setIsLoadingBill(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [apiBill, apiHistory, apiWallet] = await Promise.all([
+        communityFinanceService.getMyBill(communityId, userFlat).catch(() => null),
+        communityFinanceService.getMyBillHistory(communityId, userFlat).catch(() => [] as MaintenanceBill[]),
+        communityFinanceService.getAdvanceWallet(communityId, userFlat).catch(() => null),
+      ]);
+      if (cancelled) return;
+      if (apiBill) setBill(apiBill);
+      if (apiHistory.length) setHistory(apiHistory);
+      setWallet(apiWallet);
+      setIsLoadingBill(false);
+    })();
+    return () => { cancelled = true; };
+  }, [communityId, userFlat]);
+
+  // Dues API overlay (per-resident dues ledger), merged onto whatever is already known.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const page = await maintenanceDuesService.getMyDues();
+        const dues = page.content;
+        if (cancelled || !dues.length) return;
+        const current = dues.find(d => d.status !== "PAID") ?? dues[0];
+        setBill(prev => mergeDueIntoBill(current, prev, userFlat, userTower));
+        setHistory(prev => dues.map(d =>
+          mergeDueIntoBill(d, prev.find(h => h.id === String(d.id)) ?? null, userFlat, userTower)
+        ));
+      } catch {
+        /* keep community-finance state on error */
+      } finally {
+        if (!cancelled) setIsLoadingBill(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userFlat, userTower]);
 
   const handlePay = async () => {
+    if (!bill) return;
     setIsProcessing(true);
     try {
       await maintenanceDuesService.recordPayment(Number(bill.id), {
         amount: bill.dueAmount,
         paymentMode,
       });
-      setBill(prev => ({ ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 }));
+      setBill(prev => (prev ? { ...prev, status: "PAID", paidAmount: prev.totalAmount, dueAmount: 0 } : prev));
       setPaymentSuccess(true);
       setShowPayModal(false);
     } catch {
-      // fall back to mock flow so UI still works in dev/staging
-      const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, paymentMode);
-      if (res) {
+      // Fall back to the community-finance billing endpoint.
+      if (communityId === undefined) return;
+      try {
+        const res = await communityFinanceService.recordPayment(bill.id, bill.dueAmount, paymentMode, communityId);
         setBill({ ...res.bill });
         setSelectedReceipt(res.receipt);
         setPaymentSuccess(true);
         setShowPayModal(false);
         setShowReceiptModal(true);
+      } catch {
+        /* both payment paths failed — leave the bill untouched */
       }
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleOpenReceipt = (receiptNum?: string) => {
+  const handleOpenReceipt = async (receiptNum?: string) => {
     if (!receiptNum) return;
-    const r = communityFinanceService.getReceipt(receiptNum);
-    setSelectedReceipt(r);
-    setShowReceiptModal(true);
+    try {
+      const r = await communityFinanceService.getReceipt(receiptNum);
+      setSelectedReceipt(r);
+      setShowReceiptModal(true);
+    } catch {
+      /* receipt unavailable — leave the modal closed */
+    }
   };
 
   return (
@@ -134,14 +190,30 @@ export function MaintenanceDues() {
             <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60"><Wallet className="w-5 h-5" /></div>
             <div>
               <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Advance Wallet Balance</div>
-              <div className="text-lg font-black text-purple-900 dark:text-white">₹{wallet.balanceAmount.toLocaleString("en-IN")}</div>
+              <div className="text-lg font-black text-purple-900 dark:text-white">{wallet ? `₹${wallet.balanceAmount.toLocaleString("en-IN")}` : "—"}</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Current Active Bill Card / Empty State ────────────────────────────── */}
-      {bill.status === "PAID" || bill.dueAmount === 0 ? (
+      {!bill ? (
+        <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-xs">
+          <div className="w-14 h-14 bg-slate-50 dark:bg-slate-900/60 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <FileText className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white">
+            {isLoadingBill ? "Loading your maintenance bill…" : "No maintenance bill available"}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+            {isLoadingBill
+              ? "Fetching the current invoice for your unit."
+              : communityId === undefined
+                ? "Your account is not linked to a community yet, so no invoice can be loaded."
+                : `No current invoice was found for Flat ${userFlat} · Tower ${userTower}.`}
+          </p>
+        </div>
+      ) : bill.status === "PAID" || bill.dueAmount === 0 ? (
         <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-xs">
           <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <CheckCircle2 className="w-7 h-7" />
@@ -255,11 +327,11 @@ export function MaintenanceDues() {
       </div>
 
       {/* ── Mana Pay Unified Checkout Modal ─────────────────────────────────── */}
-      {showPayModal && (
+      {showPayModal && bill && (
         <ManaPayCheckoutModal
           isOpen={showPayModal}
           onClose={() => setShowPayModal(false)}
-          residentWalletBalance={wallet.balanceAmount}
+          residentWalletBalance={wallet?.balanceAmount ?? 0}
           order={{
             idempotencyKey: manaPayService.generateIdempotencyKey(
               "MAINTENANCE_BILL",
@@ -281,14 +353,17 @@ export function MaintenanceDues() {
               amount: c.amount,
             })),
           }}
-          onPaymentSuccess={(record: ManaPaymentRecord) => {
-            const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, "UPI");
-            if (res) {
-              setBill({ ...res.bill });
-              setSelectedReceipt(res.receipt);
-              setPaymentSuccess(true);
-              setShowReceiptModal(true);
-            }
+          onPaymentSuccess={(_record: ManaPaymentRecord) => {
+            if (communityId === undefined) return;
+            communityFinanceService
+              .recordPayment(bill.id, bill.dueAmount, "UPI", communityId)
+              .then((res) => {
+                setBill({ ...res.bill });
+                setSelectedReceipt(res.receipt);
+                setPaymentSuccess(true);
+                setShowReceiptModal(true);
+              })
+              .catch(() => { /* payment recorded upstream; receipt unavailable */ });
           }}
         />
       )}

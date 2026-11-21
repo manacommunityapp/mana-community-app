@@ -1,9 +1,13 @@
 import { toast } from "sonner";
 
 export function ManaFreshPage() {
-  function handleNotify() {
-    toast.success("You're on the list!", {
-      description: "We'll notify you when Mana Fresh launches in your community.",
+  // There is no Mana Fresh waitlist endpoint on the backend yet, so this page
+  // must not claim a sign-up happened. The copy below only states when and
+  // where the launch will be announced.
+  function handleLaunchInfo() {
+    toast.info("Mana Fresh is not live yet", {
+      description:
+        "There is no sign-up list yet — the launch will be announced in your community notices.",
     });
   }
 
@@ -43,14 +47,14 @@ export function ManaFreshPage() {
       {/* CTA */}
       <button
         type="button"
-        onClick={handleNotify}
+        onClick={handleLaunchInfo}
         className="px-8 py-3 rounded-2xl bg-[#00D09C] hover:bg-[#00B887] text-white font-bold text-sm shadow-md shadow-[#00D09C]/25 hover:shadow-lg hover:shadow-[#00D09C]/30 transition-all active:scale-95 cursor-pointer"
       >
-        Notify me when it launches
+        How will I know when it launches?
       </button>
 
       <p className="text-[11px] text-[#9CA3AF] mt-4">
-        No spam. We'll only reach out when Mana Fresh is live.
+        No sign-up yet — the Mana Fresh launch will be announced in your community notices.
       </p>
     </div>
   );

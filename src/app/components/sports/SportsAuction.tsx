@@ -64,6 +64,7 @@ import { SportsPlayerProfileCard } from "./SportsPlayerProfileCard";
 import { SportsAuctionDiscovery } from "./SportsAuctionDiscovery";
 import { validateAuctionBid, validateSelfBidding } from "./sportsValidation";
 import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
+import { sanitizeHref } from "../../../utils/sanitize";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -1941,7 +1942,7 @@ export function SportsAuction() {
                                     </span>
                                   )}
                                   {chProfile.shareUrl && (
-                                    <a href={chProfile.shareUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}>
+                                    <a href={sanitizeHref(chProfile.shareUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}>
                                       <ExternalLink size={10} /> CricHeroes Profile
                                     </a>
                                   )}
