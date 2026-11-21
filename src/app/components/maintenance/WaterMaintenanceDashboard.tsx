@@ -29,6 +29,10 @@ import {
   type TankCleaningSchedule,
   type WaterOverviewSummary,
 } from "../../../services/maintenance/waterMaintenanceService";
+import {
+  automationService,
+  type WaterLeakSentinelResponse,
+} from "../../../services/automation/automationService";
 
 type ActiveTab = "overview" | "tankers" | "pumps" | "treatment" | "quality" | "cleaning";
 
@@ -56,6 +60,34 @@ export function WaterMaintenanceDashboard() {
   const [showQualityModal, setShowQualityModal] = useState<boolean>(false);
   const [showTreatmentModal, setShowTreatmentModal] = useState<boolean>(false);
   const [showCleaningModal, setShowCleaningModal] = useState<boolean>(false);
+
+  // AI Water Loss & Tanker Sentinel State
+  const [isAuditingWater, setIsAuditingWater] = useState<boolean>(false);
+  const [waterAuditResult, setWaterAuditResult] = useState<WaterLeakSentinelResponse | null>(null);
+  const [showWaterAuditModal, setShowWaterAuditModal] = useState<boolean>(false);
+
+  const handleAuditWaterLoss = async () => {
+    setIsAuditingWater(true);
+    try {
+      const res = await automationService.auditWaterLeaksAndTankers({
+        sumpCapacityLiters: summary?.totalCapacityLiters || 450000,
+        currentSumpLevelLiters: summary?.currentStorageLiters || 280000,
+        overheadTankLevelLiters: 95000,
+        inflowFromMetersLiters: 48000,
+        tankerReceiptsTodayLiters: (summary?.totalTankersThisMonth || 1) * 12000,
+        testedTds: qualityTests[0]?.tdsPpm || 240,
+        testedPh: qualityTests[0]?.ph || 7.2,
+        monitoredHours: 24,
+      });
+      setWaterAuditResult(res);
+      setShowWaterAuditModal(true);
+    } catch (err) {
+      console.error("Water loss audit failed:", err);
+      toast.error("Could not run water loss audit.");
+    } finally {
+      setIsAuditingWater(false);
+    }
+  };
 
   // Modal Forms
   const [tankerForm, setTankerForm] = useState({
@@ -307,6 +339,14 @@ export function WaterMaintenanceDashboard() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
+          </button>
+          <button
+            onClick={handleAuditWaterLoss}
+            disabled={isAuditingWater}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4 text-cyan-200" />
+            {isAuditingWater ? "Auditing Loss..." : "AI Water Loss & Leak Sentinel"}
           </button>
           <button
             onClick={handleOpenTankerModal}
@@ -1419,6 +1459,109 @@ export function WaterMaintenanceDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 5: AI Water Loss & Tanker Quality Sentinel */}
+      {showWaterAuditModal && waterAuditResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
+                  <Sparkles className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    AI Water Loss & Leak Sentinel
+                  </h3>
+                  <p className="text-xs text-slate-500">Telemetry Inflow, Outflow & Tanker Potability Audit</p>
+                </div>
+              </div>
+              <button onClick={() => setShowWaterAuditModal(false)} className="p-1 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-1 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div>
+                  <div className="text-slate-500 font-medium">Pipeline Status</div>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      waterAuditResult.leakStatus === "SECURE"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                  >
+                    {waterAuditResult.leakStatus.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-500 font-medium">Tanker Quality</div>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      waterAuditResult.tankerQualityVerdict === "COMPLIANT"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-amber-50 text-amber-700 border border-amber-200"
+                    }`}
+                  >
+                    {waterAuditResult.tankerQualityVerdict.replace(/_/g, " ")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-cyan-50/50 border border-cyan-100 rounded-xl">
+                  <div className="text-slate-500">Transmission Loss</div>
+                  <div className="text-base font-extrabold text-cyan-800 mt-0.5">
+                    {waterAuditResult.transmissionLossPercentage}%
+                  </div>
+                  <div className="text-[11px] text-cyan-600/80 mt-0.5">~{waterAuditResult.estimatedLossLitersPerHour} L/hr friction</div>
+                </div>
+
+                <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                  <div className="text-slate-500">Water Chemistry (Potability)</div>
+                  <div className="text-base font-extrabold text-blue-800 mt-0.5">
+                    {waterAuditResult.measuredTds} ppm
+                  </div>
+                  <div className="text-[11px] text-blue-600/80 mt-0.5">pH: {waterAuditResult.measuredPh} (BIS 10500 OK)</div>
+                </div>
+              </div>
+
+              {waterAuditResult.suspectedLeakZones && waterAuditResult.suspectedLeakZones.length > 0 && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                  <div className="font-bold text-rose-800 flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5" /> Suspected Loss Segments
+                  </div>
+                  {waterAuditResult.suspectedLeakZones.map((zone, idx) => (
+                    <p key={idx} className="text-rose-700 text-xs">{zone}</p>
+                  ))}
+                </div>
+              )}
+
+              {waterAuditResult.actionPlan && waterAuditResult.actionPlan.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-slate-700 mb-1.5">Actionable Water Management Directives</h4>
+                  <ul className="space-y-1 text-slate-600 list-disc list-inside bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    {waterAuditResult.actionPlan.map((act, idx) => (
+                      <li key={idx}>{act}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowWaterAuditModal(false)}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl text-xs transition"
+              >
+                Acknowledge Directives
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -86,6 +86,7 @@ import CommunityManagerDashboard from "./components/community-ops/CommunityManag
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { BusinessRevenueDashboard } from "./components/admin/BusinessRevenueDashboard";
 import { SmartDashboard } from "./components/commons/SmartDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
 import { ExpensesDashboard } from "./components/finance/ExpensesDashboard";
@@ -450,6 +451,8 @@ import CPOSCrmLeaderboardPage from "./components/cpos/crm/CrmLeaderboardPage";
 import CPOSApprovalsPage from "./components/cpos/crm/ApprovalsPage";
 import CPOSDripSequencesPage from "./components/cpos/crm/DripSequencesPage";
 import CPOSCustomReportPage from "./components/cpos/crm/CustomReportPage";
+import CPOSRentalDashboard from "./components/cpos/rental/RentalDashboard";
+import CPOSLeasePage from "./components/cpos/rental/LeasePage";
 
 // CPN (Community Professional Network) modules
 
@@ -877,6 +880,10 @@ export const router = createBrowserRouter([
           { 
             path: "dashboards", 
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><SmartDashboard /></PermissionGuard> 
+          },
+          {
+            path: "business",
+            element: <PermissionGuard superAdminOnly><BusinessRevenueDashboard /></PermissionGuard>
           },
           { 
             path: "create-user", 
@@ -1558,6 +1565,8 @@ export const router = createBrowserRouter([
       { path: "cpos/crm/approvals", element: <PermissionGuard requiredModule="CPOS"><CPOSApprovalsPage /></PermissionGuard> },
       { path: "cpos/crm/drip", element: <PermissionGuard requiredModule="CPOS"><CPOSDripSequencesPage /></PermissionGuard> },
       { path: "cpos/crm/reports", element: <PermissionGuard requiredModule="CPOS"><CPOSCustomReportPage /></PermissionGuard> },
+      { path: "cpos/rentals", element: <PermissionGuard requiredModule="CPOS"><CPOSRentalDashboard /></PermissionGuard> },
+      { path: "cpos/leases", element: <PermissionGuard requiredModule="CPOS"><CPOSLeasePage /></PermissionGuard> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
       { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },

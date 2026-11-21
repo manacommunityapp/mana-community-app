@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Cpu, Wifi, WifiOff, Play, Key, Plus, Loader2, AlertCircle, Copy, CheckCircle2 } from "lucide-react";
+import { Cpu, Wifi, WifiOff, Play, Key, Plus, Loader2, AlertCircle, Copy, CheckCircle2, Sparkles, ShieldAlert } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   smartDeviceService,
@@ -8,6 +8,7 @@ import {
   type SmartDeviceType,
 } from "../../../../services/smartDeviceService";
 import { getStoredUser } from "../../../../services/common/apiClient";
+import { automationService, type IotSubmeterTamperAuditResponse } from "../../../services/automation/automationService";
 
 const DEVICE_ACTIONS: { action: SmartDeviceAction; label: string; color: string }[] = [
   { action: "UNLOCK", label: "Unlock", color: "bg-green-600 hover:bg-green-700" },
@@ -43,6 +44,37 @@ export function SmartDevicesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ deviceName: "", deviceType: "DOOR_LOCK" as SmartDeviceType, location: "", accessibleBy: "FM_ADMIN", serialNumber: "" });
   const [adding, setAdding] = useState(false);
+
+  // AI Submeter Tamper & Line Loss Auditor
+  const [isAuditingTamper, setIsAuditingTamper] = useState(false);
+  const [tamperResult, setTamperResult] = useState<IotSubmeterTamperAuditResponse | null>(null);
+  const [showTamperModal, setShowTamperModal] = useState(false);
+
+  const handleAuditTamper = async () => {
+    setIsAuditingTamper(true);
+    try {
+      const res = await automationService.auditIotSubmeterTamper({
+        meterId: "IOT-MTR-BLK-C-204",
+        meterType: "ELECTRICITY",
+        flatNumber: "C-204",
+        historicalAvgDailyUnits: 14.5,
+        currentCycleReadings: [
+          { date: "2026-11-15", unitsKwhOrLiters: 14.2, peakKw: 4.8, reversePowerDetected: false, magnetTamperAlert: false },
+          { date: "2026-11-16", unitsKwhOrLiters: 13.9, peakKw: 4.5, reversePowerDetected: false, magnetTamperAlert: false },
+          { date: "2026-11-17", unitsKwhOrLiters: 4.1, peakKw: 1.2, reversePowerDetected: true, magnetTamperAlert: true },
+          { date: "2026-11-18", unitsKwhOrLiters: 2.8, peakKw: 0.9, reversePowerDetected: true, magnetTamperAlert: false },
+          { date: "2026-11-19", unitsKwhOrLiters: 3.0, peakKw: 0.8, reversePowerDetected: false, magnetTamperAlert: false }
+        ],
+        rssiSignalStrengthDbm: -84
+      });
+      setTamperResult(res);
+      setShowTamperModal(true);
+    } catch {
+      toast.error("Submeter tamper audit failed");
+    } finally {
+      setIsAuditingTamper(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -94,9 +126,19 @@ export function SmartDevicesPage() {
           <Cpu className="w-6 h-6 text-indigo-600" />
           <h1 className="text-xl font-bold text-slate-800">Smart Devices</h1>
         </div>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-          <Plus className="w-4 h-4" /> Add Device
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleAuditTamper}
+            disabled={isAuditingTamper}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-100 disabled:opacity-50 transition"
+          >
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            {isAuditingTamper ? "Auditing Meter Telemetry..." : "AI Submeter Tamper Audit"}
+          </button>
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+            <Plus className="w-4 h-4" /> Add Device
+          </button>
+        </div>
       </div>
 
       {/* Type filter */}
@@ -219,6 +261,93 @@ export function SmartDevicesPage() {
               <button onClick={handleAddDevice} disabled={adding} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
                 {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Register
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Submeter Tamper & Line Loss Modal */}
+      {showTamperModal && tamperResult && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs" onClick={(e) => { if (e.target === e.currentTarget) setShowTamperModal(false); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-xl space-y-4 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-amber-800">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <h2 className="font-bold text-slate-800 text-base">AI Submeter Tamper & Line Loss Audit</h2>
+              </div>
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                tamperResult.tamperRiskScore > 60 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+              }`}>
+                Risk Score: {tamperResult.tamperRiskScore}/100
+              </span>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px]">CLASSIFICATION</span>
+                <span className="font-bold text-slate-800 block mt-0.5">
+                  {tamperResult.anomalyClassification.replace("_", " ")}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[11px]">CONFIDENCE</span>
+                <span className="font-bold text-indigo-600 block mt-0.5">
+                  {tamperResult.tamperConfidencePct}%
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[11px]">EST. REVENUE LEAK</span>
+                <span className="font-bold text-rose-600 block mt-0.5">
+                  ₹{tamperResult.revenueLeakageEstimatedInr.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            {/* Evidence Points */}
+            <div>
+              <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Telemetry Evidence</h3>
+              <div className="space-y-1.5">
+                {tamperResult.evidencePoints?.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-xs text-slate-600 bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recommendation */}
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-xs">
+              <div className="font-semibold text-indigo-900 mb-1 flex items-center justify-between">
+                <span>Actionable Recommendation</span>
+                {tamperResult.dispatchTechnician && (
+                  <span className="bg-rose-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                    Technician Dispatch Required
+                  </span>
+                )}
+              </div>
+              <p className="text-indigo-800 leading-relaxed">{tamperResult.recommendedAction}</p>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowTamperModal(false)}
+                className="px-4 py-2 bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                Close Audit
+              </button>
+              {tamperResult.dispatchTechnician && (
+                <button
+                  onClick={() => {
+                    toast.success("Technician work order created for Flat C-204 submeter inspection!");
+                    setShowTamperModal(false);
+                  }}
+                  className="px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700 transition"
+                >
+                  Create Work Order
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
-import { Package, QrCode, ClipboardCheck } from "lucide-react";
+import { Package, QrCode, Sparkles, Loader2, ClipboardCheck } from "lucide-react";
+import {
+  automationService,
+  type InventoryDashboardAuditResponse,
+} from "../../../services/automation/automationService";
 import { assetService } from "../../../services/inventory/assetService";
 import type { Asset } from "../../../services/inventory/assetService";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
@@ -10,6 +14,29 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { toast, Toaster } from "sonner";
 
 export function InventoryDashboard() {
+  // AI Stockout Sentinel State
+  const [isAuditingStock, setIsAuditingStock] = useState(false);
+  const [stockAuditResult, setStockAuditResult] = useState<InventoryDashboardAuditResponse | null>(null);
+  const [showStockModal, setShowStockModal] = useState(false);
+
+  const handleAiStockoutAudit = async () => {
+    try {
+      setIsAuditingStock(true);
+      const res = await automationService.auditInventoryDashboard({
+        societyId: 'SOC-MANA-TWR',
+        criticalStockThreshold: 5,
+        categories: ['Water Treatment Chemicals', 'Electrical Spares', 'Security Equipment'],
+      });
+      setStockAuditResult(res);
+      setShowStockModal(true);
+      toast.success("AI Stockout & Reorder Audit completed!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to audit inventory stock");
+    } finally {
+      setIsAuditingStock(false);
+    }
+  };
+
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const subView = (searchParams.get("tab") as "stock-ledger" | "assets" | "upload" | "approve") || "stock-ledger";

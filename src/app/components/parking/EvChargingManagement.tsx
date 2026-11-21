@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { evChargingService } from "../../../services/parking/evChargingService";
 import type { EvChargerResponse, EvChargingSessionResponse } from "../../../services/parking/evChargingService";
-import { Zap, BatteryCharging, Power, History, AlertCircle, CheckCircle2, Clock, Wallet, Shield } from "lucide-react";
+import { Zap, BatteryCharging, Power, History, AlertCircle, CheckCircle2, Clock, Wallet, Shield, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
+import { automationService, type EvChargingLoadArbitrateResponse } from "../../../services/automation/automationService";
 
 export const EvChargingManagement: React.FC = () => {
   const [chargers, setChargers] = useState<EvChargerResponse[]>([]);
@@ -22,6 +23,40 @@ export const EvChargingManagement: React.FC = () => {
   // Stop dialog
   const [stopModalOpen, setStopModalOpen] = useState<boolean>(false);
   const [finalMeter, setFinalMeter] = useState<string>("");
+
+  // AI Peak Load Arbitrator
+  const [isArbitrating, setIsArbitrating] = useState<boolean>(false);
+  const [arbitrateResult, setArbitrateResult] = useState<EvChargingLoadArbitrateResponse | null>(null);
+  const [showArbitrateModal, setShowArbitrateModal] = useState<boolean>(false);
+
+  const handleArbitrateLoad = async () => {
+    setIsArbitrating(true);
+    try {
+      const activeChargers = chargers.filter(c => c.status === "CHARGING").length;
+      const res = await automationService.arbitrateEvChargingLoad({
+        gridSanctionedKw: 50.0,
+        currentBaseloadKw: 32.5,
+        solarOutputKw: 6.2,
+        chargers: (chargers.length > 0 ? chargers : [
+          { id: "1", deviceId: "CHG-01", status: "AVAILABLE", maxKwRating: 7.4, connectorType: "Type 2 AC" },
+          { id: "2", deviceId: "CHG-02", status: "CHARGING", maxKwRating: 22.0, connectorType: "CCS2 DC" }
+        ]).map((c, i) => ({
+          chargerId: c.deviceId || `CHG-0${i + 1}`,
+          vehicleModel: activeSession?.chargerDeviceId === c.deviceId ? (activeSession.vehicleNumber || "Tata Nexon EV") : `EV Fleet Unit ${i + 1}`,
+          currentDrawKw: c.status === "CHARGING" ? 7.4 : 0,
+          requestedKwh: 25.0,
+          batteryLevelPct: 40 + i * 15,
+          priorityScore: c.status === "CHARGING" ? 8 : 4
+        }))
+      });
+      setArbitrateResult(res);
+      setShowArbitrateModal(true);
+    } catch (err) {
+      console.error("Failed to run EV load arbitrator:", err);
+    } finally {
+      setIsArbitrating(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -155,6 +190,16 @@ export const EvChargingManagement: React.FC = () => {
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">Community EV Charging Stations</h3>
             <p className="text-xs text-slate-500">Real-time charger availability and slot mapping.</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleArbitrateLoad}
+            disabled={isArbitrating}
+            className="border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+            {isArbitrating ? "Balancing Grid..." : "AI Peak Load Arbitrator"}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -315,6 +360,118 @@ export const EvChargingManagement: React.FC = () => {
             </Button>
             <Button variant="destructive" onClick={handleStopSession}>
               Settle & Stop
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Peak Load Arbitrator Modal */}
+      <Dialog open={showArbitrateModal} onOpenChange={setShowArbitrateModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+              <Sparkles className="w-5 h-5 text-emerald-600" /> AI EV Peak Load Arbitrator & Smart Grid Sentinel
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Gemini 3.5 Flash Lite dynamic load balancing preventing peak transformer overload and demand tariff penalties.
+            </DialogDescription>
+          </DialogHeader>
+
+          {arbitrateResult && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Grid Status Banner */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">GRID STATUS</span>
+                  <Badge className={
+                    arbitrateResult.gridStatus === "OPTIMAL"
+                      ? "bg-emerald-600 text-white mt-0.5"
+                      : arbitrateResult.gridStatus === "PEAK_WARNING"
+                      ? "bg-amber-500 text-white mt-0.5"
+                      : "bg-rose-600 text-white mt-0.5"
+                  }>
+                    {arbitrateResult.gridStatus}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">TOTAL DEMAND</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                    {arbitrateResult.totalDemandKw} kW
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">HEADROOM</span>
+                  <span className="font-bold text-emerald-600 text-sm">
+                    {arbitrateResult.headroomKw} kW
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">EST. SAVINGS</span>
+                  <span className="font-bold text-emerald-600 text-sm">
+                    ₹{arbitrateResult.estimatedCostSavingsInr}
+                  </span>
+                </div>
+              </div>
+
+              {/* Rationale & Strategy */}
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/50 p-3 rounded-xl">
+                <div className="font-semibold text-emerald-900 dark:text-emerald-200 flex items-center justify-between mb-1">
+                  <span>Dynamic Arbitration Strategy</span>
+                  {arbitrateResult.peakTariffAvoided && (
+                    <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-800 border-emerald-300">
+                      ⚡ Peak Surcharge Avoided
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  {arbitrateResult.arbitrationStrategy}
+                </p>
+              </div>
+
+              {/* Actionable Directives per Charger */}
+              <div>
+                <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Charger Dispense Directives</h4>
+                <div className="space-y-2">
+                  {arbitrateResult.actionableDirectives?.map((directive, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                          {directive.chargerId}
+                        </div>
+                        <div>
+                          <div className="font-medium text-slate-800 dark:text-slate-200">
+                            Assigned: <span className="font-bold text-emerald-600">{directive.assignedKw} kW</span>
+                            {directive.curtailmentPct > 0 && (
+                              <span className="text-rose-500 ml-2">(-{directive.curtailmentPct}% curtail)</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500">{directive.reason}</p>
+                        </div>
+                      </div>
+                      <Badge className={
+                        directive.action === "BOOST"
+                          ? "bg-purple-600 text-white text-[10px]"
+                          : directive.action === "MAINTAIN"
+                          ? "bg-emerald-600 text-white text-[10px]"
+                          : directive.action === "THROTTLE"
+                          ? "bg-amber-500 text-white text-[10px]"
+                          : "bg-rose-600 text-white text-[10px]"
+                      }>
+                        {directive.action}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowArbitrateModal(false)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              Acknowledge & Enforce Directives
             </Button>
           </DialogFooter>
         </DialogContent>

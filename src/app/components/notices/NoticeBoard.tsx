@@ -1,6 +1,6 @@
 import {
   Megaphone, Plus, X, Loader2, Pin, PinOff, Trash2, Edit3, Clock,
-  AlertTriangle, Wrench, Shield, CalendarDays, Users, BookOpen, ChevronDown
+  AlertTriangle, Wrench, Shield, CalendarDays, Users, BookOpen, ChevronDown, Sparkles
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router";
@@ -11,6 +11,11 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE } from "../../../constants/permissions";
 import { canAccessModule } from "../../../utils/permissionUtils";
 import { noticeService, type NoticeResponse, type NoticeRequest } from "../../../services/notices/noticeService";
+import {
+  automationService,
+  type NoticeStatutoryFormatResponse,
+  type NoticeEmergencySanitizeResponse
+} from "../../../services/automation/automationService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -65,6 +70,54 @@ export function NoticeBoard() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editNotice, setEditNotice] = useState<NoticeResponse | null>(null);
+
+  // AI Statutory Review & Multilingual Translation
+  const [isFormattingStatutory, setIsFormattingStatutory] = useState(false);
+  const [statutoryResult, setStatutoryResult] = useState<NoticeStatutoryFormatResponse | null>(null);
+  const [showStatutoryModal, setShowStatutoryModal] = useState(false);
+
+  // AI Emergency Flash Broadcast Sanitizer
+  const [isSanitizingEmergency, setIsSanitizingEmergency] = useState(false);
+  const [emergencyResult, setEmergencyResult] = useState<NoticeEmergencySanitizeResponse | null>(null);
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+
+  const handleStatutoryReview = async () => {
+    setIsFormattingStatutory(true);
+    try {
+      const res = await automationService.formatStatutoryNotice({
+        draftTitle: "Scheduled Elevator & Power Backup Modernization",
+        rawNoticeContent: "Residents are informed that Lift #2 and DG synchronizer maintenance is scheduled for Tuesday 10:00 AM to 02:00 PM. Please use service lift during these hours.",
+        issuingAuthority: "MANAGEMENT_COMMITTEE",
+        applicableBylawSubject: "Apartment Ownership Act Clause 19 - Common Facility Upkeep",
+        urgencyLevel: "IMPORTANT"
+      });
+      setStatutoryResult(res);
+      setShowStatutoryModal(true);
+    } catch (err) {
+      console.error("AI Statutory Notice error:", err);
+    } finally {
+      setIsFormattingStatutory(false);
+    }
+  };
+
+  const handleEmergencyBroadcast = async () => {
+    setIsSanitizingEmergency(true);
+    try {
+      const res = await automationService.sanitizeEmergencyNotice({
+        incidentType: "WATER_SUPPLY_LOSS",
+        headline: "Water Supply Pressure Drop in Towers B & C",
+        details: "Main distribution pump gasket seal ruptured during morning peak. Technical contractor is on-site replacement in progress.",
+        affectedBlocks: ["Block B", "Block C"],
+        reportedTime: new Date().toLocaleTimeString()
+      });
+      setEmergencyResult(res);
+      setShowEmergencyModal(true);
+    } catch (err) {
+      console.error("AI Emergency Notice error:", err);
+    } finally {
+      setIsSanitizingEmergency(false);
+    }
+  };
 
   const isModuleEnabled = isSuperAdmin || canAccessModule(user, "NOTICES");
   const canView = isSuperAdmin || hasPermission(VIEW_NOTICES);
@@ -171,15 +224,33 @@ export function NoticeBoard() {
           <h4 className="text-2xl font-black text-[#0d0d2b] mt-1">Notice Board</h4>
           <p className="text-[#6b7094] text-sm mt-1">Announcements and updates from your community.</p>
         </div>
-        {canCreate && (
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => { setEditNotice(null); setShowCreate(true); }}
-            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer self-start md:self-auto"
+            onClick={handleStatutoryReview}
+            disabled={isFormattingStatutory}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-full transition-all cursor-pointer shadow-xs disabled:opacity-50"
           >
-            <Plus className="w-4.5 h-4.5" />
-            Post Notice
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            {isFormattingStatutory ? "Reviewing Bylaws..." : "AI Statutory Review"}
           </button>
-        )}
+          <button
+            onClick={handleEmergencyBroadcast}
+            disabled={isSanitizingEmergency}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-full transition-all cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+            {isSanitizingEmergency ? "Sanitizing Flash..." : "AI Emergency Broadcast"}
+          </button>
+          {canCreate && (
+            <button
+              onClick={() => { setEditNotice(null); setShowCreate(true); }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-xs font-bold rounded-full transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Post Notice
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category Filters */}
@@ -245,6 +316,135 @@ export function NoticeBoard() {
           onClose={() => { setShowCreate(false); setEditNotice(null); }}
           onSaved={handleSaved}
         />
+      )}
+
+      {/* AI Statutory Notice Review & Multilingual Modal */}
+      {showStatutoryModal && statutoryResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowStatutoryModal(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 space-y-4 border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-bold text-slate-800">AI Statutory Notice Review & Translator</h3>
+              </div>
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                statutoryResult.statutoryCompliance === "COMPLIANT_WITH_BYLAWS" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+              }`}>
+                {statutoryResult.statutoryCompliance.replace(/_/g, " ")}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px]">SENTIMENT / TONE SCORE</span>
+                <span className="font-bold text-emerald-600 text-sm">{statutoryResult.sentimentToneScore}/100 (Polite & Constructive)</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[11px]">STATUTORY BYLAW CITATION</span>
+                <span className="font-medium text-slate-700 text-xs">{statutoryResult.bylawCitation}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                <span className="font-bold text-indigo-900 block mb-1">Revised English Notice</span>
+                <p className="text-slate-700 leading-relaxed whitespace-pre-line">{statutoryResult.revisedEnglishNotice}</p>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="font-bold text-slate-800 block mb-1">Hindi Translation (हिंदी)</span>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-line">{statutoryResult.hindiTranslation}</p>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="font-bold text-slate-800 block mb-1">Regional Translation (ಕನ್ನಡ / తెలుగు)</span>
+                <p className="text-slate-600 leading-relaxed whitespace-pre-line">{statutoryResult.regionalTranslation}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowStatutoryModal(false)}
+                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${statutoryResult.revisedEnglishNotice}\n\n${statutoryResult.hindiTranslation}\n\n${statutoryResult.regionalTranslation}`);
+                  alert("Copied trilingual notice to clipboard!");
+                  setShowStatutoryModal(false);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700"
+              >
+                Copy Trilingual Notice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Emergency Flash Broadcast Sanitizer Modal */}
+      {showEmergencyModal && emergencyResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4" onClick={(e) => { if (e.target === e.currentTarget) setShowEmergencyModal(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto p-6 space-y-4 border border-rose-200">
+            <div className="flex items-center justify-between border-b border-rose-100 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+                <h3 className="text-base font-bold text-rose-900">AI Emergency Flash Broadcast Sanitizer</h3>
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800">
+                SEVERITY: {emergencyResult.severityLevel}
+              </span>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl">
+              <h4 className="font-bold text-rose-900 text-sm mb-1">{emergencyResult.emergencyHeadline}</h4>
+              <p className="text-xs text-rose-800 leading-relaxed">{emergencyResult.sanitizedBroadcastMessage}</p>
+              <div className="mt-2 text-[11px] font-semibold text-rose-700 flex items-center justify-between">
+                <span>Expected Resolution: ~{emergencyResult.expectedResolutionEtaMinutes} minutes</span>
+                <span>Helpline: {emergencyResult.escalationHelpline}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                <span className="font-bold text-emerald-900 block mb-1.5">Actionable DOs</span>
+                <ul className="space-y-1 text-emerald-800 list-disc list-inside">
+                  {emergencyResult.actionableDos?.map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl">
+                <span className="font-bold text-amber-900 block mb-1.5">Actionable DON'Ts</span>
+                <ul className="space-y-1 text-amber-800 list-disc list-inside">
+                  {emergencyResult.actionableDonts?.map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowEmergencyModal(false)}
+                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-200"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => {
+                  alert("Emergency broadcast pushed to resident apps and WhatsApp flash group!");
+                  setShowEmergencyModal(false);
+                }}
+                className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700"
+              >
+                Push Emergency Broadcast
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

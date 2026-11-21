@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { NavLink } from "react-router";
 import {
   Droplets,
+  Sparkles,
+  Loader2,
   Zap,
   Flame,
   Activity,
@@ -27,6 +29,35 @@ interface Props {
 }
 
 export const SmartMeterDashboard: React.FC<Props> = ({ communityId = 1 }) => {
+  // AI IoT Fleet Health State
+  const [isAuditingFleet, setIsAuditingFleet] = useState(false);
+  const [fleetAuditResult, setFleetAuditResult] = useState<IotMeterHealthSummaryResponse | null>(null);
+  const [showFleetModal, setShowFleetModal] = useState(false);
+
+  const handleAiFleetAudit = async () => {
+    try {
+      setIsAuditingFleet(true);
+      const res = await automationService.summarizeIotMeterHealth({
+        communityId: String(communityId),
+        meters: meters.map(m => ({
+          meterSerialNumber: m.meterSerialNumber,
+          meterType: m.meterType,
+          unitNumber: m.unitNumber,
+          blockName: m.blockName,
+          status: m.batteryLevel && m.batteryLevel < 10 ? 'FAULT' : 'ACTIVE',
+          lastReading: m.lastReading,
+          batteryLevel: m.batteryLevel,
+        })),
+      });
+      setFleetAuditResult(res);
+      setShowFleetModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to audit IoT meter fleet');
+    } finally {
+      setIsAuditingFleet(false);
+    }
+  };
+
   const [meters, setMeters] = useState<SmartMeterDto[]>([]);
   const [selectedType, setSelectedType] = useState<string>("ALL");
   const [billingMonth, setBillingMonth] = useState<string>("2026-10");

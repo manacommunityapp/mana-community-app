@@ -22,6 +22,13 @@
     "test:e2e:jewellery": "playwright test e2e/jewellery",
     "n8n:sports": "node automation/scripts/run-sports-workflows.cjs",
     "n8n:governance": "node automation/scripts/run-governance-workflows.cjs",
+    "n8n:commerce": "node automation/scripts/run-commerce-cpos-workflows.cjs",
+    "n8n:infra": "node automation/scripts/run-infra-finance-workflows.cjs",
+    "n8n:mobility": "node automation/scripts/run-mobility-privacy-workflows.cjs",
+    "n8n:safety": "node automation/scripts/run-safety-workflows.cjs",
+    "n8n:admin": "node automation/scripts/run-admin-ops-workflows.cjs",
+    "n8n:services": "node automation/scripts/run-community-services-workflows.cjs",
+    "n8n:extended": "node automation/scripts/run-extended-workflows.cjs",
     "n8n:start": "npx n8n"
   },
   "dependencies": {

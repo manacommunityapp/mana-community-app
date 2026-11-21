@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Check,
   FileCheck2,
+  Sparkles,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { NavLink } from "react-router";
@@ -30,6 +31,10 @@ import {
   type GeneratorFuelRefill,
   type ServiceAlertInfo,
 } from "../../../services/maintenance/generatorMaintenanceService";
+import {
+  automationService,
+  type GeneratorFuelAnomalyResponse,
+} from "../../../services/automation/automationService";
 
 type ActiveTab = "overview" | "runlogs" | "service" | "fuel" | "amc";
 
@@ -54,6 +59,35 @@ export function GeneratorMaintenanceDashboard() {
   const [showRunModal, setShowRunModal] = useState<boolean>(false);
   const [showRefillModal, setShowRefillModal] = useState<boolean>(false);
   const [showServiceModal, setShowServiceModal] = useState<boolean>(false);
+
+  // AI Generator Fuel Anomaly & B-Check State
+  const [isAuditingFuel, setIsAuditingFuel] = useState<boolean>(false);
+  const [fuelAuditResult, setFuelAuditResult] = useState<GeneratorFuelAnomalyResponse | null>(null);
+  const [showFuelAuditModal, setShowFuelAuditModal] = useState<boolean>(false);
+
+  const handleAuditFuel = async () => {
+    setIsAuditingFuel(true);
+    try {
+      const res = await automationService.auditGeneratorFuelAnomaly({
+        generatorId: currentGen?.id || 'DG-500KVA-01',
+        generatorName: currentGen?.name || 'Main DG 1 (Cummins 500kVA)',
+        fuelCapacityLiters: currentGen?.fuelCapacityLiters || 1000,
+        currentFuelLevelLiters: currentGen?.currentFuelLiters || 680,
+        previousFuelLevelLiters: 740,
+        runHoursSinceLastRefill: 2.4,
+        totalRunHours: currentGen?.totalRunHours || 218,
+        lastServiceHours: currentGen?.lastServiceHours || 0,
+        loadPercentage: 72,
+      });
+      setFuelAuditResult(res);
+      setShowFuelAuditModal(true);
+    } catch (err) {
+      console.error('DG fuel audit failed:', err);
+      toast.error('Could not complete DG fuel audit.');
+    } finally {
+      setIsAuditingFuel(false);
+    }
+  };
 
   // Forms
   const [runForm, setRunForm] = useState({
@@ -422,6 +456,14 @@ export function GeneratorMaintenanceDashboard() {
             className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition"
           >
             <Droplets className="w-4 h-4" /> Add Fuel
+          </button>
+          <button
+            onClick={handleAuditFuel}
+            disabled={isAuditingFuel}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            {isAuditingFuel ? "Auditing DG..." : "AI Fuel & B-Check"}
           </button>
           <button
             onClick={handleOpenServiceModal}
@@ -1530,6 +1572,109 @@ export function GeneratorMaintenanceDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 4: AI DG Fuel & B-Check Anomaly Sentinel */}
+      {showFuelAuditModal && fuelAuditResult && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                  <Sparkles className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    AI DG Fuel & B-Check Sentinel
+                  </h3>
+                  <p className="text-xs text-slate-500">{currentGen?.name || "Cummins 500kVA DG"}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowFuelAuditModal(false)} className="p-1 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-1 text-xs">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div>
+                  <div className="text-slate-500 font-medium">Anomaly Status</div>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      fuelAuditResult.anomalySeverity === "NORMAL"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-rose-100 text-rose-800"
+                    }`}
+                  >
+                    {fuelAuditResult.anomalySeverity.replace("_", " ")}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-500 font-medium">Pilferage Risk</div>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      fuelAuditResult.theftOrLeakageRisk === "LOW"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    {fuelAuditResult.theftOrLeakageRisk} RISK
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl">
+                  <div className="text-slate-500">Fuel Burn Rate</div>
+                  <div className="text-base font-extrabold text-amber-700 mt-0.5">
+                    {fuelAuditResult.fuelConsumptionLitersPerHour} L/hr
+                  </div>
+                  <div className="text-[11px] text-amber-600/80 mt-0.5">Target: {fuelAuditResult.expectedBurnRateRange}</div>
+                </div>
+
+                <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl">
+                  <div className="text-slate-500">250h B-Check Countdown</div>
+                  <div className="text-base font-extrabold text-blue-700 mt-0.5">
+                    {fuelAuditResult.hoursRemainingToBCheck} hrs remaining
+                  </div>
+                  <div className="text-[11px] text-blue-600/80 mt-0.5">ETA: {fuelAuditResult.projectedBCheckDate}</div>
+                </div>
+              </div>
+
+              {fuelAuditResult.alerts && fuelAuditResult.alerts.length > 0 && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                  <div className="font-bold text-rose-800 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Telemetry Warnings
+                  </div>
+                  {fuelAuditResult.alerts.map((alt, idx) => (
+                    <p key={idx} className="text-rose-700 text-xs">{alt}</p>
+                  ))}
+                </div>
+              )}
+
+              {fuelAuditResult.maintenanceDirectives && fuelAuditResult.maintenanceDirectives.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-slate-700 mb-1.5">Actionable Maintenance Directives</h4>
+                  <ul className="space-y-1 text-slate-600 list-disc list-inside bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    {fuelAuditResult.maintenanceDirectives.map((dir, idx) => (
+                      <li key={idx}>{dir}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFuelAuditModal(false)}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl text-xs transition"
+              >
+                Acknowledge Directives
+              </button>
+            </div>
           </div>
         </div>
       )}

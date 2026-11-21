@@ -1,6 +1,6 @@
 import { apiClient } from "../common/apiClient";
 
-/** Shape returned by GET /admin/analytics/pilot-kpis (backend to implement). */
+/** Frontend contract for GET /admin/analytics/pilot-kpis; community pilot KPIs. */
 export interface FunnelStage { stage: string; count: number }
 export interface VendorKpi {
   vendorId: number;

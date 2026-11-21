@@ -10,6 +10,7 @@ import {
   MapPin,
   CheckCircle2,
   Sparkles,
+  Loader2,
   Award,
   Stethoscope,
   Scissors,
@@ -34,8 +35,69 @@ import type {
 } from "../../../services/pets/petService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { toast } from "sonner";
+import {
+  automationService,
+  type PetRegistryAssistResponse,
+  type LostPetAlertResponse,
+} from "../../../services/automation/automationService";
+
 
 export function PetRegistryDashboard() {
+  // AI Pet Automation States
+  const [isAuditingPet, setIsAuditingPet] = useState(false);
+  const [petAuditResult, setPetAuditResult] = useState<PetRegistryAssistResponse | null>(null);
+  const [showPetAuditModal, setShowPetAuditModal] = useState(false);
+
+  const [isBroadcastingAlert, setIsBroadcastingAlert] = useState(false);
+  const [lostPetResult, setLostPetResult] = useState<LostPetAlertResponse | null>(null);
+  const [showLostPetModal, setShowLostPetModal] = useState(false);
+
+  const handleAiPetPassportAudit = async (pet?: Pet) => {
+    try {
+      setIsAuditingPet(true);
+      const targetPet = pet || pets[0];
+      const res = await automationService.auditPetRegistry({
+        petId: targetPet ? `PET-${targetPet.id}` : 'PET-2026-001',
+        petName: targetPet?.name || 'Bruno',
+        species: targetPet?.species || 'DOG',
+        breed: targetPet?.breed || 'Golden Retriever',
+        ownerFlat: targetPet ? `${targetPet.tower} - ${targetPet.flatNumber}` : 'Tower A - 402',
+        ownerName: targetPet?.ownerName || user?.fullName || 'Resident Owner',
+        vaccinationStatus: targetPet?.isVaccinated ? 'UP_TO_DATE' : 'EXPIRING_SOON',
+      });
+      setPetAuditResult(res);
+      setShowPetAuditModal(true);
+      toast.success("AI Pet Passport & Vaccination Audit complete!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to audit pet passport");
+    } finally {
+      setIsAuditingPet(false);
+    }
+  };
+
+  const handleAiLostPetAlert = async () => {
+    try {
+      setIsBroadcastingAlert(true);
+      const res = await automationService.broadcastLostPetAlert({
+        petName: 'Milo',
+        species: 'Cat',
+        breed: 'Persian Longhair',
+        colorAndMarkings: 'White with ginger ears, green eyes, wears blue bell collar',
+        lastSeenLocation: 'Podium Garden near Tower B Gazebo',
+        ownerFlat: 'Tower B - 604',
+        contactMaskedPhone: '+91 98450 XXXXX',
+        rewardOfferedInr: 5000,
+      });
+      setLostPetResult(res);
+      setShowLostPetModal(true);
+      toast.success("AI Lost Pet Emergency Alert drafted & sanitized!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to draft lost pet broadcast");
+    } finally {
+      setIsBroadcastingAlert(false);
+    }
+  };
+
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"directory" | "services" | "register" | "my-pets">("directory");
 

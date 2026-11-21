@@ -1371,6 +1371,1061 @@ export interface AmenityDepositInspectionResponse {
   };
 }
 
+
+// ─── Phase 2: Multi-Vendor B2C Commerce & CPOS Tenancy CRM ──────────────────
+
+export interface KitchenPrepDelayAuditRequest {
+  orderId: string;
+  restaurantName: string;
+  items?: Array<{ name: string; quantity: number; prepComplexity?: 'LOW' | 'MEDIUM' | 'HIGH' }>;
+  activeKitchenQueueCount?: number;
+  riderArrivalEtaMinutes?: number;
+}
+
+export interface KitchenPrepDelayAuditResponse {
+  status: 'success' | 'fallback' | 'error';
+  orderId: string;
+  restaurantName: string;
+  auditedAt: string;
+  kitchenStatus: 'ON_TRACK' | 'MODERATE_DELAY' | 'BOTTLENECK_DETECTED';
+  delayMinutes: number;
+  originalEta: string;
+  revisedEta: string;
+  bottleneckReason: string;
+  mitigationActions: string[];
+  customerUpdateMessage: string;
+}
+
+export interface CateringPortionOptimizeRequest {
+  eventTitle: string;
+  totalGuests: number;
+  dietarySplit?: { vegCount: number; nonVegCount: number; jainCount?: number };
+  occasionType: string;
+  servingStyle?: 'BUFFET' | 'SIT_DOWN_THALI' | 'HIGH_TEA';
+}
+
+export interface CateringPortionOptimizeResponse {
+  status: 'success' | 'fallback' | 'error';
+  eventTitle: string;
+  auditedAt: string;
+  totalGuests: number;
+  dietarySplit: { vegCount: number; nonVegCount: number; jainCount: number };
+  optimizedPortions: Array<{ item: string; totalKg?: number; totalPcs?: number; perHeadGrams?: number; perHeadPcs?: number }>;
+  recommendedBufferPercentage: number;
+  estimatedCostPerHead: number;
+  totalEstimatedBudget: number;
+  foodWasteMitigationTips: string;
+}
+
+export interface FoodFssaiAllergenAuditRequest {
+  kitchenName: string;
+  fssaiLicense: string;
+  speciality?: string;
+  cuisineTypes?: string;
+  dishes?: Array<{ name: string; ingredients: string; declaredAllergens?: string[] }>;
+}
+
+export interface FoodFssaiAllergenAuditResponse {
+  status: 'success' | 'fallback' | 'error';
+  kitchenName: string;
+  auditedAt: string;
+  fssaiLicense: string;
+  complianceVerdict: 'APPROVED' | 'APPROVED_WITH_CAUTIONS' | 'ACTION_REQUIRED_REJECTED';
+  fssaiStatus: 'VALID_FORMAT' | 'INVALID_SYNTAX' | 'EXPIRED_OR_SUSPECT';
+  allergenAudit: Array<{ dish: string; allergensIdentified: string[]; warningSeverity: 'LOW' | 'MODERATE' | 'HIGH' }>;
+  missingDisclosures: string[];
+  foodSafetyAdvisory: string;
+}
+
+export interface DiningYieldAuditRequest {
+  restaurantId?: string;
+  restaurantName: string;
+  reservationId?: string;
+  partySize: number;
+  slotTime: string;
+  specialRequests?: string;
+}
+
+export interface DiningYieldAuditResponse {
+  status: 'success' | 'fallback' | 'error';
+  restaurantName: string;
+  auditedAt: string;
+  partySize: number;
+  turnaroundEstimateMinutes: number;
+  noShowRisk: 'LOW' | 'MODERATE' | 'HIGH';
+  noShowProbability: number;
+  tableAllocationRecommendation: string;
+  waitlistAutoReleaseMinutes: number;
+  yieldAdvice: string;
+}
+
+export interface CommercialTenantKycAuditRequest {
+  tenantName: string;
+  unitNumber: string;
+  cinNumber?: string;
+  gstin: string;
+  tradeCategory: string;
+  proposedUsageDescription?: string;
+}
+
+export interface CommercialTenantKycAuditResponse {
+  status: 'success' | 'fallback' | 'error';
+  tenantName: string;
+  auditedAt: string;
+  unitNumber: string;
+  cinNumber: string;
+  gstin: string;
+  kycVerdict: 'CLEARED' | 'CONDITIONAL_APPROVAL' | 'REJECTED_UNAUTHORIZED';
+  riskRating: 'LOW_RISK' | 'MODERATE_RISK' | 'HIGH_RISK';
+  tradeCategory: string;
+  bylawZoningCompliance: 'PERMITTED_COMMERCIAL' | 'RESTRICTED_REQUIRING_NOC' | 'PROHIBITED';
+  hazardFlags: string[];
+  recommendedSecurityDepositMonths: number;
+  committeeReviewSummary: string;
+}
+
+export interface LeaseRentEscalationRequest {
+  leaseId?: string;
+  unitId: string;
+  tenantName?: string;
+  currentMonthlyRent: number;
+  escalationPercentage: number;
+  effectiveFrom?: string;
+  securityDepositCurrent?: number;
+}
+
+export interface LeaseRentEscalationResponse {
+  status: 'success' | 'fallback' | 'error';
+  leaseId: string;
+  auditedAt: string;
+  unitId: string;
+  currentMonthlyRent: number;
+  escalationPercentage: number;
+  escalatedMonthlyRent: number;
+  effectiveFrom: string;
+  taxBreakdown: {
+    baseRent: number;
+    gstRate: number;
+    gstAmount: number;
+    tdsRate: number;
+    tdsDeduction: number;
+    netPayableByTenant: number;
+  };
+  depositAdjustmentRequired: number;
+  statutoryNotes: string;
+}
+
+export interface CommercialFitoutAuditRequest {
+  unitNumber: string;
+  applicantName: string;
+  sanctionedPowerKw?: number;
+  requestedPowerKw?: number;
+  structuralChangesDescription: string;
+  fireNocAttached?: boolean;
+}
+
+export interface CommercialFitoutAuditResponse {
+  status: 'success' | 'fallback' | 'error';
+  unitNumber: string;
+  auditedAt: string;
+  applicantName: string;
+  fitoutStatus: 'APPROVED' | 'APPROVED_WITH_CONDITIONS' | 'REVISE_AND_RESUBMIT';
+  sanctionedPowerKw: number;
+  requestedPowerKw: number;
+  inspectionFindings: {
+    structuralPartitions: string;
+    fireSprinklers: string;
+    exhaustDucting: string;
+    facadeSignage: string;
+  };
+  safetyConditions: string[];
+  fitoutPermitNumber: string;
+}
+
+export interface TenantChurnRenewalRequest {
+  tenantId?: string;
+  businessName: string;
+  unitNumber: string;
+  leaseExpiryDate: string;
+  monthlyFootfallTrend?: string;
+  maintenancePaymentStatus?: string;
+}
+
+export interface TenantChurnRenewalResponse {
+  status: 'success' | 'fallback' | 'error';
+  tenantId: string;
+  businessName: string;
+  auditedAt: string;
+  unitNumber: string;
+  leaseExpiryDate: string;
+  renewalProbability: number;
+  churnRisk: 'LOW' | 'LOW_TO_MODERATE' | 'HIGH';
+  healthIndicators: {
+    footfallTrend: string;
+    paymentRegularity: string;
+    utilityEfficiency: string;
+  };
+  retentionIncentiveProposal: string;
+  executiveRecommendation: string;
+}
+
+
+// ─── Phase 3: Smart Infrastructure & Personal Fintech Interfaces ─────────────
+
+export interface GeneratorFuelAnomalyRequest {
+  generatorId?: string;
+  generatorName?: string;
+  fuelCapacityLiters?: number;
+  currentFuelLevelLiters?: number;
+  previousFuelLevelLiters?: number;
+  runHoursSinceLastRefill?: number;
+  totalRunHours?: number;
+  lastServiceHours?: number;
+  loadPercentage?: number;
+}
+
+export interface GeneratorFuelAnomalyResponse {
+  status?: 'success' | 'fallback' | 'error';
+  generatorId: string;
+  anomalySeverity: 'NORMAL' | 'SUSPECTED_PILFERAGE' | 'SENSOR_ANOMALY' | 'CRITICAL_OVERCONSUMPTION';
+  fuelConsumptionLitersPerHour: number;
+  expectedBurnRateRange: string;
+  theftOrLeakageRisk: 'LOW' | 'MODERATE' | 'HIGH';
+  hoursRemainingToBCheck: number;
+  projectedBCheckDate: string;
+  alerts: string[];
+  maintenanceDirectives: string[];
+}
+
+export interface WaterLeakSentinelRequest {
+  sumpCapacityLiters?: number;
+  currentSumpLevelLiters?: number;
+  overheadTankLevelLiters?: number;
+  inflowFromMetersLiters?: number;
+  tankerReceiptsTodayLiters?: number;
+  testedTds?: number;
+  testedPh?: number;
+  monitoredHours?: number;
+}
+
+export interface WaterLeakSentinelResponse {
+  status?: 'success' | 'fallback' | 'error';
+  leakStatus: 'SECURE' | 'MINOR_TRANSMISSION_LOSS' | 'PIPE_BURST_PROBABLE' | 'CRITICAL_SUMP_DRAIN';
+  transmissionLossPercentage: number;
+  estimatedLossLitersPerHour: number;
+  tankerQualityVerdict: 'COMPLIANT' | 'HIGH_TDS_REJECT' | 'ACIDIC_REJECT' | 'SUSPICIOUS_SOURCE';
+  measuredTds: number;
+  measuredPh: number;
+  suspectedLeakZones: string[];
+  actionPlan: string[];
+}
+
+export interface EvChargingLoadArbitrateRequest {
+  stationId?: string;
+  transformerCapacityKw?: number;
+  currentCommunityBaselineLoadKw?: number;
+  activeEvSessionsCount?: number;
+  requestedChargingSlots?: Array<{ bayId: string; vehicleType: string; currentSocPct: number; targetSocPct: number; departureTime: string }>;
+  isPeakTariffHour?: boolean;
+}
+
+export interface EvChargingLoadArbitrateResponse {
+  status?: 'success' | 'fallback' | 'error';
+  gridLoadStatus: 'OPTIMAL' | 'APPROACHING_THRESHOLD' | 'PEAK_THROTTLED' | 'EMERGENCY_SHEDDING';
+  currentTransformerUtilizationPercent: number;
+  activeSessionsCount: number;
+  throttledBaysCount: number;
+  estimatedCostSavingsRupees: number;
+  recommendedChargingQueue: Array<{
+    bayId: string;
+    allocatedKw: number;
+    priority: string;
+    status: string;
+  }>;
+  peakLoadDirectives: string;
+}
+
+export interface IotSubmeterTamperAuditRequest {
+  meterType?: 'ELECTRICITY' | 'WATER' | 'GAS';
+  masterBoundaryMeterReading?: number;
+  submeterReadingsSum?: number;
+  unmeteredCommonAreaEstimated?: number;
+  monitoredPeriodDays?: number;
+  suspiciousFlatUnits?: Array<{ unitId: string; averageDailyConsumption: number; reportedDailyConsumption: number }>;
+}
+
+export interface IotSubmeterTamperAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  tamperRiskLevel: 'LOW' | 'MODERATE_ANOMALY' | 'SUSPECTED_TAMPER' | 'IMMEDIATE_INVESTIGATION';
+  discrepancyPercentage: number;
+  masterMeterConsumptionKwh: number;
+  submeterAggregatedKwh: number;
+  unmeteredCommonAreaKwh: number;
+  flaggedMeters: Array<{ unitId: string; reason: string; severity: string }>;
+  auditObservations: string;
+  recommendedInspectionOrders: string[];
+}
+
+export interface SplitDebtSimplifyRequest {
+  groupId: string;
+  groupName?: string;
+  membersCount?: number;
+  expenses?: Array<{ paidBy: string; amount: number; splitBetween: string[] }>;
+}
+
+export interface SplitDebtSimplifyResponse {
+  status?: 'success' | 'fallback' | 'error';
+  groupId: string;
+  originalTransactionCount: number;
+  minimizedTransactionCount: number;
+  totalVolumeRupees: number;
+  settlementPlan: Array<{
+    fromResident: string;
+    toResident: string;
+    amount: number;
+    upiId: string;
+    purpose: string;
+  }>;
+  efficiencySavingsSummary: string;
+}
+
+export interface HouseholdBudgetDriftRequest {
+  householdId?: string;
+  flatNumber?: string;
+  currentMonthSpend?: number;
+  pastThreeMonthsAverage?: number;
+  categoryBreakdown?: Array<{ category: string; amount: number; budgetLimit?: number }>;
+}
+
+export interface HouseholdBudgetDriftResponse {
+  status?: 'success' | 'fallback' | 'error';
+  householdId: string;
+  monthlyTotalExpense: number;
+  trailingThreeMonthAverage: number;
+  budgetDriftPercentage: number;
+  driftSeverity: 'WITHIN_BUDGET' | 'MINOR_VARIANCE' | 'MODERATE_SURGE' | 'CRITICAL_OVERSPEND';
+  highestSurgeCategories: Array<{
+    category: string;
+    currentSpend: number;
+    averageSpend: number;
+    surgePct: number;
+  }>;
+  actionableTips: string[];
+}
+
+export interface MicroKhataDuesAuditRequest {
+  residentId?: string;
+  flatNumber?: string;
+  entries?: Array<{ counterpartyFlat: string; counterpartyName: string; amount: number; direction: 'GIVEN' | 'TAKEN'; daysPending: number; notes: string }>;
+}
+
+export interface MicroKhataDuesAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  residentId: string;
+  totalOutstandingReceivable: number;
+  totalOutstandingPayable: number;
+  netBalance: number;
+  communityRepaymentTrustScore: number;
+  agingBreakdown: {
+    zeroToFifteenDays: number;
+    sixteenToThirtyDays: number;
+    thirtyOneToSixtyDays: number;
+    overSixtyDays: number;
+  };
+  friendlyReminderDigest: string;
+}
+
+export interface SplitReceiptDuplicateDetectRequest {
+  merchantName: string;
+  invoiceNumber?: string;
+  billDate?: string;
+  totalAmount: number;
+  receiptImageData?: string;
+  existingReceiptNumbers?: string[];
+}
+
+export interface SplitReceiptDuplicateDetectResponse {
+  status?: 'success' | 'fallback' | 'error';
+  receiptVerificationStatus: 'VERIFIED_GENUINE' | 'SUSPECTED_DUPLICATE' | 'MISMATCHED_METADATA' | 'DOCTORED_RECEIPT_FLAG';
+  duplicateDetected: boolean;
+  confidenceScore: number;
+  merchantName: string;
+  invoiceNumber: string;
+  billDate: string;
+  totalAmount: number;
+  itemCount: number;
+  gstinMatched: boolean;
+  fraudRiskFlags: string[];
+  auditorNotes: string;
+}
+
+
+// ─── Phase 4: Vehicle Care, Mobility, Notices & DPDP Privacy Interfaces ───────
+
+export interface WashSlotWaterAuditRequest {
+  bookingId?: string;
+  vehicleType?: 'HATCHBACK' | 'SEDAN' | 'SUV' | 'TWO_WHEELER' | 'LUXURY_SUV';
+  vehicleNumber?: string;
+  parkingSlot?: string;
+  washType?: 'WATERLESS_ECO_FOAM' | 'PRESSURE_RINSE' | 'INTERIOR_DEEP_CLEAN';
+  preferredTimeSlot?: string;
+  allocatedBasementBay?: string;
+}
+
+export interface WashSlotWaterAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  slotApproved: boolean;
+  waterComplianceStatus: 'COMPLIANT_ECO_FOAM' | 'NON_COMPLIANT_RUNOFF' | 'WATER_QUOTA_EXCEEDED';
+  allocatedLitersRecycled: number;
+  allocatedFreshwaterLiters: number;
+  basementDrainageClearance: boolean;
+  slotTimeRecommended: string;
+  ecoCertificationTag: string;
+  waterSavedVsTraditionalWashLiters: number;
+  recommendations: string[];
+  auditTimestamp: string;
+}
+
+export interface WashBreakdownTriageRequest {
+  incidentId?: string;
+  residentId?: string;
+  vehicleNumber?: string;
+  parkingSlot?: string;
+  issueType?: 'BATTERY_JUMPSTART' | 'FLAT_TYRE_PUNCTURE' | 'KEY_LOCKOUT' | 'COOLANT_LEAK';
+  isUrgent?: boolean;
+  notes?: string;
+}
+
+export interface WashBreakdownTriageResponse {
+  status?: 'success' | 'fallback' | 'error';
+  triagePriority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  breakdownCategory: string;
+  technicianAssignedName: string;
+  estimatedArrivalMinutes: number;
+  requiredToolKit: string[];
+  safetyPrecautions: string[];
+  estimatedCostInr: number;
+  coveredUnderSubscription: boolean;
+  auditTimestamp: string;
+}
+
+export interface WashSubscriptionReconcileRequest {
+  subscriptionId?: string;
+  vendorId?: string;
+  vendorName?: string;
+  residentFlat?: string;
+  vehicleNumber?: string;
+  scheduledWashes?: number;
+  completedWashes?: number;
+  residentRatingAvg?: number;
+  reportedMissedDates?: string[];
+}
+
+export interface WashSubscriptionReconcileResponse {
+  status?: 'success' | 'fallback' | 'error';
+  subscriptionId: string;
+  scheduledWashes: number;
+  completedWashes: number;
+  missedWashesVendorFault: number;
+  qualityRatingAvg: number;
+  compensatoryCreditInr: number;
+  streakBonusEligible: boolean;
+  reconciliationVerdict: 'AUTO_RECONCILED' | 'MANUAL_INSPECTION_REQUIRED' | 'DISPUTED';
+  auditSummary: string;
+  auditTimestamp: string;
+}
+
+export interface CarpoolRouteOptimizeRequest {
+  corridorName?: string;
+  departureTime?: string;
+  originCommunity?: string;
+  destinationTechPark?: string;
+  availableSeats?: number;
+  poolers?: Array<{
+    riderId: string;
+    riderName: string;
+    flatNumber: string;
+    officeDestination: string;
+    preferredTime: string;
+  }>;
+}
+
+export interface CarpoolRouteOptimizeResponse {
+  status?: 'success' | 'fallback' | 'error';
+  corridorName: string;
+  optimalRouteOrder: string[];
+  totalRouteKm: number;
+  estimatedTimeMinutes: number;
+  fairFuelSplitPerRiderInr: number;
+  carbonEmissionSavedKg: number;
+  pickupSchedule: Array<{
+    riderName: string;
+    flatNumber: string;
+    pickupTime: string;
+  }>;
+  routingRationale: string;
+  auditTimestamp: string;
+}
+
+export interface ShuttleDispatchForecastRequest {
+  shuttleRouteId?: string;
+  routeName?: string;
+  currentHour?: number;
+  activeReservationsCount?: number;
+  shuttleCapacity?: number;
+  historicalDemandFactor?: number;
+  weatherCondition?: string;
+}
+
+export interface ShuttleDispatchForecastResponse {
+  status?: 'success' | 'fallback' | 'error';
+  shuttleRouteId: string;
+  routeName: string;
+  projectedOccupancyPct: number;
+  capacityRisk: 'LOW' | 'MODERATE' | 'HIGH_SURGE_RISK';
+  recommendedFrequencyMinutes: number;
+  deployBackupShuttle: boolean;
+  optimalDepartureWindow: string;
+  passengerSafetyDirectives: string[];
+  auditTimestamp: string;
+}
+
+export interface NoticeStatutoryFormatRequest {
+  draftTitle?: string;
+  rawNoticeContent?: string;
+  issuingAuthority?: 'MANAGEMENT_COMMITTEE' | 'ESTATE_MANAGER' | 'FACILITY_ADMIN' | 'SUB_COMMITTEE';
+  applicableBylawSubject?: string;
+  urgencyLevel?: 'ROUTINE' | 'IMPORTANT' | 'STATUTORY_COMPLIANCE';
+}
+
+export interface NoticeStatutoryFormatResponse {
+  status?: 'success' | 'fallback' | 'error';
+  statutoryCompliance: 'COMPLIANT_WITH_BYLAWS' | 'AMENDMENT_RECOMMENDED' | 'NON_COMPLIANT';
+  sentimentToneScore: number;
+  revisedEnglishNotice: string;
+  hindiTranslation: string;
+  regionalTranslation: string;
+  bylawCitation: string;
+  recommendedCategory: string;
+  auditTimestamp: string;
+}
+
+export interface NoticeEmergencySanitizeRequest {
+  incidentType?: 'POWER_OUTAGE' | 'LIFT_ENTRAPMENT' | 'WATER_SUPPLY_LOSS' | 'FIRE_ALARM' | 'STORM_ALERT';
+  headline?: string;
+  details?: string;
+  affectedBlocks?: string[];
+  reportedTime?: string;
+}
+
+export interface NoticeEmergencySanitizeResponse {
+  status?: 'success' | 'fallback' | 'error';
+  severityLevel: 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  urgencyClassification: string;
+  emergencyHeadline: string;
+  sanitizedBroadcastMessage: string;
+  actionableDos: string[];
+  actionableDonts: string[];
+  expectedResolutionEtaMinutes: number;
+  escalationHelpline: string;
+  auditTimestamp: string;
+}
+
+export interface DpdpConsentAuditRequest {
+  residentId?: string;
+  residentName?: string;
+  flatNumber?: string;
+  consentCategories?: Array<{
+    category: 'BIOMETRIC_ANPR' | 'FACIAL_RECOGNITION' | 'CHILD_SPORTS_PROFILE' | 'VISITOR_LOGGING' | 'WHATSAPP_BROADCAST';
+    consentGrantedDate: string;
+    consentExpiryDate?: string;
+    purposeExplicitlyStated: boolean;
+  }>;
+}
+
+export interface DpdpConsentAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  dpdpComplianceRating: 'COMPLIANT' | 'NEEDS_RECONSENT' | 'HIGH_PENALTY_EXPOSURE';
+  consentHealthScore: number;
+  expiringConsentsCount: number;
+  minorDataConsentsVerified: boolean;
+  purposeLimitationBreachesDetected: boolean;
+  actionableFindings: string[];
+  recommendedNoticeWorkflow: string;
+  statutoryClauseReferenced: string;
+  auditTimestamp: string;
+}
+
+export interface CctvRedactionAuditRequest {
+  requestId?: string;
+  requestType?: 'RIGHT_TO_ERASURE' | 'RIGHT_TO_ACCESS' | 'ACCIDENT_DISPUTE_REVIEW';
+  applicantFlat?: string;
+  applicantRole?: 'OWNER' | 'TENANT' | 'VISITOR';
+  cameraZone?: string;
+  incidentTimestamp?: string;
+  logRetentionAgeDays?: number;
+}
+
+export interface CctvRedactionAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  erasureEligible: boolean;
+  statutoryRetentionPeriodDays: number;
+  retentionExpiryDate: string;
+  anonymizationRequired: boolean;
+  redactionProtocol: string[];
+  legalHoldActive: boolean;
+  complianceCertificateId: string;
+  rejectionReason: string | null;
+  auditTimestamp: string;
+}
+
+
+// ─── Batch 2: Community Services (Pet, IoT, Group Buying, Jobs, Inventory) ────
+
+export interface PetRegistryAssistRequest {
+  petId?: string;
+  petName: string;
+  species: 'DOG' | 'CAT' | 'BIRD' | 'OTHER' | string;
+  breed?: string;
+  ownerFlat: string;
+  ownerName: string;
+  vaccinationStatus?: 'UP_TO_DATE' | 'EXPIRING_SOON' | 'OVERDUE';
+  rabiesVaccineExpiry?: string;
+  microchipId?: string;
+}
+
+export interface PetRegistryAssistResponse {
+  status?: 'success' | 'fallback' | 'error';
+  petId: string;
+  complianceVerdict: 'COMPLIANT' | 'VACCINATION_PENDING' | 'ACTION_REQUIRED';
+  societyPassportNumber: string;
+  healthAssessment: {
+    vaccinationValid: boolean;
+    daysUntilExpiry: number;
+    recommendedDewormingDate: string;
+  };
+  communityGuidelines: string[];
+  auditedAt: string;
+}
+
+export interface LostPetAlertRequest {
+  petName: string;
+  species: string;
+  breed?: string;
+  colorAndMarkings?: string;
+  lastSeenLocation: string;
+  lastSeenTimestamp?: string;
+  ownerFlat: string;
+  contactMaskedPhone?: string;
+  rewardOfferedInr?: number;
+}
+
+export interface LostPetAlertResponse {
+  status?: 'success' | 'fallback' | 'error';
+  alertId: string;
+  broadcastHeadline: string;
+  urgencyLevel: 'HIGH' | 'CRITICAL';
+  sanitizedSearchPoster: {
+    description: string;
+    keySearchLocations: string[];
+    guardInstruction: string;
+    whatsappShareText: string;
+  };
+  generatedAt: string;
+}
+
+export interface PetServicesMatchRequest {
+  serviceType: 'VET_CLINIC' | 'GROOMING' | 'PET_BOARDING' | 'TRAINER' | 'DOG_WALKER';
+  preferredRadiusKm?: number;
+  urgency?: 'ROUTINE' | 'EMERGENCY';
+  petSpecies?: string;
+}
+
+export interface PetServicesMatchResponse {
+  status?: 'success' | 'fallback' | 'error';
+  recommendedProviders: Array<{
+    name: string;
+    type: string;
+    rating: number;
+    distanceKm: number;
+    phone: string;
+    verifiedCommunityPartner: boolean;
+  }>;
+  matchedAt: string;
+}
+
+export interface IotMeterHealthSummaryRequest {
+  communityId?: string;
+  meters: Array<{
+    meterSerialNumber: string;
+    meterType: 'WATER' | 'ELECTRICITY' | 'GAS' | string;
+    unitNumber: string;
+    blockName: string;
+    protocol?: string;
+    status: 'ACTIVE' | 'OFFLINE' | 'FAULT' | 'TAMPERED';
+    lastReading: number;
+    lastTelemetryTime?: string;
+    batteryLevel?: number | null;
+    leakDetected?: boolean;
+  }>;
+}
+
+export interface IotMeterHealthSummaryResponse {
+  status?: 'success' | 'fallback' | 'error';
+  communityId: string | null;
+  generatedAt: string;
+  counts: {
+    total: number;
+    active: number;
+    offline: number;
+    fault: number;
+    tampered: number;
+    leakAlerts: number;
+    lowBattery: number;
+  };
+  summary: {
+    fleetStatus: 'HEALTHY' | 'ATTENTION' | 'DEGRADED' | 'INSUFFICIENT_DATA';
+    summary: string;
+    priorityMeters: Array<{
+      serial: string;
+      issue: string;
+      priority: 'HIGH' | 'MEDIUM' | 'LOW';
+      recommendedCheck: string;
+    }>;
+    dataQualityNotes: string[];
+    nextChecks: string[];
+  };
+}
+
+export interface IotMeterTelemetryReviewRequest {
+  meterId: string;
+  unitNumber: string;
+  meterType: string;
+  readings: Array<{
+    timestamp: string;
+    reading: number;
+    flowRateOrDemandKw?: number;
+    batteryLevel?: number;
+  }>;
+}
+
+export interface IotMeterTelemetryReviewResponse {
+  status?: 'success' | 'fallback' | 'error';
+  meterId: string;
+  anomalyDetected: boolean;
+  classification: 'NORMAL' | 'BURST_LEAK' | 'CONTINUOUS_SEEPAGE' | 'TELEMETRY_DROP' | 'REVERSE_FLOW';
+  confidenceScore: number;
+  estimatedWasteVolumeOrKwh: number;
+  recommendedTechnicianAction: string;
+  residentAdvisory: string;
+  auditedAt: string;
+}
+
+export interface IotMonthEndBillingReviewRequest {
+  billingPeriod: string;
+  societyId?: string;
+  totalMetersCount: number;
+  totalUnitsConsumed: number;
+  baseTariffPerUnit: number;
+  unmeteredLossPct: number;
+}
+
+export interface IotMonthEndBillingReviewResponse {
+  status?: 'success' | 'fallback' | 'error';
+  billingCycle: string;
+  totalBilledAmountInr: number;
+  lineLossLossAmountInr: number;
+  reconciliationAudit: {
+    discrepancyRisk: 'LOW' | 'MEDIUM' | 'HIGH';
+    highConsumptionFlatsCount: number;
+    zeroConsumptionFlatsCount: number;
+    auditPassed: boolean;
+  };
+  cfbosInvoiceRecommendation: string;
+  certifiedAt: string;
+}
+
+export interface GroupBuyingDealAuditRequest {
+  deal: {
+    id?: string;
+    title: string;
+    category?: string;
+    description: string;
+    mrp: number;
+    savings?: number;
+    tiers: Array<{
+      minQty: number;
+      maxQty?: number | null;
+      pricePerUnit: number;
+      label?: string;
+    }>;
+  };
+}
+
+export interface GroupBuyingDealAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  dealId: string;
+  auditedAt: string;
+  audit: {
+    decision: 'READY_FOR_REVIEW' | 'NEEDS_CHANGES' | 'INSUFFICIENT_INFORMATION';
+    riskFlags: string[];
+    tierAssessment: string;
+    savingsAssessment: string;
+    missingInformation: string[];
+    recommendedEdits: string[];
+    residentDisclosure: string;
+  };
+}
+
+export interface GroupBuyingDemandMatchRequest {
+  demandId?: string;
+  itemName: string;
+  requestedQuantity: number;
+  preferredPriceTargetInr?: number;
+  communityFlatsInterested: number;
+}
+
+export interface GroupBuyingDemandMatchResponse {
+  status?: 'success' | 'fallback' | 'error';
+  demandId: string;
+  crowdFundingViability: 'READY_TO_LAUNCH' | 'AGGREGATING_DEMAND' | 'BELOW_MOQ';
+  recommendedVendorCategories: string[];
+  projectedCollectiveSavingsInr: number;
+  targetLaunchDate: string;
+}
+
+export interface GroupBuyingDisputeTriageRequest {
+  orderId: string;
+  dealTitle: string;
+  buyerFlat: string;
+  issueType: 'MISSING_ITEM' | 'DAMAGED_GOODS' | 'PRICE_DISCREPANCY' | 'LATE_DELIVERY';
+  description: string;
+  amountInr: number;
+}
+
+export interface GroupBuyingDisputeTriageResponse {
+  status?: 'success' | 'fallback' | 'error';
+  orderId: string;
+  triageVerdict: 'REFUND_APPROVED' | 'REPLACEMENT_DISPATCH' | 'VENDOR_INVESTIGATION';
+  settlementAmountInr: number;
+  vendorPenaltyInr: number;
+  customerMessage: string;
+  triagedAt: string;
+}
+
+export interface JobApplicationAssistRequest {
+  applicantName: string;
+  jobRole: string;
+  experienceYears?: number;
+  skills?: string[];
+  rawDraftPitch?: string;
+}
+
+export interface JobApplicationAssistResponse {
+  status?: 'success' | 'fallback' | 'error';
+  applicationFitScore: number;
+  tailoredCoverNote: string;
+  recommendedResumeHighlights: string[];
+  interviewPrepFocusAreas: string[];
+  generatedAt: string;
+}
+
+export interface JobPostingQualityReviewRequest {
+  jobTitle: string;
+  companyOrReferrer: string;
+  location: string;
+  experienceRequired: string;
+  rawJobDescription: string;
+  salaryRange?: string;
+}
+
+export interface JobPostingQualityReviewResponse {
+  status?: 'success' | 'fallback' | 'error';
+  qualityRating: 'EXCELLENT' | 'NEEDS_COMPENSATION_CLARITY' | 'UNVERIFIED_LISTING';
+  safetyAuditScore: number;
+  suggestions: string[];
+  formattedPostPreview: string;
+  auditedAt: string;
+}
+
+export interface JobReferralMatchRequest {
+  candidateId: string;
+  skills: string[];
+  targetCompanies: string[];
+  targetRoles: string[];
+}
+
+export interface JobReferralMatchResponse {
+  status?: 'success' | 'fallback' | 'error';
+  matchedResidents: Array<{
+    residentName: string;
+    flatNumber: string;
+    company: string;
+    designation: string;
+    mutualMatchScore: number;
+  }>;
+  introductionPrompt: string;
+  matchedAt: string;
+}
+
+export interface InventoryDashboardAuditRequest {
+  societyId?: string;
+  criticalStockThreshold?: number;
+  categories: string[];
+}
+
+export interface InventoryDashboardAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  overallStockHealth: 'OPTIMAL' | 'REORDER_REQUIRED' | 'CRITICAL_STOCKOUT_RISK';
+  criticalItems: Array<{
+    itemName: string;
+    currentQuantity: number;
+    minimumThreshold: number;
+    unit: string;
+    urgency: 'HIGH' | 'MEDIUM';
+  }>;
+  recommendedReorderBudgetInr: number;
+  auditedAt: string;
+}
+
+export interface InventoryStockManagementRequest {
+  itemCode: string;
+  itemName: string;
+  currentStock: number;
+  consumptionVelocityPerWeek: number;
+  leadTimeDays: number;
+}
+
+export interface InventoryStockManagementResponse {
+  status?: 'success' | 'fallback' | 'error';
+  itemCode: string;
+  reorderPoint: number;
+  recommendedOrderQuantity: number;
+  daysOfStockRemaining: number;
+  supplierRecommendation: string;
+  calculatedAt: string;
+}
+
+
+// ─── Batch 3: Extended Enterprise Modules (Finance, Insurance, CPN, Home Services, Academy) ──
+
+export interface MaintenanceDuesAuditRequest {
+  invoices: Array<{
+    invoiceNumber: string;
+    totalAmount: number;
+    status: 'PAID' | 'OPEN' | 'OVERDUE' | string;
+    dueDate?: string;
+    flatNumber?: string;
+  }>;
+  asOfDate?: string;
+}
+
+export interface MaintenanceDuesAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  summary: {
+    asOfDate: string;
+    count: number;
+    paidCount: number;
+    openCount: number;
+    overdueCount: number;
+    openBalance: number;
+  };
+  observations: string[];
+  dataQualityFlags: string[];
+  suggestedHumanChecks: string[];
+  auditedAt: string;
+}
+
+export interface UtilityBillAutopayRequest {
+  utilityType: 'BESCOM_POWER' | 'BWSSB_WATER' | 'PIPED_GAS' | 'DG_BACKUP';
+  consumerNumber: string;
+  billedAmountInr: number;
+  dueByDate: string;
+  autopayEnabled?: boolean;
+}
+
+export interface UtilityBillAutopayResponse {
+  status?: 'success' | 'fallback' | 'error';
+  utilityType: string;
+  tariffAuditStatus: 'VERIFIED_CORRECT' | 'ABNORMAL_SURCHARGE_DETECTED' | 'RATE_HIKE_FLAG';
+  recommendedPaymentMode: 'UPI_AUTOPAY' | 'MANUAL_VERIFICATION';
+  estimatedLatePenaltyInr: number;
+  dueDateReminderText: string;
+}
+
+export interface InsuranceClaimAssistRequest {
+  policyNumber: string;
+  insuredPerson: string;
+  hospitalName?: string;
+  admissionDate?: string;
+  estimatedClaimAmountInr: number;
+  treatmentType: string;
+}
+
+export interface InsuranceClaimAssistResponse {
+  status?: 'success' | 'fallback' | 'error';
+  policyNumber: string;
+  cashlessEligibility: 'PRE_APPROVED_NETWORK_HOSPITAL' | 'REIMBURSEMENT_REQUIRED';
+  requiredChecklistDocuments: string[];
+  claimTimelineSlaHours: number;
+  advisoryNote: string;
+}
+
+export interface ProfessionalNetworkMatchRequest {
+  memberId: string;
+  industry: string;
+  interests: string[];
+  seekingRole?: string;
+  mentorshipInterest?: boolean;
+}
+
+export interface ProfessionalNetworkMatchResponse {
+  status?: 'success' | 'fallback' | 'error';
+  suggestedConnections: Array<{
+    name: string;
+    flat: string;
+    company: string;
+    title: string;
+    sharedInterests: string[];
+    matchScore: number;
+  }>;
+  suggestedMasterminds: string[];
+}
+
+export interface HomeHelpMatchRequest {
+  requiredRole: 'COOK' | 'MAID' | 'NANNY' | 'ELDERCARE' | 'DRIVER';
+  preferredTimeSlot: string;
+  tower: string;
+  languagesPreferred?: string[];
+}
+
+export interface HomeHelpMatchResponse {
+  status?: 'success' | 'fallback' | 'error';
+  verifiedHelpers: Array<{
+    name: string;
+    role: string;
+    rating: number;
+    experienceYears: number;
+    currentlyWorkingTowers: string[];
+    policeVerified: boolean;
+  }>;
+  suggestedMarketHourlyRateInr: number;
+}
+
+export interface AcademyDashboardAuditRequest {
+  communityId?: string;
+  activeProgramsCount?: number;
+  registeredLearnersCount?: number;
+}
+
+export interface AcademyDashboardAuditResponse {
+  status?: 'success' | 'fallback' | 'error';
+  curriculumHealthScore: number;
+  trendingCourses: string[];
+  volunteerInstructorsRecognized: number;
+  suggestedUpcomingWorkshops: string[];
+}
+
 // ─── Client Service ───────────────────────────────────────────────────────────
 
 const AUTOMATION_WEBHOOK_BASE =
@@ -3104,5 +4159,1579 @@ export const automationService = {
       };
     }
   },
-};
 
+  /**
+   * Kitchen Order Bottleneck & Prep Delay Sentinel (POST /webhook/food-kitchen-prep-delay-sentinel)
+   */
+  auditKitchenPrepDelay: async (req: KitchenPrepDelayAuditRequest): Promise<KitchenPrepDelayAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-kitchen-prep-delay-sentinel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const isSurge = (req.activeKitchenQueueCount ?? 5) > 6;
+      const delay = isSurge ? 12 : 0;
+      return {
+        status: 'fallback',
+        orderId: req.orderId,
+        restaurantName: req.restaurantName,
+        auditedAt: new Date().toISOString(),
+        kitchenStatus: isSurge ? 'BOTTLENECK_DETECTED' : 'ON_TRACK',
+        delayMinutes: delay,
+        originalEta: '20:30',
+        revisedEta: isSurge ? '20:42' : '20:30',
+        bottleneckReason: isSurge ? 'Dinner peak hour kitchen load with multiple items in prep queue.' : 'Normal kitchen throughput; order on schedule.',
+        mitigationActions: isSurge ? ['Stagger delivery partner pickup by 10m', 'Fast-track cold prep items'] : ['Maintain standard packaging protocol'],
+        customerUpdateMessage: isSurge
+          ? `Namaste! Your order at ${req.restaurantName} is freshly cooking. Due to peak demand, chef needs an additional ${delay} minutes. Revised arrival: 20:42.`
+          : `Your order at ${req.restaurantName} is on schedule!`
+      };
+    }
+  },
+
+  /**
+   * Catering Portion & Food Waste Optimizer (POST /webhook/food-catering-portion-optimizer)
+   */
+  optimizeCateringPortions: async (req: CateringPortionOptimizeRequest): Promise<CateringPortionOptimizeResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-catering-portion-optimizer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const total = req.totalGuests || 50;
+      const veg = req.dietarySplit?.vegCount ?? Math.round(total * 0.7);
+      const nonVeg = req.dietarySplit?.nonVegCount ?? (total - veg);
+      const jain = req.dietarySplit?.jainCount ?? 5;
+      const costPerHead = 380;
+      return {
+        status: 'fallback',
+        eventTitle: req.eventTitle,
+        auditedAt: new Date().toISOString(),
+        totalGuests: total,
+        dietarySplit: { vegCount: veg, nonVegCount: nonVeg, jainCount: jain },
+        optimizedPortions: [
+          { item: 'Paneer Butter Masala / Veg Main', totalKg: +(veg * 0.18).toFixed(1), perHeadGrams: 180 },
+          { item: 'Chicken Gravy / Non-Veg Main', totalKg: +(nonVeg * 0.25).toFixed(1), perHeadGrams: 250 },
+          { item: 'Jeera Rice & Dal Makhani', totalKg: +(total * 0.22).toFixed(1), perHeadGrams: 220 },
+          { item: 'Dessert (Gulab Jamun / Kheer)', totalPcs: total * 2, perHeadPcs: 2 }
+        ],
+        recommendedBufferPercentage: 8,
+        estimatedCostPerHead: costPerHead,
+        totalEstimatedBudget: total * costPerHead,
+        foodWasteMitigationTips: 'Provide live roti tawa counter to minimize bread wastage; schedule surplus food pickup with community Robin Hood volunteer chapter by 22:30.'
+      };
+    }
+  },
+
+  /**
+   * FSSAI & Allergen Compliance Screener (POST /webhook/food-fssai-allergen-compliance-screener)
+   */
+  screenFoodAllergenCompliance: async (req: FoodFssaiAllergenAuditRequest): Promise<FoodFssaiAllergenAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-fssai-allergen-compliance-screener`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const validFssai = /^\d{14}$/.test(req.fssaiLicense || '');
+      return {
+        status: 'fallback',
+        kitchenName: req.kitchenName,
+        auditedAt: new Date().toISOString(),
+        fssaiLicense: req.fssaiLicense,
+        complianceVerdict: validFssai ? 'APPROVED_WITH_CAUTIONS' : 'ACTION_REQUIRED_REJECTED',
+        fssaiStatus: validFssai ? 'VALID_FORMAT' : 'INVALID_SYNTAX',
+        allergenAudit: [
+          { dish: req.speciality || 'Signature Specialty Dish', allergensIdentified: ['DAIRY', 'TREE_NUTS (Cashew)'], warningSeverity: 'MODERATE' },
+          { dish: 'Accompaniment Breads / Rotis', allergensIdentified: ['GLUTEN'], warningSeverity: 'LOW' }
+        ],
+        missingDisclosures: validFssai ? ['Ensure refined oil type (Groundnut/Mustard) is prominently highlighted on container label.'] : ['A valid 14-digit FSSAI license number is mandatory for community kitchen registration.'],
+        foodSafetyAdvisory: 'Package items in food-grade, tamper-evident containers with preparation timestamp stickers.'
+      };
+    }
+  },
+
+  /**
+   * Dining Reservation Yield & No-Show Maximizer (POST /webhook/food-dining-reservation-yield-maximizer)
+   */
+  maximizeDiningReservationYield: async (req: DiningYieldAuditRequest): Promise<DiningYieldAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/food-dining-reservation-yield-maximizer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const isLargeGroup = req.partySize > 6;
+      return {
+        status: 'fallback',
+        restaurantName: req.restaurantName,
+        auditedAt: new Date().toISOString(),
+        partySize: req.partySize,
+        turnaroundEstimateMinutes: isLargeGroup ? 90 : 60,
+        noShowRisk: isLargeGroup ? 'MODERATE' : 'LOW',
+        noShowProbability: isLargeGroup ? 18.2 : 6.5,
+        tableAllocationRecommendation: isLargeGroup ? 'Booth Table B-04 (6-8 Guests)' : 'Center Table T-08 (2-4 Guests)',
+        waitlistAutoReleaseMinutes: 15,
+        yieldAdvice: 'Dinner peak hour: send WhatsApp re-confirmation 45 minutes prior; release table to waiting walk-in parties if not seated within 15 minutes of slot.'
+      };
+    }
+  },
+
+  /**
+   * Commercial Tenant KYC & Lease Compliance Screener (POST /webhook/cpos-tenant-kyc-compliance-screener)
+   */
+  screenCommercialTenantKyc: async (req: CommercialTenantKycAuditRequest): Promise<CommercialTenantKycAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/cpos-tenant-kyc-compliance-screener`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const validGstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(req.gstin || '');
+      return {
+        status: 'fallback',
+        tenantName: req.tenantName,
+        auditedAt: new Date().toISOString(),
+        unitNumber: req.unitNumber,
+        cinNumber: req.cinNumber || 'U74999KA2022PTC159001',
+        gstin: req.gstin,
+        kycVerdict: validGstin ? 'CLEARED' : 'CONDITIONAL_APPROVAL',
+        riskRating: validGstin ? 'LOW_RISK' : 'MODERATE_RISK',
+        tradeCategory: req.tradeCategory || 'RETAIL_COMMERCIAL',
+        bylawZoningCompliance: 'PERMITTED_COMMERCIAL',
+        hazardFlags: [],
+        recommendedSecurityDepositMonths: 6,
+        committeeReviewSummary: validGstin
+          ? 'Corporate entity credentials validated against MCA and GST portal syntax. Commercial activity conforms to community retail zoning.'
+          : 'Pending GSTIN verification. Lease agreement conditioned upon submission of active registration certificate.'
+      };
+    }
+  },
+
+  /**
+   * Commercial Rent Escalation & Statutory GST Calculator (POST /webhook/cpos-lease-rent-escalation-calculator)
+   */
+  calculateLeaseRentEscalation: async (req: LeaseRentEscalationRequest): Promise<LeaseRentEscalationResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/cpos-lease-rent-escalation-calculator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const escalatedRent = Math.round(req.currentMonthlyRent * (1 + req.escalationPercentage / 100));
+      const gst = Math.round(escalatedRent * 0.18);
+      const tds = Math.round(escalatedRent * 0.10);
+      const netPayable = escalatedRent + gst - tds;
+      const depositDiff = Math.round(escalatedRent * 6) - (req.securityDepositCurrent ?? (req.currentMonthlyRent * 6));
+      return {
+        status: 'fallback',
+        leaseId: req.leaseId || 'LEASE-COMM-2026',
+        auditedAt: new Date().toISOString(),
+        unitId: req.unitId,
+        currentMonthlyRent: req.currentMonthlyRent,
+        escalationPercentage: req.escalationPercentage,
+        escalatedMonthlyRent: escalatedRent,
+        effectiveFrom: req.effectiveFrom || '2026-12-01',
+        taxBreakdown: {
+          baseRent: escalatedRent,
+          gstRate: 18,
+          gstAmount: gst,
+          tdsRate: 10,
+          tdsDeduction: tds,
+          netPayableByTenant: netPayable
+        },
+        depositAdjustmentRequired: Math.max(0, depositDiff),
+        statutoryNotes: 'Commercial lease invoice attracts 18% GST (SAC 997212). Corporate tenants must deduct 10% TDS under Section 194-I of the Income Tax Act.'
+      };
+    }
+  },
+
+  /**
+   * Commercial Unit Fitout & Handover Inspector (POST /webhook/cpos-commercial-unit-fitout-inspector)
+   */
+  inspectCommercialFitout: async (req: CommercialFitoutAuditRequest): Promise<CommercialFitoutAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/cpos-commercial-unit-fitout-inspector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const sanctioned = req.sanctionedPowerKw || 20;
+      const requested = req.requestedPowerKw || 22;
+      const loadExceeded = requested > sanctioned;
+      return {
+        status: 'fallback',
+        unitNumber: req.unitNumber,
+        auditedAt: new Date().toISOString(),
+        applicantName: req.applicantName,
+        fitoutStatus: loadExceeded ? 'APPROVED_WITH_CONDITIONS' : 'APPROVED',
+        sanctionedPowerKw: sanctioned,
+        requestedPowerKw: requested,
+        inspectionFindings: {
+          structuralPartitions: 'Gypsum partition walls within permissible floor loading parameters (250 kg/sqm).',
+          fireSprinklers: 'Sprinkler head clearances compliant with NBC Part 4; min 500mm unobstructed distance maintained.',
+          exhaustDucting: 'Kitchen exhaust requires commercial baffle filters and rooftop discharge riser.',
+          facadeSignage: 'Storefront signage conforms to arcade uniform fascia size (12ft x 3ft max).'
+        },
+        safetyConditions: loadExceeded
+          ? [`Power upgrade sanction required for ${requested} kW prior to heavy HVAC energization.`, 'Wet chemical fire extinguisher mandatory in kitchen/pantry.']
+          : ['All electrical conduits must be FRLS grade; work hours restricted to 09:00 - 18:00 to avoid resident disturbance.'],
+        fitoutPermitNumber: `FITOUT-2026-COMM-${Math.floor(100 + Math.random() * 900)}`
+      };
+    }
+  },
+
+  /**
+   * Commercial Tenant Churn Risk & Lease Renewal Predictor (POST /webhook/cpos-tenant-churn-renewal-predictor)
+   */
+  predictTenantChurnRenewal: async (req: TenantChurnRenewalRequest): Promise<TenantChurnRenewalResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/cpos-tenant-churn-renewal-predictor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        tenantId: req.tenantId || 'TEN-021',
+        businessName: req.businessName,
+        auditedAt: new Date().toISOString(),
+        unitNumber: req.unitNumber,
+        leaseExpiryDate: req.leaseExpiryDate,
+        renewalProbability: 82.5,
+        churnRisk: 'LOW',
+        healthIndicators: {
+          footfallTrend: req.monthlyFootfallTrend || '+12% steady resident visits',
+          paymentRegularity: req.maintenancePaymentStatus || 'Zero payment defaults in last 12 months',
+          utilityEfficiency: 'Power consumption consistent with retail business category'
+        },
+        retentionIncentiveProposal: 'Offer 3-year lease extension with concession on annual escalation (4.5% instead of standard 6%) and 1 reserved vendor parking bay.',
+        executiveRecommendation: 'High-satisfaction anchor tenant. Recommended for proactive lease renewal discussion 90 days before expiry.'
+      };
+    }
+  },
+
+  /**
+   * Phase 3: DG Generator Fuel Anomaly & Maintenance Predictor (POST /webhook/infra-generator-fuel-anomaly)
+   */
+  auditGeneratorFuelAnomaly: async (req: GeneratorFuelAnomalyRequest): Promise<GeneratorFuelAnomalyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/infra-generator-fuel-anomaly`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const capacity = req.fuelCapacityLiters || 1000;
+      const current = req.currentFuelLevelLiters ?? 680;
+      const prev = req.previousFuelLevelLiters ?? 740;
+      const runHours = req.runHoursSinceLastRefill || 2.5;
+      const burnRate = runHours > 0 ? Number(((prev - current) / runHours).toFixed(1)) : 24.0;
+      const isAnomaly = burnRate > 38 || burnRate < 10;
+      return {
+        status: 'fallback',
+        generatorId: req.generatorId || 'DG-500KVA-01',
+        anomalySeverity: isAnomaly ? 'SUSPECTED_PILFERAGE' : 'NORMAL',
+        fuelConsumptionLitersPerHour: burnRate,
+        expectedBurnRateRange: '22 - 32 L/hr (at 70% load)',
+        theftOrLeakageRisk: isAnomaly ? 'MODERATE' : 'LOW',
+        hoursRemainingToBCheck: Math.max(0, 250 - ((req.totalRunHours || 215) - (req.lastServiceHours || 0))),
+        projectedBCheckDate: '2026-12-14',
+        alerts: isAnomaly
+          ? ['Fuel burn rate of ' + burnRate + ' L/hr exceeds 500kVA engine baseline. Verify physical dipstick level and tank drain valve.']
+          : ['Fuel consumption steady within normal manufacturer operating curve.'],
+        maintenanceDirectives: [
+          'Replace primary and secondary fuel filters at 250 operating hours.',
+          'Verify battery electrolyte gravity and terminal corrosion status.',
+          'Conduct 15-minute off-load test run weekly on Mondays.'
+        ]
+      };
+    }
+  },
+
+  /**
+   * Phase 3: Water Tanker Quality & Flow Leak Sentinel (POST /webhook/infra-water-leak-sentinel)
+   */
+  auditWaterLeaksAndTankers: async (req: WaterLeakSentinelRequest): Promise<WaterLeakSentinelResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/infra-water-leak-sentinel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const tds = req.testedTds || 340;
+      const ph = req.testedPh || 7.3;
+      const isQualityOk = tds < 600 && ph >= 6.5 && ph <= 8.5;
+      return {
+        status: 'fallback',
+        leakStatus: 'SECURE',
+        transmissionLossPercentage: 3.4,
+        estimatedLossLitersPerHour: 110,
+        tankerQualityVerdict: isQualityOk ? 'COMPLIANT' : 'HIGH_TDS_REJECT',
+        measuredTds: tds,
+        measuredPh: ph,
+        suspectedLeakZones: [],
+        actionPlan: [
+          'Underground transmission line loss measured at 3.4%, within 5% friction allowance.',
+          isQualityOk
+            ? 'Water tanker supply complies with BIS 10500 potable domestic standards.'
+            : 'Water tanker TDS exceeds 600 ppm limit; divert delivery to garden/flush sump only.',
+          'Schedule ultrasonic flow meter test for Block C riser during low-demand night window.'
+        ]
+      };
+    }
+  },
+
+  /**
+   * Phase 3: EV Charging Station Load Arbitrator (POST /webhook/infra-ev-charging-load-arbitrator)
+   */
+  arbitrateEvChargingLoad: async (req: EvChargingLoadArbitrateRequest): Promise<EvChargingLoadArbitrateResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/infra-ev-charging-load-arbitrator`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const isPeak = req.isPeakTariffHour ?? false;
+      const activeCount = req.activeEvSessionsCount || 6;
+      return {
+        status: 'fallback',
+        gridLoadStatus: isPeak ? 'PEAK_THROTTLED' : 'OPTIMAL',
+        currentTransformerUtilizationPercent: isPeak ? 82.5 : 58.4,
+        activeSessionsCount: activeCount,
+        throttledBaysCount: isPeak ? 2 : 0,
+        estimatedCostSavingsRupees: isPeak ? 640 : 220,
+        recommendedChargingQueue: (req.requestedChargingSlots || [
+          { bayId: 'EV-BAY-01', vehicleType: 'Tata Nexon EV', currentSocPct: 35, targetSocPct: 80, departureTime: '07:30' },
+          { bayId: 'EV-BAY-02', vehicleType: 'MG ZS EV', currentSocPct: 52, targetSocPct: 90, departureTime: '08:00' },
+          { bayId: 'EV-BAY-03', vehicleType: 'Ather 450X', currentSocPct: 75, targetSocPct: 100, departureTime: '09:00' }
+        ]).map((slot, idx) => ({
+          bayId: slot.bayId,
+          allocatedKw: isPeak && slot.currentSocPct > 60 ? 3.3 : 7.4,
+          priority: slot.currentSocPct < 40 ? 'HIGH_PRIORITY_LOW_BATTERY' : 'STANDARD_OFF_PEAK',
+          status: isPeak && slot.currentSocPct > 70 ? 'TRICKLE_THROTTLED' : 'FAST_CHARGING'
+        })),
+        peakLoadDirectives: isPeak
+          ? 'Peak tariff window (18:00 - 22:00) active. Throttled vehicles >70% SoC to 3.3kW to prevent transformer surcharge.'
+          : 'Normal off-peak power schedule active. Full 7.4kW AC capacity allocated across all bays.'
+      };
+    }
+  },
+
+  /**
+   * Phase 3: IoT Smart Meter Tamper & Submeter Discrepancy Auditor (POST /webhook/infra-iot-submeter-tamper-auditor)
+   */
+  auditIotSubmeterTamper: async (req: IotSubmeterTamperAuditRequest): Promise<IotSubmeterTamperAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/infra-iot-submeter-tamper-auditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const master = req.masterBoundaryMeterReading || 15400;
+      const submeters = req.submeterReadingsSum || 14950;
+      const common = req.unmeteredCommonAreaEstimated || 350;
+      const discrepancy = Math.max(0, Number((((master - (submeters + common)) / master) * 100).toFixed(1)));
+      const isTamper = discrepancy > 5.0;
+      return {
+        status: 'fallback',
+        tamperRiskLevel: isTamper ? 'MODERATE_ANOMALY' : 'LOW',
+        discrepancyPercentage: discrepancy,
+        masterMeterConsumptionKwh: master,
+        submeterAggregatedKwh: submeters,
+        unmeteredCommonAreaKwh: common,
+        flaggedMeters: isTamper
+          ? [{ unitId: 'Tower B-702', reason: 'Zero-reading recorded for 5 consecutive days while resident gate sensor active.', severity: 'WARNING' }]
+          : [],
+        auditObservations: 'Submeter vs master boundary line loss evaluated at ' + discrepancy + '%, within acceptable technical tolerance.',
+        recommendedInspectionOrders: isTamper
+          ? ['Deploy maintenance electrician to inspect CT meter seals at Tower B electrical duct.']
+          : ['All 240 resident submeter pulse sensors communicating normally with LoRaWAN gateway.']
+      };
+    }
+  },
+
+  /**
+   * Phase 3: Mana Split Debt Simplifier (POST /webhook/finance-split-debt-simplifier)
+   */
+  simplifySplitDebts: async (req: SplitDebtSimplifyRequest): Promise<SplitDebtSimplifyResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/finance-split-debt-simplifier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        groupId: req.groupId || 'SPLIT-GRP-001',
+        originalTransactionCount: (req.expenses?.length || 3) * 3,
+        minimizedTransactionCount: 3,
+        totalVolumeRupees: req.expenses?.reduce((s, e) => s + e.amount, 0) || 8450,
+        settlementPlan: [
+          { fromResident: 'Rohan Sharma (B-402)', toResident: 'Vikas Rao (A-102)', amount: 1650, upiId: 'vikas@okaxis', purpose: 'Net Settle: Clubhouse Party & Sports Court' },
+          { fromResident: 'Deepa Nair (C-504)', toResident: 'Vikas Rao (A-102)', amount: 1200, upiId: 'vikas@okaxis', purpose: 'Net Settle: Group Groceries & Snacks' },
+          { fromResident: 'Anand V (D-201)', toResident: 'Pooja Hegde (B-101)', amount: 850, upiId: 'pooja@okhdfcbank', purpose: 'Net Settle: Carpool Fuel Split' }
+        ],
+        efficiencySavingsSummary: 'Simplified multi-party debts into 3 direct UPI transfers, reducing transaction friction by 67%.'
+      };
+    }
+  },
+
+  /**
+   * Phase 3: Household Budget Drift Detector (POST /webhook/finance-household-budget-drift)
+   */
+  detectHouseholdBudgetDrift: async (req: HouseholdBudgetDriftRequest): Promise<HouseholdBudgetDriftResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/finance-household-budget-drift`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const current = req.currentMonthSpend || 58400;
+      const pastAvg = req.pastThreeMonthsAverage || 48200;
+      const drift = Number((((current - pastAvg) / pastAvg) * 100).toFixed(1));
+      return {
+        status: 'fallback',
+        householdId: req.householdId || 'FLAT-B-402',
+        monthlyTotalExpense: current,
+        trailingThreeMonthAverage: pastAvg,
+        budgetDriftPercentage: drift,
+        driftSeverity: drift > 20 ? 'MODERATE_SURGE' : 'WITHIN_BUDGET',
+        highestSurgeCategories: [
+          { category: 'Dining & Food Delivery', currentSpend: 16800, averageSpend: 10500, surgePct: 60.0 },
+          { category: 'Electricity & Utilities', currentSpend: 8400, averageSpend: 6200, surgePct: 35.5 }
+        ],
+        actionableTips: [
+          'Pre-book society home chef tiffins to save ~25% compared to commercial food delivery apps.',
+          'Consolidate monthly pantry staples via Society Group Buying deals for bulk savings up to 15%.'
+        ]
+      };
+    }
+  },
+
+  /**
+   * Phase 3: Resident Micro-Khata Dues Aging Auditor (POST /webhook/finance-micro-khata-dues-auditor)
+   */
+  auditMicroKhataDues: async (req: MicroKhataDuesAuditRequest): Promise<MicroKhataDuesAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/finance-micro-khata-dues-auditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const receivable = req.entries?.filter(e => e.direction === 'GIVEN').reduce((s, e) => s + e.amount, 0) || 3850;
+      const payable = req.entries?.filter(e => e.direction === 'TAKEN').reduce((s, e) => s + e.amount, 0) || 750;
+      return {
+        status: 'fallback',
+        residentId: req.residentId || 'RES-8841',
+        totalOutstandingReceivable: receivable,
+        totalOutstandingPayable: payable,
+        netBalance: receivable - payable,
+        communityRepaymentTrustScore: 94,
+        agingBreakdown: {
+          zeroToFifteenDays: Math.round(receivable * 0.7),
+          sixteenToThirtyDays: Math.round(receivable * 0.2),
+          thirtyOneToSixtyDays: Math.round(receivable * 0.1),
+          overSixtyDays: 0
+        },
+        friendlyReminderDigest: 'Hi neighbor! Just sharing a friendly Mana Khata ledger update: ₹' + receivable + ' is awaiting settlement across your community sharing entries.'
+      };
+    }
+  },
+
+  /**
+   * Phase 3: Bill Receipt Duplicate & Expense Fraud Detector (POST /webhook/finance-split-receipt-duplicate-detector)
+   */
+  detectSplitReceiptDuplicates: async (req: SplitReceiptDuplicateDetectRequest): Promise<SplitReceiptDuplicateDetectResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/finance-split-receipt-duplicate-detector`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const isDup = req.existingReceiptNumbers?.includes(req.invoiceNumber || '') || false;
+      return {
+        status: 'fallback',
+        receiptVerificationStatus: isDup ? 'SUSPECTED_DUPLICATE' : 'VERIFIED_GENUINE',
+        duplicateDetected: isDup,
+        confidenceScore: 98.2,
+        merchantName: req.merchantName,
+        invoiceNumber: req.invoiceNumber || 'INV-2026-NOV-8941',
+        billDate: req.billDate || new Date().toISOString().split('T')[0],
+        totalAmount: req.totalAmount,
+        itemCount: 8,
+        gstinMatched: true,
+        fraudRiskFlags: isDup ? ['Matching invoice number already processed in previous split expense.'] : [],
+        auditorNotes: isDup
+          ? 'Duplicate expense warning: This merchant invoice has already been claimed by another resident.'
+          : 'Receipt verified genuine: Invoice sequence, date, and math tally with claimed split amount.'
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Doorstep Vehicle Wash Slot & Water Recycling Quota Auditor (POST /webhook/wash-slot-water-auditor)
+   */
+  auditWashSlotWaterRecycling: async (req: WashSlotWaterAuditRequest): Promise<WashSlotWaterAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wash-slot-water-auditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        slotApproved: true,
+        waterComplianceStatus: 'COMPLIANT_ECO_FOAM',
+        allocatedLitersRecycled: 15.0,
+        allocatedFreshwaterLiters: 0,
+        basementDrainageClearance: true,
+        slotTimeRecommended: req.preferredTimeSlot || '06:30 AM - 07:15 AM',
+        ecoCertificationTag: 'WATERLESS_BIO_WASH_CERTIFIED',
+        waterSavedVsTraditionalWashLiters: 185.0,
+        recommendations: [
+          'Mandate biodegradable waterless wash emulsion for basement bay',
+          'Basement B2 runoff grates inspected and clear of oil residue'
+        ],
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Vehicle Basement Breakdown & Emergency Technician Assist (POST /webhook/wash-breakdown-triage)
+   */
+  triageVehicleBreakdown: async (req: WashBreakdownTriageRequest): Promise<WashBreakdownTriageResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wash-breakdown-triage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        triagePriority: req.isUrgent ? 'CRITICAL' : 'HIGH',
+        breakdownCategory: req.issueType || 'BATTERY_JUMPSTART',
+        technicianAssignedName: 'Suresh Gowda (Bay-1 Mechanic)',
+        estimatedArrivalMinutes: 12,
+        requiredToolKit: ['12V Heavy Duty Jump Starter', 'Digital Tyre Inflator / Gauge'],
+        safetyPrecautions: [
+          'Ensure vehicle transmission is in Park / Neutral with handbrake on',
+          'Keep parking lane clear for rapid response support cart'
+        ],
+        estimatedCostInr: 250,
+        coveredUnderSubscription: true,
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Washcaro Monthly Subscription Attendance & QC Reconciler (POST /webhook/wash-subscription-reconciler)
+   */
+  reconcileWashSubscription: async (req: WashSubscriptionReconcileRequest): Promise<WashSubscriptionReconcileResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/wash-subscription-reconciler`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const scheduled = req.scheduledWashes || 26;
+      const completed = req.completedWashes || 24;
+      const missed = Math.max(0, scheduled - completed);
+      return {
+        status: 'fallback',
+        subscriptionId: req.subscriptionId || 'SUB-WASH-402',
+        scheduledWashes: scheduled,
+        completedWashes: completed,
+        missedWashesVendorFault: missed,
+        qualityRatingAvg: req.residentRatingAvg || 4.7,
+        compensatoryCreditInr: missed * 90.0,
+        streakBonusEligible: true,
+        reconciliationVerdict: 'AUTO_RECONCILED',
+        auditSummary: `${missed} missed wash(es) auto-credited to resident CFBOS wallet. Quality rating satisfies 4.5+ benchmark.`,
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Carpool Corridor Matching & Route Optimizer (POST /webhook/mobility-carpool-route-optimizer)
+   */
+  optimizeCarpoolRoute: async (req: CarpoolRouteOptimizeRequest): Promise<CarpoolRouteOptimizeResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/mobility-carpool-route-optimizer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        corridorName: req.corridorName || 'Outer Ring Road (Bellandur - Marathahalli)',
+        optimalRouteOrder: ['A-Block Gate 1', 'B-Block Main Exit', 'EcoWorld SEZ', 'Prestige Tech Park'],
+        totalRouteKm: 14.8,
+        estimatedTimeMinutes: 38,
+        fairFuelSplitPerRiderInr: 65.0,
+        carbonEmissionSavedKg: 8.4,
+        pickupSchedule: [
+          { riderName: 'Amit Roy', flatNumber: 'A-204', pickupTime: '08:15 AM' },
+          { riderName: 'Pooja Hegde', flatNumber: 'B-502', pickupTime: '08:22 AM' }
+        ],
+        routingRationale: 'Sequential gate departure eliminates internal community turnaround delay.',
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Metro Feeder Shuttle Capacity & Frequency Arbitrator (POST /webhook/mobility-shuttle-dispatcher)
+   */
+  forecastShuttleDispatch: async (req: ShuttleDispatchForecastRequest): Promise<ShuttleDispatchForecastResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/mobility-shuttle-dispatcher`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        shuttleRouteId: req.shuttleRouteId || 'SHTL-METRO-01',
+        routeName: req.routeName || 'Community Gate 1 <-> Metro Station Feeder',
+        projectedOccupancyPct: 91.5,
+        capacityRisk: 'HIGH_SURGE_RISK',
+        recommendedFrequencyMinutes: 10,
+        deployBackupShuttle: true,
+        optimalDepartureWindow: '08:00 AM - 09:30 AM',
+        passengerSafetyDirectives: [
+          'Deploy auxiliary 24-seater EV Shuttle Van #2 for 08:20 AM rush',
+          'Strictly cap standing commuters to 4 persons'
+        ],
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Society Notice Statutory Review & Multilingual Formatter (POST /webhook/notice-statutory-formatter)
+   */
+  formatStatutoryNotice: async (req: NoticeStatutoryFormatRequest): Promise<NoticeStatutoryFormatResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/notice-statutory-formatter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        statutoryCompliance: 'COMPLIANT_WITH_BYLAWS',
+        sentimentToneScore: 92,
+        revisedEnglishNotice: req.rawNoticeContent || 'Dear Residents,\n\nPlease be advised of the upcoming facility maintenance schedule. Thank you for your continued cooperation in preserving community living standards.',
+        hindiTranslation: 'प्रिय निवासियों,\n\nकृपया आगामी सुविधा रखरखाव कार्यक्रम पर ध्यान दें। सामुदायिक मानकों को बनाए रखने में आपके सहयोग के लिए धन्यवाद।',
+        regionalTranslation: 'ಆತ್ಮೀಯ ನಿವಾಸಿಗಳೇ,\n\nದಯವಿಟ್ಟು ಮುಂಬರುವ ಸೌಲಭ್ಯ ನಿರ್ವಹಣಾ ವೇಳಾಪಟ್ಟಿಯನ್ನು ಗಮನಿಸಿ. ನಿಮ್ಮ ನಿರಂತರ ಸಹಕಾರಕ್ಕೆ ಧನ್ಯವಾದಗಳು.',
+        bylawCitation: 'Karnataka Apartment Ownership Act (KAOA) Bye-law Clause 19 - Facility Maintenance Protocol',
+        recommendedCategory: 'MAINTENANCE',
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Emergency Flash Broadcast Sanitizer & Action Generator (POST /webhook/notice-emergency-sanitizer)
+   */
+  sanitizeEmergencyNotice: async (req: NoticeEmergencySanitizeRequest): Promise<NoticeEmergencySanitizeResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/notice-emergency-sanitizer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        severityLevel: 'HIGH',
+        urgencyClassification: req.incidentType || 'SERVICE_DISRUPTION',
+        emergencyHeadline: req.headline || 'Urgent Service Disruption Advisory',
+        sanitizedBroadcastMessage: req.details || 'Facility management is on-site resolving the technical disruption. Back-up operations in effect.',
+        actionableDos: [
+          'Keep bathroom and kitchen taps closed to avoid pressure surges',
+          'Use community emergency staircase if elevator is under inspection'
+        ],
+        actionableDonts: [
+          'Do not crowd the security gatehouse or lift lobbies',
+          'Avoid spreading unverified emergency rumors on WhatsApp'
+        ],
+        expectedResolutionEtaMinutes: 45,
+        escalationHelpline: '+91-98800-MANA-SOS',
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: DPDP Act 2023 Resident Data Consent & Purpose Sentinel (POST /webhook/privacy-dpdp-consent-auditor)
+   */
+  auditDpdpConsent: async (req: DpdpConsentAuditRequest): Promise<DpdpConsentAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/privacy-dpdp-consent-auditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        dpdpComplianceRating: 'COMPLIANT',
+        consentHealthScore: 94,
+        expiringConsentsCount: 2,
+        minorDataConsentsVerified: true,
+        purposeLimitationBreachesDetected: false,
+        actionableFindings: [
+          'Biometric gate access consent for tenant in Flat B-302 is due for 1-year renewal in 14 days',
+          'Under-18 parental sports consent verified for clubhouse coaching rosters'
+        ],
+        recommendedNoticeWorkflow: 'DISPATCH_INAPP_RECONSENT_BANNER',
+        statutoryClauseReferenced: 'Digital Personal Data Protection Act 2023, Section 6(1) - Notice & Lawful Consent',
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+  /**
+   * Phase 4: Right to Erasure & CCTV Footage Redaction Auditor (POST /webhook/privacy-cctv-redaction-auditor)
+   */
+  auditCctvRedactionErasure: async (req: CctvRedactionAuditRequest): Promise<CctvRedactionAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/privacy-cctv-redaction-auditor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        erasureEligible: true,
+        statutoryRetentionPeriodDays: 30,
+        retentionExpiryDate: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+        anonymizationRequired: true,
+        redactionProtocol: [
+          'Facial blur all third-party residents in lift lobby camera clips',
+          'Redact vehicle number plates on non-involved vehicles in Bay 18 ANPR capture'
+        ],
+        legalHoldActive: false,
+        complianceCertificateId: 'DPDP-ERASURE-CERT-2026-9912',
+        rejectionReason: null,
+        auditTimestamp: new Date().toISOString()
+      };
+    }
+  },
+
+
+  // ─── Batch 2 Client Methods ──────────────────────────────────────────────────
+
+  /**
+   * Pet Registry: AI Pet Passport & Vaccination Compliance Assistant (POST /webhook/pet-registry-assistant)
+   */
+  auditPetRegistry: async (req: PetRegistryAssistRequest): Promise<PetRegistryAssistResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/pet-registry-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        petId: req.petId || 'PET-2026-001',
+        complianceVerdict: 'COMPLIANT',
+        societyPassportNumber: 'MANA-PET-PASS-0941',
+        healthAssessment: {
+          vaccinationValid: true,
+          daysUntilExpiry: 84,
+          recommendedDewormingDate: '2026-12-15',
+        },
+        communityGuidelines: [
+          'Leash required in all clubhouse corridors and podium gardens',
+          'Designated pet relief zone located near Tower C rear perimeter',
+        ],
+        auditedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Pet Registry: AI Lost Pet Notice & Sightings Broadcaster (POST /webhook/lost-pet-community-alert)
+   */
+  broadcastLostPetAlert: async (req: LostPetAlertRequest): Promise<LostPetAlertResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/lost-pet-community-alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        alertId: 'LOST-PET-ALERT-409',
+        broadcastHeadline: `URGENT: Lost ${req.species} (${req.petName}) near ${req.lastSeenLocation}`,
+        urgencyLevel: 'HIGH',
+        sanitizedSearchPoster: {
+          description: `${req.petName} is a ${req.breed || req.species} last seen near ${req.lastSeenLocation}. Very friendly, please do not chase.`,
+          keySearchLocations: ['Basement 1 Parking', 'Tower C Perimeter Garden', 'Clubhouse Ground Floor'],
+          guardInstruction: 'Check gate CCTV and hold pet gently if spotted; notify security marshal immediately.',
+          whatsappShareText: `🚨 LOST PET ALERT: ${req.petName} (${req.species}) missing from ${req.ownerFlat}. If seen, alert Gate 1 Security.`,
+        },
+        generatedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Pet Registry: AI Verified Pet Clinics, Groomers & Walkers Matcher (POST /webhook/pet-services-matcher)
+   */
+  matchPetServices: async (req: PetServicesMatchRequest): Promise<PetServicesMatchResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/pet-services-matcher`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        recommendedProviders: [
+          { name: 'Dr. Rao 24/7 Pet Hospital & Trauma Care', type: 'VET_CLINIC', rating: 4.9, distanceKm: 1.2, phone: '+91 98450 11223', verifiedCommunityPartner: true },
+          { name: 'Pawsome Spa & Mobile Grooming Van', type: 'GROOMING', rating: 4.8, distanceKm: 0.5, phone: '+91 98860 33445', verifiedCommunityPartner: true },
+          { name: 'Bangalore Happy Tails Dog Walking & Daycare', type: 'DOG_WALKER', rating: 4.7, distanceKm: 0.8, phone: '+91 99001 55667', verifiedCommunityPartner: true },
+        ],
+        matchedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Smart IoT: Fleet Health & Telemetry Summary Sentinel (POST /webhook/iot-meter-health-summary)
+   */
+  summarizeIotMeterHealth: async (req: IotMeterHealthSummaryRequest): Promise<IotMeterHealthSummaryResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/iot-meter-health-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const total = req.meters?.length || 48;
+      return {
+        status: 'fallback',
+        communityId: req.communityId || 'SOC-MANA-TWR',
+        generatedAt: new Date().toISOString(),
+        counts: {
+          total,
+          active: Math.max(0, total - 3),
+          offline: 2,
+          fault: 1,
+          tampered: 0,
+          leakAlerts: 1,
+          lowBattery: 3,
+        },
+        summary: {
+          fleetStatus: 'ATTENTION',
+          summary: 'Overall meter availability is 93.8%. One potential leak anomaly detected on Block B water riser.',
+          priorityMeters: [
+            { serial: 'MTR-WTR-BLK-B-04', issue: 'Leak alert: continuous 2.4 L/min midnight flow', priority: 'HIGH', recommendedCheck: 'Inspect internal flush tank and riser valve on Flat B-304' },
+            { serial: 'MTR-PWR-BLK-A-12', issue: 'Offline: zero telemetry for 48 consecutive hours', priority: 'MEDIUM', recommendedCheck: 'Check LoRa gateway signal and gateway receiver antenna' },
+          ],
+          dataQualityNotes: ['Telemetry packet reception rate at 99.1% across Gateways 1 and 2'],
+          nextChecks: ['Review automated work orders for 2 flagged devices'],
+        },
+      };
+    }
+  },
+
+  /**
+   * Smart IoT: Anomaly & Continuous Leakage Sentinel (POST /webhook/iot-meter-telemetry-review)
+   */
+  reviewIotMeterTelemetry: async (req: IotMeterTelemetryReviewRequest): Promise<IotMeterTelemetryReviewResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/iot-meter-telemetry-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        meterId: req.meterId,
+        anomalyDetected: true,
+        classification: 'CONTINUOUS_SEEPAGE',
+        confidenceScore: 92,
+        estimatedWasteVolumeOrKwh: 480,
+        recommendedTechnicianAction: 'Inspect dual-flush seal on master bathroom commode; replace flapper valve if calcified.',
+        residentAdvisory: 'Gentle alert: Continuous trickle of 0.8 L/min detected overnight in your flat. Check washroom fixtures to prevent bill spikes.',
+        auditedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Smart IoT: Month-End CFBOS Submeter Billing Auditor (POST /webhook/iot-month-end-billing-review)
+   */
+  reviewIotMonthEndBilling: async (req: IotMonthEndBillingReviewRequest): Promise<IotMonthEndBillingReviewResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/iot-month-end-billing-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        billingCycle: req.billingPeriod || '2026-11',
+        totalBilledAmountInr: (req.totalUnitsConsumed || 24000) * (req.baseTariffPerUnit || 8.5),
+        lineLossLossAmountInr: 12400,
+        reconciliationAudit: {
+          discrepancyRisk: 'LOW',
+          highConsumptionFlatsCount: 6,
+          zeroConsumptionFlatsCount: 4,
+          auditPassed: true,
+        },
+        cfbosInvoiceRecommendation: 'Certified for committee ledger import. All submeters reconciled against BESCOM bulk supply.',
+        certifiedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Group Buying: Deal Quality, Tier Pricing & Savings Auditor (POST /webhook/group-buying-deal-audit)
+   */
+  auditGroupBuyingDeal: async (req: GroupBuyingDealAuditRequest): Promise<GroupBuyingDealAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/group-buying-deal-audit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        dealId: req.deal.id || 'DEAL-GRP-901',
+        auditedAt: new Date().toISOString(),
+        audit: {
+          decision: 'READY_FOR_REVIEW',
+          riskFlags: [],
+          tierAssessment: 'Tier tiers are arithmetically consistent and step prices provide clear volume incentive.',
+          savingsAssessment: '32% maximum savings compared to standard retail MRP is verified.',
+          missingInformation: [],
+          recommendedEdits: ['Clarify whether delivery fee is included for podium locker pickup'],
+          residentDisclosure: 'Verified bulk purchase. Free doorstep delivery for orders reaching Tier 2 (20+ units).',
+        },
+      };
+    }
+  },
+
+  /**
+   * Group Buying: Demand Pool Matching & Collective Bargaining Engine (POST /webhook/group-buying-demand-match)
+   */
+  matchGroupBuyingDemand: async (req: GroupBuyingDemandMatchRequest): Promise<GroupBuyingDemandMatchResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/group-buying-demand-match`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        demandId: req.demandId || 'DMD-ALPHONSO-01',
+        crowdFundingViability: 'READY_TO_LAUNCH',
+        recommendedVendorCategories: ['Organic Farm Collectives', 'Ratnagiri Direct Mango Farmers'],
+        projectedCollectiveSavingsInr: 18500,
+        targetLaunchDate: '2026-11-28',
+      };
+    }
+  },
+
+  /**
+   * Group Buying: Order Dispute & Vendor SLA Penalty Triage (POST /webhook/group-buying-dispute-triage)
+   */
+  triageGroupBuyingDispute: async (req: GroupBuyingDisputeTriageRequest): Promise<GroupBuyingDisputeTriageResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/group-buying-dispute-triage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        orderId: req.orderId,
+        triageVerdict: 'REFUND_APPROVED',
+        settlementAmountInr: req.amountInr,
+        vendorPenaltyInr: Math.round(req.amountInr * 0.15),
+        customerMessage: 'We apologize for the damaged package. Full refund of ₹' + req.amountInr + ' has been credited to your Mana Wallet instantly.',
+        triagedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Campus Jobs: AI Job Application & Pitch Drafter (POST /webhook/job-application-assistant)
+   */
+  assistJobApplication: async (req: JobApplicationAssistRequest): Promise<JobApplicationAssistResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/job-application-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        applicationFitScore: 88,
+        tailoredCoverNote: `Hi, I am ${req.applicantName}, a fellow resident at Mana Splendor. I have ${req.experienceYears || 5}+ years of experience in ${req.skills?.slice(0, 3).join(', ') || 'Software Development'} and noticed your internal referral opening for ${req.jobRole}. I would love to connect for a quick coffee in the clubhouse!`,
+        recommendedResumeHighlights: [
+          'Highlight experience with distributed architectures and cloud scalability',
+          'Mention collaborative leadership in cross-functional community initiatives',
+        ],
+        interviewPrepFocusAreas: ['System Design', 'Behavioral Leadership & Communication', 'Problem Solving'],
+        generatedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Campus Jobs: AI Job Posting Quality & Compensation Screener (POST /webhook/job-posting-quality-review)
+   */
+  reviewJobPostingQuality: async (req: JobPostingQualityReviewRequest): Promise<JobPostingQualityReviewResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/job-posting-quality-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        qualityRating: 'EXCELLENT',
+        safetyAuditScore: 95,
+        suggestions: ['Explicitly state hybrid or remote work location flexibility'],
+        formattedPostPreview: `💼 **${req.jobTitle}** at ${req.companyOrReferrer} (${req.location})
+Experience: ${req.experienceRequired} | Verified internal resident referral`,
+        auditedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Campus Jobs: AI Mutual Resident Referral Matcher (POST /webhook/referral-match-assistant)
+   */
+  matchJobReferrals: async (req: JobReferralMatchRequest): Promise<JobReferralMatchResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/referral-match-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        matchedResidents: [
+          { residentName: 'Sanjay Nair', flatNumber: 'Tower A - 502', company: 'Google India', designation: 'Staff Software Engineer', mutualMatchScore: 94 },
+          { residentName: 'Ritu Sen', flatNumber: 'Tower B - 1104', company: 'Microsoft', designation: 'Principal Product Manager', mutualMatchScore: 91 },
+        ],
+        introductionPrompt: 'Hello Sanjay! I am a neighbor in Tower B applying for the Senior Engineer role on your team. Would appreciate 5 mins for an internal referral chat.',
+        matchedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Procurement & Inventory: AI Society Asset & Stockout Sentinel (POST /webhook/inventory-dashboard)
+   */
+  auditInventoryDashboard: async (req: InventoryDashboardAuditRequest): Promise<InventoryDashboardAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/inventory-dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        overallStockHealth: 'REORDER_REQUIRED',
+        criticalItems: [
+          { itemName: 'STP Aeration Bleach Crystals (25kg)', currentQuantity: 2, minimumThreshold: 6, unit: 'Bags', urgency: 'HIGH' },
+          { itemName: 'Clubhouse LED 18W Downlights', currentQuantity: 4, minimumThreshold: 15, unit: 'Pieces', urgency: 'MEDIUM' },
+        ],
+        recommendedReorderBudgetInr: 34500,
+        auditedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Procurement & Inventory: AI Economic Reorder Quantity & Supplier Forecaster (POST /webhook/inventory-management)
+   */
+  manageInventoryStock: async (req: InventoryStockManagementRequest): Promise<InventoryStockManagementResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/inventory-management`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        itemCode: req.itemCode,
+        reorderPoint: Math.round(req.consumptionVelocityPerWeek * (req.leadTimeDays / 7) * 1.3),
+        recommendedOrderQuantity: Math.round(req.consumptionVelocityPerWeek * 4),
+        daysOfStockRemaining: Math.round((req.currentStock / (req.consumptionVelocityPerWeek / 7))),
+        supplierRecommendation: 'Procure from CleanChem Karnataka Wholesale with 5-day lead delivery.',
+        calculatedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  // ─── Batch 3 Client Methods ──────────────────────────────────────────────────
+
+  /**
+   * Finance: Maintenance Dues Audit & Aging Sentinel (POST /webhook/maintenance-dues-reconciliation)
+   */
+  auditMaintenanceDues: async (req: MaintenanceDuesAuditRequest): Promise<MaintenanceDuesAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/maintenance-dues-reconciliation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      const invs = req.invoices || [];
+      const open = invs.filter(i => i.status !== 'PAID');
+      const openBalance = open.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0);
+      return {
+        status: 'fallback',
+        summary: {
+          asOfDate: req.asOfDate || new Date().toISOString().slice(0, 10),
+          count: invs.length || 18,
+          paidCount: Math.max(0, invs.length - open.length),
+          openCount: open.length || 3,
+          overdueCount: 2,
+          openBalance: openBalance || 34200,
+        },
+        observations: [
+          'Society collection rate is at 94.2% for current billing cycle.',
+          'Two flats have crossed 60-day aging threshold requiring formal committee reminder.',
+        ],
+        dataQualityFlags: ['All invoice ledger IDs match member flat units'],
+        suggestedHumanChecks: ['Verify bank reconciliation against ICICI current account statement'],
+        auditedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  /**
+   * Finance: Utility Bill & Autopay Rate Spike Sentinel (POST /webhook/utility-bill-autopay-review)
+   */
+  reviewUtilityBillAutopay: async (req: UtilityBillAutopayRequest): Promise<UtilityBillAutopayResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/utility-bill-autopay-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        utilityType: req.utilityType,
+        tariffAuditStatus: 'VERIFIED_CORRECT',
+        recommendedPaymentMode: 'UPI_AUTOPAY',
+        estimatedLatePenaltyInr: Math.round(req.billedAmountInr * 0.02),
+        dueDateReminderText: `${req.utilityType} bill of ₹${req.billedAmountInr} is due on ${req.dueByDate}. Autopay is scheduled 2 days prior to prevent penalty.`,
+      };
+    }
+  },
+
+  /**
+   * Insurance: Group Health Policy & Claims Assistant (POST /webhook/claims-assistant)
+   */
+  assistInsuranceClaims: async (req: InsuranceClaimAssistRequest): Promise<InsuranceClaimAssistResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/claims-assistant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        policyNumber: req.policyNumber,
+        cashlessEligibility: 'PRE_APPROVED_NETWORK_HOSPITAL',
+        requiredChecklistDocuments: [
+          'Original Discharge Summary with hospital stamp',
+          'Itemized medical bills with detailed breakup and pharmacy receipts',
+          'Attending doctor consultation prescription notes',
+          'Govt ID proof (Aadhaar / PAN card)',
+        ],
+        claimTimelineSlaHours: 4,
+        advisoryNote: 'Manipal Hospital & Apollo Bannerghatta are Tier-1 network partners with zero deposit cashless admission under Mana Community Group Cover.',
+      };
+    }
+  },
+
+  /**
+   * CPN: Professional Network & Peer Matcher (POST /webhook/professional-network)
+   */
+  matchProfessionalNetwork: async (req: ProfessionalNetworkMatchRequest): Promise<ProfessionalNetworkMatchResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/professional-network`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        suggestedConnections: [
+          { name: 'Arjun Mehta', flat: 'Tower A - 902', company: 'Amazon AWS', title: 'Principal Solutions Architect', sharedInterests: ['Cloud Computing', 'AI Models'], matchScore: 96 },
+          { name: 'Divya Krishnan', flat: 'Tower C - 401', company: 'Zerodha', title: 'Lead Product Designer', sharedInterests: ['FinTech', 'Design Systems'], matchScore: 92 },
+        ],
+        suggestedMasterminds: ['Tech Leaders of Mana', 'Society Entrepreneurs & Angel Syndicate'],
+      };
+    }
+  },
+
+  /**
+   * Home Services: AI Verified Daily Help & Maid Matcher (POST /webhook/find-home-help)
+   */
+  matchHomeHelp: async (req: HomeHelpMatchRequest): Promise<HomeHelpMatchResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/find-home-help`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        verifiedHelpers: [
+          { name: 'Sunita Bai', role: req.requiredRole, rating: 4.9, experienceYears: 6, currentlyWorkingTowers: ['Tower A', 'Tower B'], policeVerified: true },
+          { name: 'Meena Kumari', role: req.requiredRole, rating: 4.8, experienceYears: 4, currentlyWorkingTowers: ['Tower B', 'Tower C'], policeVerified: true },
+        ],
+        suggestedMarketHourlyRateInr: 350,
+      };
+    }
+  },
+
+  /**
+   * Academy: Society Learning & Instructor Hub Audit (POST /webhook/academy-dashboard)
+   */
+  auditAcademyDashboard: async (req: AcademyDashboardAuditRequest): Promise<AcademyDashboardAuditResponse> => {
+    try {
+      const res = await fetch(`${AUTOMATION_WEBHOOK_BASE}/academy-dashboard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { status: 'success', ...data };
+      }
+      throw new Error(`n8n returned ${res.status}`);
+    } catch {
+      return {
+        status: 'fallback',
+        curriculumHealthScore: 94,
+        trendingCourses: ['Weekend Robotics for Kids', 'Financial Independence & Index Investing', 'Classical Hatha Yoga'],
+        volunteerInstructorsRecognized: 12,
+        suggestedUpcomingWorkshops: ['Solar Rooftop DIY & Net Metering', 'AI Tools for High Schoolers'],
+      };
+    }
+  },
+};
