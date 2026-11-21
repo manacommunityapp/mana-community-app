@@ -20,6 +20,7 @@ export interface VisitorPassResponse {
 
   // New fields
   otp?: string;
+  otpOnCreation?: string;
   otpExpiresAt?: string | null;
   gateIn?: string | null;
   gateOut?: string | null;

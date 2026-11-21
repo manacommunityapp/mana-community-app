@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  Search, Star, ChefHat, ShoppingBag
+  Search, Star, ChefHat, ShoppingBag, ShieldCheck, Sparkles, AlertTriangle, CheckCircle2, AlertCircle, FileCheck
 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
@@ -12,6 +12,7 @@ import { Skeleton } from "../ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { foodHomeChefService } from "../../../services/food/foodHomeChefService";
 import type { HomeChef, HomeChefRequest } from "../../../types/food";
+import { automationService, type FoodFssaiAllergenAuditResponse } from "../../../services/automation/automationService";
 
 const cuisineOptions = ["All", "South Indian", "North Indian", "Bengali", "Gujarati", "Korean", "Vegan", "Continental"];
 const availabilityColors: Record<string, string> = {
@@ -32,6 +33,36 @@ export function HomeChefMarketplace() {
   const [allChefs, setAllChefs] = useState<HomeChef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
+
+  // AI FSSAI & Allergen Audit State
+  const [isAuditingFssai, setIsAuditingFssai] = useState(false);
+  const [fssaiAuditResult, setFssaiAuditResult] = useState<FoodFssaiAllergenAuditResponse | null>(null);
+  const [showFssaiModal, setShowFssaiModal] = useState(false);
+
+  const handleAuditFssai = async (kitchenName?: string, fssaiLicense?: string, speciality?: string, cuisineTypes?: string) => {
+    setIsAuditingFssai(true);
+    try {
+      const res = await automationService.screenFoodAllergenCompliance({
+        kitchenName: kitchenName || regForm.kitchenName || "Artisan Home Kitchen",
+        fssaiLicense: fssaiLicense || regForm.fssaiLicense || "21423010000452",
+        cuisineTypes: cuisineTypes || regForm.cuisineTypes || "South Indian, Traditional",
+        sampleDishes: [
+          {
+            name: speciality || regForm.speciality || "Special Signature Thali",
+            ingredients: ["Ghee Rice", "Sambar", "Peanut Podi", "Wheat Chapati", "Curd"],
+            declaredAllergens: ["Peanuts", "Dairy"],
+          },
+        ],
+        auditScope: "REGISTRATION",
+      });
+      setFssaiAuditResult(res);
+      setShowFssaiModal(true);
+    } catch (err) {
+      console.error("FSSAI audit failed:", err);
+    } finally {
+      setIsAuditingFssai(false);
+    }
+  };
 
   const fetchChefs = useCallback(async () => {
     setIsLoading(true);
@@ -90,51 +121,74 @@ export function HomeChefMarketplace() {
           <h2 className="text-xl font-bold">Home Chefs</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Discover home-cooked meals from talented chefs in your community</p>
         </div>
-        <Dialog open={showRegister} onOpenChange={setShowRegister}>
-          <DialogTrigger asChild>
-            <Button className="bg-pink-600 hover:bg-pink-700 text-white gap-2">
-              <ChefHat className="w-4 h-4" /> Register as Chef
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Register as a Home Chef</DialogTitle>
-              <DialogDescription>Share your culinary skills with the community. Start your home kitchen business today.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Kitchen Name</label>
-                <Input placeholder="e.g., Mom's Kitchen" value={regForm.kitchenName} onChange={(e) => setRegForm((f) => ({ ...f, kitchenName: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Speciality</label>
-                <Input placeholder="e.g., South Indian Meals" value={regForm.speciality ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, speciality: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cuisine Types</label>
-                <Input placeholder="e.g., South Indian, Tamil" value={regForm.cuisineTypes ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, cuisineTypes: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <Input placeholder="Tell us about your kitchen..." value={regForm.description ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">FSSAI License (if available)</label>
-                <Input placeholder="License number" value={regForm.fssaiLicense ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, fssaiLicense: e.target.value }))} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowRegister(false); setRegForm(EMPTY_FORM); }}>Cancel</Button>
-              <Button
-                className="bg-pink-600 hover:bg-pink-700 text-white"
-                disabled={!regForm.kitchenName.trim() || isRegistering}
-                onClick={handleRegister}
-              >
-                {isRegistering ? "Submitting…" : "Submit Application"}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handleAuditFssai()}
+            disabled={isAuditingFssai}
+            className="border-pink-200 text-pink-700 hover:bg-pink-50 dark:border-pink-900/50 dark:text-pink-300 gap-2"
+          >
+            <ShieldCheck className="w-4 h-4 text-pink-600" />
+            {isAuditingFssai ? "Auditing…" : "AI FSSAI & Allergen Audit"}
+          </Button>
+          <Dialog open={showRegister} onOpenChange={setShowRegister}>
+            <DialogTrigger asChild>
+              <Button className="bg-pink-600 hover:bg-pink-700 text-white gap-2">
+                <ChefHat className="w-4 h-4" /> Register as Chef
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Register as a Home Chef</DialogTitle>
+                <DialogDescription>Share your culinary skills with the community. Start your home kitchen business today.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Kitchen Name</label>
+                  <Input placeholder="e.g., Mom's Kitchen" value={regForm.kitchenName} onChange={(e) => setRegForm((f) => ({ ...f, kitchenName: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Speciality</label>
+                  <Input placeholder="e.g., South Indian Meals" value={regForm.speciality ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, speciality: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cuisine Types</label>
+                  <Input placeholder="e.g., South Indian, Tamil" value={regForm.cuisineTypes ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, cuisineTypes: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Description</label>
+                  <Input placeholder="Tell us about your kitchen..." value={regForm.description ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">FSSAI License (if available)</label>
+                  <div className="flex gap-2">
+                    <Input placeholder="License number" value={regForm.fssaiLicense ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, fssaiLicense: e.target.value }))} />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={isAuditingFssai}
+                      onClick={() => handleAuditFssai(regForm.kitchenName, regForm.fssaiLicense, regForm.speciality, regForm.cuisineTypes)}
+                      className="shrink-0 text-xs gap-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-pink-600" />
+                      AI Check
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setShowRegister(false); setRegForm(EMPTY_FORM); }}>Cancel</Button>
+                <Button
+                  className="bg-pink-600 hover:bg-pink-700 text-white"
+                  disabled={!regForm.kitchenName.trim() || isRegistering}
+                  onClick={handleRegister}
+                >
+                  {isRegistering ? "Submitting…" : "Submit Application"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -213,6 +267,129 @@ export function HomeChefMarketplace() {
           ))}
         </div>
       )}
+
+      {/* AI FSSAI & Allergen Compliance Modal */}
+      <Dialog open={showFssaiModal} onOpenChange={setShowFssaiModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-pink-600 font-semibold text-xs tracking-wider uppercase">
+              <ShieldCheck className="w-4 h-4" />
+              AI FSSAI & Food Allergen Screener
+            </div>
+            <DialogTitle>Kitchen Compliance Audit</DialogTitle>
+            <DialogDescription>
+              FSSAI regulatory validation, allergen cross-contamination matrix, and statutory labeling directives.
+            </DialogDescription>
+          </DialogHeader>
+
+          {fssaiAuditResult && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+                <div>
+                  <div className="text-xs text-slate-500">Compliance Status</div>
+                  <Badge
+                    className={`mt-1 font-semibold ${
+                      fssaiAuditResult.complianceStatus === "COMPLIANT"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                        : fssaiAuditResult.complianceStatus === "PROVISIONAL"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400"
+                    }`}
+                  >
+                    {fssaiAuditResult.complianceStatus === "COMPLIANT" && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                    {fssaiAuditResult.complianceStatus !== "COMPLIANT" && <AlertTriangle className="w-3 h-3 mr-1" />}
+                    {fssaiAuditResult.complianceStatus}
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500">Risk Level</div>
+                  <Badge
+                    variant="outline"
+                    className={`mt-1 font-semibold ${
+                      fssaiAuditResult.riskLevel === "LOW"
+                        ? "text-emerald-600 border-emerald-300"
+                        : fssaiAuditResult.riskLevel === "MEDIUM"
+                        ? "text-amber-600 border-amber-300"
+                        : "text-rose-600 border-rose-300"
+                    }`}
+                  >
+                    {fssaiAuditResult.riskLevel} RISK
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-slate-500">FSSAI Status</div>
+                  <div className="text-xs font-semibold mt-1">
+                    {fssaiAuditResult.fssaiValidated ? (
+                      <span className="text-emerald-600 flex items-center gap-1 justify-end">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Validated
+                      </span>
+                    ) : (
+                      <span className="text-amber-600 flex items-center gap-1 justify-end">
+                        <AlertCircle className="w-3.5 h-3.5" /> Pending Docs
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Detected Allergens */}
+              {fssaiAuditResult.detectedAllergens && fssaiAuditResult.detectedAllergens.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    Detected Food Allergens ({fssaiAuditResult.detectedAllergens.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {fssaiAuditResult.detectedAllergens.map((allergen, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200">
+                        {allergen}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Warning Labels */}
+              {fssaiAuditResult.recommendedLabels && fssaiAuditResult.recommendedLabels.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <FileCheck className="w-3.5 h-3.5 text-pink-500" />
+                    Mandatory FSSAI Warning Labels
+                  </h4>
+                  <div className="space-y-1">
+                    {fssaiAuditResult.recommendedLabels.map((lbl, idx) => (
+                      <div key={idx} className="text-xs p-2 rounded-lg bg-pink-50/60 dark:bg-pink-950/20 text-pink-800 dark:text-pink-300 border border-pink-100 dark:border-pink-900/30">
+                        "{lbl}"
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Remediation Steps */}
+              {fssaiAuditResult.requiredRemediations && fssaiAuditResult.requiredRemediations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Required Remediation Actions</h4>
+                  <ul className="text-xs space-y-1 text-slate-600 dark:text-slate-300 list-disc list-inside">
+                    {fssaiAuditResult.requiredRemediations.map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              className="w-full bg-pink-600 hover:bg-pink-700 text-white"
+              onClick={() => setShowFssaiModal(false)}
+            >
+              Acknowledge & Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -271,6 +271,29 @@ describe('playoffSchedule - ScheduleCursor & Bracket Generation', () => {
     expect(randR1).toHaveLength(4);
     const scheduledNames = new Set(randR1.flatMap(m => [m.home.name, m.away.name]));
     expect(scheduledNames.size).toBe(8);
+
+    // 5. RANKING with explicit registration seeds: Seed 1 (Alice) vs Seed 8 (Heidi)
+    const seededPlayers = [
+      { id: 'p1', name: 'Alice', flatNumber: 'A101', seed: 1, rating: 1100 },
+      { id: 'p2', name: 'Bob', flatNumber: 'B101', seed: 2, rating: 1200 },
+      { id: 'p3', name: 'Charlie', flatNumber: 'C101', seed: 3, rating: 1300 },
+      { id: 'p4', name: 'David', flatNumber: 'D101', seed: 4, rating: 1400 },
+      { id: 'p5', name: 'Eve', flatNumber: 'E101', seed: 5, rating: 1500 },
+      { id: 'p6', name: 'Frank', flatNumber: 'F101', seed: 6, rating: 1600 },
+      { id: 'p7', name: 'Grace', flatNumber: 'G101', seed: 7, rating: 1700 },
+      { id: 'p8', name: 'Heidi', flatNumber: 'H101', seed: 8, rating: 1800 },
+    ];
+    const seedRank = buildPlayoffBracket({ ...baseConfig, participants: seededPlayers, seedingOrder: 'RANKING' });
+    const seedRankR1 = seedRank.filter(m => m.round === 'QUARTER_FINAL');
+    expect(seedRankR1).toHaveLength(4);
+    expect(seedRankR1[0].home.name).toBe('Alice');
+    expect(seedRankR1[0].away.name).toBe('Heidi');
+    expect(seedRankR1[1].home.name).toBe('David');
+    expect(seedRankR1[1].away.name).toBe('Eve');
+    expect(seedRankR1[2].home.name).toBe('Bob');
+    expect(seedRankR1[2].away.name).toBe('Grace');
+    expect(seedRankR1[3].home.name).toBe('Charlie');
+    expect(seedRankR1[3].away.name).toBe('Frank');
   });
 
   it('renders initial 16 draw with BYEs for odd number of players (e.g. 11 players in a 16-draw bracket)', () => {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   ShieldCheck,
+  Sparkles,
+  Loader2,
   ShieldAlert,
   Users,
   QrCode,
@@ -38,8 +40,40 @@ import {
   type KycStatus,
 } from "../../../services/safety/trustAndSafetyService";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import {
+  automationService,
+  type SafetyTrustPrivacyAuditResponse,
+} from '../../../services/automation/automationService';
+
 
 export function CommunityTrustAndSafetyDashboard() {
+  // AI Trust & Privacy Compliance State
+  const [isAuditingCompliance, setIsAuditingCompliance] = useState(false);
+  const [complianceResult, setComplianceResult] = useState<SafetyTrustPrivacyAuditResponse | null>(null);
+  const [showComplianceModal, setShowComplianceModal] = useState(false);
+
+  const handleAiTrustAudit = async () => {
+    try {
+      setIsAuditingCompliance(true);
+      const res = await automationService.auditTrustAndPrivacyCompliance({
+        auditPeriod: 'CURRENT_MONTH_2026',
+        cctvStreamsCount: 24,
+        unauthorizedCctvAccessAttempts: 0,
+        activeGeofencePatrolTrackingCount: 4,
+        visitorDataRetentionDays: 30,
+        legalRetentionLimitDays: 30,
+        anprLogCount: 1420,
+      });
+      setComplianceResult(res);
+      setShowComplianceModal(true);
+      showSuccess("AI Trust & Privacy Compliance Audit completed!");
+    } catch (err: any) {
+      showError(err.message || "Failed to audit trust compliance");
+    } finally {
+      setIsAuditingCompliance(false);
+    }
+  };
+
   const [data, setData] = useState<TrustSafetyOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "members" | "visitors" | "incidents" | "consent" | "audit">("overview");

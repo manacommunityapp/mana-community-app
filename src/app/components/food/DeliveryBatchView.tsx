@@ -48,7 +48,7 @@ export function DeliveryBatchView({ vendorId, communityId }: { vendorId?: number
   };
 
   const markAllDelivered = async (batch: DeliveryBatchDto) => {
-    for (const o of batch.orders.filter(o => !o.delivered)) {
+    for (const o of (batch.orders ?? []).filter(o => !o.delivered)) {
       await foodOpsService.markOrderDelivered(o.id);
     }
     if (selectedSlot) foodOpsService.getBatches(Number(selectedSlot)).then(setBatches);
@@ -117,8 +117,8 @@ export function DeliveryBatchView({ vendorId, communityId }: { vendorId?: number
                     </tr>
                   </thead>
                   <tbody>
-                    {batch.orders.map(o => {
-                      const cc = COLD_CHAIN_STYLES[o.coldChain];
+                    {(batch.orders ?? []).map(o => {
+                      const cc = COLD_CHAIN_STYLES[o.coldChain ?? 'AMBIENT'] ?? { bg: '#F3F4F6', text: '#374151' };
                       return (
                         <tr key={o.id} style={{ borderBottom: '1px solid #F9FAFB' }}>
                           <td style={{ padding: '8px 16px', fontWeight: 600 }}>{o.flatNumber}</td>

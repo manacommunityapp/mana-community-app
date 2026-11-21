@@ -11,6 +11,7 @@ import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
 import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
 import { foodOrderService } from "../../../services/food/foodOrderService";
 import type { FoodOrderRequest } from "../../../types/food";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 interface CartItem {
   itemId: number;
@@ -51,6 +52,17 @@ export function FoodCheckoutModal({
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isOpen) {
+      analyticsService.track("food_order_started", {
+        module: "food_kitchen",
+        restaurantName,
+        itemCount: cartItems.length,
+        estimatedTotal,
+      });
+    }
+  }, [isOpen, restaurantName, cartItems.length, estimatedTotal]);
+
+  useEffect(() => {
     if (options?.defaultGateway && !selectedGateway) {
       setSelectedGateway(options.defaultGateway);
     }
@@ -66,6 +78,15 @@ export function FoodCheckoutModal({
       // Step 1: Place food order on server — amount comes from server response
       const placed = await foodOrderService.placeOrder(orderRequest);
       setFoodOrder({ id: placed.id, totalAmount: placed.totalAmount, orderNumber: placed.orderNumber });
+
+      analyticsService.track("food_order_placed", {
+        module: "food_kitchen",
+        orderId: placed.id,
+        amount: placed.totalAmount,
+        itemCount: cartItems.length,
+        restaurantName,
+        gateway: selectedGateway,
+      });
 
       // Step 2: Create unified payment order using server-confirmed totalAmount
       const order = await unifiedPaymentService.createOrder({
@@ -86,6 +107,13 @@ export function FoodCheckoutModal({
         // Manual payment — admin confirms later
         setPaymentStatus("PENDING");
         setStep("done");
+        analyticsService.track("food_order_completed", {
+          module: "food_kitchen",
+          orderId: placed.id,
+          amount: placed.totalAmount,
+          status: "PENDING_CONFIRMATION",
+          gateway: "MANUAL",
+        });
         onOrderComplete(placed.id);
         return;
       }
@@ -96,12 +124,32 @@ export function FoodCheckoutModal({
       setPaymentStatus(verified.status);
       setStep("done");
       if (verified.status === "SUCCESS") {
+        analyticsService.track("food_order_completed", {
+          module: "food_kitchen",
+          orderId: placed.id,
+          amount: placed.totalAmount,
+          status: verified.status,
+          gateway: selectedGateway,
+        });
         onOrderComplete(placed.id);
+      } else {
+        analyticsService.track("food_order_failed", {
+          module: "food_kitchen",
+          orderId: placed.id,
+          amount: placed.totalAmount,
+          reason: verified.status,
+          gateway: selectedGateway,
+        });
       }
     } catch (err: any) {
       const msg = err?.message ?? "Payment failed. Please try again.";
       setErrorMsg(msg);
       setStep("error");
+      analyticsService.track("food_order_failed", {
+        module: "food_kitchen",
+        reason: msg,
+        gateway: selectedGateway,
+      });
     }
   };
 
@@ -113,12 +161,33 @@ export function FoodCheckoutModal({
       setStep("done");
       setShowManaPayModal(false);
       if (verified.status === "SUCCESS") {
+        analyticsService.track("food_order_completed", {
+          module: "food_kitchen",
+          orderId: foodOrder.id,
+          amount: foodOrder.totalAmount,
+          status: verified.status,
+          gateway: "MANA_PAY",
+        });
         onOrderComplete(foodOrder.id);
+      } else {
+        analyticsService.track("food_order_failed", {
+          module: "food_kitchen",
+          orderId: foodOrder.id,
+          amount: foodOrder.totalAmount,
+          reason: verified.status,
+          gateway: "MANA_PAY",
+        });
       }
     } catch {
       setErrorMsg("Payment verification failed.");
       setStep("error");
       setShowManaPayModal(false);
+      analyticsService.track("food_order_failed", {
+        module: "food_kitchen",
+        orderId: foodOrder.id,
+        reason: "Payment verification failed",
+        gateway: "MANA_PAY",
+      });
     }
   };
 

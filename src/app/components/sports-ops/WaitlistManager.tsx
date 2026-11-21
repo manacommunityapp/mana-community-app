@@ -8,7 +8,7 @@ export default function WaitlistManager() {
 
   useEffect(() => {
     sportsOpsService.myWaitlist()
-      .then(r => setEntries(r.data))
+      .then(r => setEntries((r as any)?.data ?? r))
       .catch(() => setError('Failed to load waitlist'))
       .finally(() => setLoading(false));
   }, []);

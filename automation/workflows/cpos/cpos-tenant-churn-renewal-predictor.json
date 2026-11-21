@@ -1,0 +1,151 @@
+{
+  "name": "Mana Community - Commercial Tenant Churn Risk & Lease Renewal Predictor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cpos-tenant-churn-renewal-predictor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-cpos-tenant-churn-predictor"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\nconst prompt = \"You are an autonomous AI specialist for Mana Community Platform operations: Commercial tenant retention and churn risk predictor. Analyzes monthly footfall trends, maintenance payment timeliness, utility consumption, and resident satisfaction ratings to predict 90-day renewal likelihood and draft customized lease incentives.\\n\\nAnalyze the following input payload securely:\\n__DATA__\\n\\nRespond strictly with valid JSON conforming to this schema:\\n{\\\"tenantId\\\":\\\"TEN-048\\\",\\\"businessName\\\":\\\"FitZone Studio & Gym\\\",\\\"unitNumber\\\":\\\"Clubhouse 2nd Floor\\\",\\\"leaseExpiryDate\\\":\\\"2027-02-28\\\",\\\"renewalProbability\\\":78.4,\\\"churnRisk\\\":\\\"LOW_TO_MODERATE\\\",\\\"healthIndicators\\\":{\\\"footfallTrend\\\":\\\"+14% MoM resident visits\\\",\\\"paymentRegularity\\\":\\\"100% on-time maintenance clearance\\\",\\\"utilityEfficiency\\\":\\\"Normal HVAC load variance\\\"},\\\"retentionIncentiveProposal\\\":\\\"Offer 3-year renewal with capped 4% annual escalation instead of standard 6%, plus dedicated basement parking slot allocation for training staff.\\\",\\\"executiveRecommendation\\\":\\\"High-value community amenity tenant. Initiate renewal discussions 60 days before expiry.\\\"}\\n\\nRules:\\n- Return pure JSON only, no markdown wrapping, no extra keys.\\n- Never expose PII or confidential tenant data.\\n- Ensure realistic domain heuristics.\";\nreturn [{ json: { prompt: prompt.replace(\"__DATA__\", JSON.stringify(item, null, 2)), originalInput: item } }];"
+      },
+      "id": "code-prep",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{$env.GOOGLE_GEMINI_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{JSON.stringify($json.prompt)}}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\",\n    \"temperature\": 0.2\n  }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-gemini",
+      "name": "Gemini 3.5 Flash Lite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first().json;\ntry {\n  const text = inputData.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!text) throw new Error(\"No Gemini output text\");\n  const parsed = JSON.parse(text);\n  return [{ json: { status: \"success\", auditedAt: new Date().toISOString(), ...parsed } }];\n} catch (e) {\n  return [{ json: { status: \"fallback\", error: e.message, auditedAt: new Date().toISOString(), ...{\"tenantId\":\"TEN-048\",\"businessName\":\"FitZone Studio & Gym\",\"unitNumber\":\"Clubhouse 2nd Floor\",\"leaseExpiryDate\":\"2027-02-28\",\"renewalProbability\":78.4,\"churnRisk\":\"LOW_TO_MODERATE\",\"healthIndicators\":{\"footfallTrend\":\"+14% MoM resident visits\",\"paymentRegularity\":\"100% on-time maintenance clearance\",\"utilityEfficiency\":\"Normal HVAC load variance\"},\"retentionIncentiveProposal\":\"Offer 3-year renewal with capped 4% annual escalation instead of standard 6%, plus dedicated basement parking slot allocation for training staff.\",\"executiveRecommendation\":\"High-value community amenity tenant. Initiate renewal discussions 60 days before expiry.\"} } }];\n}"
+      },
+      "id": "code-parse",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini 3.5 Flash Lite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.5 Flash Lite": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

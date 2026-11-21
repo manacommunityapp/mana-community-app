@@ -1141,29 +1141,48 @@ export function SportsSchedule() {
       return;
     }
 
+    const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
+      ? null : scoreWinnerId;
+    const cricketRunsA = Number(cricketTeamAScore.runs) || 0;
+    const cricketRunsB = Number(cricketTeamBScore.runs) || 0;
+    const badmintonWinsA = completeBadmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length;
+    const badmintonWinsB = completeBadmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length;
+    const badmintonWinnerSide = badmintonWinsA === badmintonWinsB ? null : badmintonWinsA > badmintonWinsB ? "A" : "B";
+    if (isBadmintonFixture && scoreResultType === "WIN" && (!badmintonWinnerSide || (scoreWinnerSide && scoreWinnerSide !== badmintonWinnerSide))) {
+      toast.error("The badminton game scores must show a clear winner and match the selected winner.");
+      return;
+    }
+
+    let finalScoreA = fixtureScore1;
+    let finalScoreB = fixtureScore2;
+    if (isCricketFixture) {
+      finalScoreA = `${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})`;
+      finalScoreB = `${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})`;
+    } else if (isBadmintonFixture) {
+      finalScoreA = String(badmintonWinsA);
+      finalScoreB = String(badmintonWinsB);
+    }
+
+    const effectiveWinnerId = scoreResultType !== "WIN"
+      ? undefined
+      : isBadmintonFixture
+        ? (badmintonWinnerSide === "A" ? fixture.teamAId : fixture.teamBId)
+        : (winnerId ?? undefined);
+
+    const effectiveWinnerName = scoreResultType !== "WIN"
+      ? undefined
+      : scoreWinnerName || (
+          isBadmintonFixture
+            ? (badmintonWinnerSide === "A" ? fixture.team1 : fixture.team2)
+            : (effectiveWinnerId === fixture.teamAId
+                ? fixture.team1
+                : effectiveWinnerId === fixture.teamBId
+                  ? fixture.team2
+                  : undefined)
+        );
+
     setScoreSaving(true);
     try {
-      let finalScoreA = fixtureScore1;
-      let finalScoreB = fixtureScore2;
-      const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
-        ? null : scoreWinnerId;
-      const cricketRunsA = Number(cricketTeamAScore.runs) || 0;
-      const cricketRunsB = Number(cricketTeamBScore.runs) || 0;
-      const badmintonWinsA = completeBadmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length;
-      const badmintonWinsB = completeBadmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length;
-      const badmintonWinnerSide = badmintonWinsA === badmintonWinsB ? null : badmintonWinsA > badmintonWinsB ? "A" : "B";
-      if (isBadmintonFixture && scoreResultType === "WIN" && (!badmintonWinnerSide || (scoreWinnerSide && scoreWinnerSide !== badmintonWinnerSide))) {
-        toast.error("The badminton game scores must show a clear winner and match the selected winner.");
-        setScoreSaving(false);
-        return;
-      }
-      if (isCricketFixture) {
-        finalScoreA = `${cricketRunsA}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})`;
-        finalScoreB = `${cricketRunsB}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})`;
-      } else if (isBadmintonFixture) {
-        finalScoreA = String(badmintonWinsA);
-        finalScoreB = String(badmintonWinsB);
-      }
       const firstBattingSide =
         (scoreTossWinnerSide === "B" && scoreTossDecision === "BAT") ||
         (scoreTossWinnerSide === "A" && scoreTossDecision === "BOWL") ? "B" : "A";
@@ -1174,7 +1193,7 @@ export function SportsSchedule() {
 
       const resultDetail = {
         matchId: fixture.matchId,
-        winnerTeamId: (scoreResultType !== "WIN" ? null : isBadmintonFixture ? badmintonWinnerSide === "A" ? fixture.teamAId : fixture.teamBId : winnerId) ?? undefined,
+        winnerTeamId: effectiveWinnerId,
         resultType: scoreResultType,
         scoreTeamA: finalScoreA,
         scoreTeamB: finalScoreB,
@@ -1267,13 +1286,17 @@ export function SportsSchedule() {
     }
     setScoreSaving(false);
 
-    setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f, score1: isCricketSport(f.sport) ? `${cricketTeamAScore.runs}/${cricketTeamAScore.wickets} (${cricketTeamAScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamA) > Number(game.teamB)).length) : fixtureScore1,
-      score2: isCricketSport(f.sport) ? `${cricketTeamBScore.runs}/${cricketTeamBScore.wickets} (${cricketTeamBScore.overs})` : /badminton/i.test(f.sport || "") ? String(badmintonGames.filter(game => Number(game.teamB) > Number(game.teamA)).length) : fixtureScore2,
-      status: "COMPLETED",
-      winnerTeamId: scoreResultType === "WIN" ? (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.teamAId : f.teamBId : winnerId ?? undefined) : undefined,
-      winnerName: scoreResultType === "WIN" ? (scoreWinnerName || (/badminton/i.test(f.sport || "") ? badmintonWinnerSide === "A" ? f.team1 : f.team2 : winnerId === f.teamAId ? f.team1 : winnerId === f.teamBId ? f.team2 : undefined)) : undefined,
-    } : f));
+    setFixturesList(prev => {
+      const updated = prev.map(f => f.id === scoringFixtureId ? {
+        ...f,
+        score1: finalScoreA,
+        score2: finalScoreB,
+        status: "COMPLETED",
+        winnerTeamId: effectiveWinnerId,
+        winnerName: effectiveWinnerName,
+      } : f);
+      return propagateByeAdvancements(updated);
+    });
     setShowScoreModal(false);
     setScoringFixtureId(null);
     setFixtureScore1("");
@@ -1311,6 +1334,7 @@ export function SportsSchedule() {
       ? null
       : new Set(tournamentConfigs.filter(config => Number(config.eventId) === selectedSportsEventId).map(config => config.id));
     return fixturesList.filter(f => {
+      if (isByeMatch({ ...f, teamAName: f.team1, teamBName: f.team2 })) return false;
       const matchesTournament = selectedTournamentId !== null
         ? f.configId === selectedTournamentId
         : selectedActualTournamentId === null || activeTournamentConfigIds.has(f.configId ?? -1);
@@ -2354,7 +2378,7 @@ export function SportsSchedule() {
 
           {/* Tournament & Sport Event Selectors */}
           <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-slate-100 shadow-sm space-y-2.5">
-            <div className="grid grid-cols-2 items-center gap-2.5">
+            <div className="grid grid-cols-2 items-center gap-2.5 sm:grid-cols-3">
               <div className="flex-1 min-w-0">
                 <label className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Tournament</label>
                 <select
@@ -2372,6 +2396,23 @@ export function SportsSchedule() {
                   <option value="">All Tournaments</option>
                   {tournamentOptions.map(tournament => (
                     <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 min-w-0">
+                <label htmlFor="allEventsSportsEventFilter" className="block text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sports Event</label>
+                <select
+                  id="allEventsSportsEventFilter"
+                  value={selectedSportsEventId ?? ""}
+                  onChange={e => {
+                    setSelectedSportsEventId(e.target.value ? Number(e.target.value) : null);
+                    setSelectedTournamentId(null);
+                  }}
+                  className="w-full min-w-0 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 focus:ring-2 focus:ring-sky-300 outline-none text-slate-800"
+                >
+                  <option value="">All Events</option>
+                  {eventsForActiveTournament.map(event => (
+                    <option key={event.id} value={event.id}>{event.name}</option>
                   ))}
                 </select>
               </div>
@@ -2741,7 +2782,7 @@ export function SportsSchedule() {
           {/* Inline Score Modal */}
           {showScoreModal && scoringFixtureId !== null && (() => {
             const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
-            return (
+            return createPortal(
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4 animate-fade-in">
               <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-2xl shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 mb-4 pb-2">
@@ -2947,7 +2988,8 @@ export function SportsSchedule() {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
             );
           })()}
 

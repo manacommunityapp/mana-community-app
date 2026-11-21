@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import {
   documentService,
-  DocumentDto,
-  DocumentCategory,
-  DocAccessLevel,
-  DocumentUploadRequest,
+  type DocumentDto,
+  type DocumentCategory,
+  type DocAccessLevel,
+  type DocumentUploadRequest,
 } from '@/services/documents/documentService';
 import { CATEGORY_CONFIG } from './DocumentCategoryBadge';
 

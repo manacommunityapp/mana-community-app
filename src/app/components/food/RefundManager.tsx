@@ -31,7 +31,7 @@ export function RefundManager({ communityId }: { communityId?: number }) {
   const load = () => {
     setLoading(true);
     foodOpsService.getRefunds(cid, tab === 'ALL' ? undefined : tab)
-      .then(setRefunds).catch(() => setRefunds([]).valueOf()).finally(() => setLoading(false));
+      .then(setRefunds).catch(() => setRefunds([])).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, [tab, cid]);
@@ -83,14 +83,14 @@ export function RefundManager({ communityId }: { communityId?: number }) {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                     <span style={{ fontWeight: 700, color: '#111827' }}>Order #{r.orderId}</span>
                     <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-                      background: TRIGGER_COLORS[r.trigger] ?? '#F3F4F6', color: '#374151' }}>
-                      {TRIGGER_LABELS[r.trigger]}
+                      background: TRIGGER_COLORS[r.trigger ?? 'MANUAL'] ?? '#F3F4F6', color: '#374151' }}>
+                      {TRIGGER_LABELS[r.trigger ?? 'MANUAL']}
                     </span>
                     {r.autoApproved && (
                       <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: '#D1FAE5', color: '#065F46' }}>Auto</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, color: '#6B7280' }}>{r.residentName} · {new Date(r.createdAt).toLocaleDateString()}</div>
+                  <div style={{ fontSize: 13, color: '#6B7280' }}>{r.residentName} · {new Date(r.createdAt || Date.now()).toLocaleDateString()}</div>
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 18, color: '#DC2626' }}>₹{r.amount}</div>
               </div>

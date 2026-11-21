@@ -34,28 +34,28 @@ function saveLocalLeaderHistory(list: CommunityLeaderHistoryResponse[]) {
 
 export const communityDirectoryService = {
   async getDirectory(): Promise<CommunityLeaderResponse[]> {
-    return apiClient.get<CommunityLeaderResponse[]>("/community/directory");
+    return apiClient.get<CommunityLeaderResponse[]>("/community/leaders");
   },
 
   async addLeader(req: CommunityLeaderRequest): Promise<CommunityLeaderResponse> {
-    return apiClient.post<CommunityLeaderResponse>("/community/directory", req);
+    return apiClient.post<CommunityLeaderResponse>("/community/leaders", req);
   },
 
   async updateLeader(id: number, req: CommunityLeaderRequest): Promise<CommunityLeaderResponse> {
-    return apiClient.put<CommunityLeaderResponse>(`/community/directory/${id}`, req);
+    return apiClient.put<CommunityLeaderResponse>(`/community/leaders/${id}`, req);
   },
 
   async removeLeader(id: number): Promise<void> {
-    return apiClient.delete<void>(`/community/directory/${id}`);
+    return apiClient.delete<void>(`/community/leaders/${id}`);
   },
 
   async getDesignations(): Promise<CommunityDesignationResponse[]> {
-    return apiClient.get<CommunityDesignationResponse[]>("/community/directory/designations");
+    return apiClient.get<CommunityDesignationResponse[]>("/community/leaders/designations");
   },
 
   async addDesignation(req: CommunityDesignationRequest | string): Promise<CommunityDesignationResponse> {
     const payload = typeof req === "string" ? { name: req } : req;
-    return apiClient.post<CommunityDesignationResponse>("/community/directory/designations", payload);
+    return apiClient.post<CommunityDesignationResponse>("/community/leaders/designations", payload);
   },
 
   /** Get community-wide or leader-specific Council & Committee Leadership history */

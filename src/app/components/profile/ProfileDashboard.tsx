@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type ComponentType } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, Link } from "react-router";
 import {
   UserCircle,
   ShieldCheck,
@@ -60,6 +60,7 @@ import {
   Palette,
   Flame,
   Share2,
+  Car,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
@@ -70,6 +71,7 @@ import { authService } from "../../../services/common/authService";
 import { sessionMonitorService } from "../../../services/common/sessionMonitorService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { householdService, type HouseholdVehicle, type HouseholdVehicleRequest } from "../../../services/household/householdService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
@@ -459,14 +461,22 @@ export function ProfileDashboard() {
     }
   }, []);
 
+  const loadVehicles = useCallback(async () => {
+    setLoadingVehicles(true);
+    try { setVehicles(await householdService.getMyVehicles()); }
+    finally { setLoadingVehicles(false); }
+  }, []);
+
   useEffect(() => {
     if (activeTab === "security") {
       loadSessions();
       loadSecurityAuditLogs(auditPage, auditPageSize);
     } else if (activeTab === "activity") {
       loadUserActivities();
+    } else if (activeTab === "family") {
+      loadVehicles();
     }
-  }, [activeTab, loadSessions, loadSecurityAuditLogs, loadUserActivities, auditPage, auditPageSize]);
+  }, [activeTab, loadSessions, loadSecurityAuditLogs, loadUserActivities, loadVehicles, auditPage, auditPageSize]);
 
   const [securitySettings, setSecuritySettings] = useState<{
     twoFactorEnabled: boolean;
@@ -616,6 +626,35 @@ export function ProfileDashboard() {
   }, [updateUser]);
 
   // ── Family Members State ──
+  const [vehicles, setVehicles] = useState<HouseholdVehicle[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [showVehicleForm, setShowVehicleForm] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState<HouseholdVehicleRequest>({ vehicleNumber: "", vehicleType: "CAR", isActive: true });
+  const [savingVehicle, setSavingVehicle] = useState(false);
+
+
+
+  const handleAddVehicle = async () => {
+    if (!vehicleForm.vehicleNumber.trim()) { toast.error("Vehicle number is required."); return; }
+    setSavingVehicle(true);
+    try {
+      await householdService.addVehicle(vehicleForm);
+      toast.success("Vehicle registered!");
+      setVehicleForm({ vehicleNumber: "", vehicleType: "CAR", isActive: true });
+      setShowVehicleForm(false);
+      loadVehicles();
+    } catch { toast.error("Failed to register vehicle."); }
+    finally { setSavingVehicle(false); }
+  };
+
+  const handleRemoveVehicle = async (id: number) => {
+    try {
+      await householdService.removeVehicle(id);
+      toast.success("Vehicle removed.");
+      setVehicles(prev => prev.filter(v => v.id !== id));
+    } catch { toast.error("Failed to remove vehicle."); }
+  };
+
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [loadingFamily, setLoadingFamily] = useState(false);
   const [familySearch, setFamilySearch] = useState("");
@@ -1355,6 +1394,16 @@ export function ProfileDashboard() {
                 </button>
               );
             })}
+            <Link
+              to="/my-dashboard"
+              className="flex-1 min-w-[54px] flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 sm:flex-row sm:gap-1.5 sm:px-3 border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium transition-all shrink-0 sm:shrink"
+            >
+              <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="text-[8.5px] sm:text-[11.5px] leading-none">
+                <span className="sm:hidden">Home</span>
+                <span className="hidden sm:inline">My Dashboard</span>
+              </span>
+            </Link>
           </div>
         </div>
       </div>
@@ -2162,6 +2211,95 @@ export function ProfileDashboard() {
                   </form>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* VEHICLES SECTION — shown inside family tab below family list */}
+          {activeTab === "family" && (
+            <div className="bg-card rounded-xl border border-border/80 p-3 sm:p-3.5 shadow-2xs space-y-3 mt-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Car className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-foreground text-xs sm:text-[13px]">Registered Vehicles</h3>
+                    <p className="text-[9.5px] text-muted-foreground">Vehicles linked to your household for gate & parking</p>
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <button onClick={loadVehicles} className="p-1.5 hover:bg-accent rounded-lg transition-all cursor-pointer">
+                    <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${loadingVehicles ? "animate-spin" : ""}`} />
+                  </button>
+                  <button onClick={() => setShowVehicleForm(v => !v)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer">
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+              </div>
+
+              {showVehicleForm && (
+                <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40 rounded-lg space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">Vehicle Number *</label>
+                      <input value={vehicleForm.vehicleNumber}
+                        onChange={e => setVehicleForm(f => ({ ...f, vehicleNumber: e.target.value.toUpperCase() }))}
+                        placeholder="KA01AB1234" className="w-full text-xs rounded-lg border border-input bg-background p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 uppercase" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground block mb-0.5">Type</label>
+                      <select value={vehicleForm.vehicleType}
+                        onChange={e => setVehicleForm(f => ({ ...f, vehicleType: e.target.value as HouseholdVehicleRequest["vehicleType"] }))}
+                        className="w-full text-xs rounded-lg border border-input bg-background p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                        {["CAR","MOTORCYCLE","SCOOTER","SUV","TRUCK","OTHER"].map(t => <option key={t} value={t}>{t.charAt(0)+t.slice(1).toLowerCase()}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={vehicleForm.brandModel ?? ""}
+                      onChange={e => setVehicleForm(f => ({ ...f, brandModel: e.target.value }))}
+                      placeholder="Brand / Model (e.g. Maruti Swift)" className="text-xs rounded-lg border border-input bg-background p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                    <input value={vehicleForm.color ?? ""}
+                      onChange={e => setVehicleForm(f => ({ ...f, color: e.target.value }))}
+                      placeholder="Color" className="text-xs rounded-lg border border-input bg-background p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowVehicleForm(false)} className="px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-all cursor-pointer">Cancel</button>
+                    <button onClick={handleAddVehicle} disabled={savingVehicle}
+                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 flex items-center gap-1 cursor-pointer">
+                      {savingVehicle ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {loadingVehicles ? (
+                <div className="text-center py-4"><Loader2 className="w-5 h-5 text-indigo-400 mx-auto animate-spin" /></div>
+              ) : vehicles.length === 0 ? (
+                <div className="text-center py-5 text-[11px] text-muted-foreground">No vehicles registered yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {vehicles.map(v => (
+                    <div key={v.id} className="flex items-center justify-between p-2.5 bg-accent/40 rounded-lg border border-border/60">
+                      <div className="flex items-center gap-2">
+                        <Car className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-foreground">{v.vehicleNumber}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {v.vehicleType.charAt(0)+v.vehicleType.slice(1).toLowerCase()}
+                            {v.brandModel ? ` · ${v.brandModel}` : ""}
+                            {v.color ? ` · ${v.color}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleRemoveVehicle(v.id)} className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 text-muted-foreground rounded transition-all cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Car, Wrench, Calendar, TrendingUp, Users, CheckCircle2,
-  Clock, AlertCircle, Star, ChevronRight, RefreshCw, MapPin,
+  Clock, AlertCircle, Star, ChevronRight, RefreshCw, MapPin, Sparkles, ShieldCheck
 } from "lucide-react";
 import {
   vehicleCareService,
@@ -9,6 +9,11 @@ import {
   type VehicleServiceCatalogResponse,
   type VehicleCarePlanCatalogResponse,
 } from "../../../services/vehicleCareService";
+import {
+  automationService,
+  type WashSlotWaterAuditResponse,
+  type WashSubscriptionReconcileResponse,
+} from "../../../services/automation/automationService";
 
 const TABS = ["Overview", "Bookings", "Technicians", "Catalog", "Plans"] as const;
 type Tab = typeof TABS[number];
@@ -93,6 +98,59 @@ export function VehicleCareAdminDashboard() {
   const [planItems, setPlanItems] = useState<any[]>(DEFAULT_PLANS);
   const [loading, setLoading] = useState(false);
 
+  // AI Wash Slot & Recycled Water Quota Auditor
+  const [isAuditingWater, setIsAuditingWater] = useState(false);
+  const [waterResult, setWaterResult] = useState<WashSlotWaterAuditResponse | null>(null);
+  const [showWaterModal, setShowWaterModal] = useState(false);
+
+  // AI Vendor Subscription & QC Reconciler
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState<WashSubscriptionReconcileResponse | null>(null);
+  const [showReconcileModal, setShowReconcileModal] = useState(false);
+
+  const handleAuditWater = async () => {
+    setIsAuditingWater(true);
+    try {
+      const res = await automationService.auditWashSlotWaterRecycling({
+        bookingId: "VC-SLOT-AUDIT-TODAY",
+        vehicleType: "SUV",
+        vehicleNumber: "KA-01-MJ-8890",
+        parkingSlot: "Basement B2 Bay 14",
+        washType: "WATERLESS_ECO_FOAM",
+        preferredTimeSlot: "06:30 AM - 07:15 AM",
+        allocatedBasementBay: "Bay 14-18 Wash Corridor"
+      });
+      setWaterResult(res);
+      setShowWaterModal(true);
+    } catch (err) {
+      console.error("AI Water Quota Audit error:", err);
+    } finally {
+      setIsAuditingWater(false);
+    }
+  };
+
+  const handleReconcileVendor = async () => {
+    setIsReconciling(true);
+    try {
+      const res = await automationService.reconcileWashSubscription({
+        subscriptionId: "SUB-WASHCARO-NOV-2026",
+        vendorId: "VEND-WASHCARO-01",
+        vendorName: "Washcaro Doorstep Operations Pvt Ltd",
+        residentFlat: "Society Aggregated Fleet",
+        scheduledWashes: 240,
+        completedWashes: 228,
+        residentRatingAvg: 4.75,
+        reportedMissedDates: ["2026-11-04 (Heavy Rain)", "2026-11-12 (Staff Shift)"]
+      });
+      setReconcileResult(res);
+      setShowReconcileModal(true);
+    } catch (err) {
+      console.error("AI Subscription Reconcile error:", err);
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -173,9 +231,37 @@ export function VehicleCareAdminDashboard() {
             <div style={{ fontSize: 12, color: "#6b7280" }}>Powered by Washcaro · Admin Dashboard</div>
           </div>
         </div>
-        <button onClick={loadData} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1 }}>
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />{loading ? "Refreshing..." : "Refresh"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={handleAuditWater}
+            disabled={isAuditingWater}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 12px",
+              borderRadius: 8, border: "1px solid #7dd3fc", background: "#f0f9ff",
+              color: "#0369a1", cursor: isAuditingWater ? "not-allowed" : "pointer",
+              fontSize: 12, fontWeight: 600
+            }}
+          >
+            <Sparkles size={14} style={{ color: "#0284c7" }} />
+            {isAuditingWater ? "Auditing Water Quota..." : "AI Water Quota"}
+          </button>
+          <button
+            onClick={handleReconcileVendor}
+            disabled={isReconciling}
+            style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 12px",
+              borderRadius: 8, border: "1px solid #c4b5fd", background: "#f5f3ff",
+              color: "#6d28d9", cursor: isReconciling ? "not-allowed" : "pointer",
+              fontSize: 12, fontWeight: 600
+            }}
+          >
+            <Sparkles size={14} style={{ color: "#7c3aed" }} />
+            {isReconciling ? "Reconciling..." : "AI Vendor Reconcile"}
+          </button>
+          <button onClick={loadData} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1 }}>
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />{loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -377,6 +463,127 @@ export function VehicleCareAdminDashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* AI Water Quota & Eco Wash Modal */}
+      {showWaterModal && waterResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={(e) => { if (e.target === e.currentTarget) setShowWaterModal(false); }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 540, width: "100%", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Sparkles size={20} style={{ color: "#0284c7" }} />
+                <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>AI Doorstep Wash & Water Quota Audit</span>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 20,
+                background: waterResult.slotApproved ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
+                color: waterResult.slotApproved ? "#10b981" : "#ef4444"
+              }}>
+                {waterResult.waterComplianceStatus.replace("_", " ")}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, background: "#f8fafc", padding: 12, borderRadius: 12, marginBottom: 16, border: "1px solid #e2e8f0" }}>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>RECYCLED WATER</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#0284c7" }}>{waterResult.allocatedLitersRecycled} Liters</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>FRESHWATER USED</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#10b981" }}>{waterResult.allocatedFreshwaterLiters} Liters</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>WATER SAVED</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#059669" }}>+{waterResult.waterSavedVsTraditionalWashLiters} L</span>
+              </div>
+            </div>
+
+            <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12, color: "#0369a1" }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+                <span>Optimal Slot Window: {waterResult.slotTimeRecommended}</span>
+                <span style={{ background: "#e0f2fe", padding: "2px 6px", borderRadius: 4, fontSize: 10 }}>{waterResult.ecoCertificationTag}</span>
+              </div>
+              <div>Basement B2 runoff drainage clear: {waterResult.basementDrainageClearance ? "Yes (Certified)" : "No"}</div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", display: "block", marginBottom: 6 }}>Eco-Wash Protocols</span>
+              {waterResult.recommendations?.map((r, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#4b5563", marginBottom: 4 }}>
+                  <ShieldCheck size={14} style={{ color: "#0284c7", flexShrink: 0 }} />
+                  <span>{r}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowWaterModal(false)}
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#0284c7", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                Approve & Enforce Slot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Vendor Subscription Reconciler Modal */}
+      {showReconcileModal && reconcileResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={(e) => { if (e.target === e.currentTarget) setShowReconcileModal(false); }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 540, width: "100%", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Sparkles size={20} style={{ color: "#7c3aed" }} />
+                <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>AI Wash Vendor QC & Attendance Audit</span>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 20,
+                background: "rgba(124,58,237,0.12)", color: "#7c3aed"
+              }}>
+                {reconcileResult.reconciliationVerdict}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, background: "#f8fafc", padding: 12, borderRadius: 12, marginBottom: 16, border: "1px solid #e2e8f0" }}>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>SCHEDULED / DONE</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{reconcileResult.scheduledWashes} / {reconcileResult.completedWashes}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>MISSED (VENDOR FAULT)</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#ef4444" }}>{reconcileResult.missedWashesVendorFault} Days</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>AUTO-CREDIT REFUND</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#10b981" }}>₹{reconcileResult.compensatoryCreditInr}</span>
+              </div>
+            </div>
+
+            <div style={{ background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12, color: "#6b21a8" }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Audit Findings & Streak Bonus</div>
+              <p style={{ margin: 0, lineHeight: 1.5 }}>{reconcileResult.auditSummary}</p>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setShowReconcileModal(false)}
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#f3f4f6", color: "#374151", border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  alert(`Compensatory credit of ₹${reconcileResult.compensatoryCreditInr} credited to fleet accounts!`);
+                  setShowReconcileModal(false);
+                }}
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#7c3aed", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                Disburse Credits & Settle
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

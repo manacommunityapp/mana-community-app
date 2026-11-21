@@ -22,12 +22,18 @@ import {
   Building2,
   KeyRound,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { userService } from "../../../services/common/userService";
+import {
+  automationService,
+  type AdminBulkImportAuditResponse,
+} from "../../../services/automation/automationService";
+
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -194,6 +200,38 @@ export function validateUser(
 }
 
 export function AdminBulkUpload() {
+  // AI Bulk Upload Privilege Audit State
+  const [isAuditingImport, setIsAuditingImport] = useState(false);
+  const [importAuditResult, setImportAuditResult] = useState<AdminBulkImportAuditResponse | null>(null);
+  const [showImportAuditModal, setShowImportAuditModal] = useState(false);
+
+  const handleAuditBulkImport = async () => {
+    if (!parsedData || parsedData.length === 0) return;
+    try {
+      setIsAuditingImport(true);
+      const res = await automationService.auditAdminBulkImport({
+        batchId: `BATCH-${Date.now()}`,
+        communityCode: parsedData[0]?.communityCode || 'COMM-TOWER-A',
+        users: parsedData.map(u => ({
+          row: u.row,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          flatUnit: u.flatUnit,
+        })),
+      });
+      setImportAuditResult(res);
+      setShowImportAuditModal(true);
+      toast.success("AI Bulk Import Audit completed!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to audit bulk import");
+    } finally {
+      setIsAuditingImport(false);
+    }
+  };
+
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
 

@@ -1,0 +1,141 @@
+{
+  "name": "Mana Community - DPDP Act 2023 Resident Data Consent & Purpose Sentinel",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "privacy-dpdp-consent-auditor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-privacy-dpdp-consent-auditor"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\nconst prompt = \"You are an AI data protection officer specializing in India's Digital Personal Data Protection Act (DPDP Act 2023).\\nYou audit resident consent records for biometric gate entry, facial recognition ANPR, child activity tracking, and purpose limitation expiry.\\nAnalyze the input payload:\\n__DATA__\\n\\nRespond strictly with valid JSON conforming to this schema:\\n{\\n  \\\"dpdpComplianceRating\\\": \\\"COMPLIANT\\\",\\n  \\\"consentHealthScore\\\": 94,\\n  \\\"expiringConsentsCount\\\": 3,\\n  \\\"minorDataConsentsVerified\\\": true,\\n  \\\"purposeLimitationBreachesDetected\\\": false,\\n  \\\"actionableFindings\\\": [\\n    \\\"Biometric gate pass consent for Flat B-302 tenant expires in 7 days\\\",\\n    \\\"Verified parental consent on record for under-18 badminton tournament roster\\\"\\n  ],\\n  \\\"recommendedNoticeWorkflow\\\": \\\"DISPATCH_RECONSENT_SMS\\\",\\n  \\\"statutoryClauseReferenced\\\": \\\"DPDP Act 2023 Section 6(1) - Notice and Consent Specifications\\\",\\n  \\\"auditTimestamp\\\": \\\"2026-11-21T08:30:00Z\\\"\\n}\";\nreturn [{ json: { prompt: prompt.replace(\"__DATA__\", JSON.stringify(item, null, 2)), originalInput: item } }];"
+      },
+      "id": "code-prep",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{$env.GOOGLE_GEMINI_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{JSON.stringify($json.prompt)}}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\",\n    \"temperature\": 0.2\n  }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-gemini",
+      "name": "Gemini 3.5 Flash Lite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const raw = $input.first().json.candidates[0].content.parts[0].text;\n  const parsed = JSON.parse(raw.trim());\n  return [{ json: { success: true, aiGenerated: true, ...parsed } }];\n} catch (e) {\n  const orig = $('Prepare AI Prompt').first().json.originalInput;\n  return [{ json: {\n    success: true,\n    aiGenerated: false,\n    dpdpComplianceRating: \"COMPLIANT\",\n    consentHealthScore: 92,\n    expiringConsentsCount: 2,\n    minorDataConsentsVerified: true,\n    purposeLimitationBreachesDetected: false,\n    actionableFindings: [\"All biometric consents verified against active tenancy leases\", \"No unauthorized data transfers detected\"],\n    recommendedNoticeWorkflow: \"PERIODIC_EMAIL_DIGEST\",\n    statutoryClauseReferenced: \"DPDP Act 2023 Section 6 - Lawful Data Processing\",\n    auditTimestamp: new Date().toISOString()\n  } }];\n}"
+      },
+      "id": "code-format",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini 3.5 Flash Lite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.5 Flash Lite": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

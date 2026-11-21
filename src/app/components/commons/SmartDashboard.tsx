@@ -4,7 +4,9 @@ import { AdminDashboard } from "../admin/AdminDashboard";
 import { UserDashboard } from "../user/UserDashboard";
 import { EventsDashboard } from "../events/EventsDashboard";
 import { SportsDashboard } from "../sports/SportsDashboard";
-import { ShieldCheck, CalendarDays, Trophy, User, LayoutDashboard } from "lucide-react";
+import { ShieldCheck, CalendarDays, Trophy, User, LayoutDashboard, Wallet, Activity } from "lucide-react";
+import { BusinessRevenueDashboard } from "../admin/BusinessRevenueDashboard";
+import { PlatformOperationsConsole } from "../admin/PlatformOperationsConsole";
 
 /**
  * Smart Dashboard router component.
@@ -15,7 +17,7 @@ import { ShieldCheck, CalendarDays, Trophy, User, LayoutDashboard } from "lucide
  *  - Member / User → User Dashboard
  */
 export function SmartDashboard() {
-  const { user, isAdmin, isSuperAdmin, isSportsAdmin, isEventsAdmin, isAnyAdmin } = useAuth();
+  const { user, isAnyAdmin, isSuperAdmin } = useAuth();
 
   // Determine user's primary admin specialization
   const userRolesUpper = (user?.roles || (user?.role ? [user.role] : [])).map((r) => r.trim().toUpperCase());
@@ -88,6 +90,24 @@ export function SmartDashboard() {
               Community Admin Hub
             </button>
 
+            {isSuperAdmin && <button
+              onClick={() => setActiveTab("business")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "business" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <Wallet className="h-3.5 w-3.5" /> Business &amp; Revenue
+            </button>}
+
+            <button
+              onClick={() => setActiveTab("platform-health")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === "platform-health" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <Activity className="h-3.5 w-3.5" /> Platform Health
+            </button>
+
             <button
               onClick={() => setActiveTab("user")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -107,6 +127,8 @@ export function SmartDashboard() {
       {activeTab === "event-admin" && <EventsDashboard />}
       {activeTab === "sports-admin" && <SportsDashboard />}
       {activeTab === "main-admin" && <AdminDashboard />}
+      {isSuperAdmin && activeTab === "business" && <BusinessRevenueDashboard />}
+      {activeTab === "platform-health" && <PlatformOperationsConsole />}
       {activeTab === "user" && <UserDashboard />}
     </div>
   );

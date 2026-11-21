@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DocumentDto } from '@/services/documents/documentService';
+import type { DocumentDto } from '@/services/documents/documentService';
 import { documentService } from '@/services/documents/documentService';
 import { DocumentCategoryBadge } from './DocumentCategoryBadge';
 import { DocumentStatusBadge } from './DocumentStatusBadge';

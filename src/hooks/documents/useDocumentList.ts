@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   documentService,
-  DocumentDto,
-  DocumentCategory,
+  type DocumentDto,
+  type DocumentCategory,
 } from '@/services/documents/documentService';
 
 interface UseDocumentListOptions {

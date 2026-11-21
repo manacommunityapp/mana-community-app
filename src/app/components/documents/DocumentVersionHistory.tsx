@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { documentService, DocumentVersionDto, DocScanStatus } from '@/services/documents/documentService';
+import { documentService, type DocumentVersionDto, type DocScanStatus } from '@/services/documents/documentService';
 
 interface Props {
   documentId: number;

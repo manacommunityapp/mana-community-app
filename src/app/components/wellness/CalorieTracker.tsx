@@ -293,7 +293,7 @@ export default function CalorieTracker() {
               <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <Tooltip
                 contentStyle={{ background: 'var(--bg)', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 10 }}
-                formatter={(v: number, name: string) => [`${v} kcal`, name === 'consumed' ? 'Consumed' : 'Burned']}
+                formatter={(v: any, name: any) => [`${v} kcal`, name === "consumed" ? "Consumed" : "Burned"]}
               />
               <ReferenceLine y={goal} stroke="#6366f1" strokeDasharray="3 3" strokeWidth={1} label={{ value: 'Goal', position: 'right', fontSize: 9, fill: '#6366f1' }} />
               <Bar dataKey="consumed" fill="#fb923c" radius={[3, 3, 0, 0]} maxBarSize={28} />

@@ -15,7 +15,7 @@ export default function SponsorManager() {
   const load = (tid: number) => {
     setLoading(true);
     sportsOpsService.listSponsors(tid)
-      .then(r => setSponsors(r.data))
+      .then(r => setSponsors((r as any)?.data ?? r))
       .finally(() => setLoading(false));
   };
 

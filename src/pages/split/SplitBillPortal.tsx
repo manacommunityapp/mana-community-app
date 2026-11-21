@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Sparkles, AlertTriangle, ShieldCheck } from "lucide-react";
 import { splitBillService, type SplitBill, type SplitType } from "../../services/finance/splitBillService";
 import { showSuccess, showError } from "../../utils/ToastUtils";
+import { automationService, type SplitReceiptDuplicateDetectResponse } from "../../services/automation/automationService";
 
 const CATEGORY_ICONS: Record<string, string> = { MAINTENANCE: "🏠", EVENT: "🎉", UTILITY: "⚡", FOOD: "🍽️", OTHER: "💸" };
 const STATUS_STYLE: Record<string, string> = {
@@ -21,6 +22,45 @@ export function SplitBillPortal() {
   const [totalAmt, setTotalAmt] = useState("");
   const [members, setMembers] = useState([{ name: "", flat: "", share: "" }, { name: "", flat: "", share: "" }]);
   const [creating, setCreating] = useState(false);
+
+  // AI Duplicate & Anomaly Guard
+  const [isGuarding, setIsGuarding] = useState(false);
+  const [guardResult, setGuardResult] = useState<SplitReceiptDuplicateDetectResponse | null>(null);
+  const [showGuardModal, setShowGuardModal] = useState(false);
+
+  async function handleScanDuplicates() {
+    if (!title.trim() || !totalAmt) {
+      showError("Enter title and amount first to run AI check.");
+      return;
+    }
+    setIsGuarding(true);
+    try {
+      const res = await automationService.detectSplitReceiptDuplicates({
+        candidateBill: {
+          title: title.trim(),
+          amountInr: parseFloat(totalAmt) || 0,
+          date: new Date().toISOString().split("T")[0],
+          category: "COMMUNITY",
+          vendorName: "Society Vendor",
+          contributorFlat: members[0]?.flat || "Flat 101"
+        },
+        recentCommunityBills: splits.map(s => ({
+          id: s.id,
+          title: s.title,
+          amountInr: s.total_amount,
+          date: s.created_at || new Date().toISOString(),
+          category: s.category || "OTHER",
+          contributorFlat: s.created_by_name || "Community Resident"
+        }))
+      });
+      setGuardResult(res);
+      setShowGuardModal(true);
+    } catch {
+      showError("AI duplicate check failed.");
+    } finally {
+      setIsGuarding(false);
+    }
+  }
 
   useEffect(() => { loadSplits(); }, []);
 
@@ -154,10 +194,101 @@ export function SplitBillPortal() {
               <Plus size={13} /> Add Member
             </button>
           </div>
-          <button onClick={handleCreate} disabled={creating || !title.trim() || !totalAmt}
-            className="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold text-sm disabled:opacity-40 hover:bg-green-700 transition-colors">
-            {creating ? "Creating…" : `Create Split · ₹${totalAmt || "0"}`}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleScanDuplicates}
+              disabled={isGuarding || !title.trim() || !totalAmt}
+              className="flex-1 bg-amber-50 border border-amber-300 text-amber-900 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-amber-100 disabled:opacity-40 transition"
+            >
+              <Sparkles size={14} className="text-amber-600" />
+              {isGuarding ? "Scanning Society Bills..." : "AI Duplicate & Anomaly Guard"}
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !title.trim() || !totalAmt}
+              className="flex-2 bg-green-600 text-white py-3 rounded-xl font-bold text-sm disabled:opacity-40 hover:bg-green-700 transition-colors"
+            >
+              {creating ? "Creating…" : `Create Split · ₹${totalAmt || "0"}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Duplicate & Anomaly Guard Modal */}
+      {showGuardModal && guardResult && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-xs" onClick={(e) => { if (e.target === e.currentTarget) setShowGuardModal(false); }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <h2 className="font-bold text-[#44475B] text-base">AI Duplicate & Anomaly Guard</h2>
+              </div>
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                guardResult.fraudAnomalyRisk === "CLEAN" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+              }`}>
+                {(guardResult.fraudAnomalyRisk || "CLEAN").replace("_", " ")}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 bg-[#F5F5F7] p-3 rounded-xl text-xs">
+              <div>
+                <span className="text-[#7C7E8C] block text-[11px]">DUPLICATE RISK</span>
+                <span className="font-bold text-[#44475B] text-sm mt-0.5 block">
+                  {guardResult.isDuplicateSuspected ? "⚠️ Suspicious Match" : "✅ No Duplicate Found"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#7C7E8C] block text-[11px]">CONFIDENCE</span>
+                <span className="font-bold text-indigo-600 text-sm mt-0.5 block">
+                  {guardResult.duplicateConfidencePct}%
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs">
+              <span className="font-bold text-amber-900 block mb-1">Audit Findings</span>
+              <p className="text-amber-800 leading-relaxed">{guardResult.riskExplanation}</p>
+            </div>
+
+            {guardResult.potentialMatches && guardResult.potentialMatches.length > 0 && (
+              <div>
+                <h3 className="text-xs font-bold text-[#44475B] mb-2">Similar Community Bills Found</h3>
+                <div className="space-y-1.5">
+                  {guardResult.potentialMatches.map((m, idx) => (
+                    <div key={idx} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs flex justify-between items-center">
+                      <div>
+                        <span className="font-semibold text-slate-800">{m.title}</span>
+                        <p className="text-[11px] text-slate-500">{m.reason}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-slate-800">₹{m.amountInr}</span>
+                        <span className="text-[10px] text-rose-600 block">{m.similarityScore}% match</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowGuardModal(false)}
+                className="px-4 py-2 bg-[#F5F5F7] text-[#44475B] rounded-xl text-xs font-bold hover:bg-slate-200"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => {
+                  setShowGuardModal(false);
+                  handleCreate();
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700"
+              >
+                Proceed & Create Split
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

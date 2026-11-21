@@ -1,8 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router";
-import { X, Loader2, Wifi, WifiOff, AlertTriangle, Radio, Settings } from "lucide-react";
-import { tournamentService, type LiveMatchStateData } from "../../../services/sports/tournamentService";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router";
 import {
   X,
   Loader2,
@@ -17,6 +14,10 @@ import {
   Clock,
   Shield,
   ChevronRight,
+  Wifi,
+  WifiOff,
+  Radio,
+  Settings,
 } from "lucide-react";
 import {
   tournamentService,

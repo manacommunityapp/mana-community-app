@@ -349,7 +349,6 @@ export function SportsFeed() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto">
     <div className="space-y-4 sm:space-y-5 p-3 sm:p-5 max-w-3xl mx-auto relative">
       {/* Confetti Physics Burst for Winner Celebrations */}
       {confettiActive && (
@@ -516,21 +515,6 @@ export function SportsFeed() {
                     <span className="flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{post.comments}</span>
                     <span className="flex items-center gap-0.5"><Share2 className="w-2.5 h-2.5" />{post.shares}</span>
                   </div>
-      {/* Feed Posts */}
-      <div className="space-y-4">
-        {posts.map((post) => {
-          const meta = POST_TYPE_META[post.type];
-          const Icon = meta.icon;
-          return (
-            <div key={post.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs hover:shadow-xs transition-shadow">
-              {/* Post Header */}
-              <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {post.authorName.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-900 dark:text-white">{post.authorName}</div>
-                  <div className="text-[10px] text-slate-400">{formatTimeAgo(post.createdAt)} &middot; {post.sport.charAt(0) + post.sport.slice(1).toLowerCase()}</div>
                 </div>
               );
             })}
@@ -657,15 +641,6 @@ export function SportsFeed() {
                       />
                     </div>
                   </div>
-              {/* Match Completed Winner Scorecard (if present) */}
-              {post.scorecard && (
-                <div className="mx-4 mb-3">
-                  <WinnerScorecard
-                    scorecard={post.scorecard}
-                    sport={post.sport}
-                    onCheer={handleCheerWinner}
-                    onShare={() => handleShare(post.id)}
-                  />
                 </div>
               )}
 

@@ -4,6 +4,10 @@ import {
   ShoppingBag, TrendingUp, Clock, Zap, Gift, RotateCcw, Users, BarChart3,
   Search, Sparkles, ShoppingCart, Star, ChevronRight, Package, CalendarHeart,
 } from "lucide-react";
+import {
+  automationService,
+  type GroupBuyingDealAuditResponse,
+} from "../../../services/automation/automationService";
 import { groupBuyingService, type GroupDeal } from "../../../services/group-buying/groupBuyingService";
 
 const HUB_TILES = [
@@ -49,6 +53,43 @@ function DealMiniCard({ deal, onClick }: { deal: GroupDeal; onClick: () => void 
 }
 
 export function GroupBuyingHub() {
+  // AI Deal Audit State
+  const [isAuditingDeal, setIsAuditingDeal] = useState(false);
+  const [dealAuditResult, setDealAuditResult] = useState<GroupBuyingDealAuditResponse | null>(null);
+  const [showDealModal, setShowDealModal] = useState(false);
+
+  const handleAiDealAudit = async () => {
+    try {
+      setIsAuditingDeal(true);
+      const target = trending[0] || {
+        id: 'DEAL-ALPHONSO-MANGO',
+        title: 'Premium Ratnagiri Alphonso Mangoes (A-Grade, 3 Dozen Box)',
+        description: 'Direct farm-to-door organic carbide-free mangoes directly from certified Konkan orchards.',
+        mrp: 3200,
+        tiers: [
+          { minQty: 1, maxQty: 10, pricePerUnit: 2600, label: 'Individual Order' },
+          { minQty: 11, maxQty: 30, pricePerUnit: 2200, label: 'Floor Group Tier' },
+          { minQty: 31, maxQty: null, pricePerUnit: 1950, label: 'Society Bulk Mega Tier' },
+        ],
+      };
+      const res = await automationService.auditGroupBuyingDeal({
+        deal: {
+          id: target.id,
+          title: target.title,
+          description: target.description,
+          mrp: target.mrp || 3200,
+          tiers: target.tiers || [],
+        },
+      });
+      setDealAuditResult(res);
+      setShowDealModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to audit deal quality');
+    } finally {
+      setIsAuditingDeal(false);
+    }
+  };
+
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [trending, setTrending] = useState<GroupDeal[]>([]);
@@ -86,6 +127,10 @@ export function GroupBuyingHub() {
               style={{ width: "100%", padding: "10px 12px 10px 36px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 13, boxSizing: "border-box" }} />
           </div>
           <button onClick={handleSearch} style={{ padding: "10px 18px", borderRadius: 10, background: "#fff", color: "#059669", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>Search</button>
+          <button onClick={handleAiDealAudit} disabled={isAuditingDeal} style={{ padding: "10px 16px", borderRadius: 10, background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <Sparkles size={14} />
+            {isAuditingDeal ? "Auditing..." : "AI Deal Screener"}
+          </button>
         </div>
         {/* Stats ribbon */}
         <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap" }}>

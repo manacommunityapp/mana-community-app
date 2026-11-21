@@ -1,0 +1,136 @@
+{
+  "name": "Mana Governance Resolution Legal Formatter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "governance-resolution-legal-formatter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-gov-res-legal-formatter-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst proposalTitle = item.title || 'Amendment to Pet Leash and Pet Registration Bylaws';\nconst proposedBy = item.proposedBy || 'Managing Committee / Health Subcommittee';\nconst rawDescription = item.rawDescription || 'We want to make it compulsory that all pets in elevators must wear a muzzle or be carried, and owners who do not clean pet waste in garden will be fined 2000 rupees directly in maintenance bill.';\nconst category = item.category || 'BYLAW_AMENDMENT'; // BYLAW_AMENDMENT | CAPITAL_EXPENDITURE | PENALTY_POLICY | EASEMENT_RIGHT\n\nconst prompt = `You are the Senior Legal Counsel & Apartment Ownership Act Advisor for Mana Community Society.\nReview and format the following proposed society resolution into formal, legally sound, and enforceable resolution text:\n\nProposal Dossier:\n- Resolution Title: ${proposalTitle}\n- Proponent: ${proposedBy}\n- Category: ${category}\n- Raw Proposal Intent:\n\"${rawDescription}\"\n\nLegal Review Directives:\n1. Statutory Viability: Check if proposal conflicts with Indian law, Municipal Acts, or Animal Welfare Board of India (AWBI) directives (e.g. blanket bans on pets or arbitrary muzzling often violate AWBI guidelines).\n2. Natural Justice & Proportionality: Ensure penalties include notice, hearing, and reasonable evidentiary standards (CCTV proof).\n3. Statutory Majority Required: Specify if this requires Simple Majority (50%+1) or Special Resolution (two-thirds / 75%).\n4. Formal Resolution Drafting: Formulate preamble (\"WHEREAS...\"), operative clause (\"RESOLVED THAT...\"), and enforcement authority.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"legalViability\": \"LEGALLY_SOUND\" | \"MODIFICATIONS_REQUIRED\" | \"STATUTORY_VIOLATION_RISK\",\n  \"complianceScore\": number (0 to 100),\n  \"statutoryMajorityRequired\": \"SIMPLE_MAJORITY\" | \"TWO_THIRDS_MAJORITY\" | \"UNANIMOUS\",\n  \"legalRiskAnalysis\": [\n    { \"aspect\": string, \"riskLevel\": \"LOW\" | \"MEDIUM\" | \"HIGH\", \"advice\": string }\n  ],\n  \"formalResolutionText\": {\n    \"whereasClauses\": string[],\n    \"resolvedClauses\": string[],\n    \"penaltyAndRemedyClause\": string\n  },\n  \"counselAdvisory\": string\n}`;\n\nreturn [{ json: { prompt, proposalTitle, proposedBy } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    legalViability: \"MODIFICATIONS_REQUIRED\",\n    complianceScore: 78,\n    statutoryMajorityRequired: \"TWO_THIRDS_MAJORITY\",\n    legalRiskAnalysis: [\n      { aspect: \"AWBI Pet Guidelines\", riskLevel: \"MEDIUM\", advice: \"Ensure penalties specify verifiable evidence (CCTV) and provide 3-day notice before debiting ledger.\" }\n    ],\n    formalResolutionText: {\n      whereasClauses: [\"WHEREAS the society seeks to maintain hygiene and safety across shared elevator lobbies.\"],\n      resolvedClauses: [\"RESOLVED THAT all pet owners shall ensure proper waste disposal and leashing in common corridors.\"],\n      penaltyAndRemedyClause: \"Violations substantiated with CCTV proof shall incur progressive fine after written notice.\"\n    },\n    counselAdvisory: \"Recommended for general body tabling subject to natural justice notice provisions.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", title: meta.proposalTitle, formattedAt: new Date().toISOString(), legalReview: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -70,9 +70,23 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { ForgotPassword } from "./components/commons/login/ForgotPassword";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
+import { KycWizardPage } from "./components/kyc/KycWizardPage";
+import { ComplianceReportsPage } from "./components/kyc/ComplianceReportsPage";
+import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
+import { GroupOrdersPage } from "./components/marketplace/GroupOrdersPage";
+import { SmartDevicesPage } from "./components/ops/SmartDevicesPage";
+import CommunityWalletPage from "./components/finance/CommunityWalletPage";
+import IoTSensorDashboard from "./components/iot/IoTSensorDashboard";
+import ReputationPage from "./components/profile/ReputationPage";
+import InsightsDashboard from "./components/community-ops/InsightsDashboard";
+import PlatformOpsDashboard from "./components/platform/PlatformOpsDashboard";
+import ResidentDashboard from "./components/resident/ResidentDashboard";
+import FmOpsDashboard from "./components/fm/FmOpsDashboard";
+import CommunityManagerDashboard from "./components/community-ops/CommunityManagerDashboard";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { BusinessRevenueDashboard } from "./components/admin/BusinessRevenueDashboard";
 import { SmartDashboard } from "./components/commons/SmartDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
 import { ExpensesDashboard } from "./components/finance/ExpensesDashboard";
@@ -117,6 +131,7 @@ import { AdminRetentionPolicies } from "./components/privacy/admin/AdminRetentio
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
+import { ConsentGate } from "../components/privacy/ConsentGate";
 
 // CPN (Community Professional Network) pages
 import { CPNHub } from "./components/cpn/CPNHub";
@@ -304,6 +319,7 @@ import { ParcelRoom } from "./components/parcels/ParcelRoom";
 import { StaffManagement } from "./components/staff/StaffManagement";
 import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
 import { GeneratorMaintenanceDashboard } from "./components/maintenance/GeneratorMaintenanceDashboard";
+import { WaterMaintenanceDashboard } from "./components/maintenance/WaterMaintenanceDashboard";
 import { AccessCardsManagement } from "./components/access/AccessCardsManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
@@ -435,6 +451,8 @@ import CPOSCrmLeaderboardPage from "./components/cpos/crm/CrmLeaderboardPage";
 import CPOSApprovalsPage from "./components/cpos/crm/ApprovalsPage";
 import CPOSDripSequencesPage from "./components/cpos/crm/DripSequencesPage";
 import CPOSCustomReportPage from "./components/cpos/crm/CustomReportPage";
+import CPOSRentalDashboard from "./components/cpos/rental/RentalDashboard";
+import CPOSLeasePage from "./components/cpos/rental/LeasePage";
 
 // CPN (Community Professional Network) modules
 
@@ -557,6 +575,9 @@ import SportsOpsHub from "./components/sports-ops/SportsOpsHub";
 import PaymentsHub from "./components/payments/PaymentsHub";
 import HomeServicesHub from "./components/home-services/HomeServicesHub";
 import { OpsControlRoom } from "./components/community-ops/OpsControlRoom";
+import { OpsDashboardLive } from "./components/community-ops/OpsDashboardLive";
+import OrderTrackingPage from "./components/commerce/orders/OrderTrackingPage";
+import { HomeChefOnboarding } from "./components/food/HomeChefOnboarding";
 import { StaffAttendance } from "./components/community-ops/StaffAttendance";
 import { DigitalPassManager } from "./components/community-ops/DigitalPassManager";
 import { ParcelManager } from "./components/community-ops/ParcelManager";
@@ -565,6 +586,8 @@ import { AssetMaintenance } from "./components/community-ops/AssetMaintenance";
 import { WatchlistManager } from "./components/community-ops/WatchlistManager";
 import { RwaReports } from "./components/community-ops/RwaReports";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+import { ManaCommerceHub } from "./components/commerce/ManaCommerceHub";
+import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
 import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
 // Mana Academy
@@ -592,6 +615,7 @@ import { VotingCenter } from "./components/governance/VotingCenter";
 import { ResolutionsBoard } from "./components/governance/ResolutionsBoard";
 import { DigitalVault } from "./components/governance/DigitalVault";
 import { CommitteeAndElections } from "./components/governance/CommitteeAndElections";
+import { NocRequests } from "./components/governance/NocRequests";
 
 // Permission constants
 import {
@@ -666,6 +690,10 @@ export const router = createBrowserRouter([
   {
     path: "/kyc-verification",
     Component: KYCVerification,
+  },
+  {
+    path: "/profile/kyc",
+    element: <KycWizardPage />,
   },
   {
     path: "/items/:id",
@@ -853,6 +881,10 @@ export const router = createBrowserRouter([
             path: "dashboards", 
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><SmartDashboard /></PermissionGuard> 
           },
+          {
+            path: "business",
+            element: <PermissionGuard superAdminOnly><BusinessRevenueDashboard /></PermissionGuard>
+          },
           { 
             path: "create-user", 
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminCreateUser /></PermissionGuard> 
@@ -998,6 +1030,10 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
       },
       {
+        path: "maintenance/water",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><WaterMaintenanceDashboard /></PermissionGuard>
+      },
+      {
         path: "parking",
         element: <PermissionGuard permission={VIEW_PARKING} requiredModule="PARKING"><ParkingManagement /></PermissionGuard>
       },
@@ -1066,6 +1102,10 @@ export const router = createBrowserRouter([
           {
             path: "generator-maintenance",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><GeneratorMaintenanceDashboard /></PermissionGuard>
+          },
+          {
+            path: "water-maintenance",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><WaterMaintenanceDashboard /></PermissionGuard>
           },
           {
             path: "audit",
@@ -1263,6 +1303,14 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "orders/:orderId/track",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <OrderTrackingPage />
+              </PermissionGuard>
+            ),
+          },
+          {
             path: "order-management",
             element: (
               <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
@@ -1283,6 +1331,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
                 <VendorSettlements />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "admin-settlements",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <SettlementManagement />
               </PermissionGuard>
             ),
           },
@@ -1385,6 +1441,7 @@ export const router = createBrowserRouter([
           { path: "restaurants", Component: RestaurantBrowse },
           { path: "restaurants/:restaurantId", Component: RestaurantDetail },
           { path: "home-chefs", element: <PermissionGuard permission={VIEW_FOOD_HOME_CHEFS}><HomeChefMarketplace /></PermissionGuard> },
+          { path: "become-seller", element: <HomeChefOnboarding /> },
           { path: "orders", element: <PermissionGuard permission={VIEW_FOOD_ORDERS}><FoodOrders /></PermissionGuard> },
           { path: "subscriptions", element: <PermissionGuard permission={VIEW_FOOD_SUBSCRIPTIONS}><MealSubscriptions /></PermissionGuard> },
           { path: "grocery", element: <PermissionGuard permission={VIEW_FOOD_GROCERY}><GroceryMarketplace /></PermissionGuard> },
@@ -1508,6 +1565,8 @@ export const router = createBrowserRouter([
       { path: "cpos/crm/approvals", element: <PermissionGuard requiredModule="CPOS"><CPOSApprovalsPage /></PermissionGuard> },
       { path: "cpos/crm/drip", element: <PermissionGuard requiredModule="CPOS"><CPOSDripSequencesPage /></PermissionGuard> },
       { path: "cpos/crm/reports", element: <PermissionGuard requiredModule="CPOS"><CPOSCustomReportPage /></PermissionGuard> },
+      { path: "cpos/rentals", element: <PermissionGuard requiredModule="CPOS"><CPOSRentalDashboard /></PermissionGuard> },
+      { path: "cpos/leases", element: <PermissionGuard requiredModule="CPOS"><CPOSLeasePage /></PermissionGuard> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
       { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },
@@ -1553,7 +1612,7 @@ export const router = createBrowserRouter([
       { path: "safety/trust", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} anyModules={["VISITORS", "SAFETY"]}><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "admin/trust-safety", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]} requiredModule="ADMIN_HUB"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
-      { path: "health", element: <HealthPortal /> },
+      { path: "health", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthPortal /></ConsentGate> },
       { path: "insurance", element: <InsurancePortal /> },
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
@@ -1588,7 +1647,7 @@ export const router = createBrowserRouter([
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "khatabook", element: <KhataBook /> },
-      { path: "health", element: <HealthDashboard /> },
+      { path: "health", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthDashboard /></ConsentGate> },
       {
         path: "wellness",
         children: [
@@ -1636,16 +1695,19 @@ export const router = createBrowserRouter([
       { path: "ai-chat", element: <AiChatDashboard /> },
       { path: "calendar", element: <CalendarDashboard /> },
       { path: "commerce", element: <CommerceDashboard /> },
+      { path: "commerce-hub", element: <ManaCommerceHub /> },
+      { path: "commerce/handover", element: <ManaCommerceHub /> },
       // ── Food & Grocery Operations ────────────────────────────────────────
       { path: "food", element: <FoodOpsHub /> },
       // ── Healthcare Operations ─────────────────────────────────────────────
-      { path: "healthcare", element: <HealthcareHub /> },
+      { path: "healthcare", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthcareHub /></ConsentGate> },
       { path: "healthcare-ops", element: <HealthcareOpsHub /> },
       { path: "sports-ops", element: <SportsOpsHub /> },
       { path: "payments-ops", element: <PaymentsHub /> },
       { path: "home-services", element: <HomeServicesHub /> },
       // ── Community Operations ─────────────────────────────────────────────
       { path: "ops/control-room", element: <OpsControlRoom /> },
+      { path: "ops/dashboard", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><OpsDashboardLive /></PermissionGuard> },
       { path: "ops/attendance", element: <StaffAttendance /> },
       { path: "ops/passes", element: <DigitalPassManager /> },
       { path: "ops/parcels", element: <ParcelManager /> },
@@ -1666,6 +1728,7 @@ export const router = createBrowserRouter([
           { path: "resolutions", element: <ResolutionsBoard /> },
           { path: "vault", element: <DigitalVault /> },
           { path: "committee", element: <CommitteeAndElections /> },
+          { path: "noc", element: <NocRequests /> },
         ],
       },
       // ── Mana HRM (Human Resource Management) ────────
@@ -1714,6 +1777,20 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
+      // ── Next-tier features ────────
+      { path: "social", element: <SocialCirclesPage /> },
+      { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },
+      { path: "marketplace/group-orders", element: <GroupOrdersPage /> },
+      { path: "ops/devices", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><SmartDevicesPage /></PermissionGuard> },
+      // ── Future-tier features ────────
+      { path: "finance/wallet", element: <CommunityWalletPage /> },
+      { path: "ops/iot", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><IoTSensorDashboard /></PermissionGuard> },
+      { path: "profile/reputation", element: <ReputationPage /> },
+      { path: "ops/insights", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><InsightsDashboard /></PermissionGuard> },
+      { path: "platform/ops", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><PlatformOpsDashboard /></PermissionGuard> },
+      { path: "ops/community-manager", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><CommunityManagerDashboard /></PermissionGuard> },
+      { path: "my-dashboard", element: <ResidentDashboard /> },
+      { path: "fm/dashboard", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><FmOpsDashboard /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },

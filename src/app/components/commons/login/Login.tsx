@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useRateLimitHandler } from "../../../../hooks/useRateLimitHandler";
+import { RateLimitBanner } from "../../../../components/security/RateLimitBanner";
 import {
   ShieldCheck,
   Eye,
@@ -22,6 +24,7 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
 type LoginFormValues = {
@@ -74,6 +77,7 @@ export function Login() {
   const [serviceError, setServiceError] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const { rateLimitState, handleError: handleRateLimit, isLimited } = useRateLimitHandler();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -92,9 +96,13 @@ export function Login() {
       const isMobile = /^\d{10}$/.test(id);
       const normalizedIdentifier = isMobile ? id : id.toLowerCase();
       await login({ identifier: normalizedIdentifier, password: data.password });
+      if (window.innerWidth >= 1024) {
+        safeStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, "true");
+      }
       toast.success("Welcome back!", { id: "login-toast" });
       navigate(redirectTo);
     } catch (err: any) {
+      if (handleRateLimit(err)) return;
       if (isNetworkOrServerError(err)) {
         setServiceError(true);
         toast.error("Unable to connect to server. Please try again shortly.", { id: "login-toast" });
@@ -330,6 +338,17 @@ export function Login() {
               </div>
             )}
 
+            {/* Rate Limit Banner */}
+            {rateLimitState && (
+              <div className="mb-3">
+                <RateLimitBanner
+                  secondsRemaining={rateLimitState.secondsRemaining}
+                  type={rateLimitState.type}
+                  initialSeconds={60}
+                />
+              </div>
+            )}
+
             {/* Server Error Alert */}
             {serviceError && (
               <div className="mb-3 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 p-3 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -445,7 +464,7 @@ export function Login() {
                 <button
                   type="submit"
                   id="login-submit-btn"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLimited}
                   className="w-full min-h-14 flex items-center justify-center py-3 px-4 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-base rounded-xl shadow-md shadow-primary/25 hover:shadow-primary/35 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSubmitting ? (

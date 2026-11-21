@@ -21,6 +21,18 @@
     "test:e2e:profile": "playwright test e2e/profile",
     "test:e2e:jewellery": "playwright test e2e/jewellery",
     "n8n:sports": "node automation/scripts/run-sports-workflows.cjs",
+    "n8n:governance": "node automation/scripts/run-governance-workflows.cjs",
+    "n8n:commerce": "node automation/scripts/run-commerce-cpos-workflows.cjs",
+    "n8n:infra": "node automation/scripts/run-infra-finance-workflows.cjs",
+    "n8n:mobility": "node automation/scripts/run-mobility-privacy-workflows.cjs",
+    "n8n:safety": "node automation/scripts/run-safety-workflows.cjs",
+    "n8n:admin": "node automation/scripts/run-admin-ops-workflows.cjs",
+    "n8n:services": "node automation/scripts/run-community-services-workflows.cjs",
+    "n8n:extended": "node automation/scripts/run-extended-workflows.cjs",
+    "n8n:health": "node automation/scripts/run-health-wellness-workflows.cjs",
+    "n8n:home": "node automation/scripts/run-home-services-workflows.cjs",
+    "n8n:food": "node automation/scripts/run-food-kitchen-workflows.cjs",
+    "n8n:all": "node automation/scripts/run-all-workflows.cjs",
     "n8n:start": "npx n8n"
   },
   "dependencies": {
@@ -73,7 +85,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^1.8.0",
     "next-themes": "^0.4.6",
-    "papaparse": "^5.5.3",
+    "papaparse": "^5.7.1",
     "react": "^19.2.5",
     "react-day-picker": "^9.5.1",
     "react-dom": "^19.2.5",
@@ -111,6 +123,11 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.2.0",
-    "vitest": "^3.2.6"
+    "vitest": "^5.1.1"
+  },
+  "overrides": {
+    "grapesjs": {
+      "codemirror": "^6.0.2"
+    }
   }
 }

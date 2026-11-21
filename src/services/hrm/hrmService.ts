@@ -255,6 +255,9 @@ export const hrmService = {
   },
 
   // ── Self-service ──
+  async getMyProfile(orgId: number): Promise<HrEmployee> {
+    return apiClient.get(`${BASE}/employees/me?orgId=${orgId}`);
+  },
   async updateMyProfile(orgId: number, data: SelfServiceUpdateRequest): Promise<HrEmployee> {
     return apiClient.patch(`${BASE}/employees/me?orgId=${orgId}`, data);
   },
@@ -498,7 +501,7 @@ export const hrmService = {
   },
 
   // ── Expenses ──
-  async createExpenseClaim(orgId: number, data: Partial<ExpenseClaim> & { items?: ExpenseItem[] }): Promise<ExpenseClaim> {
+  async createExpenseClaim(orgId: number, data: Partial<ExpenseClaim> & { items?: (ExpenseItem | Partial<ExpenseItem>)[] }): Promise<ExpenseClaim> {
     return apiClient.post(`${BASE}/expenses/organizations/${orgId}/claims`, data);
   },
   async submitExpenseClaim(orgId: number, claimId: number): Promise<ExpenseClaim> {
@@ -552,7 +555,7 @@ export const hrmService = {
     return apiClient.patch(`${BASE}/operations/tasks/${taskId}/status?orgId=${orgId}`, { status });
   },
   async getMyTasks(orgId: number): Promise<{ content: HrTask[] }> {
-    return apiClient.get(`${BASE}/operations/my-tasks?orgId=${orgId}`).then((data: HrTask[]) => ({ content: data }));
+    return apiClient.get<HrTask[]>(`${BASE}/operations/my-tasks?orgId=${orgId}`).then((data) => ({ content: data }));
   },
   async getAllTasks(orgId: number, page = 0, size = 50): Promise<{ content: HrTask[] }> {
     return apiClient.get(`${BASE}/operations/organizations/${orgId}/tasks?page=${page}&size=${size}`);
