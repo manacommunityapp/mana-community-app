@@ -214,74 +214,27 @@ export const manaPayService = {
   },
 
   /**
-   * Step 1: Create payment intent on backend (or fallback smoothly if backend service is offline).
+   * Step 1: Create the payment intent on the backend.
+   *
+   * There is deliberately no offline fallback. This previously invented a
+   * payable UPI intent against mana.society@icici with a client-minted
+   * receipt number, so when the backend was unreachable a resident paid real
+   * money for an intent that did not exist server-side. A failure here must
+   * reach the caller so checkout can refuse rather than collect.
    */
   async createPaymentIntent(req: CreateManaPaymentIntentRequest): Promise<ManaPaymentIntentResponse> {
-    try {
-      const res = await apiClient.post<ManaPaymentIntentResponse>('/payments/intents', {
-        idempotencyKey: req.idempotencyKey,
-        domain: req.domain,
-        orderReferenceId: req.orderReferenceId,
-        amount: req.totalAmount,
-        currency: req.currency || 'INR',
-        payerName: req.payer.name,
-        payerEmail: req.payer.email,
-        payerPhone: req.payer.phone,
-        preferredRail: req.preferredRail || 'UPI',
-        remarks: req.description || req.title,
-      });
-      return res;
-    } catch {
-      // Robust simulated fallback to keep checkout fully operative
-      const intentId = 'PI_' + Math.random().toString(36).substring(2, 10).toUpperCase() + Date.now().toString(36).toUpperCase();
-      const upiVpa = 'mana.society@icici';
-      const upiIntentUri = `upi://pay?pa=${upiVpa}&pn=Mana%20Community%20Platform&am=${req.totalAmount.toFixed(2)}&cu=INR&tr=${intentId}&tn=${encodeURIComponent(req.title)}`;
-
-      const response: ManaPaymentIntentResponse = {
-        intentId,
-        idempotencyKey: req.idempotencyKey,
-        domain: req.domain,
-        orderReferenceId: req.orderReferenceId,
-        amount: req.totalAmount,
-        currency: req.currency || 'INR',
-        status: 'PENDING',
-        preferredRail: req.preferredRail || 'UPI_INTENT',
-        upiVpa,
-        upiIntentUri,
-        gatewayOrderId: 'order_rzp_' + Math.random().toString(36).substring(2, 12),
-        gatewayKeyId: 'rzp_test_placeholder',
-        receiptNumber: 'RCP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
-        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-      };
-
-      // Record in local cache
-      const current = loadLocalTransactions();
-      const existing = current.find(t => t.orderReferenceId === req.orderReferenceId && t.status === 'PENDING');
-      if (!existing) {
-        current.unshift({
-          id: 'pay-' + intentId,
-          transactionNumber: 'TXN-' + new Date().getFullYear() + '-' + intentId.slice(-8),
-          orderReferenceId: req.orderReferenceId,
-          domain: req.domain,
-          title: req.title,
-          amount: req.totalAmount,
-          currency: 'INR',
-          status: 'PENDING',
-          paymentRail: req.preferredRail || 'UPI_INTENT',
-          createdAt: new Date().toISOString(),
-          payerName: req.payer.name,
-          payerUnit: req.payer.unit,
-          vendorId: req.vendorId,
-          vendorName: req.vendorName,
-          reconciliationStatus: 'UNRECONCILED',
-          canRefund: false,
-        });
-        saveLocalTransactions(current);
-      }
-
-      return response;
-    }
+    return apiClient.post<ManaPaymentIntentResponse>('/payments/intents', {
+      idempotencyKey: req.idempotencyKey,
+      domain: req.domain,
+      orderReferenceId: req.orderReferenceId,
+      amount: req.totalAmount,
+      currency: req.currency || 'INR',
+      payerName: req.payer.name,
+      payerEmail: req.payer.email,
+      payerPhone: req.payer.phone,
+      preferredRail: req.preferredRail || 'UPI',
+      remarks: req.description || req.title,
+    });
   },
 
   /**

@@ -20,6 +20,7 @@ import type {
   PaymentOrderResponse,
 } from "../../../types/payment";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export interface ManaPayCheckoutProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function ManaPayUnifiedCheckoutModal({
   amount,
   onPaymentSuccess,
 }: ManaPayCheckoutProps) {
+  const { user } = useAuth();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("UPI");
   const [useRewardPoints, setUseRewardPoints] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -63,43 +65,57 @@ export function ManaPayUnifiedCheckoutModal({
         orderReferenceId: String(referenceId),
         title,
         totalAmount: finalPayable,
+        // Was hardcoded to a demo resident ("Sandeep Sharma", "Flat 302"), so
+        // every intent was raised under that identity. The server should still
+        // derive the payer from the authenticated token rather than trust this.
         payer: {
-          name: 'Sandeep Sharma',
-          unit: 'Flat 302',
+          name: user?.fullName ?? '',
+          unit: user?.flatNo ?? user?.flatNumber ?? '',
         },
         idempotencyKey: manaPayService.generateIdempotencyKey('MAINTENANCE_BILL', String(referenceId), finalPayable),
       });
 
-      // 2. Perform verified confirmation
-      setTimeout(async () => {
-        const confirmed = await manaPayService.confirmPayment(
-          {
-            intentId: intent.intentId,
-            rail: selectedMethod === 'UPI' ? 'UPI_INTENT' : selectedMethod === 'NET_BANKING' ? 'GATEWAY_CARD_NETBANKING' : selectedMethod === 'WALLET' ? 'WALLET' : 'GATEWAY_CARD_NETBANKING',
-            gatewayPaymentId: `pay_${Date.now()}_verified`,
-          },
-          {
-            title,
-            amount: finalPayable,
-            orderReferenceId: String(referenceId),
-          }
-        );
-
-        setIsProcessing(false);
-        showSuccess(`Payment of ₹${finalPayable.toLocaleString("en-IN")} confirmed via Mana Pay!`);
-        onPaymentSuccess?.({
-          id: 1,
-          razorpayOrderId: intent.gatewayOrderId || 'order_mock',
-          currency: 'INR',
+      // 2. Confirm against the server. This is NOT wrapped in setTimeout: the
+      // async callback's rejection escaped the try/catch below, so a failed
+      // confirm left the modal stuck on "processing" forever. It also no
+      // longer sends a fabricated gatewayPaymentId — a confirmation must carry
+      // evidence from the real payment rail, and the server decides.
+      const confirmed = await manaPayService.confirmPayment(
+        {
+          intentId: intent.intentId,
+          rail: selectedMethod === 'UPI' ? 'UPI_INTENT' : selectedMethod === 'NET_BANKING' ? 'GATEWAY_CARD_NETBANKING' : selectedMethod === 'WALLET' ? 'WALLET' : 'GATEWAY_CARD_NETBANKING',
+        },
+        {
+          title,
           amount: finalPayable,
-          status: 'PAID',
-          paymentMethod: selectedMethod,
-        } as any);
-        onClose();
-      }, 1000);
+          orderReferenceId: String(referenceId),
+        }
+      );
+
+      setIsProcessing(false);
+
+      if (confirmed?.status !== 'SUCCESS') {
+        // Never announce a payment the server did not confirm.
+        showError(
+          `Payment not confirmed${confirmed?.status ? ` (${confirmed.status})` : ''}. ` +
+            `Nothing has been charged to you. Please check your payment history before retrying.`
+        );
+        return;
+      }
+
+      showSuccess(`Payment of ₹${finalPayable.toLocaleString("en-IN")} confirmed via Mana Pay!`);
+      onPaymentSuccess?.({
+        id: 1,
+        razorpayOrderId: intent.gatewayOrderId,
+        currency: 'INR',
+        amount: finalPayable,
+        status: 'PAID',
+        paymentMethod: selectedMethod,
+      } as any);
+      onClose();
     } catch (err: any) {
       setIsProcessing(false);
-      showError(err.message || "Payment authorization failed");
+      showError(err?.message || "Payment could not be completed. Nothing has been charged to you.");
     }
   };
 
