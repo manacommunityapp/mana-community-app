@@ -489,6 +489,7 @@ import { HomeServiceAdminDashboard } from "./components/home-services/HomeServic
 import { HomeServicePayments } from "./components/home-services/HomeServicePayments";
 import { HomeServiceLeaves } from "./components/home-services/HomeServiceLeaves";
 import { HomeServiceSchedule } from "./components/home-services/HomeServiceSchedule";
+import { ServiceTechnicianTracker } from "./components/home-services/ServiceTechnicianTracker";
 
 // Vehicle Care (Washcaro integration)
 import { VehicleCareAdminDashboard } from "./components/vehicle-care/VehicleCareAdminDashboard";
@@ -1014,6 +1015,9 @@ export const router = createBrowserRouter([
           { path: "find-help", Component: FindHomeHelp },
           { path: "my-help", Component: MyHomeHelp },
           { path: "bookings", Component: MyHomeServiceBookings },
+          { path: "track", Component: ServiceTechnicianTracker },
+          { path: "track/:id", Component: ServiceTechnicianTracker },
+          { path: "tracking/:id", Component: ServiceTechnicianTracker },
           { path: "requirements", Component: HomeServiceRequirements },
           { path: "schedule", Component: HomeServiceSchedule },
           { path: "payments", Component: HomeServicePayments },
@@ -1494,6 +1498,7 @@ export const router = createBrowserRouter([
           { path: "recipes", element: <PermissionGuard permission={VIEW_FOOD_RECIPES}><RecipePlatform /></PermissionGuard> },
           { path: "nutrition", element: <PermissionGuard permission={VIEW_FOOD_NUTRITION}><NutritionTracker /></PermissionGuard> },
           { path: "dining", element: <PermissionGuard permission={VIEW_FOOD_DINING}><DiningReservations /></PermissionGuard> },
+          { path: "table-booking", element: <PermissionGuard permission={VIEW_FOOD_DINING}><DiningReservations /></PermissionGuard> },
           { path: "events", element: <PermissionGuard permission={VIEW_FOOD_EVENTS}><FoodEvents /></PermissionGuard> },
           { path: "pantry", element: <PermissionGuard permission={VIEW_FOOD_PANTRY}><SmartPantry /></PermissionGuard> },
           { path: "catering", element: <PermissionGuard permission={VIEW_FOOD_CATERING}><CateringPlatform /></PermissionGuard> },
@@ -1589,6 +1594,8 @@ export const router = createBrowserRouter([
       // ── Smart Parking & ANPR Live Gate ──────────────────────────
       { path: "parking/anpr", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><AnprGateLiveMonitor /></PermissionGuard> },
       { path: "parking/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
+      { path: "parking/ev-book", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
+      { path: "mobility/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
       { path: "cpos", element: <PermissionGuard requiredModule="CPOS"><CPOSDashboardPage /></PermissionGuard> },
       { path: "cpos/properties", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyListPage /></PermissionGuard> },
       { path: "cpos/properties/new", element: <PermissionGuard requiredModule="CPOS" adminOnly><CPOSPropertyCreatePage /></PermissionGuard> },
@@ -1854,6 +1861,13 @@ export const router = createBrowserRouter([
       { path: "ai", element: <Navigate to="/ai-chat" replace /> },
       { path: "ai-assistant", element: <Navigate to="/ai-chat" replace /> },
       { path: "sell", element: <Navigate to="/marketplace/sell" replace /> },
+      // ── Clubhouse Dining & Table Booking ────────
+      { path: "dining/table-booking", element: <PermissionGuard permission={VIEW_FOOD_DINING}><DiningReservations /></PermissionGuard> },
+      { path: "dining", element: <PermissionGuard permission={VIEW_FOOD_DINING}><DiningReservations /></PermissionGuard> },
+      // ── Home Service Live Technician Tracker ────────
+      { path: "services/track", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
+      { path: "services/track/:id", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
+      { path: "home-services/tracking/:id", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
