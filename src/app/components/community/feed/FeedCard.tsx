@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { MessageSquare, Heart, Share2, Sparkles, Trophy } from "lucide-react";
+import { MessageSquare, Heart, Share2, Sparkles, Trophy, Send, Loader2 } from "lucide-react";
 import type { CursorFeedItem } from "../../../../services/community/feedService";
+import { feedService } from "../../../../services/community/feedService";
+import type { CommentResponse } from "../../../../types/api";
 
 interface FeedCardProps {
   item: CursorFeedItem;
@@ -32,11 +34,47 @@ export function FeedCard({ item, onLike, onCommentClick }: FeedCardProps) {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(item.likesCount ?? 0);
   const [imgError, setImgError] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<CommentResponse[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleToggleLike = () => {
     setLiked((prev) => !prev);
     setLikesCount((prev) => (liked ? prev - 1 : prev + 1));
     if (onLike) onLike(item.id);
+  };
+
+  const handleToggleComments = async () => {
+    if (onCommentClick) onCommentClick(item.id);
+    if (!commentsOpen && comments.length === 0) {
+      setCommentsLoading(true);
+      try {
+        const data = await feedService.getComments(Number(item.id));
+        setComments(data ?? []);
+      } catch {
+        // show empty state
+      } finally {
+        setCommentsLoading(false);
+      }
+    }
+    setCommentsOpen((prev) => !prev);
+  };
+
+  const handleAddComment = async () => {
+    const text = newComment.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    try {
+      const added = await feedService.addComment(Number(item.id), text);
+      setComments((prev) => [...prev, added]);
+      setNewComment("");
+    } catch {
+      // fail silently
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const authorName = item.authorName || "Community Member";
@@ -130,11 +168,13 @@ export function FeedCard({ item, onLike, onCommentClick }: FeedCardProps) {
 
         <button
           type="button"
-          onClick={() => onCommentClick && onCommentClick(item.id)}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-50 hover:text-slate-800 transition-colors cursor-pointer"
+          onClick={handleToggleComments}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+            commentsOpen ? "text-indigo-600 bg-indigo-50 font-bold" : "hover:bg-slate-50 hover:text-slate-800"
+          }`}
         >
           <MessageSquare className="w-3.5 h-3.5" />
-          <span>{item.commentsCount ? `${item.commentsCount} Comments` : "Comment"}</span>
+          <span>{comments.length > 0 ? `${comments.length} Comments` : item.commentsCount ? `${item.commentsCount} Comments` : "Comment"}</span>
         </button>
 
         <button
@@ -150,6 +190,53 @@ export function FeedCard({ item, onLike, onCommentClick }: FeedCardProps) {
           <span className="hidden sm:inline">Share</span>
         </button>
       </div>
+      {/* Inline Comments Panel */}
+      {commentsOpen && (
+        <div className="border-t border-slate-100 pt-3 space-y-3">
+          {commentsLoading ? (
+            <div className="flex justify-center py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+            </div>
+          ) : comments.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-1">No comments yet. Be the first!</p>
+          ) : (
+            <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+              {comments.map((c) => (
+                <div key={c.id} className="flex gap-2.5 items-start">
+                  <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {getInitials(c.authorName || "?")}
+                  </div>
+                  <div className="flex-1 bg-slate-50 rounded-lg px-3 py-2 min-w-0">
+                    <p className="text-[10.5px] font-semibold text-slate-700">{c.authorName || "Resident"}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed break-words">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add comment input */}
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAddComment()}
+              placeholder="Write a comment…"
+              disabled={submitting}
+              className="flex-1 text-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 outline-none focus:border-indigo-400 focus:bg-white transition-colors placeholder:text-slate-400 disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={handleAddComment}
+              disabled={!newComment.trim() || submitting}
+              className="p-2 rounded-lg bg-indigo-600 text-white disabled:opacity-40 hover:bg-indigo-700 transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
+            >
+              {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
