@@ -17,8 +17,8 @@ export interface FixtureTableRow {
   courtId: string | null;
   venueName?: string;
   courtName?: string;
-  home: { id: string; name: string; flatNumber?: string };
-  away: { id: string; name: string; flatNumber?: string };
+  home: { id: string; name: string; flatNumber?: string; seedRank?: number };
+  away: { id: string; name: string; flatNumber?: string; seedRank?: number };
   conflicts?: string[];
   rawMatch: any;
 }
@@ -36,6 +36,7 @@ interface FixturesTableViewProps {
   onExportScorecards?: () => void;
   sportName?: string;
   isTeamEvent?: boolean;
+  showSeedRank?: boolean;
 }
 
 const DEFAULT_AVATAR =
@@ -77,6 +78,7 @@ export function FixturesTableView({
   onExportScorecards,
   sportName,
   isTeamEvent,
+  showSeedRank = false,
 }: FixturesTableViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<'ALL' | 'GROUP' | 'PLAYOFF' | 'CONFLICTS'>('ALL');
@@ -461,9 +463,10 @@ export function FixturesTableView({
                             <img src={DEFAULT_AVATAR} alt="" className="w-full h-full object-cover" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-slate-900 truncate" title={f.home.name}>
-                              {f.home.name}
-                            </span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              {showSeedRank && f.home.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{f.home.seedRank}</span>}
+                              <span className="font-semibold text-slate-900 truncate" title={f.home.name}>{f.home.name}</span>
+                            </div>
                             {f.home.flatNumber && (
                               <span className="text-[9px] text-slate-400 truncate">{f.home.flatNumber}</span>
                             )}
@@ -481,9 +484,10 @@ export function FixturesTableView({
                             <img src={DEFAULT_AVATAR} alt="" className="w-full h-full object-cover" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-slate-900 truncate" title={f.away.name}>
-                              {f.away.name}
-                            </span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              {showSeedRank && f.away.seedRank != null && <span className="shrink-0 rounded bg-indigo-100 px-1 py-px text-[9px] font-bold text-indigo-700">S{f.away.seedRank}</span>}
+                              <span className="font-semibold text-slate-900 truncate" title={f.away.name}>{f.away.name}</span>
+                            </div>
                             {f.away.flatNumber && (
                               <span className="text-[9px] text-slate-400 truncate">{f.away.flatNumber}</span>
                             )}

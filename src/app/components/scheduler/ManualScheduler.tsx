@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Calendar, GripVertical, Trophy, Save, Shield, Loader2, Plus, Trash2,
   Sparkles, Clock, MapPin, RotateCcw, UploadCloud,

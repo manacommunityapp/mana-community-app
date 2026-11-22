@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
   getToken,
   setTokens,
@@ -73,37 +73,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      userService.getMe()
-        .then((me) => {
-          const resolvedPic = me.profilePicUrl || (me as any).profilePic;
-          updateUser({
-            role: me.role,
-            roles: me.roles,
-            fullName: me.fullName,
-            email: me.email,
-            phone: me.phone,
-            communityId: me.communityId,
-            roleId: me.roleId,
-            gender: me.gender,
-            dateOfBirth: me.dateOfBirth || (me as any).dob,
-            flatNo: me.flatNo,
-            block: me.block,
-            permissions: me.permissions ?? [],
-            enabledModules: me.enabledModules,
-            menuPermissions: me.menuPermissions,
-            ...(resolvedPic ? { profilePicUrl: resolvedPic } : {}),
-            occupancyStatus: me.occupancyStatus,
-            residentType: me.residentType,
-            userType: me.userType || me.occupancyStatus,
-          });
-        })
-        .catch((err) => {
-          console.error("Failed to synchronize user permissions on boot:", err);
-        });
+  const isSyncingRef = useRef(false);
+
+  const syncUserProfile = useCallback(async (baseUser?: AuthUser | null) => {
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+    try {
+      const me = await userService.getMe();
+      const resolvedPic = me.profilePicUrl || (me as any).profilePic;
+      updateUser({
+        role: me.role,
+        roles: me.roles,
+        fullName: me.fullName,
+        email: me.email,
+        phone: me.phone,
+        communityId: me.communityId,
+        roleId: me.roleId,
+        gender: me.gender || baseUser?.gender,
+        dateOfBirth: me.dateOfBirth || (me as any).dob || baseUser?.dateOfBirth,
+        flatNo: me.flatNo,
+        block: me.block,
+        tower: (me as any).tower,
+        permissions: me.permissions ?? [],
+        enabledModules: me.enabledModules,
+        menuPermissions: me.menuPermissions,
+        ...(resolvedPic ? { profilePicUrl: resolvedPic } : {}),
+        occupancyStatus: me.occupancyStatus,
+        residentType: me.residentType,
+        userType: me.userType || me.occupancyStatus,
+      });
+    } catch (err) {
+      console.warn("Background user sync encountered error:", err);
+    } finally {
+      isSyncingRef.current = false;
     }
   }, [updateUser]);
+
+  useEffect(() => {
+    if (user) {
+      syncUserProfile(user);
+    }
+  }, [user?.userId, syncUserProfile]);
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await authService.login(data);
@@ -134,36 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeUser(newUser);
     setUser(newUser);
 
-    try {
-      const me = await userService.getMe();
-      const updated = {
-        ...newUser,
-        role: me.role,
-        roles: me.roles,
-        fullName: me.fullName,
-        email: me.email,
-        phone: me.phone,
-        communityId: me.communityId,
-        roleId: me.roleId,
-        gender: me.gender || newUser.gender,
-        dateOfBirth: me.dateOfBirth || (me as any).dob || newUser.dateOfBirth,
-        flatNo: me.flatNo,
-        block: me.block,
-        tower: me.tower,
-        permissions: me.permissions ?? [],
-        enabledModules: me.enabledModules,
-        menuPermissions: me.menuPermissions,
-        profilePicUrl: me.profilePicUrl || (me as any).profilePic || newUser.profilePicUrl,
-        occupancyStatus: me.occupancyStatus,
-        residentType: me.residentType,
-        userType: me.userType || me.occupancyStatus,
-      };
-      storeUser(updated);
-      setUser(updated);
-    } catch (err) {
-      console.error("Failed to sync permissions on login:", err);
-    }
-  }, []);
+    // Non-blocking background profile sync
+    void syncUserProfile(newUser);
+  }, [syncUserProfile]);
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authService.register(data);
@@ -194,30 +177,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeUser(newUser);
     setUser(newUser);
 
-    try {
-      const me = await userService.getMe();
-      const updated = {
-        ...newUser,
-        role: me.role,
-        roles: me.roles,
-        fullName: me.fullName,
-        email: me.email,
-        communityId: me.communityId,
-        roleId: me.roleId,
-        permissions: me.permissions ?? [],
-        enabledModules: me.enabledModules,
-        menuPermissions: me.menuPermissions,
-        profilePicUrl: me.profilePicUrl || (me as any).profilePic || newUser.profilePicUrl,
-        occupancyStatus: me.occupancyStatus,
-        residentType: me.residentType,
-        userType: me.userType || me.occupancyStatus,
-      };
-      storeUser(updated);
-      setUser(updated);
-    } catch (err) {
-      console.error("Failed to sync permissions on registration:", err);
-    }
-  }, []);
+    // Non-blocking background profile sync
+    void syncUserProfile(newUser);
+  }, [syncUserProfile]);
 
   const logout = useCallback(() => {
     // Best-effort server-side audit; never block local logout on it.

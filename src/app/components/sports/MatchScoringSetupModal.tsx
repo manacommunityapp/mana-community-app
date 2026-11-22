@@ -825,7 +825,7 @@ export function MatchScoringSetupModal({
                   isFlipping={coinFlipping}
                   result={coinResult}
                   onFlip={handleFlipCoin}
-                  sportType={match.sportType || (isCricket ? "CRICKET" : "DEFAULT")}
+                  sportType={match.sportName || (match as any)?.sportType || (isCricket ? "CRICKET" : "DEFAULT")}
                   size="md"
                   interactive={!coinFlipping}
                 />

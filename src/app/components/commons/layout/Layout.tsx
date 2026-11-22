@@ -6,7 +6,7 @@ import {
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
   PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
-  Smartphone, Film
+  Smartphone, Film, Gem
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -431,6 +431,7 @@ export function Layout() {
     "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Fixed Deposits": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Digital Gold": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
+    "Jewellery & Try-On": ["COMMERCE", "MARKETPLACE"],
     "Mutual Funds": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Loans & EMI": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
   };
@@ -539,6 +540,7 @@ export function Layout() {
       items: [
         { to: "/fd", icon: Landmark, label: "Fixed Deposits", badge: "8.5%", menuKey: "fixed-deposits" },
         { to: "/gold", icon: Sparkles, label: "Digital Gold", badge: "24K", menuKey: "digital-gold" },
+        { to: "/jewellery", icon: Gem, label: "Jewellery & Try-On", badge: "Studio", menuKey: "jewellery" },
         { to: "/mutual-funds", icon: BarChart3, label: "Mutual Funds", badge: "SIP", menuKey: "mutual-funds" },
         { to: "/loans", icon: Receipt, label: "Loans & EMI", badge: "Pre-Appr", menuKey: "loans" },
       ],
@@ -627,6 +629,7 @@ export function Layout() {
     if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
+    if (label === "Jewellery & Try-On") return true;
     if (label === "Mutual Funds") return true;
     if (label === "Loans & EMI") return true;
     return false;

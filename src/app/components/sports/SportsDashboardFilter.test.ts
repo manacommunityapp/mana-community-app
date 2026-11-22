@@ -2169,6 +2169,233 @@ describe("SportsDashboard - Captain Nominations Sport Event Filtering & Search",
       expect(allOpenEvents.some(e => e.id === 301)).toBe(false);
     });
   });
+
+  describe("Upcoming Matches - Strict household boundary and 'Register for others' exclusion", () => {
+    const adminUser = { userId: 1, fullName: "Admin User" };
+    const householdFamily: FamilyMember[] = [
+      { id: 10, name: "Alice Admin", relation: "DAUGHTER" },
+      { id: 11, name: "Bob Admin", relation: "SON" },
+    ];
+
+    it("isSelfRelationOrMember returns false when playerName belongs to another resident even if relation is SELF", () => {
+      // Bob Builder registered with relation SELF by admin
+      expect(isSelfRelationOrMember("SELF", null, "Bob Builder", adminUser.fullName)).toBe(false);
+      expect(isSelfRelationOrMember(undefined, undefined, "Bob Builder", adminUser.fullName)).toBe(false);
+      // Admin user matches
+      expect(isSelfRelationOrMember("SELF", null, "Admin User", adminUser.fullName)).toBe(true);
+      expect(isSelfRelationOrMember(undefined, "self", "Admin User", adminUser.fullName)).toBe(true);
+    });
+
+    it("isRegistrationForMemberHelper correctly discriminates self vs household vs foreign players", () => {
+      const foreignResidentReg = {
+        id: 501,
+        playerName: "Bob Builder",
+        relation: "SELF",
+        familyMemberId: null,
+      };
+
+      const foreignChildReg = {
+        id: 502,
+        playerName: "Charlie Builder",
+        relation: "SON",
+        familyMemberId: 999, // not in admin household
+      };
+
+      const adminSelfReg = {
+        id: 503,
+        playerName: "Admin User",
+        relation: "SELF",
+        familyMemberId: null,
+      };
+
+      const householdChildReg = {
+        id: 504,
+        playerName: "Alice Admin",
+        relation: "DAUGHTER",
+        familyMemberId: 10,
+      };
+
+      // Admin "self" filter:
+      expect(isRegistrationForMemberHelper(foreignResidentReg, "self", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+      expect(isRegistrationForMemberHelper(foreignChildReg, "self", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+      expect(isRegistrationForMemberHelper(adminSelfReg, "self", householdFamily, adminUser.fullName, adminUser.userId)).toBe(true);
+      expect(isRegistrationForMemberHelper(householdChildReg, "self", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+
+      // Household child "10" filter:
+      expect(isRegistrationForMemberHelper(foreignResidentReg, "10", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+      expect(isRegistrationForMemberHelper(foreignChildReg, "10", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+      expect(isRegistrationForMemberHelper(householdChildReg, "10", householdFamily, adminUser.fullName, adminUser.userId)).toBe(true);
+
+      // Foreign child "999" (not in household) filter:
+      expect(isRegistrationForMemberHelper(foreignChildReg, "999", householdFamily, adminUser.fullName, adminUser.userId)).toBe(false);
+    });
+
+    it("filters out foreign resident and foreign family matches when matching upcoming matches for admin", () => {
+      const norm = (str?: string | null) => (str || "").trim().toLowerCase();
+      const currentUserName = norm(adminUser.fullName);
+
+      // Admin has registered others, so fetchedMyRegs might contain external registrations if retrieved or linked
+      const fetchedMyRegs = [
+        { id: 101, playerName: "Admin User", relation: "SELF", familyMemberId: null, teamName: "Admin Smashers" },
+        { id: 102, playerName: "Alice Admin", relation: "DAUGHTER", familyMemberId: 10, teamName: "Alice Stars" },
+        { id: 103, playerName: "Bob Builder", relation: "SELF", familyMemberId: null, teamName: "Builders United" },
+        { id: 104, playerName: "Charlie Builder", relation: "SON", familyMemberId: 999, teamName: "Junior Builders" },
+      ];
+
+      const matches = [
+        {
+          id: 1,
+          teamAName: "Admin Smashers",
+          teamBName: "Opponent A",
+          teamAId: 1, // matches admin userId 1, but must NOT match solely by ID!
+          teamBId: 2,
+        },
+        {
+          id: 2,
+          teamAName: "Alice Stars",
+          teamBName: "Opponent B",
+          teamAId: 3,
+          teamBId: 4,
+        },
+        {
+          id: 3,
+          teamAName: "Builders United",
+          teamBName: "Opponent C",
+          teamAId: 1, // teamAId happens to equal 1 (admin's userId)
+          teamBId: 5,
+        },
+        {
+          id: 4,
+          teamAName: "Junior Builders",
+          teamBName: "Opponent D",
+          teamAId: 6,
+          teamBId: 7,
+        },
+      ];
+
+      // Replicate the fixed matching loop
+      const matchedEvents: any[] = [];
+
+      for (const m of matches) {
+        const rawTeamA = m.teamAName;
+        const rawTeamB = m.teamBName;
+        const teamA = norm(rawTeamA);
+        const teamB = norm(rawTeamB);
+
+        const hasNameInA = (n: string) => Boolean(n && teamA.includes(n));
+        const hasNameInB = (n: string) => Boolean(n && teamB.includes(n));
+
+        let matchedMember: FamilyMember | null = null;
+        let matchedReg: any = null;
+        let isSelfMatch = false;
+
+        // 1. Direct check if it's the primary user
+        if (currentUserName && (hasNameInA(currentUserName) || hasNameInB(currentUserName))) {
+          isSelfMatch = true;
+        }
+
+        // 2. Check genuine family members by name
+        if (!isSelfMatch) {
+          for (const fm of householdFamily) {
+            const fmName = norm(fm.name);
+            if (fmName && (hasNameInA(fmName) || hasNameInB(fmName))) {
+              matchedMember = fm;
+              break;
+            }
+          }
+        }
+
+        // 3. Check registrations in fetchedMyRegs
+        if (!isSelfMatch && !matchedMember) {
+          for (const r of fetchedMyRegs) {
+            const isSelfReg = Boolean(
+              currentUserName &&
+              (norm(r.playerName) === currentUserName ||
+                (!r.familyMemberId && isSelfRelationOrMember(r.relation, null, r.playerName, adminUser.fullName)))
+            );
+            const familyMemberMatch = !isSelfReg
+              ? householdFamily.find(f =>
+                  (r.familyMemberId != null && String(f.id) === String(r.familyMemberId)) ||
+                  (r.playerName && norm(f.name) === norm(r.playerName))
+                )
+              : null;
+
+            if (!isSelfReg && !familyMemberMatch) {
+              continue;
+            }
+
+            const rName = norm(r.playerName);
+            const rTeam = norm((r as any).teamName);
+            const isRegMatch =
+              (rName && (hasNameInA(rName) || hasNameInB(rName))) ||
+              (rTeam && (teamA === rTeam || teamB === rTeam));
+
+            if (isRegMatch) {
+              matchedReg = r;
+              if (isSelfReg) {
+                isSelfMatch = true;
+                matchedMember = null;
+              } else if (familyMemberMatch) {
+                matchedMember = familyMemberMatch;
+                isSelfMatch = false;
+              }
+              break;
+            }
+          }
+        }
+
+        if (matchedMember || isSelfMatch) {
+          const isSelf = isSelfMatch;
+          matchedEvents.push({
+            matchId: m.id,
+            teamAName: rawTeamA,
+            teamBName: rawTeamB,
+            playerName: isSelf ? adminUser.fullName : matchedMember!.name,
+            relation: isSelf ? "SELF" : matchedMember!.relation,
+            familyMemberId: isSelf ? "self" : matchedMember!.id,
+          });
+        }
+      }
+
+      // Match 1 (Admin) and Match 2 (Alice) must be included
+      expect(matchedEvents.some(e => e.matchId === 1)).toBe(true);
+      expect(matchedEvents.some(e => e.matchId === 2)).toBe(true);
+
+      // Match 3 (Bob Builder - external resident) and Match 4 (Charlie Builder - external family) must be EXCLUDED
+      expect(matchedEvents.some(e => e.matchId === 3)).toBe(false);
+      expect(matchedEvents.some(e => e.matchId === 4)).toBe(false);
+
+      expect(matchedEvents.length).toBe(2);
+
+      // Verify filteredLiveEvents logic for ALL, SELF, and household members
+      const filterLiveEvents = (filterVal: string) => {
+        if (filterVal === "ALL") {
+          return matchedEvents.filter(ev => {
+            const isSelf = isSelfRelationOrMember(ev.relation, ev.familyMemberId, ev.playerName, adminUser.fullName);
+            if (isSelf) return true;
+            return householdFamily.some(f =>
+              (ev.familyMemberId != null && String(f.id) === String(ev.familyMemberId)) ||
+              (ev.playerName && f.name && f.name.trim().toLowerCase() === ev.playerName.trim().toLowerCase())
+            );
+          });
+        }
+        return matchedEvents.filter(ev =>
+          isRegistrationForMemberHelper(
+            { familyMemberId: ev.familyMemberId, playerName: ev.playerName, relation: ev.relation },
+            filterVal,
+            householdFamily,
+            adminUser.fullName,
+            adminUser.userId
+          )
+        );
+      };
+
+      expect(filterLiveEvents("ALL").map(e => e.matchId)).toEqual([1, 2]);
+      expect(filterLiveEvents("SELF").map(e => e.matchId)).toEqual([1]);
+      expect(filterLiveEvents("10").map(e => e.matchId)).toEqual([2]);
+      expect(filterLiveEvents("11").map(e => e.matchId)).toEqual([]);
+    });
+  });
 });
 
 

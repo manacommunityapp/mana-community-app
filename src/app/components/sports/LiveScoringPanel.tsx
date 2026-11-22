@@ -1321,10 +1321,11 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-indigo-400">
                   <option value={0}>Select bowler...</option>
                   {bowlingTeamPlayers.map((p) => {
-                    const bStat = currentInn?.bowlerStats?.find((b: any) => b.playerId === p.id || b.name === p.name);
-                    const ov = bStat?.oversBowled || "0.0";
-                    const r = bStat?.runsConceded || 0;
-                    const w = bStat?.wicketsTaken || 0;
+                    const bStat: any = inn?.bowlers?.find((b: any) => b.playerId === p.id || b.playerName === p.name)
+                      || (inn as any)?.bowlerStats?.find((b: any) => b.playerId === p.id || b.name === p.name);
+                    const ov = bStat?.overs || bStat?.oversBowled || "0.0";
+                    const r = bStat?.runs ?? bStat?.runsConceded ?? 0;
+                    const w = bStat?.wickets ?? bStat?.wicketsTaken ?? 0;
                     const maxQuota = houseRules.maxOversPerBowler || state?.maxOversPerBowler || Math.ceil((state?.oversLimit || 20) / 5);
                     const isAtQuota = parseFloat(ov) >= maxQuota;
                     return (
@@ -1800,8 +1801,8 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
           isOpen={showTossModal}
           onClose={() => setShowTossModal(false)}
           matchId={matchId}
-          teamAId={state.teamAId}
-          teamBId={state.teamBId}
+          teamAId={state.teamAId || 0}
+          teamBId={state.teamBId || 0}
           teamAName={state.teamAName}
           teamBName={state.teamBName}
           onSaved={() => {
