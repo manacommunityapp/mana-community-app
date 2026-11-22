@@ -114,41 +114,52 @@ export const safeStorage = {
   }
 };
 
+/** Every application-owned localStorage key uses this prefix. */
+export const APP_STORAGE_PREFIX = "mana_";
+
+/**
+ * Keys that deliberately survive logout because they describe the *device*, not
+ * the person: UI layout state and device-level preferences (theme, language,
+ * sound, vibration).
+ *
+ * Nothing user-identifying or user-generated may be added here. If a device id
+ * or a "remembered username" key is introduced later, it belongs in this list —
+ * everything else is wiped.
+ */
+export const PRESERVED_LOGOUT_KEYS: readonly string[] = [
+  STORAGE_KEYS.SIDEBAR_COLLAPSED,
+  STORAGE_KEYS.APP_PREFERENCES,
+];
+
 /**
  * Clears all user-scoped personal and session data upon logout.
- * Preserves general UI layout preferences (e.g. sidebar collapse state).
+ *
+ * Previously this removed a hand-maintained list of keys plus a narrow dynamic
+ * sweep, so anything added later (payment history in `mana_pay_transactions_v2`,
+ * `mana_safety_*`, health records, sports caches, …) survived logout and leaked
+ * to the next person on a shared clubhouse or guard tablet. It now sweeps EVERY
+ * `mana_*` key and preserves only the explicit device-level allowlist above.
  */
 export function clearUserStorage(): void {
+  // Remove the session keys explicitly first, so a session is always terminated
+  // even if enumerating localStorage below throws (privacy modes / quota errors).
   safeStorage.removeItem(STORAGE_KEYS.TOKEN);
   safeStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
   safeStorage.removeItem(STORAGE_KEYS.USER);
   safeStorage.removeItem(STORAGE_KEYS.USER_PROFILE);
   safeStorage.removeItem(STORAGE_KEYS.LAST_ACTIVITY);
-  safeStorage.removeItem(STORAGE_KEYS.CART_ITEMS);
-  safeStorage.removeItem(STORAGE_KEYS.MARKETPLACE_CART);
-  safeStorage.removeItem(STORAGE_KEYS.READ_NOTIFICATIONS);
-  safeStorage.removeItem(STORAGE_KEYS.DISMISSED_NOTIFICATIONS);
-  safeStorage.removeItem(STORAGE_KEYS.SPORTS_PASSPORT);
-  safeStorage.removeItem(STORAGE_KEYS.LEADER_HISTORY);
-  safeStorage.removeItem(STORAGE_KEYS.PRIVACY_FALLBACK);
-  safeStorage.removeItem(STORAGE_KEYS.SECURITY_SETTINGS);
-  safeStorage.removeItem(STORAGE_KEYS.EVENT_PANTRY_CUSTOM);
 
-  // Scan and clean any user-specific dynamic keys (e.g. mana_family_members_*, mana_draft_step_*)
+  // Prefix sweep: anything the app stored is user data unless allowlisted.
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (
-        key &&
-        (key.startsWith("mana_family_members") ||
-          key.startsWith("mana_draft_step_"))
-      ) {
-        keysToRemove.push(key);
-      }
+      if (!key || !key.startsWith(APP_STORAGE_PREFIX)) continue;
+      if (PRESERVED_LOGOUT_KEYS.includes(key)) continue;
+      keysToRemove.push(key);
     }
     keysToRemove.forEach((k) => safeStorage.removeItem(k));
   } catch (e) {
-    console.warn("[Storage] Error while cleaning dynamic user storage keys:", e);
+    console.warn("[Storage] Error while sweeping user storage keys:", e);
   }
 }

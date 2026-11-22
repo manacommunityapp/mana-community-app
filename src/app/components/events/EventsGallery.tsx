@@ -17,6 +17,7 @@ import { eventDayService, type EventDayResponse } from "../../../services/events
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
 import { mediaService } from "../../../services/files/mediaService";
+import { useAuthenticatedImage } from "../commons/AuthenticatedImage";
 import { validateMediaFile } from "../../../utils/mediaValidator";
 
 export interface GalleryItem {
@@ -236,24 +237,19 @@ function resolveMediaUrl(url?: string | null): string {
 }
 
 function GalleryImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  const [retrySrc, setRetrySrc] = useState<string | null>(null);
+  // Same fallback as before (retry the bare filename through the file route),
+  // but the retry is now fetched with the Authorization header since
+  // /api/files/** is no longer permitAll.
+  const deriveFallback = useCallback(() => {
+    if (!src || src.startsWith("blob:") || src.startsWith("data:")) return null;
+    const filename = src.split("/").pop();
+    if (filename && filename.length > 2) return `/api/files/${filename}`;
+    return null;
+  }, [src]);
 
-  const resolved = retrySrc || resolveMediaUrl(src);
+  const { src: resolved, failed, onError } = useAuthenticatedImage(resolveMediaUrl(src), { deriveFallback });
 
-  const handleError = () => {
-    // If S3 or direct URL fails, attempt key extraction fallback via file endpoint
-    if (!retrySrc && src && !src.startsWith("blob:") && !src.startsWith("data:")) {
-      const filename = src.split("/").pop();
-      if (filename && filename.length > 2) {
-        setRetrySrc(`/api/files/${filename}`);
-        return;
-      }
-    }
-    setFailed(true);
-  };
-
-  if (failed) {
+  if (failed || !resolved) {
     return (
       <div className={`bg-slate-800 flex flex-col items-center justify-center p-4 text-slate-400 border border-slate-700 rounded-lg min-h-[140px] ${className || ""}`}>
         <ImageIcon className="w-8 h-8 opacity-40 mb-1.5 text-indigo-400" />
@@ -267,7 +263,7 @@ function GalleryImage({ src, alt, className }: { src: string; alt: string; class
       src={resolved}
       alt={alt}
       className={className}
-      onError={handleError}
+      onError={onError}
     />
   );
 }

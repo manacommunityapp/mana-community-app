@@ -79,6 +79,7 @@ import { DatePicker, formatToDateString } from "../ui/date-picker";
 import type { UserProfileResponse, UserActivityItem } from "../../../types/api";
 import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 import { PrivacySettingsTab } from "../privacy/PrivacySettingsTab";
 import { canAccessModule } from "../../../utils/permissionUtils";
 import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
@@ -1220,21 +1221,11 @@ export function ProfileDashboard() {
                 title={userAvatar && !imageError ? "Click to view full photo" : undefined}
               >
                 {userAvatar && !imageError ? (
-                  <img
+                  <AuthenticatedImage
                     src={userAvatar}
                     alt={profile.fullName}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const currentSrc = e.currentTarget.src;
-                      if (currentSrc && !currentSrc.includes("/api/files/")) {
-                        const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
-                        if (s3Match) {
-                          e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
-                          return;
-                        }
-                      }
-                      setImageError(true);
-                    }}
+                    onExhausted={() => setImageError(true)}
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white font-black select-none">

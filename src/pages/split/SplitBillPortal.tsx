@@ -22,6 +22,7 @@ export function SplitBillPortal() {
   const [totalAmt, setTotalAmt] = useState("");
   const [members, setMembers] = useState([{ name: "", flat: "", share: "" }, { name: "", flat: "", share: "" }]);
   const [creating, setCreating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // AI Duplicate & Anomaly Guard
   const [isGuarding, setIsGuarding] = useState(false);
@@ -66,7 +67,14 @@ export function SplitBillPortal() {
 
   async function loadSplits() {
     setLoading(true);
-    try { setSplits(await splitBillService.getSplits()); } finally { setLoading(false); }
+    setLoadError(null);
+    try {
+      setSplits(await splitBillService.getSplits());
+    } catch (e) {
+      // Never show invented splits: surface the failure instead.
+      setSplits([]);
+      setLoadError(e instanceof Error ? e.message : "Could not load your split bills.");
+    } finally { setLoading(false); }
   }
 
   function handleAutoSplit() {
@@ -88,17 +96,22 @@ export function SplitBillPortal() {
     try {
       await splitBillService.createSplit({ title: title.trim(), total_amount: total, split_type: "CUSTOM", members: valid.map((m, i) => ({ user_id: `m-${i}`, name: m.name.trim(), flat: m.flat.trim() || undefined, share_amount: parseFloat(m.share) })), category: "OTHER" });
       showSuccess("Split created!"); setTab("my-splits"); setTitle(""); setTotalAmt(""); setMembers([{ name: "", flat: "", share: "" }, { name: "", flat: "", share: "" }]); loadSplits();
-    } catch { showError("Could not create split."); } finally { setCreating(false); }
+    } catch (e) { showError(e instanceof Error ? e.message : "Could not create split."); } finally { setCreating(false); }
   }
 
   async function handleSettle(split: SplitBill, member: SplitBill["members"][0]) {
     if (!window.confirm(`Pay ₹${member.share_amount.toLocaleString()} to settle ${member.name}'s share?`)) return;
     try {
-      const result = await splitBillService.settle(split.id, member.user_id, member.share_amount, member.name);
-      window.open(result.phone_pe_url, "_blank");
-      showSuccess("Payment opened in UPI app.");
+      // Only a server-created settlement yields a payment link.
+      const result = await splitBillService.settle(split.id, member.user_id, member.share_amount);
+      const payUrl = result.phone_pe_url || result.upi_intent_url;
+      if (!payUrl) throw new Error("Settlement could not be started. No payment was initiated.");
+      window.open(payUrl, "_blank");
+      showSuccess(`Settlement ${result.transaction_ref} created — payment pending, complete it in your UPI app.`);
       loadSplits();
-    } catch { showError("Payment initiation failed."); }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Payment initiation failed. No payment was started.");
+    }
   }
 
   return (
@@ -107,6 +120,13 @@ export function SplitBillPortal() {
         <div><h1 className="text-xl font-bold text-[#44475B]">Split Bill</h1><p className="text-xs text-[#7C7E8C]">Split expenses among residents · UPI settlement</p></div>
         <button onClick={loadSplits} className="p-2 rounded-lg border border-[#E8E9F0] hover:bg-[#F5F5F7]"><RefreshCw size={14} className={loading ? "animate-spin text-[#7C7E8C]" : "text-[#7C7E8C]"} /></button>
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+          <p className="text-xs text-red-700">{loadError}</p>
+          <button onClick={loadSplits} className="mt-1 text-xs font-bold text-red-700 underline">Retry</button>
+        </div>
+      )}
 
       <div className="flex border-b border-[#E8E9F0]">
         <button onClick={() => setTab("my-splits")} className={`flex-1 py-2.5 text-sm font-semibold ${tab === "my-splits" ? "border-b-2 border-green-600 text-green-700" : "text-[#7C7E8C]"}`}>My Splits</button>

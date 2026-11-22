@@ -1,37 +1,87 @@
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+import { apiClient } from "../common/apiClient";
 
-export interface GoldPrice { per_gram_22k: number; per_gram_24k: number; change_pct_24h: number; updated_at: string; }
+export interface GoldPrice {
+  per_gram_22k: number;
+  per_gram_24k: number;
+  change_pct_24h: number;
+  updated_at: string;
+  /**
+   * True when the live rate could not be fetched and the value shown is a stale
+   * indicative rate. Callers MUST treat an indicative price as display-only and
+   * must not allow a buy/sell to be initiated while it is set.
+   */
+  indicative?: boolean;
+}
 export interface GoldHolding { id: string; grams: number; purity: "22K" | "24K"; avg_buy_price: number; current_value: number; unrealised_pnl: number; unrealised_pnl_pct: number; }
 export interface GoldTransaction { id: string; type: "BUY" | "SELL"; grams: number; price_per_gram: number; amount: number; purity: "22K" | "24K"; status: "COMPLETED" | "PENDING" | "FAILED"; created_at: string; }
 export interface GoldBuyResult { upi_intent_url: string; phone_pe_url: string; transaction_ref: string; grams: number; amount: number; }
 
-const FALLBACK_PRICE: GoldPrice = { per_gram_22k: 6850, per_gram_24k: 7450, change_pct_24h: 0.42, updated_at: new Date().toISOString() };
+/**
+ * Last-resort INDICATIVE rate, used only so the portal can render a rate band
+ * when the price feed is unreachable. It is flagged `indicative: true` and the
+ * UI disables buying and selling while it is in use, so a stale rate can never
+ * be used to construct a financial action. Order amounts, gram quantities and
+ * payment intents always come from the server.
+ */
+const INDICATIVE_FALLBACK_PRICE: GoldPrice = {
+  per_gram_22k: 6850,
+  per_gram_24k: 7450,
+  change_pct_24h: 0,
+  updated_at: new Date(0).toISOString(),
+  indicative: true,
+};
 
 export const goldService = {
+  /**
+   * Live gold rate. On failure returns a stale indicative rate flagged with
+   * `indicative: true` — never throws, because a displayed rate is not a
+   * financial action. Callers must block buy/sell when `indicative` is set.
+   */
   async getPrice(): Promise<GoldPrice> {
-    try { const r = await fetch(`${API_BASE}/v1/gold/price`); if (r.ok) { const d = await r.json(); if (d?.per_gram_24k) return d; } } catch {}
-    return FALLBACK_PRICE;
+    try {
+      const d = await apiClient.get<GoldPrice>("/v1/gold/price");
+      if (d && typeof d.per_gram_24k === "number" && typeof d.per_gram_22k === "number") {
+        return { ...d, indicative: false };
+      }
+      return INDICATIVE_FALLBACK_PRICE;
+    } catch {
+      return INDICATIVE_FALLBACK_PRICE;
+    }
   },
+
+  /** Holdings as recorded by the server. Throws if they cannot be read — never invents a portfolio. */
   async getHoldings(): Promise<GoldHolding[]> {
-    try { const r = await fetch(`${API_BASE}/v1/gold/holdings`); if (r.ok) { const d = await r.json(); if (Array.isArray(d)) return d; } } catch {}
-    return [{ id: "h1", grams: 2.5, purity: "24K", avg_buy_price: 7100, current_value: 7450 * 2.5, unrealised_pnl: 350 * 2.5, unrealised_pnl_pct: 4.93 }];
+    const d = await apiClient.get<GoldHolding[]>("/v1/gold/holdings");
+    if (!Array.isArray(d)) throw new Error("Could not load your gold holdings. Please try again.");
+    return d;
   },
+
+  /** Transaction history as recorded by the server. Throws if it cannot be read. */
   async getHistory(): Promise<GoldTransaction[]> {
-    try { const r = await fetch(`${API_BASE}/v1/gold/transactions`); if (r.ok) { const d = await r.json(); if (Array.isArray(d)) return d; } } catch {}
-    return [
-      { id: "gt-1", type: "BUY", grams: 1.5, price_per_gram: 7200, amount: 10800, purity: "24K", status: "COMPLETED", created_at: new Date(Date.now() - 15 * 86400000).toISOString() },
-      { id: "gt-2", type: "BUY", grams: 1.0, price_per_gram: 6950, amount: 6950,  purity: "24K", status: "COMPLETED", created_at: new Date(Date.now() - 45 * 86400000).toISOString() },
-    ];
+    const d = await apiClient.get<GoldTransaction[]>("/v1/gold/transactions");
+    if (!Array.isArray(d)) throw new Error("Could not load your gold transactions. Please try again.");
+    return d;
   },
+
+  /**
+   * Creates a gold buy order server-side and returns the payment intent the
+   * server issued. The payment URLs are never constructed on the client: if the
+   * server did not create an order there is nothing for the resident to pay.
+   */
   async buy(amount_inr: number, purity: "22K" | "24K"): Promise<GoldBuyResult> {
-    try { const r = await fetch(`${API_BASE}/v1/gold/buy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount_inr, purity }) }); if (r.ok) { const d = await r.json(); if (d?.upi_intent_url) return d; } } catch {}
-    const price = purity === "24K" ? 7450 : 6850;
-    const grams = Math.round((amount_inr / price) * 10000) / 10000;
-    const tr = `MANA-GOLD-${Date.now()}`;
-    return { upi_intent_url: `upi://pay?pa=gold@setu&pn=Mana+Digital+Gold&am=${amount_inr}&cu=INR&tr=${tr}`, phone_pe_url: `phonepe://pay?pa=gold@setu&am=${amount_inr}&tr=${tr}`, transaction_ref: tr, grams, amount: amount_inr };
+    const d = await apiClient.post<GoldBuyResult>("/v1/gold/buy", { amount_inr, purity });
+    if (!d?.upi_intent_url || !d?.transaction_ref) {
+      throw new Error("Gold purchase could not be started. No payment was initiated — please try again.");
+    }
+    return d;
   },
+
+  /** Places a sell order server-side. Throws if the server did not accept it. */
   async sell(grams: number, purity: "22K" | "24K"): Promise<{ transaction_ref: string; amount: number }> {
-    try { const r = await fetch(`${API_BASE}/v1/gold/sell`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grams, purity }) }); if (r.ok) { const d = await r.json(); if (d?.transaction_ref) return d; } } catch {}
-    return { transaction_ref: `MANA-GOLD-SELL-${Date.now()}`, amount: Math.round(grams * (purity === "24K" ? 7450 : 6850)) };
+    const d = await apiClient.post<{ transaction_ref: string; amount: number }>("/v1/gold/sell", { grams, purity });
+    if (!d?.transaction_ref) {
+      throw new Error("Gold sale could not be started. Nothing was sold — please try again.");
+    }
+    return d;
   },
 };

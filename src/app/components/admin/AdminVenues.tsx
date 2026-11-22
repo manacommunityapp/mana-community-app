@@ -9,6 +9,7 @@ import { venueService } from "../../../services/bookings/venueService";
 import { communityService } from "../../../services/community/communityService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { Venue, CommunityResponse } from "../../../types/api";
+import { sanitizeHref } from "../../../utils/sanitize";
 
 export function AdminVenues() {
   const { user, isAdmin, hasPermission } = useAuth();
@@ -487,7 +488,7 @@ export function AdminVenues() {
                           )}
                           {v.mapLink && (
                             <a
-                              href={v.mapLink}
+                              href={sanitizeHref(v.mapLink)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[10px] text-[#3b82f6] hover:underline flex items-center gap-1 w-fit"

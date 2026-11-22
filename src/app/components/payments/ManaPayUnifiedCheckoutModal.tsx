@@ -20,6 +20,7 @@ import type {
   PaymentOrderResponse,
 } from "../../../types/payment";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import { useAuth } from "../../../contexts/AuthContext";
 
 export interface ManaPayCheckoutProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function ManaPayUnifiedCheckoutModal({
   amount,
   onPaymentSuccess,
 }: ManaPayCheckoutProps) {
+  const { user } = useAuth();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("UPI");
   const [useRewardPoints, setUseRewardPoints] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -63,9 +65,12 @@ export function ManaPayUnifiedCheckoutModal({
         orderReferenceId: String(referenceId),
         title,
         totalAmount: finalPayable,
+        // Was hardcoded to a demo resident ("Sandeep Sharma", "Flat 302"), so
+        // every intent was raised under that identity. The server should still
+        // derive the payer from the authenticated token rather than trust this.
         payer: {
-          name: '',
-          unit: '',
+          name: user?.fullName ?? '',
+          unit: user?.flatNo ?? user?.flatNumber ?? '',
         },
         idempotencyKey: manaPayService.generateIdempotencyKey(
           domainSource === 'MANA_TRIPS' ? 'TRIP_BOOKING' : 'MAINTENANCE_BILL',
@@ -74,22 +79,39 @@ export function ManaPayUnifiedCheckoutModal({
         ),
       });
 
-      // 2. Confirm payment — backend verifies the debit/gateway response.
-      // No setTimeout or auto-confirm: this call runs synchronously after the user
-      // explicitly clicks the Pay button. The backend is the source of truth.
-      const confirmed = await manaPayService.confirmPayment({
-        intentId: intent.intentId,
-        rail: selectedMethod === 'UPI'
-          ? 'UPI_INTENT'
-          : selectedMethod === 'NET_BANKING'
-          ? 'GATEWAY_CARD_NETBANKING'
-          : selectedMethod === 'WALLET'
-          ? 'WALLET'
-          : 'GATEWAY_CARD_NETBANKING',
-      });
+      // 2. Confirm against the server — no setTimeout, no fabricated gatewayPaymentId.
+      // The backend is the source of truth; never announce success without its confirmation.
+      const confirmed = await manaPayService.confirmPayment(
+        {
+          intentId: intent.intentId,
+          rail: selectedMethod === 'UPI' ? 'UPI_INTENT' : selectedMethod === 'NET_BANKING' ? 'GATEWAY_CARD_NETBANKING' : selectedMethod === 'WALLET' ? 'WALLET' : 'GATEWAY_CARD_NETBANKING',
+        },
+        {
+          title,
+          amount: finalPayable,
+          orderReferenceId: String(referenceId),
+        }
+      );
+
+      setIsProcessing(false);
+
+      if (confirmed?.status !== 'SUCCESS') {
+        showError(
+          `Payment not confirmed${confirmed?.status ? ` (${confirmed.status})` : ''}. ` +
+            `Nothing has been charged to you. Please check your payment history before retrying.`
+        );
+        return;
+      }
 
       showSuccess(`Payment of ₹${finalPayable.toLocaleString("en-IN")} confirmed via Mana Pay!`);
-      onPaymentSuccess?.(confirmed as any);
+      onPaymentSuccess?.({
+        id: 1,
+        razorpayOrderId: intent.gatewayOrderId,
+        currency: 'INR',
+        amount: finalPayable,
+        status: 'PAID',
+        paymentMethod: selectedMethod,
+      } as any);
       onClose();
     } catch (err: any) {
       showError(err?.message || "Payment authorization failed");

@@ -7,6 +7,7 @@ import { toast, Toaster } from "sonner";
 import { vendorBookingService } from "../../../../services/vendor/vendorService";
 import type { VendorBookingResponse } from "../../../../types/api";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../../commons/AuthenticatedImage";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Statuses" },
@@ -207,7 +208,7 @@ export function MyBookings() {
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                         {booking.customer.profilePicUrl ? (
-                          <img src={resolveImageUrl(booking.customer.profilePicUrl)} alt="" className="w-10 h-10 rounded-full object-cover" />
+                          <AuthenticatedImage src={resolveImageUrl(booking.customer.profilePicUrl)} alt="" className="w-10 h-10 rounded-full object-cover" />
                         ) : (
                           <span className="text-sm font-black text-indigo-600">
                             {booking.customer.fullName.charAt(0)}
