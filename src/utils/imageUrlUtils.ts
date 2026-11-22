@@ -11,6 +11,82 @@ const refreshCache = new Map<string, { url: string; at: number }>();
 const REFRESH_CACHE_TTL = 55 * 60 * 1000;
 
 /**
+ * The same Authorization / platform headers the api client sends. GET
+ * /api/files/** and /api/media/** are no longer `permitAll` (they were
+ * anonymous and enumerable by sequential id, which exposed KYC documents and
+ * payment screenshots across tenants), so every read of them needs the token.
+ */
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = getToken();
+  return {
+    "X-Platform": "web",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+/**
+ * True when `url` points at a backend file route that now requires the bearer
+ * token, i.e. a URL a bare `<img src>` can no longer load.
+ */
+export function requiresAuthenticatedFetch(url?: string | null): boolean {
+  if (!url || typeof url !== "string") return false;
+  const path = url.startsWith("/")
+    ? url
+    : (() => {
+        try {
+          return new URL(url).pathname;
+        } catch {
+          return "";
+        }
+      })();
+  return path.startsWith("/api/files/") || path.startsWith("/api/media/");
+}
+
+/**
+ * Derives the authenticated proxy path for an image URL that just failed to
+ * load, mirroring the `onError` fallbacks that used to be inlined in each
+ * component: an S3 gallery key is re-read through /api/files/<key>.
+ * Returns null when there is nothing better to try.
+ */
+export function deriveFileProxyPath(failedSrc?: string | null): string | null {
+  if (!failedSrc || typeof failedSrc !== "string") return null;
+  if (requiresAuthenticatedFetch(failedSrc)) return null; // already the proxied URL
+  const s3Match = failedSrc.match(/users\/\d+\/gallery\/.+/);
+  if (s3Match) return `/api/files/${s3Match[0].split("?")[0]}`;
+  return null;
+}
+
+/**
+ * Reads a protected file through the API with the api client's Authorization
+ * header and returns a `blob:` object URL usable as an `<img src>`.
+ *
+ * The caller owns the returned URL and MUST revoke it (see
+ * `useAuthenticatedImage`, which does this on unmount) — a gallery that leaks
+ * one object URL per thumbnail pins every decoded image in memory.
+ *
+ * Longer term, the backend should hand out short-lived presigned S3 URLs
+ * instead: those need no Authorization header, so a plain `<img>` works and
+ * this blob round-trip (and its memory cost) disappears.
+ */
+export async function fetchAuthenticatedObjectUrl(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: authHeaders(),
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    if (!blob || blob.size === 0) return null;
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Asks the backend to generate a fresh presigned URL for an expired S3 URL.
  * Cached for 55 minutes to avoid redundant network calls.
  */
@@ -21,13 +97,10 @@ export async function refreshPresignedUrl(expiredUrl: string): Promise<string | 
   if (cached && Date.now() - cached.at < REFRESH_CACHE_TTL) return cached.url;
 
   try {
-    const token = getToken();
     const res = await fetch("/api/files/refresh-url", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      credentials: "include",
       body: JSON.stringify({ url: expiredUrl }),
     });
     if (!res.ok) return null;
