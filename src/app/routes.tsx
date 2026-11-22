@@ -35,6 +35,8 @@ import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
 import { NotificationPreferenceCenter } from "./components/notification/NotificationPreferenceCenter";
 import { AnprGateLiveMonitor } from "./components/parking/AnprGateLiveMonitor";
 import { EvChargingManagement } from "./components/parking/EvChargingManagement";
+import { SchoolBusView } from "./components/mobility/SchoolBusView";
+import { CarpoolHubView } from "./components/mobility/CarpoolHubView";
 
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
@@ -1604,6 +1606,11 @@ export const router = createBrowserRouter([
       { path: "parking/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
       { path: "parking/ev-book", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
       { path: "mobility/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
+      // ── School Bus Live GPS & Society Carpool Hub ──────────────
+      { path: "school-bus", element: <PermissionGuard><SchoolBusView /></PermissionGuard> },
+      { path: "mobility/school-bus", element: <PermissionGuard><SchoolBusView /></PermissionGuard> },
+      { path: "carpool", element: <PermissionGuard><CarpoolHubView /></PermissionGuard> },
+      { path: "mobility/carpool", element: <PermissionGuard><CarpoolHubView /></PermissionGuard> },
       { path: "cpos", element: <PermissionGuard requiredModule="CPOS"><CPOSDashboardPage /></PermissionGuard> },
       { path: "cpos/properties", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyListPage /></PermissionGuard> },
       { path: "cpos/properties/new", element: <PermissionGuard requiredModule="CPOS" adminOnly><CPOSPropertyCreatePage /></PermissionGuard> },

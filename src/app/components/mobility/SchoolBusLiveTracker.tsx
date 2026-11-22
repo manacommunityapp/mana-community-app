@@ -209,7 +209,7 @@ export function SchoolBusLiveTracker() {
                     <Clock size={16} className="text-blue-600" /> Route Stops & ETA Timeline
                   </h3>
                   <div className="space-y-4">
-                    {activeBus.stops.map((stop, idx) => {
+                    {activeBus.stops.map((stop: any, idx: number) => {
                       const isLast = idx === activeBus.stops.length - 1;
                       return (
                         <div key={stop.id} className="flex items-start gap-4">
@@ -217,7 +217,7 @@ export function SchoolBusLiveTracker() {
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                               stop.reached
                                 ? "bg-emerald-100 text-emerald-700 border-2 border-emerald-500"
-                                : idx === activeBus.stops.findIndex(s => !s.reached)
+                                : idx === activeBus.stops.findIndex((s: any) => !s.reached)
                                 ? "bg-blue-100 text-blue-700 border-2 border-blue-500 animate-pulse"
                                 : "bg-gray-100 text-gray-400 border-2 border-gray-200"
                             }`}>
