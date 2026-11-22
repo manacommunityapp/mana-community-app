@@ -22,6 +22,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { resolveEventImage } from "../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 import {
   eventService,
   type DashboardStatsResponse,
@@ -919,13 +920,10 @@ export function EventsDashboard() {
             <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
               <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
               {currentBanner.image && (
-                <img
+                <AuthenticatedImage
                   src={currentBanner.image}
                   alt={currentBanner.title}
                   className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
                 />
               )}
             </div>

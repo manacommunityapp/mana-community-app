@@ -13,6 +13,7 @@ import { useChat } from "../../../contexts/ChatContext";
 import { showError } from "../../../utils/ToastUtils";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 
 // ── Role styling ────────────────────────────────────────────────────────────
 
@@ -307,7 +308,7 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
       {/* Top Details */}
       <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
         {leader.profilePicUrl || (leader as any).profilePic ? (
-          <img
+          <AuthenticatedImage
             src={resolveImageUrl(leader.profilePicUrl || (leader as any).profilePic)}
             alt={leader.fullName}
             className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg object-cover ring-1.5 ${style.avatarRing} shadow-2xs shrink-0 cursor-pointer hover:ring-2 hover:scale-105 transition-all`}
@@ -316,9 +317,6 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
               setShowImageModal(true);
             }}
             title="Click to view full photo"
-            onError={(e) => {
-              (e.currentTarget as HTMLElement).style.display = "none";
-            }}
           />
         ) : (
           <div

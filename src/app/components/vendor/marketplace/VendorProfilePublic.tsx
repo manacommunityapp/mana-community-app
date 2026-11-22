@@ -25,6 +25,7 @@ import {
 } from "../../../../services/vendor/vendorService";
 import { sanitizeHref } from "../../../../utils/sanitize";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../../commons/AuthenticatedImage";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorResponse,
@@ -367,7 +368,7 @@ export function VendorProfilePublic() {
                     {/* Avatar */}
                     <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                       {review.customer.profilePicUrl ? (
-                        <img
+                        <AuthenticatedImage
                           src={resolveImageUrl(review.customer.profilePicUrl)}
                           alt={review.customer.fullName}
                           className="w-full h-full object-cover"

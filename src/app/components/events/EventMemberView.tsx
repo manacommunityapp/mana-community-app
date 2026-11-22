@@ -59,6 +59,7 @@ import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { resolveEventImage, resolveUserAvatar, resolveImageUrl } from "../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
 import { escapeHtml } from "../../../utils/sanitize";
@@ -2201,13 +2202,10 @@ export function EventMemberView() {
                         <div className="relative w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">
                           <span>🕉️</span>
                           {eventImg && (
-                            <img
+                            <AuthenticatedImage
                               src={eventImg}
                               alt={activeMainEvent?.title || "Event Image"}
                               className="absolute inset-0 w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
                             />
                           )}
                         </div>
@@ -3310,7 +3308,18 @@ export function EventMemberView() {
               </button>
             </div>
             <div className="bg-muted rounded-xl p-2 max-h-[70vh] overflow-auto flex items-center justify-center">
-              <img src={viewReceiptModal} alt="Payment Receipt" className="max-h-[60vh] max-w-full rounded-lg object-contain" />
+              {/* The receipt is stored as /api/files/{id}, which now requires auth,
+                  so a bare <img> renders broken. */}
+              <AuthenticatedImage
+                src={viewReceiptModal}
+                alt="Payment Receipt"
+                className="max-h-[60vh] max-w-full rounded-lg object-contain"
+                renderFallback={() => (
+                  <p className="text-xs text-muted-foreground py-8 px-4 text-center">
+                    This receipt could not be loaded. You may not have access to it, or it may have been removed.
+                  </p>
+                )}
+              />
             </div>
             <div className="flex justify-end">
               <button

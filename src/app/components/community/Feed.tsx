@@ -83,6 +83,7 @@ import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 
 type FeedMediaAttachment = {
   mediaUrl: string;
@@ -2227,7 +2228,11 @@ export function Feed() {
                         <div className="relative">
                           <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                             {liker.profilePicUrl ? (
-                              <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                              <AuthenticatedImage src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                                <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                                  {getInitials(liker.fullName)}
+                                </span>
+                              )} />
                             ) : null}
                             <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                               {getInitials(liker.fullName)}
@@ -2307,7 +2312,11 @@ export function Feed() {
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                         {liker.profilePicUrl ? (
-                          <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                          <AuthenticatedImage src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                            <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                              {getInitials(liker.fullName)}
+                            </span>
+                          )} />
                         ) : null}
                         <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                           {getInitials(liker.fullName)}
@@ -2543,15 +2552,15 @@ const PostCard = React.memo(function PostCard({
                 title="Click to view full photo"
               >
                 {authorPic ? (
-                  <img
+                  <AuthenticatedImage
                     src={authorPic}
                     alt=""
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = "flex";
-                    }}
+                    renderFallback={() => (
+                      <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                        {initials}
+                      </span>
+                    )}
                   />
                 ) : null}
                 <span className={authorPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
@@ -3271,15 +3280,15 @@ function CommentItem({
               title="Click to view full photo"
             >
               {commentPic ? (
-                <img
+                <AuthenticatedImage
                   src={commentPic}
                   alt=""
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = "none";
-                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = "flex";
-                  }}
+                  renderFallback={() => (
+                    <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                      {initials}
+                    </span>
+                  )}
                 />
               ) : null}
               <span className={commentPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
@@ -3752,7 +3761,11 @@ function LeaderboardCard({ badgeCount, getInitials }: { badgeCount?: number; get
                   <span className="text-xs w-5 text-center">{medals[i] || `${i + 1}`}</span>
                   <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 overflow-hidden shrink-0">
                     {entry.profilePicUrl ? (
-                      <img src={resolveImageUrl(entry.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                      <AuthenticatedImage src={resolveImageUrl(entry.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                        <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                          {getInitials(entry.userName)}
+                        </span>
+                      )} />
                     ) : null}
                     <span className={entry.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                       {getInitials(entry.userName)}
