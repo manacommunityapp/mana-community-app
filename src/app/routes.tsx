@@ -565,6 +565,7 @@ import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { SchoolBusLiveTracker } from "./components/mobility/SchoolBusLiveTracker";
 import { BbpsUtilityPaymentHub } from "./components/finance/BbpsUtilityPaymentHub";
+import { TelehealthVideoRoom } from "./components/healthcare/TelehealthVideoRoom";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
 import { AutomationDashboard } from "./components/automation/AutomationDashboard";
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
@@ -1695,6 +1696,8 @@ export const router = createBrowserRouter([
       { path: "school-bus", element: <SchoolBusLiveTracker /> },
       { path: "bbps", element: <BbpsUtilityPaymentHub /> },
       { path: "finance/bbps", element: <BbpsUtilityPaymentHub /> },
+      { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "finance/pfm", element: <PersonalFinanceDashboard /> },
       { path: "projects", element: <ProjectsDashboard /> },
       { path: "automation", element: <AutomationDashboard /> },
       { path: "intelligence", element: <IntelligenceDashboard /> },
@@ -1707,6 +1710,9 @@ export const router = createBrowserRouter([
       { path: "food", element: <FoodOpsHub /> },
       // ── Healthcare Operations ─────────────────────────────────────────────
       { path: "healthcare", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthcareHub /></ConsentGate> },
+      { path: "healthcare/video-room", element: <ConsentGate purpose="HEALTH_RECORDS"><TelehealthVideoRoom /></ConsentGate> },
+      { path: "healthcare/video-room/:appointmentId", element: <ConsentGate purpose="HEALTH_RECORDS"><TelehealthVideoRoom /></ConsentGate> },
+      { path: "health/video-room", element: <ConsentGate purpose="HEALTH_RECORDS"><TelehealthVideoRoom /></ConsentGate> },
       { path: "healthcare-ops", element: <HealthcareOpsHub /> },
       { path: "sports-ops", element: <SportsOpsHub /> },
       { path: "payments-ops", element: <PaymentsHub /> },
