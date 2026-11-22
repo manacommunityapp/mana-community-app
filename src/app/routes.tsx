@@ -61,6 +61,12 @@ import { EventsFundraising } from "./components/events/EventsFundraising";
 import { EventsOperations } from "./components/events/EventsOperations";
 import { EventsGallery } from "./components/events/EventsGallery";
 import { EventsReports } from "./components/events/EventsReports";
+import { EventsPoojaSeva } from "./components/events/EventsPoojaSeva";
+import { EventsMealTokens } from "./components/events/EventsMealTokens";
+import { TrustedVisitorsManagement } from "./components/visitors/TrustedVisitorsManagement";
+import { GroupInviteManagement } from "./components/visitors/GroupInviteManagement";
+import { SportsChallengesHub } from "./components/sports/SportsChallengesHub";
+import { SportsRankingsHub } from "./components/sports/SportsRankingsHub";
 
 import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
 import { AdminAccessManagement } from "./components/admin/AdminAccessManagement";
@@ -872,6 +878,18 @@ export const router = createBrowserRouter([
             path: "match/:matchId/stream/manage",
             element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><MatchStreamControlPage /></PermissionGuard>,
           },
+          {
+            path: "challenge",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsChallengesHub /></PermissionGuard>,
+          },
+          {
+            path: "challenges",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsChallengesHub /></PermissionGuard>,
+          },
+          {
+            path: "rankings",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsRankingsHub /></PermissionGuard>,
+          },
         ],
       },
       {
@@ -1014,6 +1032,22 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
       },
       {
+        path: "visitors/trusted",
+        element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><TrustedVisitorsManagement /></PermissionGuard>
+      },
+      {
+        path: "visitors/whitelist",
+        element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><TrustedVisitorsManagement /></PermissionGuard>
+      },
+      {
+        path: "visitors/group-invite",
+        element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><GroupInviteManagement /></PermissionGuard>
+      },
+      {
+        path: "visitors/group-invites",
+        element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><GroupInviteManagement /></PermissionGuard>
+      },
+      {
         path: "parcels",
         element: <PermissionGuard anyPermissions={[VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><ParcelRoom /></PermissionGuard>
       },
@@ -1082,6 +1116,10 @@ export const router = createBrowserRouter([
           { path: "reports", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_MEDIA, VIEW_EVENT_REPORTS, VIEW_EVENT_DASHBOARD]}><EventsReports /></PermissionGuard> },
           { path: "create", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
           { path: ":id/edit", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
+          { path: "pooja", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsPoojaSeva /></PermissionGuard> },
+          { path: ":id/pooja", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsPoojaSeva /></PermissionGuard> },
+          { path: "meals", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsMealTokens /></PermissionGuard> },
+          { path: ":id/meals", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsMealTokens /></PermissionGuard> },
         ],
       },
       {
