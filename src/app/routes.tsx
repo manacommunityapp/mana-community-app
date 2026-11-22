@@ -46,6 +46,7 @@ import { WishlistPage } from "./components/marketplace/WishlistPage";
 import { OrdersPage } from "./components/marketplace/OrdersPage";
 import { DonationsPage } from "./components/marketplace/DonationsPage";
 import { LostAndFoundPage } from "./components/marketplace/LostAndFoundPage";
+import { CreateListingPage } from "./components/marketplace/CreateListingPage";
 import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events.legacy";
 import { EventsLayout } from "./components/events/EventsLayout";
@@ -321,6 +322,7 @@ import {
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { ParkingManagement } from "./components/parking/ParkingManagement";
 import { GuardManagement } from "./components/guard/GuardManagement";
+import { GuardShiftHandover } from "./components/guard/GuardShiftHandover";
 import { ParcelRoom } from "./components/parcels/ParcelRoom";
 import { StaffManagement } from "./components/staff/StaffManagement";
 import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
@@ -975,6 +977,8 @@ export const router = createBrowserRouter([
           { path: "orders", Component: OrdersPage },
           { path: "donations", Component: DonationsPage },
           { path: "lost-found", Component: LostAndFoundPage },
+          { path: "sell", Component: CreateListingPage },
+          { path: "create", Component: CreateListingPage },
         ],
       },
       {
@@ -1844,6 +1848,12 @@ export const router = createBrowserRouter([
       { path: "ops/community-manager", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><CommunityManagerDashboard /></PermissionGuard> },
       { path: "my-dashboard", element: <ResidentDashboard /> },
       { path: "fm/dashboard", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><FmOpsDashboard /></PermissionGuard> },
+      // ── Security Guard Shift Handover ────────
+      { path: "guard/handover", element: <GuardShiftHandover /> },
+      { path: "security/handover", element: <GuardShiftHandover /> },
+      { path: "ai", element: <Navigate to="/ai-chat" replace /> },
+      { path: "ai-assistant", element: <Navigate to="/ai-chat" replace /> },
+      { path: "sell", element: <Navigate to="/marketplace/sell" replace /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
