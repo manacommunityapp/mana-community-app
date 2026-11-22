@@ -566,6 +566,7 @@ import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { SchoolBusLiveTracker } from "./components/mobility/SchoolBusLiveTracker";
 import { BbpsUtilityPaymentHub } from "./components/finance/BbpsUtilityPaymentHub";
 import { TelehealthVideoRoom } from "./components/healthcare/TelehealthVideoRoom";
+import { CommunityForumHub } from "./components/forum/CommunityForumHub";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
 import { AutomationDashboard } from "./components/automation/AutomationDashboard";
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
@@ -1698,6 +1699,8 @@ export const router = createBrowserRouter([
       { path: "finance/bbps", element: <BbpsUtilityPaymentHub /> },
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "finance/pfm", element: <PersonalFinanceDashboard /> },
+      { path: "forum", element: <CommunityForumHub /> },
+      { path: "community/forum", element: <CommunityForumHub /> },
       { path: "projects", element: <ProjectsDashboard /> },
       { path: "automation", element: <AutomationDashboard /> },
       { path: "intelligence", element: <IntelligenceDashboard /> },
