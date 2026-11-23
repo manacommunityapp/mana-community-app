@@ -365,6 +365,9 @@ export interface BallEventData {
 
 export interface LiveMatchStateData {
   matchId: number;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   status: string;
   currentInnings: number;
   innings1: InningsStateData;
@@ -486,6 +489,9 @@ export interface ScoringConfig {
 
 export interface GenericMatchState {
   matchId: number;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   status: string;
   sportType: string;
   teamAId: number;

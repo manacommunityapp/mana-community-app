@@ -32,10 +32,14 @@ import { toast } from "sonner";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 import { EmergencyScoreModal } from "./EmergencyScoreModal";
 import { TossSetupModal } from "./TossSetupModal";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 
 interface GenericLiveScoringPanelProps {
   matchId: number;
   sportType: string; // "BADMINTON", "FOOTBALL", "BASKETBALL", "VOLLEYBALL", "TENNIS", "TABLE_TENNIS"
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
   teamA: { id: number; name: string; color: string };
   teamB: { id: number; name: string; color: string };
@@ -98,6 +102,9 @@ export const isIndividualSport = (sport?: string): boolean => {
 export function GenericLiveScoringPanel({
   matchId,
   sportType,
+  roundName,
+  tournamentName,
+  eventName,
   onClose,
   teamA: teamAProp,
   teamB: teamBProp,
@@ -610,11 +617,23 @@ export function GenericLiveScoringPanel({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
-              {sportType.replace(/_/g, " ")} - Live Scoring
-            </h2>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {sportType.replace(/_/g, " ")} - Live Scoring
+              </h2>
+              {(roundName || state.roundName) && (() => {
+                const effectiveRound = roundName || state.roundName;
+                const stageKey = getMatchStage({ roundName: effectiveRound });
+                const meta = getStageMeta(stageKey);
+                return (
+                  <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-bold ${meta.badgeClass}`}>
+                    {formatRoundStageLabel(effectiveRound, undefined, stageKey)}
+                  </span>
+                );
+              })()}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {currentPeriodLabel}
+              {[tournamentName || state.tournamentName, eventName || state.eventName, currentPeriodLabel].filter(Boolean).join(" • ")}
               {isCompleted && (
                 <span className="ml-2 text-emerald-600 font-semibold">
                   COMPLETED
