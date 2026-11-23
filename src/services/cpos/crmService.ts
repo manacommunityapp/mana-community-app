@@ -158,7 +158,17 @@ export interface BrokerCommissionDto {
   commissionRate: number;
   commissionLakhs: number;
   status: string;
+  paidAt?: string;
+  paymentReference?: string;
+  paymentMethod?: string;
+  glVoucherNumber?: string;
   createdAt: string;
+}
+
+export interface BrokerPayoutRequest {
+  paymentReference: string;
+  paymentMethod: string;
+  notes?: string;
 }
 
 export interface IntegrationConfigDto {
@@ -291,6 +301,16 @@ export const crmService = {
     return apiClient.get<BrokerDto[]>("/v1/cpos/crm/brokers");
   },
 
+  async registerBroker(broker: {
+    brokerName: string;
+    firmName?: string;
+    phone?: string;
+    email?: string;
+    commissionRate?: number;
+  }): Promise<BrokerDto> {
+    return apiClient.post<BrokerDto>("/v1/cpos/crm/brokers", broker);
+  },
+
   async getCommissions(): Promise<BrokerCommissionDto[]> {
     return apiClient.get<BrokerCommissionDto[]>("/v1/cpos/crm/commissions");
   },
@@ -299,6 +319,20 @@ export const crmService = {
     return apiClient.put<BrokerCommissionDto>(
       `/v1/cpos/crm/commissions/${id}/approve`,
       {}
+    );
+  },
+
+  async payoutCommission(id: number, req: BrokerPayoutRequest): Promise<BrokerCommissionDto> {
+    return apiClient.post<BrokerCommissionDto>(
+      `/v1/cpos/crm/commissions/${id}/payout`,
+      req
+    );
+  },
+
+  async rejectCommission(id: number, reason?: string): Promise<BrokerCommissionDto> {
+    return apiClient.post<BrokerCommissionDto>(
+      `/v1/cpos/crm/commissions/${id}/reject`,
+      { reason }
     );
   },
 

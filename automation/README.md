@@ -84,15 +84,32 @@ automation/workflows/
 ├── finance/        (Dues, bill, wallet and investment review plus receipt OCR)
 ├── community/      (Weekly digests & feed moderation)
 ├── sports/         (7 workflows: fixtures, scoring, disputes, auction, etc.)
+├── governance/     (4 workflows: AGM quorum sentinel, MoM extractor, secret ballot auditor, legal formatter)
+├── amenities/      (4 workflows: court booking, fair-usage enforcer, blackout rescheduler, deposit arbitrator)
+├── food-kitchen/   (4 workflows: kitchen prep delay sentinel, catering portion optimizer, FSSAI allergen screener, dining reservation yield)
+├── cpos/           (4 workflows: commercial tenant KYC screener, rent escalation calculator, unit fitout inspector, tenant churn predictor)
+├── infra/          (4 workflows: generator fuel anomaly, water leak sentinel, EV load arbitrator, IoT submeter tamper)
+├── split-finance/  (4 workflows: split debt simplifier, budget drift forecaster, micro-khata dues auditor, duplicate bill detector)
 ├── auth/           (3 workflows: registration screener, login security, lockout)
 ├── profile/        (KYC fraud detection & directory coherence)
 ├── admin/          (4 workflows: KYC verify, bulk import audit, announcements, ops)
 ├── events/         (4 workflows: proposal screener, crowd forecast, seva allocator, post-recap)
+├── vehicle-care/   (3 workflows: wash slot water auditor, breakdown triage, subscription reconciler)
+├── mobility/       (2 workflows: carpool route optimizer, shuttle demand dispatcher)
+├── notices/        (2 workflows: society bylaw notice formatter, emergency broadcast panic sanitizer)
+├── privacy/        (2 workflows: DPDP Act consent auditor, CCTV footage redaction certifier)
 ├── experiences/    (Recommendations and itinerary drafting)
-├── mobility/       (Coarse-area ride and carpool matching)
-├── cpos/           (Property portfolio operations review)
 ├── safety/         (6 workflows: SOS dispatcher, visitor screener, ANPR enforcer, staff KYC, IoT sentinel, trust audit)
 ├── marketplace/    (4 workflows: listing screener, offer arbitrator, dispute arbitrator, lost & found matcher)
+├── pet-registry/   (4 workflows: pet passport, lost pet alert, services matcher, care guide)
+├── iot/            (3 workflows: meter health summary, telemetry anomaly review, month-end billing review)
+├── group-buying/   (3 workflows: deal quality & tier audit, demand pool matching, dispute triage)
+├── jobs/           (5 workflows: application assistant, posting quality review, referral matcher, etc.)
+├── procurement-inventory/ (3 workflows: inventory dashboard, inventory management, procurement)
+├── insurance/      (6 workflows: catalogue guide, claims assistant, consent review, group cover, plan comparison, policy review)
+├── professional-network/ (7 workflows: professional directory, entrepreneurship, feed, learning, mentorship)
+├── home-services/  (13 workflows: find help, worker schedule, leaves, reviews, service admin)
+├── academy/        (4 workflows: admin, dashboard, my-learning, teaching hub)
 ├── health/         (23 workflows covering the Health Dashboard and every Health Portal tab)
 └── wellness/      (7 workflows covering standalone wellness pages)
 ```
@@ -668,3 +685,26 @@ When deploying to a live society server:
 - Place n8n behind Nginx reverse proxy with SSL (`certbot`).
 - Enable webhook authentication checking using the `MANA_WEBHOOK_SECRET` header.
 - For 100% offline environments, run **Ollama** alongside n8n using local open-weight models (`llama3.2`).
+
+## 🧪 Automated Testing & Master Runner Commands
+
+The repository includes modular and master test runner scripts that test all 176 workflows across all 33 domains:
+
+| Command | Workflows Covered | Description |
+| :--- | :---: | :--- |
+| `npm run n8n:all` | **176** | **Master Runner**: Recursively scans all 33 domains, pings all webhooks, validates fallback contracts, and prints an exhaustive audit report. |
+| `npm run n8n:health` | 30 | Healthcare (23) and Wellness (7) AI workflows |
+| `npm run n8n:home` | 16 | Home Services (13) and Smart Parking (3) workflows |
+| `npm run n8n:food` | 19 | Food, Dining, Catering, and Kitchen workflows |
+| `npm run n8n:extended` | 6 | Finance Dues, Utility Autopay, Insurance, CPN, Home Help, Academy |
+| `npm run n8n:services` | 6 | Pet Registry, IoT Smart Meters, Group Buying, Jobs, Inventory |
+| `npm run n8n:safety` | 6 | SOS, Visitor Overstay, ANPR, Staff KYC, Hardware Tamper, Trust Audit |
+| `npm run n8n:admin` | 3 | Admin Ops Incident Analyzer, Bulk CSV Audit, Helpdesk Triage |
+| `npm run n8n:sports` | 7 | Tournament Fixtures, Scoring Anomaly, Match Recap, Auction, Dispute |
+| `npm run n8n:governance` | 4 | AGM Quorum, MoM Extraction, Ballot Audit, Resolution Formatter |
+| `npm run n8n:commerce` | 4 | Kitchen Delays, Catering Portions, FSSAI Screening, Dining Yield |
+| `npm run n8n:infra` | 4 | Generator Fuel, Water Leak, EV Load Balancing, Submeter Tamper |
+| `npm run n8n:mobility` | 4 | Carpool Route Optimizer, Shuttle Dispatch, Statutory Notice, DPDP Audit |
+
+### 100% Offline Fallback Resilience
+Every client method in `src/services/automation/automationService.ts` is resilient to n8n downtime. On timeout (6000ms) or network error, each method falls back to local heuristic domain calculations, ensuring the UI remains 100% operational in disconnected or offline society environments.

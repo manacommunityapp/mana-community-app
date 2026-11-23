@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { analyticsService } from "../services/analytics/analyticsService";
 import {
   cashfreePaymentService,
   type CashfreeCreateOrderRequest,
@@ -85,8 +86,32 @@ export function useCashfree(options: UseCashfreeOptions = {}): UseCashfreeResult
     setError(null);
   }, []);
 
+  const lastReqRef = useRef<{ referenceType?: string; amount?: number } | null>(null);
+  const prevStatusRef = useRef<CashfreePaymentStatus>("idle");
+  const errorRef = useRef<string | null>(null);
+  errorRef.current = error;
+
+  // Funnel analytics: emit on status transitions only (covers every module).
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+    if (prev === status) return;
+    const props = {
+      referenceType: lastReqRef.current?.referenceType,
+      amount: lastReqRef.current?.amount,
+    };
+    if (status === "creating") analyticsService.track("payment_started", props);
+    else if (status === "success") analyticsService.track("payment_succeeded", props);
+    else if (status === "failed")
+      analyticsService.track("payment_failed", { ...props, reason: errorRef.current ?? "unknown" });
+  }, [status]);
+
   const initiatePayment = useCallback(
     async (req: CashfreeCreateOrderRequest): Promise<CashfreeOrderResponse | null> => {
+      lastReqRef.current = {
+        referenceType: (req as { referenceType?: string }).referenceType,
+        amount: (req as { amount?: number }).amount,
+      };
       setStatus("creating");
       setError(null);
       setOrder(null);

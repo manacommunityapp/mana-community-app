@@ -2,8 +2,10 @@ import {
   Building2, Calendar, Clock, Users, MapPin, Star, Search, Filter,
   ChevronLeft, ChevronRight, Plus, X, Loader2, QrCode, Ban,
   CheckCircle, AlertCircle, Timer, Bookmark, ArrowRight, Tag, Percent,
-  CreditCard,
+  CreditCard, Sparkles, ShieldCheck, Receipt, Copy
 } from "lucide-react";
+import { toast } from "react-toastify";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -24,6 +26,11 @@ import { PaymentGatewaySelector } from "../payments/PaymentGatewaySelector";
 import { PaymentStatusBadge } from "../payments/PaymentStatusBadge";
 import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
 import { unifiedPaymentService, type PaymentOrder } from "../../../services/payments/unifiedPaymentService";
+import {
+  automationService,
+  type AmenityFairUsageAuditResponse,
+  type AmenityDepositInspectionResponse
+} from "../../../services/automation/automationService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -178,6 +185,12 @@ export function ResourceBookingDashboard() {
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAuditingFairUsage, setIsAuditingFairUsage] = useState(false);
+  const [fairUsageResult, setFairUsageResult] = useState<AmenityFairUsageAuditResponse | null>(null);
+  const [showFairUsageModal, setShowFairUsageModal] = useState(false);
+  const [isInspectingDeposit, setIsInspectingDeposit] = useState(false);
+  const [depositInspectionResult, setDepositInspectionResult] = useState<AmenityDepositInspectionResponse | null>(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // ---- Data Fetching ----
 
@@ -304,6 +317,53 @@ export function ResourceBookingDashboard() {
     }
   };
 
+  const handleAuditFairUsage = async (resource?: Resource | null) => {
+    setIsAuditingFairUsage(true);
+    try {
+      const targetName = resource?.name ?? (resources[0]?.name || "Clubhouse Badminton Court A");
+      const res = await automationService.auditAmenityFairUsage({
+        resourceId: resource ? String(resource.id) : undefined,
+        resourceName: targetName,
+        targetDate: todayStr(),
+        recentBookingHistory: [
+          { flatNo: "B-402", bookingsInLast7Days: 4, peakHourBookings: 3, isPeak: true, requestedSlot: "19:00 - 20:00" },
+          { flatNo: "A-101", bookingsInLast7Days: 1, peakHourBookings: 0, isPeak: false, requestedSlot: "08:00 - 09:00" },
+          { flatNo: "C-205", bookingsInLast7Days: 5, peakHourBookings: 4, isPeak: true, requestedSlot: "20:00 - 21:00" },
+        ]
+      });
+      setFairUsageResult(res);
+      setShowFairUsageModal(true);
+      toast.success("AI Fair-Usage Guard audit complete!");
+    } catch {
+      toast.error("Failed to run fair-usage audit.");
+    } finally {
+      setIsAuditingFairUsage(false);
+    }
+  };
+
+  const handleInspectDeposit = async (booking: Booking) => {
+    setIsInspectingDeposit(true);
+    try {
+      const res = await automationService.inspectAmenityDepositRelease({
+        bookingId: String(booking.id),
+        facilityName: booking.resourceName || "Multipurpose Party Hall",
+        residentFlat: "B-304",
+        residentName: "Resident Member",
+        securityDepositPaid: 5000,
+        preInspectionStatus: "Clean with minor paint scuffs",
+        postInspectionNotes: "Post-event inspection completed. Sound curfew respected, kitchen counter deep-cleaned, minor confetti cleanup required.",
+        photosCount: 4
+      });
+      setDepositInspectionResult(res);
+      setShowDepositModal(true);
+      toast.success("AI Deposit Arbitrator settlement ready!");
+    } catch {
+      toast.error("Failed to inspect deposit release.");
+    } finally {
+      setIsInspectingDeposit(false);
+    }
+  };
+
   // ---- Render ----
 
   if (error && !loading && resources.length === 0) {
@@ -325,12 +385,22 @@ export function ResourceBookingDashboard() {
   return (
     <div className="min-h-screen p-4 md:p-6 font-sans">
       {/* Header */}
-      <div className="mb-6">
-        <span className="text-xs text-primary font-bold uppercase tracking-wider">Community</span>
-        <h4 className="text-xl md:text-2xl font-black text-foreground mt-1">Resource Booking</h4>
-        <p className="text-muted-foreground text-sm mt-1">
-          Reserve amenities, rooms, and facilities for your community.
-        </p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-xs text-primary font-bold uppercase tracking-wider">Community</span>
+          <h4 className="text-xl md:text-2xl font-black text-foreground mt-1">Resource Booking</h4>
+          <p className="text-muted-foreground text-sm mt-1">
+            Reserve amenities, rooms, and facilities for your community.
+          </p>
+        </div>
+        <button
+          onClick={() => handleAuditFairUsage(selectedResource)}
+          disabled={isAuditingFairUsage}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer shadow-xs self-start sm:self-auto disabled:opacity-50"
+        >
+          <Sparkles className={`w-3.5 h-3.5 ${isAuditingFairUsage ? "animate-spin text-indigo-500" : "text-indigo-600"}`} />
+          {isAuditingFairUsage ? "Auditing Usage..." : "AI Fair-Usage Guard"}
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -407,6 +477,7 @@ export function ResourceBookingDashboard() {
           onFilterChange={setBookingFilter}
           loading={loading}
           onCancel={handleCancelBooking}
+          onInspectDeposit={handleInspectDeposit}
         />
       )}
 
@@ -432,6 +503,233 @@ export function ResourceBookingDashboard() {
           }}
           onBooked={handleBookingComplete}
         />
+      )}
+
+      {/* ── AI Fair-Usage Guard Evaluation Modal ───────────────────────────────── */}
+      {showFairUsageModal && fairUsageResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    Fair-Usage & Anti-Hoarding Guard
+                  </h3>
+                  <p className="text-[11px] text-slate-500">{fairUsageResult.resource}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFairUsageModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Verdict Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Allocation Verdict</div>
+                <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                  <span className={`w-2 h-2 rounded-full ${fairUsageResult.evaluation.fairnessVerdict === "APPROVED" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                  {fairUsageResult.evaluation.fairnessVerdict.replace(/_/g, " ")}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Fairness Score</div>
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  {fairUsageResult.evaluation.fairnessScore}%
+                </div>
+              </div>
+            </div>
+
+            {/* Quota breakdown */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="text-[10px] text-slate-500 font-bold">Weekly Slots Used</div>
+                <div className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                  {fairUsageResult.evaluation.quotaStatus.weeklyUsed} / {fairUsageResult.evaluation.quotaStatus.weeklyAllowed}
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="text-[10px] text-slate-500 font-bold">Peak-Hour Cap</div>
+                <div className={`text-xs font-black mt-1 ${fairUsageResult.evaluation.quotaStatus.peakHourLimitReached ? "text-rose-500" : "text-emerald-500"}`}>
+                  {fairUsageResult.evaluation.quotaStatus.peakHourLimitReached ? "Cap Reached" : "Available"}
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="text-[10px] text-slate-500 font-bold">Hoarding Risk</div>
+                <div className={`text-xs font-black mt-1 ${fairUsageResult.evaluation.hoardingRisk === "HIGH" ? "text-rose-500" : fairUsageResult.evaluation.hoardingRisk === "MODERATE" ? "text-amber-500" : "text-emerald-500"}`}>
+                  {fairUsageResult.evaluation.hoardingRisk}
+                </div>
+              </div>
+            </div>
+
+            {/* Restriction reason / Action */}
+            <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Autonomous Sentinel Policy</div>
+              <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">
+                {fairUsageResult.evaluation.restrictionReason || "Normal booking privileges maintained across community units."}
+              </p>
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-1">
+                Recommendation: {fairUsageResult.evaluation.recommendedAction}
+              </p>
+            </div>
+
+            {/* Resident broadcast notice */}
+            {fairUsageResult.evaluation.residentNotice && (
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold text-slate-500">Community Resident Notice:</div>
+                <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/40 text-xs text-slate-700 dark:text-slate-300 font-mono text-[11px]">
+                  {fairUsageResult.evaluation.residentNotice}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(fairUsageResult.evaluation.residentNotice);
+                  toast.success("Resident notice copied!");
+                }}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy Notice
+              </button>
+              <button
+                onClick={() => setShowFairUsageModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Deposit Inspection & Arbitrator Modal ───────────────────────────── */}
+      {showDepositModal && depositInspectionResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    Deposit Release & Inspection Settlement
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {depositInspectionResult.facility} • Flat {depositInspectionResult.flat}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDepositModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Verdict Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Arbitration Verdict</div>
+                <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                  <span className={`w-2 h-2 rounded-full ${depositInspectionResult.depositSettlement.arbitrationVerdict === "FULL_RELEASE" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
+                  {depositInspectionResult.depositSettlement.arbitrationVerdict.replace(/_/g, " ")}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Net Refund</div>
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                  ₹{depositInspectionResult.depositSettlement.netRefundAmount.toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Financials summary */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="text-[10px] text-slate-500 font-bold">Security Deposit</div>
+                <div className="text-xs font-black text-slate-900 dark:text-white mt-0.5">
+                  ₹{depositInspectionResult.depositSettlement.securityDepositOriginal.toLocaleString()}
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="text-[10px] text-slate-500 font-bold">Deductions</div>
+                <div className="text-xs font-black text-rose-500 mt-0.5">
+                  -₹{depositInspectionResult.depositSettlement.totalDeductions.toLocaleString()}
+                </div>
+              </div>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-800/40">
+                <div className="text-[10px] text-emerald-600 font-bold">Payable to Resident</div>
+                <div className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  ₹{depositInspectionResult.depositSettlement.netRefundAmount.toLocaleString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Itemized Deductions (if any) */}
+            {depositInspectionResult.depositSettlement.itemizedDeductions?.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-black text-slate-700 dark:text-slate-300">Itemized Deductions</div>
+                {depositInspectionResult.depositSettlement.itemizedDeductions.map((ded, i) => (
+                  <div key={i} className="p-2.5 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800 text-xs flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{ded.category.replace(/_/g, " ")}</span>
+                      <p className="text-[10px] text-slate-500">{ded.description}</p>
+                    </div>
+                    <span className="font-black text-rose-600 dark:text-rose-400">
+                      -₹{ded.amount.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Remarks */}
+            <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Facility Inspector Remarks</div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                {depositInspectionResult.depositSettlement.inspectorRemarks}
+              </p>
+            </div>
+
+            {/* Settlement letter */}
+            <div className="space-y-1">
+              <div className="text-[10px] font-bold text-slate-500">Official Settlement Receipt Letter:</div>
+              <div className="p-3 bg-slate-50 dark:bg-[#262644] rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-700 dark:text-slate-300 font-mono leading-relaxed whitespace-pre-line">
+                {depositInspectionResult.depositSettlement.residentSettlementLetter}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(depositInspectionResult.depositSettlement.residentSettlementLetter);
+                  toast.success("Settlement letter copied!");
+                }}
+                className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy Receipt Letter
+              </button>
+              <button
+                onClick={() => setShowDepositModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -655,12 +953,14 @@ function MyBookingsTab({
   onFilterChange,
   loading,
   onCancel,
+  onInspectDeposit,
 }: {
   bookings: Booking[];
   filter: string;
   onFilterChange: (f: string) => void;
   loading: boolean;
   onCancel: (id: number) => void;
+  onInspectDeposit?: (booking: Booking) => void;
 }) {
   return (
     <div className="max-w-3xl">
@@ -702,7 +1002,7 @@ function MyBookingsTab({
       ) : (
         <div className="space-y-3">
           {bookings.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} onCancel={onCancel} />
+            <BookingCard key={booking.id} booking={booking} onCancel={onCancel} onInspectDeposit={onInspectDeposit} />
           ))}
         </div>
       )}
@@ -713,9 +1013,11 @@ function MyBookingsTab({
 function BookingCard({
   booking,
   onCancel,
+  onInspectDeposit,
 }: {
   booking: Booking;
   onCancel: (id: number) => void;
+  onInspectDeposit?: (booking: Booking) => void;
 }) {
   const statusStyle = STATUS_STYLES[booking.status] ?? STATUS_STYLES.PENDING;
   const canCancel = booking.status === "CONFIRMED" || booking.status === "PENDING";
@@ -766,6 +1068,16 @@ function BookingCard({
           </span>
 
           <div className="flex items-center gap-1">
+            {onInspectDeposit && (
+              <button
+                onClick={() => onInspectDeposit(booking)}
+                className="p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg transition-colors cursor-pointer"
+                title="AI Deposit & Inspection Arbitrator"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             {(booking.status === "CONFIRMED" || booking.status === "CHECKED_IN") && (
               <button
                 className="p-1.5 hover:bg-muted rounded-lg transition-colors cursor-pointer"
@@ -1056,6 +1368,7 @@ function BookingModal({
         numberOfGuests: guests > 0 ? guests : undefined,
         couponCode: couponCode.trim() || undefined,
       });
+      analyticsService.track("booking_created", { module: "amenity_booking", paid: isPaidResource });
       if (isPaidResource) {
         setCreatedBookingId(booking.id);
         setStep(4);
@@ -1063,6 +1376,7 @@ function BookingModal({
         onBooked();
       }
     } catch (err: unknown) {
+      analyticsService.track("booking_failed", { module: "amenity_booking" });
       const msg = err instanceof Error ? err.message : "Failed to create booking";
       setError(msg);
     } finally {

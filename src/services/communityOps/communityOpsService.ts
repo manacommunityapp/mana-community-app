@@ -12,6 +12,31 @@ export type WatchlistType = 'PERSON' | 'VEHICLE';
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'ON_LEAVE';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const PassType = {};
+export const PassStatus = {};
+export const ParcelStatus = {};
+export const MoveType = {};
+export const MoveStatus = {};
+export const AssetCategory = {};
+export const AssetStatus = {};
+export const WatchlistSeverity = {};
+export const WatchlistType = {};
+export const AttendanceStatus = {};
+export const LeaveStatus = {};
+export const OpsControlRoomSummary = {};
+export const StaffAttendanceDto = {};
+export const LeaveRequestDto = {};
+export const DigitalPassDto = {};
+export const ParcelDto = {};
+export const ChecklistItem = {};
+export const MoveRequestDto = {};
+export const AssetDto = {};
+export const MaintenanceLogDto = {};
+export const WatchlistEntryDto = {};
+export const WatchlistCheckResult = {};
+export const MonthlyReport = {};
+
 export interface OpsControlRoomSummary {
   staffOnDuty: number;
   pendingParcels: number;
@@ -230,4 +255,5 @@ const communityOpsService = {
     apiClient.get<MonthlyReport>(`/ops/reports/monthly?year=${year}&month=${month}`),
 };
 
+export { communityOpsService };
 export default communityOpsService;

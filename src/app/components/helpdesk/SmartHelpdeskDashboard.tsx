@@ -10,6 +10,7 @@ import {
   UserCheck,
   Zap,
   Sparkles,
+  Loader2,
   Flame,
   ArrowRight,
   Star,
@@ -39,6 +40,11 @@ import {
   type ClassificationResult,
 } from "../../../services/helpdesk/helpdeskSmartService";
 import { useAuth } from "../../../contexts/AuthContext";
+import {
+  automationService,
+  type TicketTriageResponse,
+} from "../../../services/automation/automationService";
+
 
 const PRIORITY_BADGES: Record<TicketPriority, { label: string; className: string }> = {
   EMERGENCY: { label: "EMERGENCY", className: "bg-red-600 text-white animate-pulse" },
@@ -57,6 +63,31 @@ const STATUS_COLORS: Record<TicketStatus, string> = {
 };
 
 export function SmartHelpdeskDashboard() {
+  // AI Triage & Backlog Audit State
+  const [isTriaging, setIsTriaging] = useState(false);
+  const [triageResult, setTriageResult] = useState<TicketTriageResponse | null>(null);
+  const [showTriageModal, setShowTriageModal] = useState(false);
+
+  const handleAiTriageAudit = async () => {
+    try {
+      setIsTriaging(true);
+      const res = await automationService.triageTicket({
+        ticketId: 'TCK-SLA-REVIEW-01',
+        title: 'Master Water Line Low Pressure & Lift Sump Ingress',
+        description: 'Persistent low pressure reported across Tower C top floors and water seepage detected in lift motor room basement.',
+        category: 'Plumbing & Water Supply',
+        location: 'Tower C / Sump Room B2',
+        priority: 'HIGH',
+      });
+      setTriageResult(res);
+      setShowTriageModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Ticket triage audit failed');
+    } finally {
+      setIsTriaging(false);
+    }
+  };
+
   const { user } = useAuth();
   const [tickets, setTickets] = useState<SmartTicket[]>([]);
   const [activeTab, setActiveTab] = useState("my-tickets");

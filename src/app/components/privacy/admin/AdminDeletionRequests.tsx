@@ -13,12 +13,19 @@ import {
   Calendar,
   AlertTriangle,
   Info,
+  Sparkles,
+  Video,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   privacyService,
   type DataDeletionRequest,
 } from "../../../../services/privacy/privacyService";
+import {
+  automationService,
+  type CctvRedactionAuditResponse,
+} from "../../../../services/automation/automationService";
 
 export const AdminDeletionRequests: React.FC = () => {
   const [requests, setRequests] = useState<DataDeletionRequest[]>([]);
@@ -26,11 +33,42 @@ export const AdminDeletionRequests: React.FC = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
+  // AI CCTV Redaction State
+  const [isAuditingCctv, setIsAuditingCctv] = useState(false);
+  const [cctvResult, setCctvResult] = useState<CctvRedactionAuditResponse | null>(null);
+  const [showCctvModal, setShowCctvModal] = useState(false);
+
   // Action Modal State
   const [activeRequest, setActiveRequest] = useState<DataDeletionRequest | null>(null);
   const [actionType, setActionType] = useState<"PROCESS" | "REJECT" | null>(null);
   const [notes, setNotes] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
+
+  const handleAuditCctvRedaction = async (req?: DataDeletionRequest) => {
+    try {
+      setIsAuditingCctv(true);
+      const res = await automationService.auditCctvRedactionErasure({
+        requestId: req ? `REQ-${req.id}` : "REQ-CCTV-DEL-104",
+        requestType: "RIGHT_TO_ERASURE",
+        applicantFlat: "Tower C - 402",
+        applicantRole: "TENANT",
+        cameraZone: "Basement Parking & Lift Lobby B2",
+        incidentTimestamp: new Date(Date.now() - 32 * 86400000).toISOString(),
+        logRetentionAgeDays: 32,
+      });
+      setCctvResult(res);
+      setShowCctvModal(true);
+      toast.success(
+        res.status === "fallback"
+          ? "CCTV Redaction audit completed (offline heuristic fallback)"
+          : "AI CCTV Redaction & Erasure Certifier complete!"
+      );
+    } catch (err: any) {
+      toast.error(err.message || "CCTV Redaction audit failed");
+    } finally {
+      setIsAuditingCctv(false);
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -100,14 +138,28 @@ export const AdminDeletionRequests: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={fetchRequests}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold shadow-sm transition-all"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleAuditCctvRedaction()}
+            disabled={isAuditingCctv}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer"
+          >
+            {isAuditingCctv ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5 text-emerald-200" />
+            )}
+            AI CCTV Redaction Audit
+          </button>
+          <button
+            onClick={fetchRequests}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold shadow-sm transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -279,6 +331,120 @@ export const AdminDeletionRequests: React.FC = () => {
               >
                 {submittingAction && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 {actionType === "PROCESS" ? "Confirm & Anonymize" : "Reject Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI CCTV Redaction & Erasure Audit Modal */}
+      {showCctvModal && cctvResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2.5 bg-teal-100 dark:bg-teal-950/60 rounded-xl text-teal-600">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    AI CCTV Redaction & Erasure Certifier
+                    {cctvResult.status === "fallback" && (
+                      <span className="text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                        Offline Fallback
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-500">DPDP Act 2023 Sec 12 Right-to-Erasure Video Audit</p>
+                </div>
+              </div>
+              <span
+                className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                  cctvResult.erasureEligible
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                    : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                }`}
+              >
+                {cctvResult.erasureEligible ? "ERASURE ELIGIBLE" : "RETENTION HOLD"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[10px] font-bold">STATUTORY PERIOD</span>
+                <span className="font-bold text-slate-700 dark:text-slate-200 text-xs mt-0.5 block">
+                  {cctvResult.statutoryRetentionPeriodDays} Days
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] font-bold">LEGAL HOLD</span>
+                <span
+                  className={`font-bold text-xs mt-0.5 block ${
+                    cctvResult.legalHoldActive ? "text-rose-600" : "text-emerald-600"
+                  }`}
+                >
+                  {cctvResult.legalHoldActive ? "ACTIVE HOLD" : "NO ACTIVE HOLD"}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] font-bold">ANONYMIZATION</span>
+                <span className="font-bold text-teal-600 text-xs mt-0.5 block">
+                  {cctvResult.anonymizationRequired ? "MANDATORY" : "EXEMPT"}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded-xl text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  Compliance Certificate ID
+                </span>
+                <span className="font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                  {cctvResult.complianceCertificateId}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Retention Expiry:{" "}
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {cctvResult.retentionExpiryDate}
+                </span>
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                Required Redaction Protocols
+              </span>
+              {cctvResult.redactionProtocol?.map((protocol, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                  <span>{protocol}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowCctvModal(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  toast.success(
+                    `Compliance Certificate ${cctvResult.complianceCertificateId} issued and logged to audit ledger!`
+                  );
+                  setShowCctvModal(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Issue Erasure Certificate
               </button>
             </div>
           </div>

@@ -280,7 +280,7 @@ export function getTournamentLifecycleStatus(
     return "MATCHES_RUNNING";
   }
   if (matchDateStatus.status === "RUNNING") {
-    return "TOURNAMENT_IN_PROGRESS";
+    return "MATCHES_RUNNING";
   }
 
   // 4. Registration dates evaluation (before matches start)
@@ -327,15 +327,8 @@ export function mapTournamentToAlert(
 ): AlertTickerItem | null {
   const lifecycle = getTournamentLifecycleStatus(t, now);
 
-  // Keep tournament ticker entries focused on registration actions and short-lived
-  // closure notices. Other lifecycle information belongs in the schedule view.
-  if (lifecycle !== "REGISTRATION_OPEN" && lifecycle !== "REGISTRATION_CLOSED") {
+  if (lifecycle === "COMPLETED" || lifecycle === "CANCELLED" || lifecycle === "DRAFT") {
     return null;
-  }
-  if (lifecycle === "REGISTRATION_CLOSED") {
-    const closedAt = getRegistrationClosedAt(t);
-    const elapsedSinceClose = closedAt ? now.getTime() - closedAt.getTime() : Number.POSITIVE_INFINITY;
-    if (elapsedSinceClose < 0 || elapsedSinceClose > REGISTRATION_CLOSED_NOTICE_MS) return null;
   }
 
   const location = t.venueName || (t.venue as any)?.name || "";
@@ -351,11 +344,31 @@ export function mapTournamentToAlert(
   let status: AlertTickerItem["status"] = "UPCOMING";
 
   switch (lifecycle) {
+    case "MATCHES_RUNNING":
+    case "TOURNAMENT_IN_PROGRESS":
+      prefix = "🏆 [Matches Running] ";
+      actionUrl = "/sports/schedule";
+      status = "RUNNING";
+      if (eventEndFormatted) {
+        dateText = ` • Ends ${eventEndFormatted}`;
+      }
+      break;
+
     case "REGISTRATION_CLOSED":
       prefix = "🏆 [Registration Closed] ";
       actionUrl = "/sports/tournaments";
       if (eventStartFormatted) {
         dateText = ` • Matches start ${eventStartFormatted}`;
+      }
+      break;
+
+    case "UPCOMING":
+      prefix = "🏆 [Upcoming Tournament] ";
+      actionUrl = "/sports/tournaments";
+      if (regStartFormatted) {
+        dateText = ` • Reg opens ${regStartFormatted}`;
+      } else if (eventStartFormatted) {
+        dateText = ` • Starts ${eventStartFormatted}`;
       }
       break;
 

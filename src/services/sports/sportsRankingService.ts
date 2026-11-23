@@ -1,6 +1,8 @@
 import { apiClient } from "../common/apiClient";
 import type { SportsPlayerRanking, SportsPlayerRankingRequest } from "../../types/api";
 
+export type { SportsPlayerRanking, SportsPlayerRankingRequest };
+
 export const sportsRankingService = {
   async list(sportId: number, communityId: number, season = "CURRENT"): Promise<SportsPlayerRanking[]> {
     return apiClient.get<SportsPlayerRanking[]>(

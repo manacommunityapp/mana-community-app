@@ -10,6 +10,11 @@ export type CalendarType =
   | "STAFF_SCHEDULE"
   | "TRIP_EVENT_CALENDAR";
 
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const CalendarType = {};
+export const CalendarEventDto = {};
+export const PersonalEventRequest = {};
+
 export interface CalendarEventDto {
   id: string;
   title: string;
@@ -72,3 +77,5 @@ export const calendarService = {
     return `/api/calendar/ics?${params}`;
   },
 };
+
+export default calendarService;

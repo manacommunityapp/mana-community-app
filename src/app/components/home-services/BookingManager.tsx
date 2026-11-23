@@ -19,7 +19,7 @@ export default function BookingManager() {
   const [packages, setPackages] = useState<HsServicePackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ category: 'PLUMBING', bookingType: 'SCHEDULED', description: '', flatNumber: '', scheduledAt: '' });
+  const [form, setForm] = useState({ category: 'PLUMBING', bookingType: 'SCHEDULED' as 'SCHEDULED' | 'INSTANT', description: '', flatNumber: '', scheduledAt: '' });
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -37,7 +37,7 @@ export default function BookingManager() {
     try {
       await homeServicesService.createBooking(form);
       setShowForm(false);
-      setForm({ category: 'PLUMBING', bookingType: 'SCHEDULED', description: '', flatNumber: '', scheduledAt: '' });
+      setForm({ category: 'PLUMBING', bookingType: 'SCHEDULED' as 'SCHEDULED' | 'INSTANT', description: '', flatNumber: '', scheduledAt: '' });
       load();
     } catch { setError('Failed to create booking'); }
   };
@@ -63,7 +63,7 @@ export default function BookingManager() {
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6 }}>
               {CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
-            <select value={form.bookingType} onChange={e => setForm(f => ({ ...f, bookingType: e.target.value }))} style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6 }}>
+            <select value={form.bookingType} onChange={e => setForm(f => ({ ...f, bookingType: e.target.value as "SCHEDULED" | "INSTANT" }))} style={{ padding: 8, border: '1px solid #cbd5e1', borderRadius: 6 }}>
               <option value="SCHEDULED">Scheduled</option>
               <option value="INSTANT">Instant</option>
             </select>

@@ -2,7 +2,7 @@ import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
   Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
-  Trash2, QrCode
+  Trash2, QrCode, ShieldCheck
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
@@ -708,13 +708,22 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               <Key className="w-5 h-5 text-indigo-500" />
               Verify Visitor Pass (QR / OTP / Phone)
             </h2>
-            <button
-              onClick={() => setShowWalkInForm(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Register Walk-In
-            </button>
+            <div className="flex items-center gap-2">
+              <a
+                href="/guard/handover"
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl border border-amber-200 cursor-pointer transition"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                Shift Handover
+              </a>
+              <button
+                onClick={() => setShowWalkInForm(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Register Walk-In
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleVerify} className="flex gap-2">
@@ -1510,7 +1519,8 @@ interface InvitationProps {
 function InvitationModal({ pass, onClose }: InvitationProps) {
   const [copied, setCopied] = useState(false);
 
-  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${pass.otp}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
+  const otpCode = pass.otpOnCreation || pass.otp || "—";
+  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${otpCode}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(invitationText);
@@ -1564,7 +1574,7 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
 
           <div className="border-t border-slate-200/80 pt-4">
             <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry OTP (6-digits)</div>
-            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{pass.otp}</div>
+            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{otpCode}</div>
           </div>
         </div>
 

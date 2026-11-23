@@ -12,6 +12,11 @@ export type SearchModule =
   | 'TRIP' | 'RIDE'
   | 'JOB' | 'PROFESSIONAL_SERVICE';
 
+// Runtime constants for bundler/Babel compatibility when imported as values
+export const SearchModule = {};
+export const SearchResultDto = {};
+export const SearchResponse = {};
+
 export interface SearchResultDto {
   id: string;
   module: SearchModule;
@@ -49,3 +54,5 @@ export const searchService = {
     return apiClient.get<SearchResponse>(`/search?${qs.toString()}`);
   },
 };
+
+export default searchService;

@@ -16,6 +16,7 @@ import type {
   DoctorReview,
   AppointmentSlot
 } from "../../../types/health";
+import { sanitizeHref } from "../../../utils/sanitize";
 
 interface HealthcareDirectoryProps {
   onBookAppointment?: (doctor: DoctorDto) => void;
@@ -706,7 +707,7 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
                 <div className="flex gap-2">
                   {(provider as any).mapsUrl && (
                     <a
-                      href={(provider as any).mapsUrl}
+                      href={sanitizeHref((provider as any).mapsUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 font-bold py-2.5 px-3 rounded-xl transition text-xs flex items-center justify-center"

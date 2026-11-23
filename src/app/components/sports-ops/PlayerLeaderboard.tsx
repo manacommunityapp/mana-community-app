@@ -50,7 +50,7 @@ export default function PlayerLeaderboard() {
 
   useEffect(() => {
     sportsOpsService.listAllRatings()
-      .then(r => setRatings(r.data))
+      .then(r => setRatings((r as any)?.data ?? r))
       .catch(() => setError('Failed to load ratings'))
       .finally(() => setLoading(false));
   }, []);

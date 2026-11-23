@@ -44,7 +44,7 @@ export const manaPayService = {
    * Payment status is determined solely by the backend — never fabricated client-side.
    * Throws on backend failure so the caller can surface it to the user.
    */
-  async confirmPayment(req: ConfirmManaPaymentRequest): Promise<ManaPaymentRecord> {
+  async confirmPayment(req: ConfirmManaPaymentRequest, _fallbackDetails?: Partial<ManaPaymentRecord>): Promise<ManaPaymentRecord> {
     return apiClient.post<ManaPaymentRecord>(`/payments/intents/${req.intentId}/confirm`, {
       gatewayPaymentId: req.gatewayPaymentId,
       gatewayOrderId: req.gatewayOrderId,

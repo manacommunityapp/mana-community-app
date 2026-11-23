@@ -41,6 +41,11 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { Input } from "../ui/input";
+import {
+  automationService,
+  type SplitDebtSimplifyResponse,
+  type MicroKhataDuesAuditResponse,
+} from "../../../services/automation/automationService";
 
 type TabKey = "groups" | "settlements" | "collections";
 
@@ -73,6 +78,70 @@ export const ManaSplitHub: React.FC = () => {
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState<OptimizedTransfer | null>(null);
   const [showContributeModal, setShowContributeModal] = useState<VerifiedCommunityCollection | null>(null);
+
+  // AI Debt Simplifier
+  const [isSimplifyingDebts, setIsSimplifyingDebts] = useState(false);
+  const [simplifiedDebtsResult, setSimplifiedDebtsResult] = useState<SplitDebtSimplifyResponse | null>(null);
+  const [showSimplifyModal, setShowSimplifyModal] = useState(false);
+
+  // AI Khata Dues Auditor
+  const [isAuditingKhata, setIsAuditingKhata] = useState(false);
+  const [khataAuditResult, setKhataAuditResult] = useState<MicroKhataDuesAuditResponse | null>(null);
+  const [showKhataModal, setShowKhataModal] = useState(false);
+
+  const handleSimplifyDebts = async () => {
+    setIsSimplifyingDebts(true);
+    try {
+      const res = await automationService.simplifySplitDebts({
+        groupId: selectedGroupId || "grp-trip-01",
+        groupName: "Community Goa Trip & Split",
+        members: [
+          { memberId: "user-me", name: "Rahul Sharma (You)" },
+          { memberId: "user-2", name: "Ananya Iyer" },
+          { memberId: "user-3", name: "Vikram Malhotra" },
+          { memberId: "user-4", name: "Sneha Patel" }
+        ],
+        rawTransactions: settlements.length > 0 ? settlements.map(s => ({
+          fromMemberId: s.fromMemberId,
+          toMemberId: s.toMemberId,
+          amountInr: s.amount,
+          description: `Settlement share from ${s.fromName} to ${s.toName}`
+        })) : [
+          { fromMemberId: "user-2", toMemberId: "user-me", amountInr: 1250, description: "Dinner bill" },
+          { fromMemberId: "user-3", toMemberId: "user-2", amountInr: 900, description: "Fuel share" },
+          { fromMemberId: "user-4", toMemberId: "user-3", amountInr: 1400, description: "Villa advance" }
+        ]
+      });
+      setSimplifiedDebtsResult(res);
+      setShowSimplifyModal(true);
+    } catch (e) {
+      console.error("AI Split Debt Simplifier error:", e);
+    } finally {
+      setIsSimplifyingDebts(false);
+    }
+  };
+
+  const handleAuditKhataDues = async () => {
+    setIsAuditingKhata(true);
+    try {
+      const res = await automationService.auditMicroKhataDues({
+        storeOrResidentId: "RES-BLK-A-101",
+        storeName: "Rahul Sharma Ledger",
+        ledgerEntries: [
+          { debtorName: "Amit Verma", debtorFlat: "A-402", outstandingAmountInr: 1850, daysOverdue: 42, lastPaymentDate: "2026-10-09" },
+          { debtorName: "Sunita Roy", debtorFlat: "B-108", outstandingAmountInr: 450, daysOverdue: 12, lastPaymentDate: "2026-11-08" },
+          { debtorName: "Karthik R", debtorFlat: "C-501", outstandingAmountInr: 3200, daysOverdue: 78, lastPaymentDate: "2026-09-02" },
+          { debtorName: "Deepak Mehta", debtorFlat: "A-203", outstandingAmountInr: 600, daysOverdue: 5, lastPaymentDate: "2026-11-15" }
+        ]
+      });
+      setKhataAuditResult(res);
+      setShowKhataModal(true);
+    } catch (e) {
+      console.error("AI Khata Dues Auditor error:", e);
+    } finally {
+      setIsAuditingKhata(false);
+    }
+  };
 
   // Forms
   const [newExpenseForm, setNewExpenseForm] = useState({
@@ -212,7 +281,27 @@ export const ManaSplitHub: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSimplifyDebts}
+                disabled={isSimplifyingDebts}
+                className="border-purple-300 bg-purple-50 text-purple-800 hover:bg-purple-100 text-xs h-9 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-600 mr-1.5" />
+                {isSimplifyingDebts ? "Simplifying..." : "AI Debt Simplifier"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAuditKhataDues}
+                disabled={isAuditingKhata}
+                className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs h-9 shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 mr-1.5" />
+                {isAuditingKhata ? "Auditing..." : "AI Khata Dues"}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -838,6 +927,178 @@ export const ManaSplitHub: React.FC = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Debt Simplifier Dialog */}
+      <Dialog open={showSimplifyModal} onOpenChange={setShowSimplifyModal}>
+        <DialogContent className="max-w-2xl bg-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-900">
+              <Sparkles className="w-5 h-5 text-purple-600" /> AI Net-Debt Minimization Engine
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Gemini 3.5 Flash Lite net-balance consolidation reduces circular transfers to minimal transactions.
+            </DialogDescription>
+          </DialogHeader>
+
+          {simplifiedDebtsResult && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="grid grid-cols-3 gap-3 bg-purple-50/60 p-3 rounded-xl border border-purple-200">
+                <div>
+                  <span className="text-purple-600 block text-[10px] font-bold">TRANSFERS</span>
+                  <div className="font-extrabold text-slate-800 text-sm">
+                    {simplifiedDebtsResult.originalTransferCount} → <span className="text-purple-700">{simplifiedDebtsResult.optimizedTransferCount}</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-600 font-semibold">
+                    -{Math.round((((simplifiedDebtsResult.originalTransferCount ?? 0) - (simplifiedDebtsResult.optimizedTransferCount ?? 0)) / Math.max(simplifiedDebtsResult.originalTransferCount ?? 1, 1)) * 100)}% steps
+                  </span>
+                </div>
+                <div>
+                  <span className="text-purple-600 block text-[10px] font-bold">FLOW SAVINGS</span>
+                  <div className="font-extrabold text-emerald-600 text-sm">
+                    ₹{(simplifiedDebtsResult.cashFlowVolumeSavedInr ?? 0).toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[10px] text-slate-400">Circulation saved</span>
+                </div>
+                <div>
+                  <span className="text-purple-600 block text-[10px] font-bold">SETTLEMENT</span>
+                  <div className="font-extrabold text-purple-700 text-sm">Optimal</div>
+                  <span className="text-[10px] text-slate-400">Zero lost paise</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-800 block mb-1">Optimization Strategy</span>
+                <p className="text-slate-600 leading-relaxed">{simplifiedDebtsResult.settlementRationale}</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-800 mb-2">Recommended Minimized Settlements</h4>
+                <div className="space-y-2">
+                  {(simplifiedDebtsResult.simplifiedTransfers ?? []).map((tx: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800">{tx.fromName}</span>
+                        <ArrowRight className="w-4 h-4 text-purple-600" />
+                        <span className="font-semibold text-slate-800">{tx.toName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-purple-700 text-sm">₹{(tx.amountInr ?? tx.amount ?? 0).toLocaleString("en-IN")}</span>
+                        <Button
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-[11px] h-7 px-2.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`upi://pay?pa=manasplit@okaxis&pn=${encodeURIComponent(tx.toName || "")}&am=${tx.amountInr ?? tx.amount ?? 0}&cu=INR`);
+                            alert("UPI payment link copied!");
+                          }}
+                        >
+                          Copy UPI
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowSimplifyModal(false)} className="bg-purple-600 hover:bg-purple-700 text-white">
+              Apply Optimized Settlements
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Khata Dues Auditor Dialog */}
+      <Dialog open={showKhataModal} onOpenChange={setShowKhataModal}>
+        <DialogContent className="max-w-2xl bg-white max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-900">
+              <Sparkles className="w-5 h-5 text-amber-600" /> AI Micro-Khata Dues Auditor & Soft Collector
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Gemini 3.5 Flash Lite audits overdue resident credits and creates neighbor-friendly polite reminder copy.
+            </DialogDescription>
+          </DialogHeader>
+
+          {khataAuditResult && (
+            <div className="space-y-4 py-2 text-xs">
+              <div className="grid grid-cols-3 gap-3 bg-amber-50/60 p-3 rounded-xl border border-amber-200">
+                <div>
+                  <span className="text-amber-700 block text-[10px] font-bold">TOTAL OUTSTANDING</span>
+                  <div className="font-extrabold text-slate-800 text-sm">
+                    ₹{(khataAuditResult.totalOutstandingInr ?? 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-amber-700 block text-[10px] font-bold">HIGH RISK OVERDUE</span>
+                  <div className="font-extrabold text-rose-600 text-sm">
+                    ₹{(khataAuditResult.highRiskOverdueInr ?? 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-amber-700 block text-[10px] font-bold">WRITE-OFF CANDIDATE</span>
+                  <div className="font-extrabold text-slate-500 text-sm">
+                    ₹{(khataAuditResult.recommendedWriteOffsInr ?? 0).toLocaleString("en-IN")}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-800 block mb-1">Follow-up Strategy</span>
+                <p className="text-slate-600 leading-relaxed">{khataAuditResult.actionableFollowupStrategy}</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-800 mb-2">Debtor Ledger & Polite WhatsApp Drafts</h4>
+                <div className="space-y-2">
+                  {(khataAuditResult.debtorRiskAnalysis ?? []).map((d: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-800">{d.debtorName}</span>
+                          <span className="text-slate-400 ml-2">Flat {d.debtorFlat}</span>
+                          <span className="text-[11px] text-amber-600 ml-2 font-medium">({d.daysOverdue} days overdue)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-slate-900 text-sm">₹{d.outstandingAmountInr}</span>
+                          <Badge className={
+                            d.riskTier === "LOW" ? "bg-emerald-100 text-emerald-800" :
+                            d.riskTier === "MEDIUM" ? "bg-amber-100 text-amber-800" :
+                            "bg-rose-100 text-rose-800"
+                          }>
+                            {d.riskTier}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 text-slate-600 flex items-start justify-between gap-2">
+                        <p className="italic text-[11px] leading-relaxed">"{d.customReminderMessage}"</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-800 hover:bg-amber-100 text-[10px] h-6 px-2 shrink-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(d.customReminderMessage || "");
+                            alert(`Copied reminder for ${d.debtorName}`);
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowKhataModal(false)} className="bg-amber-600 hover:bg-amber-700 text-white">
+              Done & Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

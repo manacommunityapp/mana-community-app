@@ -50,7 +50,7 @@ export const resourceBookingService = {
 
   // ── Bookings ──
   async createBooking(data: ResourceBookingRequest): Promise<ResourceBookingResponse> {
-    return apiClient.post<ResourceBookingResponse>("/resource-booking/bookings", data);
+    return apiClient.queuedPost<ResourceBookingResponse>("/resource-booking/bookings", data, ["booking"]);
   },
   async getMyBookings(status?: string): Promise<ResourceBookingResponse[]> {
     const params = status ? `?status=${status}` : "";

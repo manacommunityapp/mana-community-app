@@ -22,7 +22,18 @@ import {
   BookOpen,
   UserPlus,
   Activity,
+  ArrowUpRight,
+  Building2,
+  CalendarCheck,
+  CircleDollarSign,
+  ClipboardList,
+  DoorOpen,
+  HeartHandshake,
+  Landmark,
+  Shield,
+  Sofa,
 } from "lucide-react";
+import { Link } from "react-router";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -105,17 +116,13 @@ function formatActivityTime(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
+function formatCommunityMoney(value: number | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
+}
+
 export function AdminDashboard() {
-  const { isAnyAdmin } = useAuth();
-
-  if (!isAnyAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-slate-500 font-medium">Access Denied. Administrative privileges required.</p>
-      </div>
-    );
-  }
-
+  const { isAnyAdmin, isSuperAdmin } = useAuth();
   const [dashStats, setDashStats] = useState<AdminDashboardStats | null>(null);
   const [dashLoading, setDashLoading] = useState(true);
 
@@ -126,12 +133,15 @@ export function AdminDashboard() {
   const [kycStats, setKycStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
 
   useEffect(() => {
+    if (!isAnyAdmin) return;
+    let active = true;
     dashboardService
       .getAdminStats()
-      .then(setDashStats)
+      .then((stats) => { if (active) setDashStats(stats); })
       .catch(() => {})
-      .finally(() => setDashLoading(false));
-  }, []);
+      .finally(() => { if (active) setDashLoading(false); });
+    return () => { active = false; };
+  }, [isAnyAdmin]);
 
   const fetchApplications = useCallback(async () => {
     try {
@@ -180,8 +190,11 @@ export function AdminDashboard() {
   }, [filterStatus]);
 
   useEffect(() => {
-    fetchApplications();
-  }, [fetchApplications]);
+    if (!isAnyAdmin) return;
+    let active = true;
+    queueMicrotask(() => { if (active) void fetchApplications(); });
+    return () => { active = false; };
+  }, [fetchApplications, isAnyAdmin]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -189,8 +202,8 @@ export function AdminDashboard() {
       toast.success("Application approved successfully");
       fetchApplications();
       setSelectedApp(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to approve application");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve application");
     }
   };
 
@@ -200,13 +213,76 @@ export function AdminDashboard() {
       toast.error("Application rejected");
       fetchApplications();
       setSelectedApp(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to reject application");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject application");
     }
   };
 
+  if (!isAnyAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-slate-500 font-medium">Access Denied. Administrative privileges required.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3.5 sm:space-y-4">
+      {/* Apartment operations command center */}
+      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-2xs">
+        <div className="flex flex-col gap-4 bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-700 p-5 text-white sm:flex-row sm:items-end sm:justify-between sm:p-6">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-white/75">
+              <Building2 className="h-4 w-4" /> APARTMENT OPERATIONS
+            </div>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Community Admin Dashboard</h1>
+            <p className="mt-1 max-w-2xl text-sm text-white/80">Manage residents, services, finances, facilities and community life from one place.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/cpos/residents" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold transition hover:bg-white/25">
+              <Users className="h-4 w-4" /> Residents &amp; access
+            </Link>
+            <Link to="/finance/maintenance" className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50">
+              <CircleDollarSign className="h-4 w-4" /> Maintenance dues
+            </Link>
+            <Link to="/finance/budget" className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold transition hover:bg-white/25">
+              <Landmark className="h-4 w-4" /> Budgets
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 sm:gap-3 sm:p-4 lg:grid-cols-5">
+          {[
+            { title: "Residents & verification", detail: "Resident registry and identity checks", metric: dashStats?.residentCount != null ? `${dashStats.residentCount} residents` : "Resident directory", icon: Users, href: "/cpos/residents", tone: "text-violet-600 bg-violet-500/10" },
+            { title: "Ownership registry", detail: "Unit owners and ownership records", metric: dashStats?.ownerCount != null ? `${dashStats.ownerCount} owners` : "View ownership", icon: Building2, href: "/cpos/ownership", tone: "text-blue-600 bg-blue-500/10" },
+            { title: "Tenant occupancy", detail: "Tenant records, leases and unit occupancy", metric: dashStats?.tenantCount != null ? `${dashStats.tenantCount} tenants` : "Manage occupancy", icon: Building2, href: "/cpos/occupancy", tone: "text-indigo-600 bg-indigo-500/10" },
+            { title: "Maintenance collection", detail: "Invoices, collections and receipts", metric: dashStats?.maintenanceCollectedThisMonthAmount != null ? `${formatCommunityMoney(dashStats.maintenanceCollectedThisMonthAmount)} collected this month` : "Open billing", icon: CircleDollarSign, href: "/finance/maintenance", tone: "text-emerald-600 bg-emerald-500/10" },
+            { title: "Outstanding dues", detail: "Unpaid invoices and account follow-up", metric: dashStats?.outstandingInvoiceCount != null ? `${dashStats.outstandingInvoiceCount} invoices · ${formatCommunityMoney(dashStats.outstandingDuesAmount)}` : "View dues", icon: Landmark, href: "/finance/billing", tone: "text-amber-600 bg-amber-500/10" },
+            { title: "Visitors & security", detail: "Gate entries, guards and access", metric: dashStats ? `${dashStats.activeVisitorsCount} checked in · ${dashStats.expectedVisitorsTodayCount ?? 0} expected today` : "Gate management", icon: Shield, href: "/visitors", tone: "text-sky-600 bg-sky-500/10" },
+            { title: "Helpdesk & SLA", detail: "Tickets, priorities and resolution", metric: dashStats ? `${dashStats.openTicketsCount} open · ${dashStats.slaBreachedTicketsCount ?? "—"} SLA breached` : "Ticket queue", icon: ClipboardList, href: "/helpdesk", tone: "text-rose-600 bg-rose-500/10" },
+            { title: "Event attendance", detail: "Registrations, attendee lists and check-in", metric: dashStats?.eventAttendanceCount != null ? `${dashStats.eventAttendanceCount} registered attendees` : "Attendance workspace", icon: CalendarCheck, href: "/events/people", tone: "text-fuchsia-600 bg-fuchsia-500/10" },
+            { title: "Facility utilization", detail: "Booked facility hours against scheduled hours this month", metric: dashStats?.facilityUtilizationPercent != null ? `${dashStats.facilityUtilizationPercent.toFixed(1)}% utilized · ${dashStats.monthlyFacilityBookingsCount ?? 0} bookings MTD` : dashStats ? "No published opening schedules" : "Facility management", icon: Sofa, href: "/community/resource-booking", tone: "text-cyan-600 bg-cyan-500/10" },
+            { title: "Vendor contracts", detail: "Contract terms, renewals and signatures", metric: dashStats?.activeVendorContractsCount != null ? `${dashStats.activeVendorContractsCount} active · ${dashStats.contractsExpiringWithin30DaysCount ?? "—"} renew soon` : dashStats ? `${dashStats.activeVendorsCount} active vendors` : "Contract management", icon: DoorOpen, href: "/vendor-admin/contracts", tone: "text-orange-600 bg-orange-500/10" },
+            { title: "Expenses & budgets", detail: "Expense approvals and budget health", metric: dashStats?.currentFinancialYearBudgetAmount != null ? `${dashStats.pendingExpensesCount} pending · ${formatCommunityMoney(dashStats.currentFinancialYearSpentAmount)} / ${formatCommunityMoney(dashStats.currentFinancialYearBudgetAmount)}` : dashStats ? `${dashStats.pendingExpensesCount} pending approvals` : "Finance workspace", icon: CircleDollarSign, href: "/finance/expenses", tone: "text-lime-700 bg-lime-500/10" },
+            { title: "Community engagement", detail: "Notices, conversations and feedback", metric: dashStats?.communityPostsLast30DaysCount != null ? `${dashStats.communityPostsLast30DaysCount} posts in 30 days` : dashStats ? `${dashStats.activeNoticesCount} active notices` : "Community feed", icon: HeartHandshake, href: "/feed", tone: "text-pink-600 bg-pink-500/10" },
+          ].map(({ title, detail, metric, icon: Icon, href, tone }) => (
+            <Link key={title} to={href} className="group rounded-xl border border-border/70 bg-background p-3 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${tone}`}><Icon className="h-4 w-4" /></span>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground/60 transition group-hover:text-primary" />
+              </div>
+              <h2 className="text-xs font-bold leading-tight text-foreground">{title}</h2>
+              <p className="mt-1 min-h-8 text-[10px] leading-snug text-muted-foreground">{detail}</p>
+              <p className="mt-2 truncate text-[10px] font-semibold text-primary">{metric}</p>
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 bg-muted/20 px-4 py-2.5 text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><Activity className="h-3.5 w-3.5 text-emerald-600" /> Live counts reflect connected community modules</span>
+          <Link to="/admin/operations" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">Open platform health <ArrowUpRight className="h-3 w-3" /></Link>
+        </div>
+      </section>
+
       {/* ── Community Overview Stats ── */}
       <div className="flex items-center gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
@@ -238,8 +314,8 @@ export function AdminDashboard() {
             <StatCard label="Content Reports" value={dashStats.pendingContentReportsCount} icon={Flag} color="danger" />
             <StatCard label="Active Events" value={dashStats.activeEventsCount} icon={CalendarDays} color="primary" />
             <StatCard label="Active Notices" value={dashStats.activeNoticesCount} icon={Megaphone} color="primary" />
-            <StatCard label="Total Roles" value={dashStats.totalRolesCount} icon={ShieldCheck} color="info" />
-            <StatCard label="Communities" value={dashStats.totalCommunitiesCount} icon={Users} color="success" />
+            {isSuperAdmin && <StatCard label="Total Roles" value={dashStats.totalRolesCount} icon={ShieldCheck} color="info" />}
+            {isSuperAdmin && <StatCard label="Communities" value={dashStats.totalCommunitiesCount} icon={Users} color="success" />}
           </div>
 
           {/* Recent Activities */}

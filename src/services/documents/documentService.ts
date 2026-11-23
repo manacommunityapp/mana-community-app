@@ -76,29 +76,29 @@ export const documentService = {
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(request)], { type: 'application/json' }));
     form.append('file', file);
-    return apiClient.post('/documents', form).then((r) => r.data);
+    return apiClient.post('/documents', form).then((r: any) => r?.data ?? r);
   },
 
   get: (id: number): Promise<DocumentDto> =>
-    apiClient.get(`/documents/${id}`).then((r) => r.data),
+    apiClient.get(`/documents/${id}`).then((r: any) => r?.data ?? r),
 
   download: (id: number): Promise<{ url: string; expiresAt: string }> =>
-    apiClient.get(`/documents/${id}/download`).then((r) => r.data),
+    apiClient.get(`/documents/${id}/download`).then((r: any) => r?.data ?? r),
 
   getVersions: (id: number): Promise<DocumentVersionDto[]> =>
-    apiClient.get(`/documents/${id}/versions`).then((r) => r.data),
+    apiClient.get(`/documents/${id}/versions`).then((r: any) => r?.data ?? r),
 
   addVersion: (id: number, file: File): Promise<DocumentVersionDto> => {
     const form = new FormData();
     form.append('file', file);
-    return apiClient.post(`/documents/${id}/versions`, form).then((r) => r.data);
+    return apiClient.post(`/documents/${id}/versions`, form).then((r: any) => r?.data ?? r);
   },
 
   listByEntity: (entityType: string, entityId: string | number): Promise<DocumentDto[]> =>
-    apiClient.get(`/documents/entity/${entityType}/${entityId}`).then((r) => r.data),
+    apiClient.get(`/documents/entity/${entityType}/${entityId}`).then((r: any) => r?.data ?? r),
 
   list: (category?: DocumentCategory): Promise<DocumentDto[]> =>
-    apiClient.get('/documents', { params: category ? { category } : {} }).then((r) => r.data),
+    apiClient.get('/documents', { params: category ? { category } : {} }).then((r: any) => r?.data ?? r),
 
   grantAccess: (id: number, grant: DocumentAccessGrantRequest): Promise<void> =>
     apiClient.post(`/documents/${id}/access-grants`, grant).then(() => {}),
@@ -107,7 +107,7 @@ export const documentService = {
     apiClient.delete(`/documents/${id}/access-grants/${grantId}`).then(() => {}),
 
   getAuditLog: (id: number): Promise<DownloadLogEntry[]> =>
-    apiClient.get(`/documents/${id}/audit-log`).then((r) => r.data),
+    apiClient.get(`/documents/${id}/audit-log`).then((r: any) => r?.data ?? r),
 
   delete: (id: number): Promise<void> =>
     apiClient.delete(`/documents/${id}`).then(() => {}),

@@ -67,6 +67,33 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    build: {
+      chunkSizeWarningLimit: 1200,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'vendor-react';
+              }
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('@mui') || id.includes('@emotion') || id.includes('lucide-react') || id.includes('@tabler')) {
+                return 'vendor-ui';
+              }
+              if (id.includes('sweetalert2') || id.includes('papaparse') || id.includes('date-fns') || id.includes('axios')) {
+                return 'vendor-utils';
+              }
+              if (id.includes('@tanstack')) {
+                return 'vendor-query';
+              }
+              return 'vendor-misc';
+            }
+          },
+        },
+      },
+    },
     server: {
       headers: {
         'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:; object-src 'none'; base-uri 'self'; form-action 'self';",

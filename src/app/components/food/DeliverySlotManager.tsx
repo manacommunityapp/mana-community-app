@@ -14,6 +14,7 @@ function statusBadge(s: SlotStatus) {
   const cfg: Record<SlotStatus, { bg: string; text: string; label: string }> = {
     OPEN:          { bg: '#D1FAE5', text: '#065F46', label: 'Open' },
     FULL:          { bg: '#FEE2E2', text: '#991B1B', label: 'Full' },
+    CUTOFF: { bg: '#FEF3C7', text: '#92400E', label: 'Cutoff' },
     CUTOFF_PASSED: { bg: '#FEF3C7', text: '#92400E', label: 'Cutoff' },
     CANCELLED:     { bg: '#F3F4F6', text: '#6B7280', label: 'Cancelled' },
   };
@@ -108,7 +109,7 @@ export function DeliverySlotManager({ vendorId, communityId }: { vendorId?: numb
           <tbody>
             {templates.map(t => (
               <tr key={t.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                <td style={{ padding: '10px 12px' }}>{DAYS[t.dayOfWeek]}</td>
+                <td style={{ padding: '10px 12px' }}>{DAYS[t.dayOfWeek ?? 0]}</td>
                 <td style={{ padding: '10px 12px' }}>{t.slotStart}–{t.slotEnd}</td>
                 <td style={{ padding: '10px 12px' }}>{t.cutoffHours}</td>
                 <td style={{ padding: '10px 12px' }}>{t.capacity}</td>

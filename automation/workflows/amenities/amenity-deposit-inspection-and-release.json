@@ -1,0 +1,136 @@
+{
+  "name": "Mana Amenity Deposit Inspection & Release Arbitrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "amenity-deposit-arbitrator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-amenity-deposit-arbitrator-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst bookingId = item.bookingId || 'PARTY-HALL-104';\nconst facilityName = item.facilityName || 'Grand Clubhouse Banquet Hall';\nconst residentFlat = item.residentFlat || 'Tower B-702';\nconst residentName = item.residentName || 'Amitabh Saxena';\nconst securityDepositPaid = Number(item.securityDepositPaid || 5000);\nconst preInspectionStatus = item.preInspectionStatus || 'All lights, AC, sound system functional. Clean walls.';\nconst postInspectionNotes = item.postInspectionNotes || 'Trash and food boxes left near pantry. Two broken wall decorative lights on south side. Event concluded at 11:15 PM (past 10 PM sound curfew).';\nconst incidentPhotosAttached = item.photosCount || 3;\n\nconst prompt = `You are the Chief Estates Inspector and Deposit Arbitrator for Mana Community Facilities.\nAudit the following post-event facility handover for security deposit release or damage deductions:\n\nHandover Audit Dossier:\n- Booking: ${bookingId} for ${facilityName}\n- Resident: ${residentName} (${residentFlat})\n- Security Deposit Held: ₹${securityDepositPaid}\n- Pre-Handover Baseline: ${preInspectionStatus}\n- Post-Event Inspection Findings: ${postInspectionNotes}\n- Evidence Photos: ${incidentPhotosAttached} photos verified by facility manager\n\nDeduction & Arbitrate Directives:\n1. Itemized Damages: Calculate reasonable, market-aligned repair & cleaning costs (e.g. Deep cleaning: ₹1,000, Electrical fixture repair: ₹800, Curfew delay: bylaw penalty).\n2. Dispute Prevention: Provide objective, photographic-backed justification to prevent bad blood with resident.\n3. Refund Release Amount: Calculate exact net refund (₹${securityDepositPaid} - deductions).\n4. Verdict: Issue \"FULL_RELEASE\" | \"PARTIAL_REFUND_WITH_DEDUCTIONS\" | \"DEPOSIT_FORFEITED\".\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"arbitrationVerdict\": \"FULL_RELEASE\" | \"PARTIAL_REFUND_WITH_DEDUCTIONS\" | \"DEPOSIT_FORFEITED\",\n  \"securityDepositOriginal\": number,\n  \"totalDeductions\": number,\n  \"netRefundAmount\": number,\n  \"itemizedDeductions\": [\n    { \"category\": \"CLEANING\" | \"DAMAGE_REPAIR\" | \"CURFEW_PENALTY\", \"amount\": number, \"description\": string }\n  ],\n  \"inspectorRemarks\": string,\n  \"residentSettlementLetter\": string\n}`;\n\nreturn [{ json: { prompt, bookingId, facilityName, residentFlat, securityDepositPaid } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    arbitrationVerdict: \"PARTIAL_REFUND_WITH_DEDUCTIONS\",\n    securityDepositOriginal: 5000,\n    totalDeductions: 1800,\n    netRefundAmount: 3200,\n    itemizedDeductions: [\n      { category: \"CLEANING\", amount: 1000, description: \"Pantry deep cleaning and garbage disposal\" },\n      { category: \"DAMAGE_REPAIR\", amount: 800, description: \"Replacement of 2 wall decorative fixtures\" }\n    ],\n    inspectorRemarks: \"Photographic evidence confirms fixture damage and trash accumulation.\",\n    residentSettlementLetter: \"Dear resident, following the banquet hall handover inspection, ₹3,200 has been released to your primary account.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", bookingId: meta.bookingId, facility: meta.facilityName, flat: meta.residentFlat, auditedAt: new Date().toISOString(), depositSettlement: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

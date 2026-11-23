@@ -31,7 +31,7 @@ export const workflowService = {
   ): Promise<AllowedTransition[]> =>
     apiClient
       .get(`/workflow/${workflowId}/${entityId}/transitions`, { params: { currentStatus } })
-      .then((r) => r.data),
+      .then((r: any) => r?.data ?? r),
 
   getHistory: (
     entityType: string,
@@ -39,7 +39,7 @@ export const workflowService = {
   ): Promise<TransitionHistoryEntry[]> =>
     apiClient
       .get(`/workflow/${entityType}/${entityId}/history`)
-      .then((r) => r.data),
+      .then((r: any) => r?.data ?? r),
 
   executeTransition: (
     workflowId: string,
@@ -50,10 +50,9 @@ export const workflowService = {
     idempotencyKey?: string
   ): Promise<WorkflowTransitionResult> =>
     apiClient
-      .post(
-        `/workflow/${workflowId}/${entityId}/transition`,
-        { toStatus, reason, idempotencyKey },
-        { params: { currentStatus } }
+      .post<any>(
+        `/workflow/${workflowId}/${entityId}/transition?currentStatus=${encodeURIComponent(currentStatus)}`,
+        { toStatus, reason, idempotencyKey }
       )
-      .then((r) => r.data),
+      .then((r: any) => r?.data ?? r),
 };

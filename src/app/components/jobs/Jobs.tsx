@@ -1,10 +1,15 @@
 import {
   Briefcase, Building2, MapPin, IndianRupee, Clock, Users, Plus, X,
-  Loader2, Search, ChevronDown, ArrowUpRight, CheckCircle, Send
+  Loader2,
+  Sparkles, Search, ChevronDown, ArrowUpRight, CheckCircle, Send
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  automationService,
+  type JobReferralMatchResponse,
+} from "../../../services/automation/automationService";
 import { jobService, type JobResponse, type JobRequest } from "../../../services/jobs/jobService";
 
 function cn(...inputs: ClassValue[]) {
@@ -29,6 +34,29 @@ function timeAgo(iso: string): string {
 }
 
 export function Jobs() {
+  // AI Referral Matcher State
+  const [isMatchingReferral, setIsMatchingReferral] = useState(false);
+  const [referralResult, setReferralResult] = useState<JobReferralMatchResponse | null>(null);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+
+  const handleAiReferralMatch = async () => {
+    try {
+      setIsMatchingReferral(true);
+      const res = await automationService.matchJobReferrals({
+        candidateId: 'CANDIDATE-ME',
+        skills: ['React', 'TypeScript', 'Distributed Systems', 'Cloud Architecture'],
+        targetCompanies: ['Google', 'Microsoft', 'Amazon', 'Uber'],
+        targetRoles: ['Senior Software Engineer', 'Staff Engineer', 'Engineering Lead'],
+      });
+      setReferralResult(res);
+      setShowReferralModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to match internal community referrals');
+    } finally {
+      setIsMatchingReferral(false);
+    }
+  };
+
   const [tab, setTab] = useState<"active" | "all" | "mine">("active");
   const [jobs, setJobs] = useState<JobResponse[]>([]);
   const [loading, setLoading] = useState(true);

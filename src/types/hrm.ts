@@ -2,6 +2,7 @@ export interface HrOrganization {
   id: number;
   communityId: number;
   organizationName: string;
+  name?: string;
   organizationType: string;
   gstNumber?: string;
   registrationNumber?: string;
@@ -198,6 +199,7 @@ export interface HrDashboardData {
 
 export interface HrEmployeeDocument {
   id: number;
+  employeeId?: number;
   documentType: string;
   documentName: string;
   fileUrl: string;
