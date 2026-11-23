@@ -15,6 +15,7 @@ import { confirmAction } from "../../../utils/AlertUtils";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 import type {
   CommunityLeaderResponse,
   CommunityLeaderRequest,
@@ -945,15 +946,15 @@ export function AdminDirectory() {
                         title="Click to view full photo"
                       >
                         {l.profilePicUrl ? (
-                          <img
+                          <AuthenticatedImage
                             src={resolveImageUrl(l.profilePicUrl)}
                             alt={l.fullName}
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLElement).style.display = "none";
-                              const sibling = e.currentTarget.nextElementSibling as HTMLElement;
-                              if (sibling) sibling.style.display = "flex";
-                            }}
+                            renderFallback={() => (
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all">
+                                {l.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+                              </div>
+                            )}
                           />
                         ) : null}
                         <div
@@ -1075,15 +1076,15 @@ export function AdminDirectory() {
                               title="Click to view full photo"
                             >
                               {l.profilePicUrl ? (
-                                <img
+                                <AuthenticatedImage
                                   src={resolveImageUrl(l.profilePicUrl)}
                                   alt={l.fullName}
                                   className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all"
-                                  onError={(e) => {
-                                    (e.currentTarget as HTMLElement).style.display = "none";
-                                    const sibling = e.currentTarget.nextElementSibling as HTMLElement;
-                                    if (sibling) sibling.style.display = "flex";
-                                  }}
+                                  renderFallback={() => (
+                                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all">
+                                      {l.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+                                    </div>
+                                  )}
                                 />
                               ) : null}
                               <div

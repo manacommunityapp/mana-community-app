@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X, User } from "lucide-react";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "./AuthenticatedImage";
 
 interface ProfileImageModalProps {
   isOpen: boolean;
@@ -64,20 +65,10 @@ export function ProfileImageModal({
         {/* Image Canvas */}
         <div className="p-4 sm:p-6 flex items-center justify-center bg-black/5 dark:bg-black/20 min-h-[300px] max-h-[75vh] overflow-hidden">
           {resolved ? (
-            <img
+            <AuthenticatedImage
               src={resolved}
               alt={name || "Profile"}
               className="max-h-[65vh] w-auto max-w-full rounded-xl sm:rounded-2xl object-contain shadow-md"
-              onError={(e) => {
-                const currentSrc = e.currentTarget.src;
-                if (currentSrc && !currentSrc.includes("/api/files/")) {
-                  const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
-                  if (s3Match) {
-                    e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
-                    return;
-                  }
-                }
-              }}
             />
           ) : (
             <div className="w-40 h-40 sm:w-52 sm:h-52 rounded-full bg-muted flex flex-col items-center justify-center text-muted-foreground gap-2 border-2 border-dashed border-border">

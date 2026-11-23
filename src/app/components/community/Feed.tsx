@@ -1,4 +1,3 @@
-import DOMPurify from "dompurify";
 import {
   MessageSquare,
   Heart,
@@ -84,6 +83,7 @@ import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
+import { AuthenticatedImage } from "../commons/AuthenticatedImage";
 
 type FeedMediaAttachment = {
   mediaUrl: string;
@@ -299,8 +299,46 @@ const getCommunityRole = (authorRole?: string, authorId?: number, leaderMap?: Re
   return authorRole;
 };
 
-const renderHashtags = (content: string) => {
-  return content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>');
+/**
+ * Renders post text with #hashtags and @mentions highlighted.
+ *
+ * Returns React nodes instead of an HTML string. The previous implementation ran
+ * regex replacements over already-sanitized HTML (string surgery *after*
+ * DOMPurify), which mangled markup when a "#fragment" appeared inside a
+ * surviving href and would have turned into an injection point the moment the
+ * capture group was loosened. React escapes every text segment, so no HTML is
+ * constructed and nothing needs re-sanitizing.
+ */
+const renderPostContent = (content?: string | null): React.ReactNode[] => {
+  const text = content ?? "";
+  const nodes: React.ReactNode[] = [];
+  const pattern = /([#@])(\w+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const [token, sigil, label] = match;
+    nodes.push(
+      <span
+        key={`${sigil}${label}-${match.index}`}
+        className={
+          sigil === "#"
+            ? "text-indigo-600 font-semibold cursor-pointer hover:underline"
+            : "text-blue-600 font-semibold"
+        }
+      >
+        {sigil}
+        {label}
+      </span>
+    );
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
 };
 
 interface FeedVideoPlayerProps {
@@ -2196,7 +2234,11 @@ export function Feed() {
                         <div className="relative">
                           <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                             {liker.profilePicUrl ? (
-                              <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                              <AuthenticatedImage src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                                <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                                  {getInitials(liker.fullName)}
+                                </span>
+                              )} />
                             ) : null}
                             <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                               {getInitials(liker.fullName)}
@@ -2276,7 +2318,11 @@ export function Feed() {
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                         {liker.profilePicUrl ? (
-                          <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                          <AuthenticatedImage src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                            <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                              {getInitials(liker.fullName)}
+                            </span>
+                          )} />
                         ) : null}
                         <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                           {getInitials(liker.fullName)}
@@ -2512,15 +2558,15 @@ const PostCard = React.memo(function PostCard({
                 title="Click to view full photo"
               >
                 {authorPic ? (
-                  <img
+                  <AuthenticatedImage
                     src={authorPic}
                     alt=""
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = "flex";
-                    }}
+                    renderFallback={() => (
+                      <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                        {initials}
+                      </span>
+                    )}
                   />
                 ) : null}
                 <span className={authorPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
@@ -2748,7 +2794,11 @@ const PostCard = React.memo(function PostCard({
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
 
-      {!isEditing && <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>')) }} />}
+      {!isEditing && (
+        <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left">
+          {renderPostContent(post.content)}
+        </p>
+      )}
 
       {/* Hashtags display */}
       {post.hashtags && (
@@ -3236,15 +3286,15 @@ function CommentItem({
               title="Click to view full photo"
             >
               {commentPic ? (
-                <img
+                <AuthenticatedImage
                   src={commentPic}
                   alt=""
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = "none";
-                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = "flex";
-                  }}
+                  renderFallback={() => (
+                    <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                      {initials}
+                    </span>
+                  )}
                 />
               ) : null}
               <span className={commentPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
@@ -3717,7 +3767,11 @@ function LeaderboardCard({ badgeCount, getInitials }: { badgeCount?: number; get
                   <span className="text-xs w-5 text-center">{medals[i] || `${i + 1}`}</span>
                   <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 overflow-hidden shrink-0">
                     {entry.profilePicUrl ? (
-                      <img src={resolveImageUrl(entry.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                      <AuthenticatedImage src={resolveImageUrl(entry.profilePicUrl)} alt="" className="w-full h-full object-cover" renderFallback={() => (
+                        <span className="flex" style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                          {getInitials(entry.userName)}
+                        </span>
+                      )} />
                     ) : null}
                     <span className={entry.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
                       {getInitials(entry.userName)}

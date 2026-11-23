@@ -8,7 +8,7 @@ import {
 import {
   RefreshCw, Loader2, AlertTriangle, CheckCircle, Clock,
   Users, Shield, Wrench, TrendingUp, Calendar, Building2,
-  Zap, UserCheck, BarChart2, ChevronRight,
+  Zap, UserCheck, BarChart2, ChevronRight, Heart, CalendarDays,
 } from "lucide-react";
 
 function formatINR(n: number): string {
@@ -102,7 +102,9 @@ function CategoryBars({ data }: { data: Record<string, number> }) {
 export function CommunityManagerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const communityId: number = (user as any)?.communityId ?? 1;
+  // No tenant default: falling back to community 1 would expose another community's
+  // finance, resident, KYC and security stats to a SUPER_ADMIN or an unhydrated user.
+  const communityId: number | undefined = user?.communityId;
 
   const [snap, setSnap] = useState<CommunityManagerSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,11 @@ export function CommunityManagerDashboard() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
+    if (communityId === undefined) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     if (!silent) setLoading(true);
     else setRefreshing(true);
     setError(null);
@@ -126,10 +133,27 @@ export function CommunityManagerDashboard() {
   }, [communityId]);
 
   useEffect(() => {
+    if (communityId === undefined) {
+      setLoading(false);
+      return;
+    }
     load();
     intervalRef.current = setInterval(() => load(true), 5 * 60 * 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [load]);
+  }, [load, communityId]);
+
+  if (communityId === undefined) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-500 text-center px-6">
+        <Building2 size={24} className="text-slate-400" />
+        <span className="text-sm font-semibold text-slate-700">No community selected</span>
+        <span className="text-xs max-w-sm">
+          This dashboard is scoped to a single community. Your account is not linked to one
+          (or your profile is still loading), so no community data can be shown.
+        </span>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -149,7 +173,7 @@ export function CommunityManagerDashboard() {
     );
   }
 
-  const { maintenance, finance, residents, security, amenities, staff, upcoming, governance } = snap;
+  const { maintenance, finance, residents, security, amenities, staff, upcoming, governance, eventAttendance, vendorContracts, engagement } = snap;
 
   // Quick-status chips
   const chips = [
@@ -182,6 +206,18 @@ export function CommunityManagerDashboard() {
       label: `Gate: ${security.gateEntriesToday} entries today`,
       sev: "ok" as Severity,
       href: "/visitors",
+    },
+    {
+      label: `Engagement: ${engagement.engagementScorePct.toFixed(0)}%`,
+      sev: engagement.engagementScorePct < 20 ? "critical" : engagement.engagementScorePct < 50 ? "warn" : "ok",
+      href: "/ops/community-manager",
+    },
+    {
+      label: vendorContracts.contractsExpiringIn30Days > 0
+        ? `${vendorContracts.contractsExpiringIn30Days} contract${vendorContracts.contractsExpiringIn30Days !== 1 ? "s" : ""} expiring`
+        : "No contracts expiring",
+      sev: vendorContracts.contractsExpiringIn30Days > 0 ? "warn" : "ok",
+      href: "/vendor-admin/contracts",
     },
   ];
 
@@ -320,10 +356,18 @@ export function CommunityManagerDashboard() {
           {/* Residents */}
           <section className="bg-white rounded-2xl border border-slate-200 p-5">
             <SectionHeader icon={<Users size={16} />} title="Residents" />
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               <KpiTile label="Total" value={residents.totalResidents} />
               <KpiTile label="Active (Month)" value={residents.activeThisMonth} severity="ok" />
               <KpiTile label="New Joiners" value={residents.newJoinersThisMonth} severity={residents.newJoinersThisMonth > 0 ? "ok" : "neutral"} />
+            </div>
+            <div className="flex gap-2 mb-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium">
+                Owners: {residents.ownerCount}
+              </span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 text-xs font-medium">
+                Tenants: {residents.tenantCount}
+              </span>
             </div>
             <div className="space-y-3">
               <div>
@@ -429,6 +473,24 @@ export function CommunityManagerDashboard() {
                 severity={staff.pendingTasks > 10 ? "warn" : "neutral"}
               />
             </div>
+            {/* Vendor contracts */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <KpiTile
+                label="Active Vendors"
+                value={vendorContracts.activeVendors}
+                severity="ok"
+              />
+              <KpiTile
+                label="Expiring (30d)"
+                value={vendorContracts.contractsExpiringIn30Days}
+                severity={vendorContracts.contractsExpiringIn30Days > 0 ? "warn" : "ok"}
+              />
+              <KpiTile
+                label="Expired"
+                value={vendorContracts.contractsExpired}
+                severity={vendorContracts.contractsExpired > 0 ? "critical" : "ok"}
+              />
+            </div>
             {/* Staff presence circle */}
             <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
               <div className="relative w-16 h-16 flex-shrink-0">
@@ -459,7 +521,88 @@ export function CommunityManagerDashboard() {
           </section>
         </div>
 
-        {/* ROW 5: Upcoming + Governance */}
+        {/* ROW 5: Event Attendance + Community Engagement */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Event Attendance */}
+          <section className="bg-white rounded-2xl border border-slate-200 p-5">
+            <SectionHeader icon={<CalendarDays size={16} />} title="Event Attendance" />
+            <div className="grid grid-cols-2 gap-3">
+              <KpiTile
+                label="Upcoming Events"
+                value={eventAttendance.upcomingEventsCount}
+                severity="neutral"
+                icon={<CalendarDays size={11} />}
+              />
+              <KpiTile
+                label="RSVPs This Month"
+                value={eventAttendance.totalRsvpsThisMonth}
+                severity="ok"
+                icon={<CheckCircle size={11} />}
+              />
+              <KpiTile
+                label="Actual Attendees"
+                value={eventAttendance.actualAttendeesThisMonth}
+                severity="ok"
+                icon={<Users size={11} />}
+              />
+              <KpiTile
+                label="Avg Rate"
+                value={`${eventAttendance.avgAttendanceRatePct.toFixed(0)}%`}
+                severity={eventAttendance.avgAttendanceRatePct < 50 ? "warn" : "ok"}
+                icon={<TrendingUp size={11} />}
+              />
+            </div>
+          </section>
+
+          {/* Community Engagement */}
+          <section className="bg-white rounded-2xl border border-slate-200 p-5">
+            <SectionHeader icon={<Heart size={16} />} title="Community Engagement" />
+            {/* Engagement donut */}
+            <div className="flex items-center gap-5 mb-4">
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e8f0" strokeWidth="3" />
+                  <circle
+                    cx="18" cy="18" r="15.9" fill="none"
+                    stroke={
+                      engagement.engagementScorePct < 20 ? "#ef4444" :
+                      engagement.engagementScorePct < 50 ? "#f59e0b" : "#10b981"
+                    }
+                    strokeWidth="3"
+                    strokeDasharray={`${Math.min(engagement.engagementScorePct, 100)} 100`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-700">
+                  {engagement.engagementScorePct.toFixed(1)}%
+                </span>
+              </div>
+              <div className="text-sm text-slate-600">
+                <div className={`text-lg font-bold font-mono ${
+                  engagement.engagementScorePct < 20 ? "text-red-600" :
+                  engagement.engagementScorePct < 50 ? "text-amber-700" : "text-emerald-700"
+                }`}>
+                  {engagement.engagementScorePct.toFixed(1)}% score
+                </div>
+                <div className="text-xs text-slate-400">Community engagement</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: "Active users", value: engagement.activeUsersThisMonth },
+                { label: "Poll participants", value: engagement.pollParticipantsThisMonth },
+                { label: "Event RSVPs", value: engagement.eventRsvpsThisMonth },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg">
+                  <span className="text-xs text-slate-600">{row.label}</span>
+                  <span className="text-sm font-semibold text-slate-800 font-mono tabular-nums">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* ROW 6: Upcoming + Governance */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Upcoming */}
           <section className="bg-white rounded-2xl border border-slate-200 p-5">

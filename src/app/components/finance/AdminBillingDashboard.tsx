@@ -9,6 +9,16 @@ import { communityFinanceService } from "../../../services/finance/communityFina
 import type { MaintenanceBill, ChargeRule, MaintenancePlan, GeneralLedgerTransaction, TrialBalanceItem, FinanceSummary, PenaltyConfig } from "../../../services/finance/communityFinanceService";
 import { useAuth } from "../../../contexts/AuthContext";
 
+/** Shown while a panel's data has not loaded yet (or failed to load). */
+function PanelPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="bg-white dark:bg-[#1E1E36] p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
+      <RefreshCw className="w-5 h-5 mx-auto text-slate-400 animate-spin" />
+      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-3">{label}</p>
+    </div>
+  );
+}
+
 export function AdminBillingDashboard() {
   const { user } = useAuth();
   const communityId = user?.communityId as number;
@@ -122,7 +132,10 @@ export function AdminBillingDashboard() {
       </div>
 
       {/* ── TAB 1: Financial Overview ────────────────────────────────────────── */}
-      {activeTab === "overview" && (
+      {activeTab === "overview" && !summary && (
+        <PanelPlaceholder label="Loading financial overview…" />
+      )}
+      {activeTab === "overview" && summary && (
         <div className="space-y-6">
           {/* Key Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -241,9 +254,15 @@ export function AdminBillingDashboard() {
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
                   <ShieldCheck className="w-4 h-4" /> Late Fee & Penalty Configuration
                 </div>
-                <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
-                  Grace Period: <strong>{(penaltyConfig?.gracePeriodDays ?? 0)} days</strong> | Rate: <strong>{(penaltyConfig?.penaltyValue ?? 0)}% per month</strong> | Max Cap: <strong>₹{(penaltyConfig?.maxPenaltyCap ?? 0)}</strong>
-                </div>
+                {penaltyConfig ? (
+                  <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                    Grace Period: <strong>{penaltyConfig.gracePeriodDays} days</strong> | Rate: <strong>{penaltyConfig.penaltyValue}% per month</strong> | Max Cap: <strong>₹{penaltyConfig.maxPenaltyCap}</strong>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-1">
+                    Penalty configuration unavailable — not yet loaded for this community.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -403,7 +422,10 @@ export function AdminBillingDashboard() {
       )}
 
       {/* ── TAB 5: Aging Analysis ────────────────────────────────────────────── */}
-      {activeTab === "aging" && (
+      {activeTab === "aging" && !summary && (
+        <PanelPlaceholder label="Loading aging analysis…" />
+      )}
+      {activeTab === "aging" && summary && (
         <div className="bg-white dark:bg-[#1E1E36] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Outstanding Receivables Aging Buckets</h3>

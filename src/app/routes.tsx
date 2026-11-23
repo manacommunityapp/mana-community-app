@@ -141,6 +141,8 @@ import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
 import { ConsentGate } from "../components/privacy/ConsentGate";
+import BusinessRevenueDashboard from "./components/platform/BusinessRevenueDashboard";
+import CommunityManagerDashboard from "./components/community-ops/CommunityManagerDashboard";
 
 // CPN (Community Professional Network) pages
 import { CPNHub } from "./components/cpn/CPNHub";
@@ -437,6 +439,8 @@ import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprov
 import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
 import FreshDispatchRoutingHub from "./components/fresh/vendor/FreshDispatchRoutingHub";
 import FreshVendorSettlementLedger from "./components/fresh/vendor/FreshVendorSettlementLedger";
+import { ManaFreshPage } from "./components/fresh/ManaFreshPage";
+import { GlobalSearchPage } from "./components/search/GlobalSearchPage";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -1844,6 +1848,10 @@ export const router = createBrowserRouter([
           { path: "org-chart", element: <OrgChartPage /> },
         ],
       },
+      // ── Global Search ────────
+      { path: "search", element: <PermissionGuard><GlobalSearchPage /></PermissionGuard> },
+      // ── Mana Fresh ────────
+      { path: "fresh", element: <PermissionGuard><ManaFreshPage /></PermissionGuard> },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
@@ -1856,6 +1864,8 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
+      // ── Platform & Ops Dashboards ────────
+      { path: "platform/revenue", element: <PermissionGuard superAdminOnly><BusinessRevenueDashboard /></PermissionGuard> },
       // ── Next-tier features ────────
       { path: "social", element: <SocialCirclesPage /> },
       { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },

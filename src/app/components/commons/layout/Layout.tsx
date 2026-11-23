@@ -22,10 +22,12 @@ import {
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
+import { GlobalSearchBar } from "../../search/GlobalSearchBar";
 import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
 import { resolveUserAvatar, resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../AuthenticatedImage";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 
@@ -116,21 +118,11 @@ function UserProfileMenu({
         aria-expanded={open}
       >
         {userAvatar ? (
-          <img
+          <AuthenticatedImage
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
             className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] transition-all shrink-0 group-hover:ring-2 group-hover:ring-[#00D09C]/30"
-            onError={(e) => {
-              const currentSrc = e.currentTarget.src;
-              if (currentSrc && !currentSrc.includes("/api/files/")) {
-                const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
-                if (s3Match) {
-                  e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
-                  return;
-                }
-              }
-              setImgError(true);
-            }}
+            onExhausted={() => setImgError(true)}
           />
         ) : (
           <div className="h-6.5 w-6.5 rounded-lg flex items-center justify-center text-white text-[10px] font-black bg-[#00D09C] shadow-xs group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0">
@@ -154,21 +146,11 @@ function UserProfileMenu({
           {/* User Info Header with Groww Emerald Badge */}
           <div className="p-3 bg-gradient-to-b from-[#F9FAFC] to-white border-b border-[#EBEFF2] flex items-center gap-3">
             {userAvatar ? (
-              <img
+              <AuthenticatedImage
                 src={userAvatar}
                 alt={user?.fullName ?? "Profile"}
                 className="h-9 w-9 rounded-xl object-cover ring-1 ring-[#EBEFF2] shadow-2xs shrink-0"
-                onError={(e) => {
-                  const currentSrc = e.currentTarget.src;
-                  if (currentSrc && !currentSrc.includes("/api/files/")) {
-                    const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
-                    if (s3Match) {
-                      e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
-                      return;
-                    }
-                  }
-                  setImgError(true);
-                }}
+                onExhausted={() => setImgError(true)}
               />
             ) : (
               <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black bg-[#00D09C] shadow-2xs shrink-0">
@@ -523,6 +505,7 @@ export function Layout() {
         { to: "/deals", icon: Tag, label: "Mana Deals", menuKey: "deals" },
         { to: "/food", icon: ShoppingCart, label: "Food & Dining", menuKey: "food" },
         { to: "/fresh-kitchen", icon: Sparkles, label: "Fresh Kitchen", badge: "2-4°C", menuKey: "fresh-kitchen" },
+        { to: "/fresh", icon: ShoppingBag, label: "Fresh", badge: "New", menuKey: "fresh" },
         { to: "/daily-basket", icon: ShoppingBag, label: "Daily Basket", badge: "Daily", menuKey: "daily-basket" },
         { to: "/wellness-basket", icon: HeartPulse, label: "Wellness Nutrition", badge: "Sub", menuKey: "wellness-basket" },
         { to: "/academy", icon: GraduationCap, label: "Mana Academy", menuKey: "academy" },
@@ -622,6 +605,7 @@ export function Layout() {
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
     if (label === "Food & Dining") return isModuleEnabled("FOOD_OS");
     if (label === "Fresh Kitchen") return isModuleEnabled("FOOD_OS");
+    if (label === "Fresh") return isModuleEnabled("FOOD_OS");
     if (label === "Daily Basket") return isModuleEnabled("FOOD_OS");
     if (label === "Wellness Nutrition") return isModuleEnabled(["FOOD_OS", "HEALTH"]);
     if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
@@ -739,13 +723,10 @@ export function Layout() {
                 onClick={() => setIsSidebarCollapsed(false)}
               >
                 {userAvatar ? (
-                  <img
+                  <AuthenticatedImage
                     src={userAvatar}
                     alt={displayName}
                     className="h-8.5 w-8.5 rounded-xl object-cover ring-1 ring-white/20 shadow-2xs group-hover:scale-105 transition-transform"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                    }}
                   />
                 ) : (
                   <div className="h-8.5 w-8.5 rounded-xl flex items-center justify-center text-white text-xs font-black bg-[#00D09C] shadow-2xs group-hover:scale-105 transition-transform">
@@ -757,13 +738,10 @@ export function Layout() {
               {/* On Desktop Expanded & Mobile Drawer: Full user info card */}
               <div className={cn("flex items-center gap-2.5", isSidebarCollapsed && "lg:hidden")}>
                 {userAvatar ? (
-                  <img
+                  <AuthenticatedImage
                     src={userAvatar}
                     alt={displayName}
                     className="h-9 w-9 rounded-xl object-cover flex-shrink-0 ring-1 ring-white/20 shadow-2xs"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                    }}
                   />
                 ) : (
                   <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-[#00D09C] shadow-2xs">
@@ -1274,18 +1252,7 @@ export function Layout() {
 
             {/* Desktop Header Search Bar */}
             <div className="flex-1 max-w-md mx-3 sm:mx-6 hidden lg:block">
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("mana:open-search"))}
-                className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-[#F9FAFC] hover:bg-[#F1F4F7] border border-[#EBEFF2] hover:border-[#A7F3D0] text-xs text-[#7C7E8C] hover:text-[#44475B] transition-all cursor-pointer shadow-2xs group"
-                title="Search features, modules, pages (Ctrl+K / ⌘K)"
-              >
-                <Search className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#00D09C] transition-colors shrink-0" />
-                <span className="flex-1 text-left truncate font-medium">Search features, events, bookings, directory...</span>
-                <kbd className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#7C7E8C] bg-white border border-[#EBEFF2] px-1.5 py-0.5 rounded-md shadow-2xs">
-                  ⌘K
-                </kbd>
-              </button>
+              <GlobalSearchBar />
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5 lg:gap-3">

@@ -32,3 +32,8 @@ playwright/.cache/
 *.webm
 scratch/
 
+# Environment files — never commit real keys or proxy targets.
+# `.env.example` is the only env file tracked in git.
+.env
+.env.*
+!.env.example

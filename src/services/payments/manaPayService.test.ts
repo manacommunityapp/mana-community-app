@@ -1,37 +1,90 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { manaPayService } from './manaPayService';
-import { apiClient } from '../common/apiClient';
-import type {
-  CreateManaPaymentIntentRequest,
-  ManaPaymentRecord,
-  ManaDigitalReceipt,
-  ManaPaymentIntentResponse,
-} from '../../types/manaPay';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ── Environment shims (vitest runs these service tests in the "node" env) ────
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map<string, string>();
+  globalThis.localStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, String(value));
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    length: 0,
+  } as unknown as Storage;
+}
+
+// The HTTP layer is mocked, so the service's real confirm/intent paths run but
+// never touch the network. Mocking the module also supplies the logged-in user
+// the api client's pre-flight access check (and the per-user storage
+// namespacing / receipt phone lookup) needs — the two pre-existing
+// "User is not logged in." failures in this file were that check firing on an
+// anonymous test run, not a bug in the service.
+const STORED_USER = { userId: 'user-302', phone: '+91 90000 11111', role: 'RESIDENT' };
 
 vi.mock('../common/apiClient', () => ({
   apiClient: {
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
-  getStoredUser: vi.fn(() => ({
-    userId: 'user-302',
-    role: 'ADMIN',
-    roles: ['ADMIN', 'RESIDENT', 'TREASURER'],
-    communityId: 1,
-  })),
-  getToken: vi.fn(() => 'mock-jwt-token'),
-  storeUser: vi.fn(),
-  setToken: vi.fn(),
-  setTokens: vi.fn(),
-  removeToken: vi.fn(),
-  clearUserStorage: vi.fn(),
+  getStoredUser: vi.fn(() => STORED_USER),
 }));
+
+import type { Mock } from 'vitest';
+import { manaPayService } from './manaPayService';
+import { apiClient } from '../common/apiClient';
+import { safeStorage } from '../../utils/storage';
+import type {
+  CreateManaPaymentIntentRequest,
+  ManaPaymentIntentResponse,
+  ManaPaymentRecord,
+} from '../../types/manaPay';
+
+const postMock = apiClient.post as unknown as Mock;
+const getMock = apiClient.get as unknown as Mock;
+
+const STORAGE_KEY = `mana_pay_transactions_v2_${STORED_USER.userId}`;
+
+/** A server-issued intent. Every identifier in it belongs to the backend. */
+const SERVER_INTENT: ManaPaymentIntentResponse = {
+  intentId: 'PI_SRV_90210',
+  idempotencyKey: 'mana_EVENT_BOOKING_EVT-501_1200_1',
+  domain: 'EVENT_BOOKING',
+  orderReferenceId: 'EVT-501',
+  amount: 1200,
+  currency: 'INR',
+  status: 'PENDING',
+  preferredRail: 'UPI_INTENT',
+  upiVpa: 'rwa-collections@hdfcbank',
+  upiIntentUri: 'upi://pay?pa=rwa-collections@hdfcbank&am=1200.00&tr=PI_SRV_90210',
+  expiresAt: new Date(Date.now() + 900000).toISOString(),
+  createdAt: new Date().toISOString(),
+};
+
+const intentReq: CreateManaPaymentIntentRequest = {
+  idempotencyKey: 'mana_EVENT_BOOKING_EVT-501_1200_1',
+  domain: 'EVENT_BOOKING',
+  orderReferenceId: 'EVT-501',
+  title: 'Diwali Gala Passes (x2)',
+  totalAmount: 1200,
+  payer: { name: 'John Doe', phone: '+91 99999 88888', unit: 'Flat 401' },
+  items: [{ title: 'Pass', quantity: 2, unitPrice: 600, amount: 1200 }],
+};
 
 describe('manaPayService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getMock.mockReset();
+    postMock.mockReset();
+    safeStorage.removeItem(STORAGE_KEY);
   });
 
   it('generates consistent idempotency keys for the same parameters within the same minute', () => {
@@ -41,146 +94,209 @@ describe('manaPayService', () => {
     expect(key1).toContain('mana_MAINTENANCE_BILL_INV-101_3500_');
   });
 
-  it('creates a payment intent and returns valid UPI intent URI and VPA', async () => {
-    const mockIntent: ManaPaymentIntentResponse = {
-      intentId: 'PI_TEST_INTENT_101',
-      idempotencyKey: 'idem-1',
+  // ── createPaymentIntent ────────────────────────────────────────────────────
+
+  it('createPaymentIntent returns the intent the server issued, with the server VPA and URI', async () => {
+    postMock.mockResolvedValueOnce(SERVER_INTENT);
+
+    const intent = await manaPayService.createPaymentIntent(intentReq);
+
+    expect(apiClient.post).toHaveBeenCalledWith('/payments/intents', {
+      idempotencyKey: intentReq.idempotencyKey,
       domain: 'EVENT_BOOKING',
       orderReferenceId: 'EVT-501',
       amount: 1200,
       currency: 'INR',
-      status: 'PENDING',
-      preferredRail: 'UPI_INTENT',
-      upiVpa: 'mana.society@icici',
-      upiIntentUri: 'upi://pay?pa=mana.society@icici&pn=Mana%20Community&am=1200.00&cu=INR&tr=PI_TEST_INTENT_101',
-      gatewayOrderId: 'order_1',
-      gatewayKeyId: 'key_1',
-      receiptNumber: 'RCP-1',
-      expiresAt: '2026-11-20T12:00:00Z',
-      createdAt: '2026-11-20T11:00:00Z',
-    };
-    (apiClient.post as any).mockResolvedValueOnce(mockIntent);
+      payerName: 'John Doe',
+      payerEmail: undefined,
+      payerPhone: '+91 99999 88888',
+      preferredRail: 'UPI',
+      remarks: 'Diwali Gala Passes (x2)',
+    });
 
-    const req: CreateManaPaymentIntentRequest = {
-      idempotencyKey: manaPayService.generateIdempotencyKey('EVENT_BOOKING', 'EVT-501', 1200),
-      domain: 'EVENT_BOOKING',
-      orderReferenceId: 'EVT-501',
-      title: 'Diwali Gala Passes (x2)',
-      totalAmount: 1200,
-      payer: {
-        name: 'John Doe',
-        phone: '+91 99999 88888',
-        unit: 'Flat 401',
-      },
-      items: [
-        {
-          title: 'Pass',
-          quantity: 2,
-          unitPrice: 600,
-          amount: 1200,
-        },
-      ],
-    };
-
-    const intent = await manaPayService.createPaymentIntent(req);
-    expect(intent).toBeDefined();
-    expect(intent.intentId).toMatch(/^PI_/);
-    expect(intent.amount).toBe(1200);
-    expect(intent.upiVpa).toBe('mana.society@icici');
-    expect(intent.upiIntentUri).toContain('upi://pay?');
-    expect(intent.upiIntentUri).toContain('am=1200.00');
-    expect(apiClient.post).toHaveBeenCalledWith('/payments/intents', expect.any(Object));
+    // The intent is the server's, verbatim: no client-minted VPA, URI or receipt.
+    expect(intent).toEqual(SERVER_INTENT);
+    expect(intent.upiVpa).toBe('rwa-collections@hdfcbank');
+    expect(intent.upiVpa).not.toBe('mana.society@icici');
+    expect(intent.receiptNumber).toBeUndefined();
   });
 
-  it('confirms payment, stores transaction record, and retrieves official digital receipt', async () => {
-    const mockRecord: ManaPaymentRecord = {
-      id: 'pay-PI_TEST_INTENT_101',
-      transactionNumber: 'TXN-2026-101',
+  it('createPaymentIntent propagates a backend failure instead of fabricating a payable UPI intent', async () => {
+    postMock.mockRejectedValueOnce(
+      new Error('Unable to connect to the server. Please check your internet connection or try again shortly.')
+    );
+
+    await expect(manaPayService.createPaymentIntent(intentReq)).rejects.toThrow(/Unable to connect/);
+
+    // Checkout must be able to refuse: nothing was invented and nothing stored.
+    expect(safeStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  // ── confirmPayment ─────────────────────────────────────────────────────────
+
+  it('confirmPayment persists SUCCESS using only the identifiers the server returned', async () => {
+    const serverConfirmation = {
+      status: 'SUCCESS' as const,
+      utr: 'SRV-UTR-628499001122',
+      gatewayRef: 'pay_srv_77821',
+      receiptNumber: 'SRV-RCP-2026-5521',
+      transactionNumber: 'TXN-SRV-0001',
       orderReferenceId: 'SPORTS-09',
-      domain: 'SPORTS_FEE',
-      title: 'Sports Registration',
       amount: 850,
-      currency: 'INR',
-      status: 'SUCCESS',
-      paymentRail: 'UPI_INTENT',
-      createdAt: '2026-11-20T10:00:00Z',
-      paidAt: '2026-11-20T10:05:00Z',
-      payerName: 'Alice Green',
-      payerUnit: 'Flat 102',
-      utr: '628499001122',
-      receiptNumber: 'RCP-2026-1001',
-      reconciliationStatus: 'RECONCILED',
-      canRefund: true,
+      paidAt: '2026-11-01T10:30:00.000Z',
     };
-    (apiClient.post as any).mockResolvedValueOnce(mockRecord);
+    postMock.mockResolvedValueOnce(serverConfirmation);
 
-    const mockReceipt: any = {
-      receiptNumber: 'RCP-2026-1001',
-      transactionNumber: 'TXN-2026-101',
-      orderReferenceId: 'SPORTS-09',
-      domain: 'SPORTS_FEE',
-      title: 'Sports Registration',
-      totalAmount: 850,
-      currency: 'INR',
-      payerName: 'Alice Green',
-      payerUnit: 'Flat 102',
-      paymentRail: 'UPI_INTENT',
-      paidAt: '2026-11-20T10:05:00Z',
-      societyGstin: '29ABCDE1234F1Z5',
-      verifiedStamp: true,
-      qrVerificationPayload: 'https://mana.community/receipts/RCP-2026-1001',
-    };
-    (apiClient.get as any).mockResolvedValueOnce(mockReceipt);
+    const record = await manaPayService.confirmPayment(
+      { intentId: 'PI_TEST_INTENT_101', rail: 'UPI_INTENT', utr: '628499001122' },
+      {
+        title: 'Sports Registration',
+        domain: 'SPORTS_FEE',
+        orderReferenceId: 'SPORTS-09',
+        payerName: 'Alice Green',
+        payerUnit: 'Flat 102',
+        amount: 850,
+      }
+    );
 
-    const intentId = 'PI_TEST_INTENT_101';
-    const record = await manaPayService.confirmPayment({
-      intentId,
-      rail: 'UPI_INTENT',
+    expect(apiClient.post).toHaveBeenCalledWith('/payments/intents/PI_TEST_INTENT_101/confirm', {
+      gatewayPaymentId: undefined,
+      gatewayOrderId: undefined,
+      gatewaySignature: undefined,
       utr: '628499001122',
     });
 
     expect(record.status).toBe('SUCCESS');
-    expect(record.utr).toBe('628499001122');
-    expect(record.receiptNumber).toMatch(/^RCP-/);
+    expect(record.transactionNumber).toBe('TXN-SRV-0001');
+    expect(record.utr).toBe('SRV-UTR-628499001122');
+    expect(record.gatewayRef).toBe('pay_srv_77821');
+    expect(record.receiptNumber).toBe('SRV-RCP-2026-5521');
+    expect(record.amount).toBe(850);
+    expect(record.paidAt).toBe('2026-11-01T10:30:00.000Z');
 
+    // Reconciliation is a treasury fact: the client defaults to UNRECONCILED
+    // and claims no reconciliation of its own.
+    expect(record.reconciliationStatus).toBe('UNRECONCILED');
+    expect(record.reconciledAt).toBeUndefined();
+    expect(record.reconciledBy).toBeUndefined();
+
+    // Nothing in the stored record is locally generated.
+    const stored = JSON.parse(safeStorage.getItem(STORAGE_KEY) as string) as ManaPaymentRecord[];
+    const persisted = stored.find((t) => t.transactionNumber === 'TXN-SRV-0001');
+    expect(persisted).toBeDefined();
+    expect(persisted?.receiptNumber).toBe('SRV-RCP-2026-5521');
+    expect(persisted?.receiptNumber).not.toMatch(/^RCP-/);
+
+    // The receipt carries the server's number and is NOT stamped verified,
+    // because "verified" means reconciled against the society bank account.
     const receipt = await manaPayService.getTransactionReceipt(record.transactionNumber);
     expect(receipt).not.toBeNull();
+    expect(receipt?.receiptNumber).toBe('SRV-RCP-2026-5521');
     expect(receipt?.totalAmount).toBe(850);
-    expect(receipt?.verifiedStamp).toBe(true);
+    expect(receipt?.verifiedStamp).toBe(false);
     expect(receipt?.societyGstin).toBeDefined();
   });
 
-  it('tracks refunds without deleting original transactions', async () => {
-    const mockSuccess: ManaPaymentRecord = {
-      id: 'pay-PI_REFUND_TEST',
-      transactionNumber: 'TXN-2026-554',
-      orderReferenceId: 'ORD-554',
-      domain: 'MARKETPLACE_ORDER',
-      title: 'Marketplace Pre-order',
-      amount: 2500,
-      currency: 'INR',
+  it('confirmPayment carries a server-reported reconciliation through unchanged', async () => {
+    postMock.mockResolvedValueOnce({
       status: 'SUCCESS',
-      paymentRail: 'GATEWAY_CARD_NETBANKING',
-      createdAt: '2026-11-20T10:00:00Z',
-      payerName: 'Bob White',
+      utr: 'SRV-UTR-991',
+      receiptNumber: 'SRV-RCP-991',
+      transactionNumber: 'TXN-SRV-0991',
+      amount: 500,
       reconciliationStatus: 'RECONCILED',
-      canRefund: true,
-    };
-    (apiClient.post as any).mockResolvedValueOnce(mockSuccess);
-
-    const mockRefunded: ManaPaymentRecord = {
-      ...mockSuccess,
-      status: 'REFUNDED',
-      refundReason: 'Seller cancelled item delivery',
-      refundedAmount: 2500,
-    };
-    (apiClient.post as any).mockResolvedValueOnce(mockRefunded);
-    (apiClient.get as any).mockResolvedValueOnce([mockRefunded]);
-
-    const record = await manaPayService.confirmPayment({
-      intentId: 'PI_REFUND_TEST',
-      rail: 'GATEWAY_CARD_NETBANKING',
+      reconciledAt: '2026-11-02T06:00:00.000Z',
+      reconciledBy: 'Treasurer (RWA ICICI Current A/c)',
     });
+
+    const record = await manaPayService.confirmPayment(
+      { intentId: 'PI_RECONCILED_1', rail: 'UPI_QR' },
+      { orderReferenceId: 'EVT-991', amount: 500 }
+    );
+
+    expect(record.reconciliationStatus).toBe('RECONCILED');
+    expect(record.reconciledBy).toBe('Treasurer (RWA ICICI Current A/c)');
+    expect(record.reconciledAt).toBe('2026-11-02T06:00:00.000Z');
+
+    const receipt = await manaPayService.getTransactionReceipt('TXN-SRV-0991');
+    expect(receipt?.verifiedStamp).toBe(true);
+  });
+
+  it('confirmPayment issues no receipt when the server returned no receipt number', async () => {
+    postMock.mockResolvedValueOnce({
+      status: 'SUCCESS',
+      transactionNumber: 'TXN-SRV-NO-RCP',
+      amount: 300,
+    });
+
+    const record = await manaPayService.confirmPayment(
+      { intentId: 'PI_NO_RECEIPT', rail: 'WALLET' },
+      { orderReferenceId: 'MKT-NO-RCP', amount: 300 }
+    );
+
+    expect(record.status).toBe('SUCCESS');
+    expect(record.receiptNumber).toBeUndefined();
+
+    // A receipt number that exists nowhere server-side is never minted locally.
+    await expect(manaPayService.getTransactionReceipt('TXN-SRV-NO-RCP')).resolves.toBeNull();
+  });
+
+  it('confirmPayment throws and persists nothing when the backend is unreachable', async () => {
+    postMock.mockRejectedValueOnce(
+      new Error('Unable to connect to the server. Please check your internet connection or try again shortly.')
+    );
+
+    await expect(
+      manaPayService.confirmPayment(
+        { intentId: 'PI_UNREACHABLE', rail: 'UPI_INTENT', utr: '999888777666' },
+        { orderReferenceId: 'SPORTS-FAIL-01', amount: 850, title: 'Sports Registration' }
+      )
+    ).rejects.toThrow(/Unable to connect/);
+
+    // No local ledger write at all — not even the seed bootstrap — so the
+    // resident is never shown a receipt for a payment the backend never took.
+    expect(safeStorage.getItem(STORAGE_KEY)).toBeNull();
+
+    const list = await manaPayService.getMyTransactions();
+    expect(list.find((t) => t.orderReferenceId === 'SPORTS-FAIL-01')).toBeUndefined();
+    expect(list.find((t) => t.utr === '999888777666')).toBeUndefined();
+  });
+
+  it('confirmPayment throws when the server confirms with an unusable body', async () => {
+    postMock.mockResolvedValueOnce(undefined);
+
+    await expect(
+      manaPayService.confirmPayment(
+        { intentId: 'PI_EMPTY_BODY', rail: 'UPI_INTENT' },
+        { orderReferenceId: 'EVT-EMPTY', amount: 100 }
+      )
+    ).rejects.toThrow(/could not be confirmed/i);
+
+    expect(safeStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  // ── Local ledger views (seeded, no backend call) ────────────────────────────
+
+  it('tracks refunds without deleting original transactions', async () => {
+    postMock.mockResolvedValueOnce({
+      status: 'SUCCESS',
+      gatewayRef: 'pay_srv_refundable',
+      receiptNumber: 'SRV-RCP-554',
+      transactionNumber: 'TXN-SRV-0554',
+      amount: 2500,
+    });
+
+    const record = await manaPayService.confirmPayment(
+      { intentId: 'PI_REFUND_TEST', rail: 'GATEWAY_CARD_NETBANKING' },
+      {
+        title: 'Marketplace Pre-order',
+        domain: 'MARKETPLACE_ORDER',
+        orderReferenceId: 'ORD-554',
+        payerId: 'user-302',
+        payerName: 'Bob White',
+        amount: 2500,
+      }
+    );
 
     const refunded = await manaPayService.requestRefund({
       transactionNumber: record.transactionNumber,
@@ -199,67 +315,6 @@ describe('manaPayService', () => {
   });
 
   it('correctly scopes transaction queries by role (Resident, Treasurer, Vendor)', async () => {
-    const residentMock: ManaPaymentRecord[] = [
-      {
-        id: '1',
-        payerName: 'Alice Green',
-        transactionNumber: 'TXN-1',
-        orderReferenceId: 'ORD-1',
-        domain: 'MAINTENANCE_BILL',
-        title: 'Maintenance',
-        amount: 2000,
-        currency: 'INR',
-        status: 'SUCCESS',
-        paymentRail: 'UPI_INTENT',
-        createdAt: '2026-11-20T10:00:00Z',
-        payerId: 'user-302',
-        reconciliationStatus: 'RECONCILED',
-        canRefund: false,
-      },
-    ];
-    const treasurerMock: ManaPaymentRecord[] = [
-      ...residentMock,
-      {
-        id: '2',
-        payerName: 'Bob Green',
-        transactionNumber: 'TXN-2',
-        orderReferenceId: 'ORD-2',
-        domain: 'POOJA_BOOKING',
-        title: 'Pooja',
-        amount: 500,
-        currency: 'INR',
-        status: 'SUCCESS',
-        paymentRail: 'UPI_INTENT',
-        createdAt: '2026-11-20T10:00:00Z',
-        payerId: 'user-404',
-        reconciliationStatus: 'RECONCILED',
-        canRefund: false,
-      },
-    ];
-    const vendorMock: ManaPaymentRecord[] = [
-      {
-        id: '3',
-        payerName: 'Charlie Vendor',
-        transactionNumber: 'TXN-3',
-        orderReferenceId: 'ORD-3',
-        domain: 'SPORTS_FEE',
-        title: 'Turf',
-        amount: 1500,
-        currency: 'INR',
-        status: 'SUCCESS',
-        paymentRail: 'UPI_INTENT',
-        createdAt: '2026-11-20T10:00:00Z',
-        vendorId: 'vendor-sports-arena',
-        reconciliationStatus: 'RECONCILED',
-        canRefund: false,
-      },
-    ];
-
-    (apiClient.get as any)
-      .mockResolvedValueOnce(residentMock)
-      .mockResolvedValueOnce(treasurerMock)
-      .mockResolvedValueOnce(vendorMock);
-
     // 1. Resident view: should only see transactions for user-302
     const residentTxns = await manaPayService.getTransactions({ role: 'RESIDENT', payerId: 'user-302' });
     expect(residentTxns.length).toBeGreaterThan(0);
@@ -282,33 +337,6 @@ describe('manaPayService', () => {
   });
 
   it('allows Treasurer to reconcile transactions with Bank UTR', async () => {
-    const mockTxns: ManaPaymentRecord[] = [
-      {
-        id: '1',
-        payerName: 'David Resident',
-        transactionNumber: 'TXN-UNREC-1',
-        orderReferenceId: 'ORD-1',
-        domain: 'MAINTENANCE_BILL',
-        title: 'Maintenance',
-        amount: 3000,
-        currency: 'INR',
-        status: 'SUCCESS',
-        paymentRail: 'UPI_INTENT',
-        createdAt: '2026-11-20T10:00:00Z',
-        reconciliationStatus: 'UNRECONCILED',
-        canRefund: false,
-      },
-    ];
-    (apiClient.get as any).mockResolvedValueOnce(mockTxns);
-
-    const reconciledTxn: ManaPaymentRecord = {
-      ...mockTxns[0],
-      reconciliationStatus: 'RECONCILED',
-      utr: 'HDFC_UTR_99887766',
-      reconciledBy: 'Treasurer Office',
-    };
-    (apiClient.post as any).mockResolvedValueOnce(reconciledTxn);
-
     const allTxns = await manaPayService.getTransactions({ role: 'TREASURER' });
     const unreconciled = allTxns.find((t) => t.reconciliationStatus === 'UNRECONCILED');
     expect(unreconciled).toBeDefined();
@@ -325,18 +353,6 @@ describe('manaPayService', () => {
   });
 
   it('calculates capability metrics with correct domain breakdowns', async () => {
-    const mockMetrics = {
-      totalCollections: 125000,
-      pendingCollections: 15000,
-      reconciledCount: 88,
-      pendingCount: 6,
-      domainBreakdown: {
-        MAINTENANCE_BILL: 95000,
-        MANA_HEALTH: 30000,
-      },
-    };
-    (apiClient.get as any).mockResolvedValueOnce(mockMetrics);
-
     const summary = await manaPayService.getCommunityMetrics();
     expect(summary.totalCollections).toBeGreaterThan(0);
     expect(summary.domainBreakdown).toBeDefined();
