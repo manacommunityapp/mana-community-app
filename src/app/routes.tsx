@@ -141,8 +141,7 @@ import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
 import { ConsentGate } from "../components/privacy/ConsentGate";
-import BusinessRevenueDashboard from "./components/platform/BusinessRevenueDashboard";
-import CommunityManagerDashboard from "./components/community-ops/CommunityManagerDashboard";
+import PlatformRevenueDashboard from "./components/platform/BusinessRevenueDashboard";
 
 // CPN (Community Professional Network) pages
 import { CPNHub } from "./components/cpn/CPNHub";
@@ -1865,7 +1864,7 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
       // ── Platform & Ops Dashboards ────────
-      { path: "platform/revenue", element: <PermissionGuard superAdminOnly><BusinessRevenueDashboard /></PermissionGuard> },
+      { path: "platform/revenue", element: <PermissionGuard superAdminOnly><PlatformRevenueDashboard /></PermissionGuard> },
       // ── Next-tier features ────────
       { path: "social", element: <SocialCirclesPage /> },
       { path: "finance/compliance", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><ComplianceReportsPage /></PermissionGuard> },

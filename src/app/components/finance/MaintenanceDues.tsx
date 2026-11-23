@@ -141,7 +141,6 @@ export function MaintenanceDues() {
       } catch {
         /* both payment paths failed — leave the bill untouched */
       }
-      }
     } finally {
       setIsProcessing(false);
     }
