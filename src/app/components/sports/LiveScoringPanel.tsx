@@ -13,12 +13,16 @@ import { TossSetupModal } from "./TossSetupModal";
 import { ConfettiCanvas } from "./utils/ConfettiCanvas";
 import { useCricketSounds } from "./utils/useCricketSounds";
 import { useWakeLock } from "./hooks/useWakeLock";
+import { formatRoundStageLabel } from "../../../utils/sportsStageUtils";
 
 interface LiveScoringPanelProps {
   matchId: number;
   configId?: number;
   teamAName?: string;
   teamBName?: string;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
 }
 
@@ -28,7 +32,7 @@ interface PlayerOption {
   teamId?: number;
 }
 
-export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onClose }: LiveScoringPanelProps) {
+export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, roundName, tournamentName, eventName, onClose }: LiveScoringPanelProps) {
   const { isLocked: isWakeLocked } = useWakeLock(true);
   const [fastMode, setFastMode] = useState<boolean>(() => {
     try {
@@ -763,8 +767,15 @@ export function LiveScoringPanel({ matchId, configId, teamAName, teamBName, onCl
               <Radio className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-indigo-100/80 sm:text-[10px]">Live Scorer</span>
+              <div className="flex min-w-0 items-center gap-2 flex-wrap">
+                <span className="truncate text-[9px] font-extrabold uppercase tracking-[0.14em] text-indigo-100/80 sm:text-[10px]">
+                  {[tournamentName || state?.tournamentName, eventName || state?.eventName, "Live Scorer"].filter(Boolean).join(" · ")}
+                </span>
+                {(roundName || state?.roundName) && (
+                  <span className="inline-flex shrink-0 items-center rounded-full border border-amber-300/35 bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-amber-100">
+                    {formatRoundStageLabel(roundName || state?.roundName)}
+                  </span>
+                )}
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-300/30 bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-rose-100">
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-300 animate-pulse" /> LIVE
                 </span>

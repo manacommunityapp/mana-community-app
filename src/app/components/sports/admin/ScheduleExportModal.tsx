@@ -23,132 +23,18 @@ import {
 import { showSuccess, showWarning } from '../../../../utils/ToastUtils';
 import { isPlaceholderOrTbd } from '../../../../utils/sportsValidationUtils';
 
-export type TournamentStageKey =
-  | 'ALL'
-  | 'GROUP'
-  | 'ROUND_OF_64'
-  | 'ROUND_OF_32'
-  | 'ROUND_OF_16'
-  | 'QUARTER_FINAL'
-  | 'SEMI_FINAL'
-  | 'FINAL'
-  | 'THIRD_PLACE';
+import {
+  getMatchStage,
+  type TournamentStageKey,
+} from '../../../../utils/sportsStageUtils';
+
+export { getMatchStage, type TournamentStageKey };
 
 export interface StageOption {
   key: TournamentStageKey;
   label: string;
   count: number;
   byes?: number;
-}
-
-/** Determines which tournament stage a match belongs to. */
-export function getMatchStage(m: any): TournamentStageKey {
-  const roundStr = String(m.round || m.roundName || m.roundType || '').trim().toUpperCase();
-  const stageStr = String(m.stage || '').trim().toUpperCase();
-  const groupStr = String(m.groupName || '').trim().toUpperCase();
-
-  // 1. Group Stage / League Matches (checked early to protect against tournament/event names)
-  if (
-    roundStr === 'GROUP_STAGE' || roundStr === 'LEAGUE_MATCH' ||
-    stageStr === 'GROUP' || stageStr === 'ROUND_ROBIN' ||
-    groupStr.startsWith('GROUP') || groupStr.startsWith('POOL')
-  ) {
-    return 'GROUP';
-  }
-
-  // 2. Third Place Match
-  if (
-    roundStr === 'THIRD_PLACE' ||
-    roundStr.includes('THIRD') || roundStr.includes('3RD') || roundStr.includes('BRONZE') ||
-    groupStr.includes('THIRD') || groupStr.includes('3RD') || groupStr.includes('BRONZE')
-  ) {
-    return 'THIRD_PLACE';
-  }
-
-  // 3. Final / Grand Final (strict: exact match or clean word boundary, never loose substring)
-  if (
-    roundStr === 'FINAL' || roundStr === 'GRAND_FINAL' || roundStr === 'FINALS' ||
-    /^(GRAND[\s_-]?)?FINALS?$/i.test(roundStr) ||
-    /^(GRAND[\s_-]?)?FINALS?$/i.test(groupStr)
-  ) {
-    return 'FINAL';
-  }
-
-  // 4. Semi-Finals
-  if (
-    roundStr === 'SEMI_FINAL' || roundStr.includes('SEMI') || /\bSF\b/i.test(roundStr) ||
-    groupStr.includes('SEMI') || /\bSF\b/i.test(groupStr)
-  ) {
-    return 'SEMI_FINAL';
-  }
-
-  // 5. Quarter-Finals
-  if (
-    roundStr === 'QUARTER_FINAL' || roundStr.includes('QUARTER') || /\bQF\b/i.test(roundStr) ||
-    groupStr.includes('QUARTER') || /\bQF\b/i.test(groupStr)
-  ) {
-    return 'QUARTER_FINAL';
-  }
-
-  // 6. Round of 64
-  if (
-    roundStr === 'ROUND_OF_64' ||
-    roundStr.includes('ROUND OF 64') ||
-    roundStr.includes('R64') ||
-    roundStr.includes('1/32') ||
-    /\b64\b/.test(roundStr) ||
-    groupStr.includes('ROUND OF 64') ||
-    /\b64\b/.test(groupStr)
-  ) {
-    return 'ROUND_OF_64';
-  }
-
-  // 7. Round of 32
-  if (
-    roundStr === 'ROUND_OF_32' ||
-    roundStr.includes('ROUND OF 32') ||
-    roundStr.includes('R32') ||
-    roundStr.includes('1/16') ||
-    /\b32\b/.test(roundStr) ||
-    groupStr.includes('ROUND OF 32') ||
-    /\b32\b/.test(groupStr)
-  ) {
-    return 'ROUND_OF_32';
-  }
-
-  // 8. Round of 16 / Pre-Quarters
-  if (
-    roundStr === 'ROUND_OF_16' ||
-    roundStr.includes('ROUND OF 16') ||
-    roundStr.includes('R16') ||
-    roundStr.includes('1/8') ||
-    roundStr.includes('PRE-QUARTER') ||
-    /\b16\b/.test(roundStr) ||
-    groupStr.includes('ROUND OF 16') ||
-    groupStr.includes('PRE-QUARTER') ||
-    /\b16\b/.test(groupStr)
-  ) {
-    return 'ROUND_OF_16';
-  }
-
-  // Generic "Round 1" of a knockout bracket
-  if (
-    roundStr === 'ROUND 1' || roundStr === 'ROUND_1' ||
-    /ROUND[\s_-]*1\b/i.test(groupStr) || /ROUND[\s_-]*1\b/i.test(roundStr)
-  ) {
-    const matchNum = Number(m.matchNumber || m.matchId || 0);
-    const bracketSlot = Number(m.bracketSlot || 0);
-    if (matchNum > 16 || bracketSlot > 32) return 'ROUND_OF_64';
-    if (matchNum > 8 || bracketSlot > 16) return 'ROUND_OF_32';
-    return 'ROUND_OF_16';
-  }
-
-  // Default fallback
-  if (stageStr === 'KNOCKOUT' || stageStr === 'PLAYOFF') {
-    return 'ROUND_OF_16';
-  }
-
-  return 'GROUP';
 }
 
 /** Extracts date and 12-hour AM/PM time from match object. */

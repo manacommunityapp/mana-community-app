@@ -6,9 +6,13 @@ import {
   type PlayerMatchStats,
 } from "../../../services/sports/tournamentService";
 import { PERIOD_LABELS } from "./utils/sportScoringConstants";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 
 interface GenericMatchDetailViewProps {
   matchId: number;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
 }
 
@@ -37,6 +41,9 @@ const isSetBased = (sport: string) =>
 
 export function GenericMatchDetailView({
   matchId,
+  roundName,
+  tournamentName,
+  eventName,
   onClose,
 }: GenericMatchDetailViewProps) {
   const [state, setState] = useState<GenericMatchState | null>(null);
@@ -182,7 +189,7 @@ export function GenericMatchDetailView({
       >
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Trophy className="w-4 h-4 text-amber-500" />
             <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               Match Details
@@ -190,6 +197,21 @@ export function GenericMatchDetailView({
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-semibold">
               {sportType.replace(/_/g, " ")}
             </span>
+            {(roundName || state.roundName) && (() => {
+              const effectiveRound = roundName || state.roundName;
+              const stageKey = getMatchStage({ roundName: effectiveRound });
+              const meta = getStageMeta(stageKey);
+              return (
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${meta.badgeClass}`}>
+                  {formatRoundStageLabel(effectiveRound, undefined, stageKey)}
+                </span>
+              );
+            })()}
+            {(tournamentName || state.tournamentName || eventName || state.eventName) && (
+              <span className="text-[10px] text-slate-500 font-medium truncate max-w-[200px]">
+                {[tournamentName || state.tournamentName, eventName || state.eventName].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}

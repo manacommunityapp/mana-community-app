@@ -17,9 +17,13 @@ import {
 } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
 import { PERIOD_LABELS } from "./utils/sportScoringConstants";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 
 interface GenericLiveMatchViewProps {
   matchId: number;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
 }
 
@@ -38,6 +42,9 @@ const isSetBased = (sport: string) =>
 
 export function GenericLiveMatchView({
   matchId,
+  roundName,
+  tournamentName,
+  eventName,
   onClose,
 }: GenericLiveMatchViewProps) {
   const [state, setState] = useState<GenericMatchState | null>(null);
@@ -274,8 +281,19 @@ export function GenericLiveMatchView({
               </div>
             )}
 
+            {(roundName || state.roundName) && (() => {
+              const effectiveRound = roundName || state.roundName;
+              const stageKey = getMatchStage({ roundName: effectiveRound });
+              const meta = getStageMeta(stageKey);
+              return (
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.badgeClass}`}>
+                  {formatRoundStageLabel(effectiveRound, undefined, stageKey)}
+                </span>
+              );
+            })()}
+
             <span className="hidden sm:inline text-xs text-slate-400">
-              Match #{state.matchId}
+              {[tournamentName || state.tournamentName, eventName || state.eventName, `Match #${state.matchId}`].filter(Boolean).join(" • ")}
             </span>
           </div>
 

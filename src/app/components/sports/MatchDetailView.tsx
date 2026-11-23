@@ -5,9 +5,12 @@ import { automationService, type SportsMatchRecapData } from "../../../services/
 import { SportsMatchPhotoGallery } from "./SportsMatchPhotoGallery";
 import { SportsMatchRatings } from "./SportsMatchRatings";
 import { toast } from "sonner";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 
 interface MatchDetailViewProps {
   matchId: number;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
 }
 
@@ -155,7 +158,7 @@ function formatScorecardText(d: MatchDetailData): string {
   return lines.join("\n");
 }
 
-export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
+export function MatchDetailView({ matchId, tournamentName, eventName, onClose }: MatchDetailViewProps) {
   const [detail, setDetail] = useState<MatchDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -239,8 +242,19 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
           <div className="p-3 sm:p-6 space-y-3 sm:space-y-6">
             {/* Match Header */}
             <div className="text-center space-y-1.5 sm:space-y-2">
-              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-                {detail.roundName} &middot; Match #{detail.matchNumber}
+              <div className="flex items-center justify-center gap-2 flex-wrap text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                {detail.roundName && (() => {
+                  const stageKey = getMatchStage({ roundName: detail.roundName });
+                  const meta = getStageMeta(stageKey);
+                  return (
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal ${meta.badgeClass}`}>
+                      {formatRoundStageLabel(detail.roundName, undefined, stageKey)}
+                    </span>
+                  );
+                })()}
+                <span>
+                  {[tournamentName, eventName, detail.roundName, `Match #${detail.matchNumber}`].filter(Boolean).join(" · ")}
+                </span>
               </div>
 
               <div className="flex items-center justify-center gap-2 sm:gap-4">
