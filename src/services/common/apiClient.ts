@@ -339,7 +339,32 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
   return `Request failed (${status}). Please try again later.`;
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
+export interface ApiErrorPayload {
+  status: number;
+  error: string;
+  message: string;
+  path?: string;
+  correlationId?: string;
+  fieldErrors?: Array<{ field: string; message: string }>;
+}
+
+export class ApiClientError extends ApiError implements ApiErrorPayload {
+  status: number;
+  error: string;
+  path?: string;
+  fieldErrors?: Array<{ field: string; message: string }>;
+
+  constructor(apiError: ApiErrorPayload & { traceId?: string }) {
+    super(apiError.message, apiError.correlationId, apiError.status, apiError.traceId);
+    this.name = "ApiClientError";
+    this.status = apiError.status;
+    this.error = apiError.error;
+    this.path = apiError.path;
+    this.fieldErrors = apiError.fieldErrors;
+  }
+}
+
+async function handleResponse<T>(res: Response, correlationId?: string, requestPath?: string): Promise<T> {
   // Sync correlation and trace IDs from response headers if returned by server
   const headerCid = res.headers.get("X-Correlation-Id") ?? res.headers.get("x-correlation-id");
   if (headerCid) setLastCorrelationId(headerCid);
@@ -357,16 +382,30 @@ async function handleResponse<T>(res: Response): Promise<T> {
       // ignore
     }
     // Try to extract correlationId from error envelope
-    let correlationId: string | undefined = headerCid ?? getLastCorrelationId();
-    try {
-      const parsed = JSON.parse(rawText) as Partial<ApiResponseEnvelope<unknown>>;
-      if (parsed?.correlationId) {
-        correlationId = parsed.correlationId;
-        setLastCorrelationId(correlationId);
+    let resolvedCid: string | undefined = correlationId ?? headerCid ?? getLastCorrelationId();
+    let parsedError: any = {};
+    if (rawText && (rawText.startsWith("{") || rawText.startsWith("["))) {
+      try {
+        parsedError = JSON.parse(rawText);
+        if (parsedError?.correlationId) {
+          resolvedCid = parsedError.correlationId;
+          setLastCorrelationId(resolvedCid);
+        }
+      } catch {
+        // ignore
       }
-    } catch { /* ignore */ }
+    }
     const message = sanitizeErrorMessage(res.status, rawText);
-    throw new ApiError(message, correlationId, res.status, getLastTraceId());
+
+    throw new ApiClientError({
+      status: res.status,
+      error: parsedError?.error || `HTTP_${res.status}`,
+      message,
+      path: requestPath || parsedError?.path,
+      correlationId: resolvedCid,
+      traceId: getLastTraceId(),
+      fieldErrors: parsedError?.fieldErrors,
+    });
   }
   // 204 No Content
   if (res.status === 204) return undefined as T;
@@ -412,17 +451,18 @@ interface RequestInitLike {
   headers?: Record<string, string>;
   /** Caller-supplied idempotency key; generated automatically for mutations when absent. */
   idempotencyKey?: string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  retries?: number;
 }
 
 /**
- * Core request runner with transparent access-token refresh.
- *
- * On a 401 the access token has (probably) expired: we attempt a single refresh
- * and retry the request once with the new token. A 403 (authorized endpoint,
- * insufficient role) or a failed refresh ends the session and redirects to login.
+ * Core request runner with transparent access-token refresh, request cancellation,
+ * per-request IDs, and configurable timeouts.
  */
 async function request<T>(path: string, init: RequestInitLike, isRetry = false): Promise<T> {
   const correlationId = generateId();
+  const requestId = generateId();
   setCorrelationId(correlationId);
   const { traceparent, traceId } = generateW3CTrace();
   setLastTraceId(traceId);
@@ -432,16 +472,28 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
   const access = canAccessEndpoint(path, init.method, getStoredUser());
   if (!access.allowed) {
     log.warn(`Pre-flight Access Check blocked ${init.method} ${path}: ${access.reason} - ${access.message}`, { correlationId, traceId });
-    throw new Error(access.message || "You do not have permission to perform this action.");
+    throw new ApiClientError({
+      status: 403,
+      error: "ACCESS_DENIED",
+      message: access.message || "You do not have permission to perform this action.",
+      correlationId,
+      traceId,
+      path,
+    });
   }
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
     "X-Correlation-ID": correlationId, // also send canonical casing the backend expects
+    "X-Request-Id": requestId,
     "traceparent": traceparent,
     [PLATFORM_HEADER]: PLATFORM_VALUE,
     ...(init.headers || {}),
   };
+  if (init.idempotencyKey) {
+    headers["Idempotency-Key"] = init.idempotencyKey;
+  }
+
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!init.form) headers["Content-Type"] = "application/json";
@@ -470,6 +522,22 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     ? path
     : '/' + path;
 
+  // Setup abort controller for timeout & external cancellation
+  const timeoutMs = init.timeoutMs ?? (init.form ? 60000 : 15000);
+  const timeoutController = new AbortController();
+  const timeoutTimer = setTimeout(() => {
+    timeoutController.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+
+  let activeSignal = timeoutController.signal;
+  if (init.signal) {
+    if (typeof AbortSignal !== "undefined" && "any" in AbortSignal) {
+      activeSignal = (AbortSignal as any).any([init.signal, timeoutController.signal]);
+    } else {
+      init.signal.addEventListener("abort", () => timeoutController.abort(init.signal?.reason));
+    }
+  }
+
   const start = performance.now();
   let res: Response;
   try {
@@ -478,10 +546,33 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
       headers,
       body: init.body,
       credentials: "include",
+      signal: activeSignal,
     });
-  } catch (err) {
+  } catch (err: any) {
+    clearTimeout(timeoutTimer);
+    if (err?.name === "AbortError" && init.signal?.aborted) {
+      log.debug(`Request aborted by caller: ${init.method} ${path}`);
+      throw err;
+    }
+
+    // Auto-retry transient GET failures
+    const retriesLeft = init.retries ?? (init.method === "GET" ? 1 : 0);
+    if (retriesLeft > 0 && init.method === "GET") {
+      log.warn(`Retrying network error for ${init.method} ${path} (${retriesLeft} left)...`);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return request<T>(path, { ...init, retries: retriesLeft - 1 }, isRetry);
+    }
+
     log.error(`Network error: ${init.method} ${path}`, err, { correlationId });
-    throw new Error("Unable to connect to the server. Please check your internet connection or try again shortly.");
+    throw new ApiClientError({
+      status: 0,
+      error: "NETWORK_ERROR",
+      message: "Unable to connect to the server. Please check your internet connection or try again shortly.",
+      correlationId,
+      path,
+    });
+  } finally {
+    clearTimeout(timeoutTimer);
   }
 
   const duration = Math.round(performance.now() - start);
@@ -504,20 +595,31 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
       return request<T>(path, init, true);
     }
     forceLogout();
-    throw new Error("Session expired — please log in again.");
+    throw new ApiClientError({
+      status: 401,
+      error: "SESSION_EXPIRED",
+      message: "Session expired — please log in again.",
+      correlationId,
+      path,
+    });
   }
 
   if (res.status === 401 && !isAuthEndpoint) {
     forceLogout();
-    throw new Error("Unauthorized — please log in again.");
+    throw new ApiClientError({
+      status: 401,
+      error: "UNAUTHORIZED",
+      message: "Unauthorized — please log in again.",
+      correlationId,
+      path,
+    });
   }
 
-  return handleResponse<T>(res);
+  return handleResponse<T>(res, correlationId, path);
 }
 
 // Cached & In-flight GET requests, keyed by path. Coalesces concurrent and rapid repeated
-// requests for the same resource (e.g. React StrictMode's double effect invocation, multi-component
-// mounting, or rapid re-renders) into a single network call.
+// requests for the same resource into a single network call.
 interface GetCacheEntry {
   promise: Promise<unknown>;
   expiresAt: number;
@@ -531,6 +633,10 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   params?: Record<string, any>;
   responseType?: string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  idempotencyKey?: string;
+  retries?: number;
 }
 
 export const apiClient = {
@@ -556,7 +662,13 @@ export const apiClient = {
       if (qs) finalPath += (finalPath.includes('?') ? '&' : '?') + qs;
     }
 
-    const promise = request<T>(finalPath, { method: "GET", headers: options?.headers }).catch((err) => {
+    const promise = request<T>(finalPath, {
+      method: "GET",
+      headers: options?.headers,
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
+      retries: options?.retries,
+    }).catch((err) => {
       // Remove immediately on error so failed requests aren't cached or blocking retries
       getCache.delete(path);
       throw err;
@@ -575,39 +687,91 @@ export const apiClient = {
     getCache.clear();
   },
 
-  async post<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+  async post<T>(
+    path: string,
+    body?: unknown,
+    optionsOrHeaders?: RequestOptions | Record<string, string>
+  ): Promise<T> {
     getCache.clear();
+    const isOptions =
+      optionsOrHeaders &&
+      ("headers" in optionsOrHeaders ||
+        "signal" in optionsOrHeaders ||
+        "idempotencyKey" in optionsOrHeaders ||
+        "timeoutMs" in optionsOrHeaders);
+
+    const options: RequestOptions = isOptions
+      ? (optionsOrHeaders as RequestOptions)
+      : { headers: optionsOrHeaders as Record<string, string> };
+
     return request<T>(path, {
       method: "POST",
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      headers,
+      headers: options.headers,
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+      idempotencyKey: options.idempotencyKey,
     });
   },
 
-  async put<T>(path: string, body?: unknown): Promise<T> {
+  async put<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions
+  ): Promise<T> {
     getCache.clear();
     return request<T>(path, {
       method: "PUT",
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
+      idempotencyKey: options?.idempotencyKey,
     });
   },
 
-  async patch<T>(path: string, body?: unknown): Promise<T> {
+  async patch<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions
+  ): Promise<T> {
     getCache.clear();
     return request<T>(path, {
       method: "PATCH",
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: options?.headers,
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
+      idempotencyKey: options?.idempotencyKey,
     });
   },
 
-  async delete<T>(path: string): Promise<T> {
+  async delete<T>(path: string, options?: RequestOptions): Promise<T> {
     getCache.clear();
-    return request<T>(path, { method: "DELETE" });
+    return request<T>(path, {
+      method: "DELETE",
+      headers: options?.headers,
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
+      idempotencyKey: options?.idempotencyKey,
+    });
   },
 
-  async postForm<T>(path: string, formData: FormData): Promise<T> {
+  async postForm<T>(
+    path: string,
+    formData: FormData,
+    options?: RequestOptions
+  ): Promise<T> {
     getCache.clear();
-    return request<T>(path, { method: "POST", body: formData, form: true });
+    return request<T>(path, {
+      method: "POST",
+      body: formData,
+      form: true,
+      headers: options?.headers,
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
+      idempotencyKey: options?.idempotencyKey,
+    });
   },
 
   /**
