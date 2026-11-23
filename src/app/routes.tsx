@@ -439,8 +439,6 @@ import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprov
 import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
 import FreshDispatchRoutingHub from "./components/fresh/vendor/FreshDispatchRoutingHub";
 import FreshVendorSettlementLedger from "./components/fresh/vendor/FreshVendorSettlementLedger";
-import { ManaFreshPage } from "./components/fresh/ManaFreshPage";
-import { GlobalSearchPage } from "./components/search/GlobalSearchPage";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -536,6 +534,7 @@ import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
 import { HealthPortal } from "../pages/health/HealthPortal";
 import { InsurancePortal } from "../pages/insurance/InsurancePortal";
 import { GoldPortal } from "../pages/gold/GoldPortal";
+import { JewelleryPortal } from "../pages/jewellery/JewelleryPortal";
 import { MutualFundsPortal } from "../pages/investments/MutualFundsPortal";
 import { SplitBillPortal } from "../pages/split/SplitBillPortal";
 import { MoviePortal } from "../pages/entertainment/MoviePortal";
@@ -1687,6 +1686,11 @@ export const router = createBrowserRouter([
       { path: "health", element: <ConsentGate purpose="HEALTH_RECORDS"><HealthPortal /></ConsentGate> },
       { path: "insurance", element: <InsurancePortal /> },
       { path: "gold", element: <GoldPortal /> },
+      { path: "jewellery", element: <JewelleryPortal /> },
+      { path: "jewellery/:id", element: <JewelleryPortal /> },
+      { path: "jewellery/try-on", element: <JewelleryPortal /> },
+      { path: "jewellery/vendor/:vendorId", element: <JewelleryPortal /> },
+      { path: "jewellery/appointments", element: <JewelleryPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
       { path: "split-bill", element: <SplitBillPortal /> },
       { path: "movies", element: <PermissionGuard anyModules={["ENTERTAINMENT", "MOVIES"]} requiredModule="ENTERTAINMENT"><MoviePortal /></PermissionGuard> },
@@ -1848,10 +1852,6 @@ export const router = createBrowserRouter([
           { path: "org-chart", element: <OrgChartPage /> },
         ],
       },
-      // ── Global Search ────────
-      { path: "search", element: <PermissionGuard><GlobalSearchPage /></PermissionGuard> },
-      // ── Mana Fresh ────────
-      { path: "fresh", element: <PermissionGuard><ManaFreshPage /></PermissionGuard> },
       // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
       { path: "recharge", element: <MobileRechargeHub /> },
       { path: "facilities", element: <Navigate to="/bookings" replace /> },
