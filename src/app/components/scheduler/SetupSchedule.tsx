@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck, Lock } from 'lucide-react';
+import { Calendar, Clock, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer, Shuffle, Save, Loader2, Sparkles, UserCheck, Lock, Info } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -550,6 +550,20 @@ export function to24HourTime(timeStr: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/**
+ * Returns true if an event can be scheduled in SetupSchedule.
+ * Allows both open-registration and closed-registration events (excluding only DRAFT and CANCELLED).
+ */
+export function isSchedulableEvent(e: { status?: string | null } | null | undefined): boolean {
+  const st = String(e?.status || '').toUpperCase().trim();
+  return st !== 'DRAFT' && st !== 'CANCELLED';
+}
+
+export function isRegistrationOpenStatus(status?: string | null): boolean {
+  const st = String(status || '').toUpperCase().trim();
+  return st === 'OPEN' || st === 'REGISTRATION_OPEN';
+}
+
 interface SetupScheduleProps {
   initialEventId?: string;
   initialConfigId?: number | null;
@@ -974,19 +988,16 @@ export function SetupSchedule({
       setEvents(enrichedEvents);
 
       // Collect unique tournaments from dropdown API and enriched events.
-      // Only include tournaments that have at least one REGISTRATION_CLOSED event.
-      const closedEnrichedEvents = enrichedEvents.filter(ev => {
-        const st = String(ev.status || '').toUpperCase().trim();
-        return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
-      });
-      const closedTournamentIds = new Set(
-        closedEnrichedEvents.map(ev => ev.tournamentId).filter(Boolean)
+      // Include all schedulable events (both registration-open and registration-closed).
+      const schedulableEnrichedEvents = enrichedEvents.filter(isSchedulableEvent);
+      const schedulableTournamentIds = new Set(
+        schedulableEnrichedEvents.map(ev => ev.tournamentId).filter(Boolean)
       );
       const tournsMap = new Map<number, TournamentDropdownItem>();
       (tournList || []).forEach(tr => {
-        if (tr.id && closedTournamentIds.has(tr.id)) tournsMap.set(tr.id, tr);
+        if (tr.id && schedulableTournamentIds.has(tr.id)) tournsMap.set(tr.id, tr);
       });
-      closedEnrichedEvents.forEach(ev => {
+      schedulableEnrichedEvents.forEach(ev => {
         if (ev.tournamentId && !tournsMap.has(ev.tournamentId)) {
           tournsMap.set(ev.tournamentId, {
             id: ev.tournamentId,
@@ -1074,39 +1085,34 @@ export function SetupSchedule({
   const getEventOptionLabel = (e: EventInfo): string => {
     const fmt = formatParticipantFormat(e);
     const sportPart = e.sportName ? ` (${e.sportName})` : '';
+    const openSuffix = isRegistrationOpenStatus(e.status) ? ' [Reg Open]' : '';
     if (!fmt) {
-      return `${e.name}${sportPart}`;
+      return `${e.name}${sportPart}${openSuffix}`;
     }
     const nameLower = (e.name || '').toLowerCase();
     const fmtLower = fmt.toLowerCase();
     if (nameLower.includes(fmtLower) || (fmtLower.includes('mixed') && nameLower.includes('mixed'))) {
-      return `${e.name}${sportPart}`;
+      return `${e.name}${sportPart}${openSuffix}`;
     }
-    return `${e.name} — ${fmt}${sportPart}`;
+    return `${e.name} — ${fmt}${sportPart}${openSuffix}`;
   };
 
-  /** Returns true if an event's registration is closed (ready for scheduling). */
-  const isRegClosed = (e: EventInfo): boolean => {
-    const st = String(e.status || '').toUpperCase().trim();
-    return st === 'REGISTRATION_CLOSED' || st === 'CLOSED';
-  };
-
-  /** Events whose registration is closed — used as the base for all filter dropdowns. */
-  const closedEvents = useMemo(() => events.filter(isRegClosed), [events]);
+  /** All schedulable events (open or closed registration) — base for filter dropdowns. */
+  const schedulableEvents = useMemo(() => events.filter(isSchedulableEvent), [events]);
 
   const availableSports = useMemo(() => {
     const set = new Set<string>();
-    closedEvents.forEach(e => {
+    schedulableEvents.forEach(e => {
       if (e.sportName && e.sportName.trim()) {
         set.add(e.sportName.trim());
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [closedEvents]);
+  }, [schedulableEvents]);
 
   const availableGenders = useMemo(() => {
     const set = new Set<string>();
-    closedEvents.forEach(e => {
+    schedulableEvents.forEach(e => {
       set.add(formatGender(e.gender));
     });
     if (set.size === 0) {
@@ -1121,11 +1127,11 @@ export function SetupSchedule({
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [closedEvents]);
+  }, [schedulableEvents]);
 
   const availableAges = useMemo(() => {
     const set = new Set<string>();
-    closedEvents.forEach(e => {
+    schedulableEvents.forEach(e => {
       set.add(formatAgeCategory(e));
     });
     return Array.from(set).sort((a, b) => {
@@ -1133,11 +1139,11 @@ export function SetupSchedule({
       if (b === 'All Ages / Open') return 1;
       return a.localeCompare(b);
     });
-  }, [closedEvents]);
+  }, [schedulableEvents]);
 
   const availableFormats = useMemo(() => {
     const set = new Set<string>();
-    closedEvents.forEach(e => {
+    schedulableEvents.forEach(e => {
       const fmt = formatParticipantFormat(e);
       if (fmt) {
         if (fmt.includes(' / ')) {
@@ -1159,11 +1165,11 @@ export function SetupSchedule({
       if (idxB !== -1) return 1;
       return a.localeCompare(b);
     });
-  }, [closedEvents]);
+  }, [schedulableEvents]);
 
   const filteredEvents = useMemo(() => {
-    // Base: only events with registration closed (participants finalised → ready to schedule)
-    return closedEvents.filter(e => {
+    // Base: all schedulable events (open or closed registration)
+    return schedulableEvents.filter(e => {
       if (selectedTournamentFilter) {
         if (selectedTournamentFilter === '__none__') {
           if (e.tournamentId) return false;
@@ -1187,7 +1193,7 @@ export function SetupSchedule({
       }
       return true;
     });
-  }, [closedEvents, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
+  }, [schedulableEvents, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
 
   const handleTournamentFilterChange = (tournId: string) => {
     setSelectedTournamentFilter(tournId);
@@ -3691,14 +3697,14 @@ export function SetupSchedule({
             </div>
           </div>
 
-          {filteredEvents.length === 0 && closedEvents.length > 0 && (
+          {filteredEvents.length === 0 && schedulableEvents.length > 0 && (
             <p className="mt-2.5 text-xs text-amber-600">
-              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {closedEvents.length} registration-closed events.
+              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {schedulableEvents.length} schedulable events.
             </p>
           )}
-          {closedEvents.length === 0 && events.length > 0 && (
+          {schedulableEvents.length === 0 && events.length > 0 && (
             <p className="mt-2.5 text-xs text-amber-600">
-              No events with closed registration found. Only events where registration is closed appear here — close registration for an event first, then return to set up its schedule.
+              No schedulable events found. Draft or cancelled events cannot be scheduled.
             </p>
           )}
 
@@ -3706,40 +3712,60 @@ export function SetupSchedule({
           {selectedEvent && (() => {
             const ev = events.find(e => e.id.toString() === selectedEvent);
             if (!ev) return null;
+            const isOpenReg = isRegistrationOpenStatus(ev.status);
             return (
-              <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
-                <span className="font-bold text-slate-700">Selected Event Details:</span>
-                {ev.tournamentName && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-medium border border-indigo-100">
-                    <Trophy className="w-3 h-3 text-indigo-500" />
-                    Tournament: {ev.tournamentName}
+              <div className="mt-4 pt-3.5 border-t border-slate-100 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
+                  <span className="font-bold text-slate-700">Selected Event Details:</span>
+                  {isOpenReg ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                      Registration Open
+                    </span>
+                  ) : ev.status ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                      {String(ev.status).replace(/_/g, ' ')}
+                    </span>
+                  ) : null}
+                  {ev.tournamentName && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-medium border border-indigo-100">
+                      <Trophy className="w-3 h-3 text-indigo-500" />
+                      Tournament: {ev.tournamentName}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                    Sport: {ev.sportName}
                   </span>
-                )}
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
-                  Sport: {ev.sportName}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-100">
-                  Gender: {formatGender(ev.gender)}
-                </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-100">
-                  Age: {formatAgeCategory(ev)}
-                </span>
-                {formatParticipantFormat(ev) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-medium border border-purple-100">
-                    Format: {formatParticipantFormat(ev)}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-100">
+                    Gender: {formatGender(ev.gender)}
                   </span>
-                )}
-                {(ev.eventDateStart || ev.eventDateEnd) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 font-medium border border-amber-100">
-                    <Calendar className="w-3 h-3 text-amber-500" />
-                    {ev.eventDateStart} {ev.eventDateEnd && ev.eventDateEnd !== ev.eventDateStart ? `to ${ev.eventDateEnd}` : ''}
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-100">
+                    Age: {formatAgeCategory(ev)}
                   </span>
-                )}
-                {(resolveVenueName(selectedVenues[0] || null) || ev.venueName) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-medium border border-rose-100">
-                    <MapPin className="w-3 h-3 text-rose-500" />
-                    Venue: {resolveVenueName(selectedVenues[0] || null) || ev.venueName}
-                  </span>
+                  {formatParticipantFormat(ev) && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                      Format: {formatParticipantFormat(ev)}
+                    </span>
+                  )}
+                  {(ev.eventDateStart || ev.eventDateEnd) && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 font-medium border border-amber-100">
+                      <Calendar className="w-3 h-3 text-amber-500" />
+                      {ev.eventDateStart} {ev.eventDateEnd && ev.eventDateEnd !== ev.eventDateStart ? `to ${ev.eventDateEnd}` : ''}
+                    </span>
+                  )}
+                  {(resolveVenueName(selectedVenues[0] || null) || ev.venueName) && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 font-medium border border-rose-100">
+                      <MapPin className="w-3 h-3 text-rose-500" />
+                      Venue: {resolveVenueName(selectedVenues[0] || null) || ev.venueName}
+                    </span>
+                  )}
+                </div>
+                {isOpenReg && (
+                  <div className="flex items-start gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-900">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <span>
+                      Registration is still open — scheduling uses the {confirmedRegistrations.length} confirmed participant{confirmedRegistrations.length === 1 ? '' : 's'} so far, or you can set a planned participant count below and re-generate once more players join.
+                    </span>
+                  </div>
                 )}
               </div>
             );
@@ -3850,16 +3876,24 @@ export function SetupSchedule({
             <div>
               <label className={labelCls}>
                 Number of Participants <span className="text-red-400">*</span>
-                {selectedEvent && <span className="ml-2 normal-case tracking-normal font-normal text-[#4f46e5]/60">· from sports_event_registration</span>}
+                {selectedEvent && (
+                  <span className="ml-2 normal-case tracking-normal font-normal text-[#4f46e5]/60">
+                    · {isRegistrationOpenStatus(selectedEventObj?.status) ? 'editable while registration is open' : 'from sports_event_registration'}
+                  </span>
+                )}
               </label>
               <input
                 type="number"
                 min="2"
                 max="128"
                 value={participants}
-                readOnly={!!selectedEvent}
-                onChange={e => !selectedEvent && setParticipants(e.target.value)}
-                className={`${inputCls} ${selectedEvent ? 'opacity-60 cursor-not-allowed' : ''}`}
+                readOnly={!!selectedEvent && !isRegistrationOpenStatus(selectedEventObj?.status)}
+                onChange={e => {
+                  if (!selectedEvent || isRegistrationOpenStatus(selectedEventObj?.status)) {
+                    setParticipants(e.target.value);
+                  }
+                }}
+                className={`${inputCls} ${selectedEvent && !isRegistrationOpenStatus(selectedEventObj?.status) ? 'opacity-60 cursor-not-allowed' : ''}`}
                 placeholder="Number of Participants"
               />
             </div>

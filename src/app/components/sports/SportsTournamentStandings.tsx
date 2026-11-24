@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
-import { Trophy, Loader2, Medal, TrendingUp, Users } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Trophy, Loader2, Medal, TrendingUp, Layers } from "lucide-react";
 import { tournamentService } from "../../../services/sports/tournamentService";
+import { propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
+import { computeStageProgression } from "../../../utils/sportsStageUtils";
+import { StageProgressionBar } from "./StageProgressionBar";
 
 interface SportsTournamentStandingsProps {
   configId: number;
@@ -38,7 +41,7 @@ interface GroupInfo {
   standings: StandingItem[];
 }
 
-type StandingsCategory = "points_table" | "runs" | "wickets" | "matches" | "wins";
+type StandingsCategory = "points_table" | "stage_progression" | "runs" | "wickets" | "matches" | "wins";
 
 function formatNRR(nrr: number | undefined | null): string {
   if (nrr == null || isNaN(nrr)) return "0.000";
@@ -49,37 +52,45 @@ function formatNRR(nrr: number | undefined | null): string {
 export function SportsTournamentStandings({ configId, sportType, inline = false }: SportsTournamentStandingsProps) {
   const [data, setData] = useState<StandingsEntry[]>([]);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<StandingsCategory>("points_table");
   const isCricket = sportType?.toLowerCase()?.includes("cricket") ?? true;
 
-  // 1. Fetch group schedule & standings
+  // 1. Fetch group schedule, standings & matches for stage progression
   useEffect(() => {
     let active = true;
-    tournamentService.getSchedule(configId)
-      .then(schedule => {
-        if (!active) return;
-        const grps: GroupInfo[] = (schedule?.groups || []).map((g: any) => ({
-          groupId: g.groupId || g.id,
-          groupName: g.groupName || g.name || "Group",
-          standings: Array.isArray(g.standings) ? g.standings : [],
-        }));
-        setGroups(grps);
-        // If no groups with standings exist, default to player stats
-        const hasStandings = grps.some(g => g.standings.length > 0);
-        if (!hasStandings) {
-          setCategory(isCricket ? "runs" : "wins");
-        }
-      })
-      .catch(() => {
-        if (active) setGroups([]);
-      });
+    Promise.all([
+      tournamentService.getSchedule(configId).catch(() => null),
+      tournamentService.getMatchesByConfigId(configId).catch(() => []),
+    ]).then(([schedule, rawMatches]) => {
+      if (!active) return;
+      const grps: GroupInfo[] = (schedule?.groups || []).map((g: any) => ({
+        groupId: g.groupId || g.id,
+        groupName: g.groupName || g.name || "Group",
+        standings: Array.isArray(g.standings) ? g.standings : [],
+      }));
+      setGroups(grps);
+
+      const nonDraftMatches = propagateByeAdvancements(
+        (Array.isArray(rawMatches) ? rawMatches : []).filter((m: any) => String(m?.status || "").toUpperCase() !== "DRAFT")
+      );
+      setMatches(nonDraftMatches);
+
+      const hasStandings = grps.some(g => g.standings.length > 0);
+      const hasProgression = computeStageProgression(nonDraftMatches).stages.length > 0;
+      if (!hasStandings) {
+        setCategory(hasProgression ? "stage_progression" : (isCricket ? "runs" : "wins"));
+      }
+    });
     return () => { active = false; };
   }, [configId, isCricket]);
 
-  // 2. Fetch individual leaderboard when not in points_table view
+  const progression = useMemo(() => computeStageProgression(matches), [matches]);
+
+  // 2. Fetch individual leaderboard when not in points_table or stage_progression view
   useEffect(() => {
-    if (category === "points_table") {
+    if (category === "points_table" || category === "stage_progression") {
       setLoading(false);
       return;
     }
@@ -113,6 +124,9 @@ export function SportsTournamentStandings({ configId, sportType, inline = false 
 
   const categories = [
     { key: "points_table" as StandingsCategory, label: "Points Table" },
+    ...(progression.stages.length > 0
+      ? [{ key: "stage_progression" as StandingsCategory, label: "Stage Progress" }]
+      : []),
     ...baseCategories,
   ];
 
@@ -147,8 +161,83 @@ export function SportsTournamentStandings({ configId, sportType, inline = false 
         ))}
       </div>
 
-      {/* Points Table View */}
-      {category === "points_table" ? (
+      {/* Compact Stage Progress Banner */}
+      {progression.stages.length > 0 && category !== "stage_progression" && (
+        <div className="mb-3">
+          <StageProgressionBar
+            progression={progression}
+            compact
+            onSelectStage={() => setCategory("stage_progression")}
+          />
+        </div>
+      )}
+
+      {/* Stage Progression View */}
+      {category === "stage_progression" ? (
+        progression.stages.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
+            <Layers size={24} style={{ margin: "0 auto 6px", opacity: 0.25 }} />
+            <div style={{ fontSize: 11, fontWeight: 600 }}>No match stages generated yet</div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <StageProgressionBar progression={progression} compact />
+            <div className="space-y-2.5">
+              {progression.stages.map((st) => (
+                <div key={st.key} className="rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${st.badgeClass}`}>
+                      {st.label}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      {st.completedMatches}/{st.totalMatches} completed
+                      {st.liveMatches > 0 ? ` · ${st.liveMatches} live` : ""}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {st.matches.map((m: any, idx: number) => {
+                      const t1 = m.teamAName || m.homeName || m.team1 || "TBD";
+                      const t2 = m.teamBName || m.awayName || m.team2 || "TBD";
+                      const stUpper = String(m.status || "").toUpperCase();
+                      const isLive = stUpper === "LIVE" || stUpper === "IN_PROGRESS";
+                      const isDone = stUpper === "COMPLETED";
+                      const winner = m.winnerName || m.winnerTeamName;
+                      return (
+                        <div key={m.matchId || m.id || idx} className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2 text-xs">
+                          <div className="flex items-center justify-between gap-2 text-[10px] text-slate-500 mb-1">
+                            <span className="font-semibold">
+                              {m.groupName && st.key === "GROUP" ? m.groupName : `Match #${m.matchNumber || idx + 1}`}
+                            </span>
+                            {isLive ? (
+                              <span className="font-bold text-red-600 animate-pulse">LIVE</span>
+                            ) : isDone ? (
+                              <span className="font-bold text-emerald-600">DONE</span>
+                            ) : (
+                              <span>Scheduled</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`truncate ${winner && winner === t1 ? "font-bold text-emerald-700" : "font-medium text-slate-800"}`}>{t1}</span>
+                            {(isLive || isDone) && m.scoreTeamA && (
+                              <span className="font-mono font-bold text-[11px] text-slate-700 shrink-0">{m.scoreTeamA}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <span className={`truncate ${winner && winner === t2 ? "font-bold text-emerald-700" : "font-medium text-slate-800"}`}>{t2}</span>
+                            {(isLive || isDone) && m.scoreTeamB && (
+                              <span className="font-mono font-bold text-[11px] text-slate-700 shrink-0">{m.scoreTeamB}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      ) : category === "points_table" ? (
         totalTeamsInStandings === 0 ? (
           <div style={{ textAlign: "center", padding: 24, color: "var(--muted)" }}>
             <Trophy size={24} style={{ margin: "0 auto 6px", opacity: 0.25 }} />

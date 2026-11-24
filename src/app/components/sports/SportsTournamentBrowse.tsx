@@ -21,6 +21,7 @@ import {
   Shield,
   User,
   UserCheck,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
@@ -39,6 +40,8 @@ import { TournamentPaymentContactsModal } from "./TournamentPaymentContactsModal
 import { tournamentPaymentService } from "../../../services/sports/tournamentPaymentService";
 import { exportTournamentPaymentsToExcel } from "../../../utils/sportsExportUtils";
 import { detectSportName } from "./admin/ScheduleExportModal";
+import { propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
+import { computeStageProgression, type StageProgressionSummary } from "../../../utils/sportsStageUtils";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -660,6 +663,7 @@ function TournamentCard({
   const canAdminRegister = canAdminRegisterProp ?? Boolean(isAdmin || isSportsAdmin || isSuperAdmin);
   const [showStandings, setShowStandings] = useState(false);
   const [configIds, setConfigIds] = useState<number[]>([]);
+  const [eventStagePills, setEventStagePills] = useState<{ configId: number; eventName: string; progression: StageProgressionSummary }[]>([]);
   const eventCount = tournament.events?.length ?? 0;
 
   const rawStart = tournament.eventDateStart;
@@ -685,18 +689,41 @@ function TournamentCard({
   const sportsEventsDisplayCount = registeredEventsCount > 0 ? registeredEventsCount : totalEventsCount;
 
   useEffect(() => {
-    if (showStandings && configIds.length === 0) {
-      tournamentService
-        .getConfigs()
-        .then(configs => {
-          const ids = configs
-            .filter(c => tournament.events?.some(e => e.id === c.eventId))
-            .map(c => c.id);
-          setConfigIds(ids);
-        })
-        .catch(() => setConfigIds([]));
-    }
-  }, [showStandings, tournament.events, configIds.length]);
+    if ((!showStandings && isOpen) || configIds.length > 0) return;
+    let active = true;
+    tournamentService
+      .getConfigs()
+      .then(async (configs) => {
+        if (!active) return;
+        const matched = configs.filter(c => tournament.events?.some(e => e.id === c.eventId));
+        const ids = matched.map(c => c.id);
+        setConfigIds(ids);
+
+        if (!isOpen && matched.length > 0) {
+          const results = await Promise.all(
+            matched.map(async (cfg) => {
+              const matches = await tournamentService.getMatchesByConfigId(cfg.id).catch(() => []);
+              const nonDraft = propagateByeAdvancements(
+                matches.filter((m: any) => String(m?.status || "").toUpperCase() !== "DRAFT")
+              );
+              const progression = computeStageProgression(nonDraft);
+              return {
+                configId: cfg.id,
+                eventName: cfg.eventName || cfg.tournamentName,
+                progression,
+              };
+            })
+          );
+          if (active) {
+            setEventStagePills(results.filter(r => r.progression.stages.length > 0));
+          }
+        }
+      })
+      .catch(() => {
+        if (active) setConfigIds([]);
+      });
+    return () => { active = false; };
+  }, [showStandings, isOpen, tournament.events, configIds.length]);
 
   return (
     <article className="group rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md sm:p-5">
@@ -830,6 +857,47 @@ function TournamentCard({
                 </span>
               ) : null}
             </div>
+
+            {eventStagePills.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  <Layers className="h-3 w-3 text-indigo-500" />
+                  Stages:
+                </span>
+                {eventStagePills.slice(0, 4).map((item) => {
+                  const cur = item.progression.currentStage;
+                  return (
+                    <button
+                      key={item.configId}
+                      type="button"
+                      onClick={onViewSchedule}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-semibold transition hover:opacity-90 cursor-pointer ${
+                        item.progression.isTournamentCompleted
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : cur?.status === "LIVE"
+                            ? "border-red-200 bg-red-50 text-red-700"
+                            : cur
+                              ? cur.badgeClass
+                              : "border-slate-200 bg-slate-50 text-slate-700"
+                      }`}
+                      title={`View schedule & brackets for ${item.eventName}`}
+                    >
+                      <span className="truncate max-w-[140px]">{item.eventName}:</span>
+                      <span className="font-bold">{item.progression.headline}</span>
+                    </button>
+                  );
+                })}
+                {eventStagePills.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={onViewSchedule}
+                    className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                  >
+                    +{eventStagePills.length - 4} more
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

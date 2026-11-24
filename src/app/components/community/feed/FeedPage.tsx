@@ -4,6 +4,7 @@ import { useInfiniteFeed } from "../../../hooks/useInfiniteFeed";
 import { FeedCard } from "./FeedCard";
 import { SkeletonCard } from "./SkeletonCard";
 import { LiveMatchesStrip } from "./LiveMatchesStrip";
+import { feedService } from "../../../../services/community/feedService";
 import { RefreshCw, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 
 export function FeedPage() {
@@ -119,7 +120,13 @@ export function FeedPage() {
           ) : (
             <>
               {items.map((item) => (
-                <FeedCard key={item.id} item={item} />
+                <FeedCard
+                  key={item.id}
+                  item={item}
+                  onLike={async (id) => {
+                    try { await feedService.toggleLike(Number(id)); } catch { /* non-critical */ }
+                  }}
+                />
               ))}
 
               {/* Incremental Page Loading Skeleton */}

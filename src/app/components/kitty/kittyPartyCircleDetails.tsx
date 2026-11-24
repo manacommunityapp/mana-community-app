@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { kittyPartyService } from "../../../services/kittyPartyService";
+import { kittyPartyService, type KittyPartyJoinRequest } from "../../../services/kittyPartyService";
 import type { KittyPartyCircleSummary, KittyPartyMember } from "../../../types/kittyPartyTypes";
 import { hasPermission, isAdminOrOwner as checkAdminOrOwner, getRoleLabel, getRoleBadgeColor } from "../../../utils/kittyPartyPermissions";
 import { KittyPartyEventView } from "./kittyPartyEventView";
@@ -16,6 +16,7 @@ export const KittyPartyCircleDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"OVERVIEW" | "FEED" | "EVENTS" | "LEADERBOARD" | "VENDORS">("OVERVIEW");
   const [circle, setCircle] = useState<KittyPartyCircleSummary | null>(null);
   const [members, setMembers] = useState<KittyPartyMember[]>([]);
+  const [joinRequests, setJoinRequests] = useState<KittyPartyJoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [invitePhone, setInvitePhone] = useState("");
   const [isExternalGuest, setIsExternalGuest] = useState(false);
@@ -39,6 +40,11 @@ export const KittyPartyCircleDetails: React.FC = () => {
       ]);
       setCircle(circleData);
       setMembers(membersData);
+      if (checkAdminOrOwner(circleData?.currentUserRole)) {
+        kittyPartyService.getPendingJoinRequests(circleId)
+          .then(setJoinRequests)
+          .catch(() => setJoinRequests([]));
+      }
     } catch (e) {
       console.error("Failed to load circle details", e);
     } finally {
@@ -74,6 +80,16 @@ export const KittyPartyCircleDetails: React.FC = () => {
       loadDetails();
     } catch (e: any) {
       setActionMsg(e?.message || "Failed to request join");
+    }
+  };
+
+  const handleApproveJoinRequest = async (requestId: number) => {
+    try {
+      await kittyPartyService.approveJoinRequest(circleId, requestId);
+      setActionMsg("Join request approved and resident added to circle!");
+      loadDetails();
+    } catch (e: any) {
+      setActionMsg(e?.message || "Failed to approve join request");
     }
   };
 
@@ -173,6 +189,32 @@ export const KittyPartyCircleDetails: React.FC = () => {
         {actionMsg && (
           <div className="mt-4 p-3 bg-pink-50 border border-pink-200 text-pink-800 text-xs rounded-xl">
             {actionMsg}
+          </div>
+        )}
+
+        {isAdminOrOwner && joinRequests.length > 0 && (
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+            <div className="text-xs font-bold text-amber-900 uppercase">
+              Pending Join Requests ({joinRequests.length})
+            </div>
+            <div className="divide-y divide-amber-200/60">
+              {joinRequests.map((jr) => (
+                <div key={jr.id} className="py-2 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-gray-900">{jr.fullName}</div>
+                    {jr.requestMessage && (
+                      <div className="text-[11px] text-gray-600">{jr.requestMessage}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleApproveJoinRequest(jr.id)}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm"
+                  >
+                    ✓ Approve
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

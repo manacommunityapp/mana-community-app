@@ -32,6 +32,7 @@ import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
 import { formatFlatLabel, formatUnitDisplay, isByeMatch, isExplicitTime, propagateByeAdvancements } from "../../../utils/sportsValidationUtils";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 import {
   TournamentSponsorBanner,
   TournamentSponsorShowcase,
@@ -495,11 +496,23 @@ function EventRow({ event, onClick, onShowInfo }: EventRowProps) {
                 {event.registrantBadge}
               </span>
             )}
-            {event.isScheduledMatch && (
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-semibold inline-flex items-center gap-0.5">
-                ⚔️ Fixture
-              </span>
-            )}
+            {event.isScheduledMatch && (() => {
+              const rawRound = event.roundName || event.matchData?.roundName || event.matchData?.round;
+              if (rawRound) {
+                const stageKey = getMatchStage({ roundName: rawRound, groupName: event.matchData?.groupName });
+                const stageMeta = getStageMeta(stageKey);
+                return (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full border font-bold inline-flex items-center gap-0.5 ${stageMeta.badgeClass}`}>
+                    {formatRoundStageLabel(rawRound, event.matchData?.groupName, stageKey)}
+                  </span>
+                );
+              }
+              return (
+                <span className="text-[10px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-semibold inline-flex items-center gap-0.5">
+                  ⚔️ Fixture
+                </span>
+              );
+            })()}
             {(event.subtitle || event.venue) && (
               <button
                 type="button"
@@ -5011,6 +5024,15 @@ export function SportsDashboard() {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-[10px] font-bold text-slate-900">{ev.name}</span>
+                              {ev.roundName && (() => {
+                                const stageKey = getMatchStage({ roundName: ev.roundName, groupName: ev.matchData?.groupName });
+                                const stageMeta = getStageMeta(stageKey);
+                                return (
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${stageMeta.badgeClass}`}>
+                                    {formatRoundStageLabel(ev.roundName, ev.matchData?.groupName, stageKey)}
+                                  </span>
+                                );
+                              })()}
                               {ev.subtitle && (
                                 <span className="text-[10px] text-slate-500 font-medium">{ev.subtitle}</span>
                               )}

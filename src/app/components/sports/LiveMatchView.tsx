@@ -28,16 +28,20 @@ import {
 } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
 import { remainingBalls, requiredRunRate } from "./utils/cricketUtils";
+import { formatRoundStageLabel, getMatchStage, getStageMeta } from "../../../utils/sportsStageUtils";
 
 interface LiveMatchViewProps {
   matchId: number;
   maxOvers?: number;
+  roundName?: string;
+  tournamentName?: string;
+  eventName?: string;
   onClose: () => void;
 }
 
 type TabType = "live" | "scorecard" | "overs" | "info";
 
-export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps) {
+export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, eventName, onClose }: LiveMatchViewProps) {
   const [state, setState] = useState<LiveMatchStateData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -287,8 +291,19 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               <span className="text-[10px] font-extrabold text-red-400 tracking-wider">LIVE</span>
             </div>
 
+            {(roundName || state.roundName) && (() => {
+              const effectiveRound = roundName || state.roundName;
+              const stageKey = getMatchStage({ roundName: effectiveRound });
+              const meta = getStageMeta(stageKey);
+              return (
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.badgeClass}`}>
+                  {formatRoundStageLabel(effectiveRound, undefined, stageKey)}
+                </span>
+              );
+            })()}
+
             <span className="text-xs text-slate-400">
-              Match #{state.matchId} • {effectiveMaxOvers} Overs
+              {[tournamentName || state.tournamentName, eventName || state.eventName, `Match #${state.matchId}`, `${effectiveMaxOvers} Overs`].filter(Boolean).join(" • ")}
             </span>
           </div>
 
@@ -1112,6 +1127,15 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               </h4>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                {(roundName || state.roundName) && (
+                  <div>
+                    <span className="text-slate-400 text-xs">Tournament Stage</span>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                      {formatRoundStageLabel(roundName || state.roundName)}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <span className="text-slate-400 text-xs">Match Identifier</span>
                   <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">Match #{state.matchId}</div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link, useSearchParams } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info, Zap } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users, Sliders, Info, Zap, Layers, CheckCircle2 } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -54,6 +54,15 @@ import { TournamentEventSelector } from "./admin/TournamentEventSelector";
 import { TournamentOperationsHub } from "./admin/TournamentOperationsHub";
 import { MatchScoringRulesModal } from "./MatchScoringRulesModal";
 import { EmergencyScoreModal } from "./EmergencyScoreModal";
+import { StageProgressionBar } from "./StageProgressionBar";
+import {
+  computeStageProgression,
+  formatRoundStageLabel,
+  getMatchStage,
+  getStageMeta,
+  STAGE_ORDER,
+  type TournamentStageKey,
+} from "../../../utils/sportsStageUtils";
 
 const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Tournament Operations", "Config", "Setup Schedule", "Manual", "Published Schedules", "Stage Manager", "Publication", "Schedule History"] as const;
 type Tab = typeof TABS[number];
@@ -216,12 +225,20 @@ function MyMatchCard({ item }: { item: ScheduleEntry }) {
 
 type BracketPlayer = { id?: number; initials: string; fullName: string; flatNumber?: string; isTBD?: boolean };
 type BracketMatch = {
-  id: string; label: string; date: string; time: string;
+  id: string; matchId?: number; label: string; date: string; time: string;
   p1: BracketPlayer | null; p2: BracketPlayer | null;
   venue: { initials: string; name: string };
   isBye?: boolean;
+  status?: string;
+  score1?: string;
+  score2?: string;
+  winnerSide?: "A" | "B" | null;
+  stageKey?: TournamentStageKey;
+  groupName?: string;
+  sport?: string;
+  roundName?: string;
 };
-type BracketRound = { name: string; matches: BracketMatch[] };
+type BracketRound = { name: string; stageKey: TournamentStageKey; matches: BracketMatch[] };
 
 export function getPlayerInitials(fullName: string): string {
   if (!fullName) return "";
@@ -234,68 +251,127 @@ export function getPlayerInitials(fullName: string): string {
   return fullName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
-function MatchCard({ match }: { match: BracketMatch }) {
+function MatchCard({
+  match,
+  onOpenMatch,
+}: {
+  match: BracketMatch;
+  onOpenMatch?: (match: BracketMatch) => void;
+}) {
   const isByeMatch = Boolean(match.isBye || (match.p1 && !match.p2) || (!match.p1 && match.p2));
   const players = [match.p1, match.p2].filter(Boolean) as BracketPlayer[];
+  const statusUpper = String(match.status || "").toUpperCase();
+  const isLive = statusUpper === "LIVE" || statusUpper === "IN_PROGRESS";
+  const isCompleted = statusUpper === "COMPLETED";
+  const canOpen = Boolean(onOpenMatch && match.matchId && (isLive || isCompleted));
 
   return (
-    <div className="rounded-xl overflow-hidden card-hover-lift"
+    <div
+      onClick={() => { if (canOpen) onOpenMatch?.(match); }}
+      className={`rounded-xl overflow-hidden card-hover-lift transition ${canOpen ? "cursor-pointer hover:border-indigo-300" : ""}`}
       style={{
         background: "white",
-        border: "1px solid rgba(99, 102, 241, 0.12)",
-        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        border: isLive ? "1px solid rgba(239, 68, 68, 0.45)" : "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: isLive ? "rgba(239, 68, 68, 0.08) 0px 4px 14px" : "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
       <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 text-left">
-        <div className="text-xs font-bold text-slate-800">{match.label}</div>
-        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
-          {isByeMatch
-            ? (match.date && match.date !== "—" ? match.date : "Date TBD")
-            : `${match.date} | ${match.time}`}
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="text-xs font-bold text-slate-800 truncate">{match.label}</div>
+          {isLive ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700 shrink-0 animate-pulse">
+              LIVE
+            </span>
+          ) : isCompleted ? (
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 shrink-0">
+              DONE
+            </span>
+          ) : null}
+        </div>
+        <div className="text-xs mt-0.5 flex items-center justify-between gap-1" style={{ color: "#6b7094" }}>
+          <span>
+            {isByeMatch
+              ? (match.date && match.date !== "—" ? match.date : "Date TBD")
+              : `${match.date} | ${match.time}`}
+          </span>
+          {match.groupName && match.stageKey === "GROUP" && (
+            <span className="text-[10px] font-semibold text-indigo-600 truncate">{match.groupName}</span>
+          )}
         </div>
         {isByeMatch && <div className="text-xs text-emerald-600 font-bold mt-1">BYE</div>}
       </div>
       <div className="px-3 py-3 space-y-2.5 text-left">
-        {players.map((p, i) => (
-          <div key={i}>
-            <div className="flex items-center gap-2">
-              {p.isTBD ? (
-                <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 shrink-0" />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-bold text-slate-500">{p.initials}</span>
+        {players.map((p, i) => {
+          const isWinner = (i === 0 && match.winnerSide === "A") || (i === 1 && match.winnerSide === "B");
+          const scoreText = i === 0 ? match.score1 : match.score2;
+          return (
+            <div key={i}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {p.isTBD ? (
+                    <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 shrink-0" />
+                  ) : (
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isWinner ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      <span className="text-[10px] font-bold">{p.initials}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-xs truncate ${p.isTBD ? "text-slate-400 italic" : isWinner ? "text-emerald-700 font-extrabold" : "text-slate-800 font-semibold"}`}>
+                      {p.fullName}
+                    </div>
+                    {p.flatNumber && !p.isTBD && (
+                      <div className="text-xs text-slate-500">{p.flatNumber}</div>
+                    )}
+                  </div>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className={`text-xs truncate ${p.isTBD ? "text-slate-400 italic" : "text-slate-800 font-semibold"}`}>
-                  {p.fullName}
-                </div>
-                {p.flatNumber && !p.isTBD && (
-                  <div className="text-xs text-slate-500">{p.flatNumber}</div>
+                {(isLive || isCompleted) && scoreText && (
+                  <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 shrink-0">
+                    {scoreText}
+                  </span>
                 )}
               </div>
+              {i === 0 && !isByeMatch && players.length > 1 && (
+                <div className="border-b border-slate-100 my-2" />
+              )}
             </div>
-            {i === 0 && !isByeMatch && players.length > 1 && (
-              <div className="border-b border-slate-100 my-2" />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-1.5 text-left bg-slate-50/50">
-        <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
-          <span className="text-[10px] font-bold text-slate-500">{match.venue.initials}</span>
+      <div className="px-3 py-2 border-t border-slate-100 flex items-center justify-between gap-1.5 text-left bg-slate-50/50">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-bold text-slate-500">{match.venue.initials}</span>
+          </div>
+          <span className="text-[10px] truncate" style={{ color: "#6b7094" }}>{match.venue.name}</span>
         </div>
-        <span className="text-[10px] truncate" style={{ color: "#6b7094" }}>{match.venue.name}</span>
+        {canOpen && (
+          <span className={`text-[10px] font-bold shrink-0 ${isLive ? "text-red-600" : "text-indigo-600"}`}>
+            {isLive ? "Live →" : "Scorecard →"}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null; isAdmin?: boolean }) {
+function BracketView({
+  eventId,
+  tournamentConfigs,
+  initialConfigId,
+  isAdmin,
+  onOpenMatch,
+}: {
+  eventId?: string;
+  tournamentConfigs: ConfigInfo[];
+  initialConfigId?: number | null;
+  isAdmin?: boolean;
+  onOpenMatch?: (match: { matchId?: number; status?: string; sport?: string; team1: string; team2: string; roundName?: string; tournamentName?: string; eventName?: string }) => void;
+}) {
   const [rounds, setRounds] = useState<BracketRound[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(initialConfigId ?? null);
   const [bracketMatches, setBracketMatches] = useState<any[]>([]);
+  const [selectedStageFilter, setSelectedStageFilter] = useState<TournamentStageKey>("ALL");
   const lastLoadedConfigIdRef = useRef<number | null>(null);
 
   const visibleConfigs = useMemo(() => {
@@ -314,6 +390,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
     if (selectedConfigId) {
       if (lastLoadedConfigIdRef.current === selectedConfigId) return;
       lastLoadedConfigIdRef.current = selectedConfigId;
+      setSelectedStageFilter("ALL");
       setLoading(true);
       tournamentService.getMatchesByConfigId(selectedConfigId)
         .then(matches => {
@@ -322,15 +399,23 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
           setBracketMatches(propagatedMatches);
           const matchesBySport = propagatedMatches.filter(m => m.status !== "BYE");
           if (matchesBySport.length > 0) {
-            const roundMap = new Map<string, any[]>();
+            const roundMap = new Map<string, { stageKey: TournamentStageKey; matches: any[] }>();
             for (const m of matchesBySport) {
-              const roundName = m.roundName || "Round 1";
-              if (!roundMap.has(roundName)) roundMap.set(roundName, []);
-              roundMap.get(roundName)!.push(m);
+              const stageKey = getMatchStage(m);
+              const roundName = m.roundName || formatRoundStageLabel(m.roundName, m.groupName, stageKey);
+              if (!roundMap.has(roundName)) roundMap.set(roundName, { stageKey, matches: [] });
+              roundMap.get(roundName)!.matches.push(m);
             }
-            const generatedRounds: BracketRound[] = Array.from(roundMap.entries()).map(([name, rMatches]) => ({
+            const generatedRounds: BracketRound[] = Array.from(roundMap.entries())
+              .sort(([, a], [, b]) => {
+                const idxA = STAGE_ORDER.indexOf(a.stageKey as any);
+                const idxB = STAGE_ORDER.indexOf(b.stageKey as any);
+                return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+              })
+              .map(([name, group]) => ({
               name,
-              matches: rMatches.map((m, idx) => {
+              stageKey: group.stageKey,
+              matches: group.matches.map((m, idx) => {
                 const isBye = isByeMatch(m);
                 const hasExplicit = isExplicitTime(m.matchTime, m.scheduledAt);
                 const rawAName = m.teamAName || m.homeName || m.team1 || "";
@@ -352,15 +437,36 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
                   isTBD: isPlaceholderOrTbd(rawBName),
                 };
 
+                const teamAId = m.teamAId ?? m.homeId ?? m.teamA?.id;
+                const teamBId = m.teamBId ?? m.awayId ?? m.teamB?.id;
+                const winnerSide: "A" | "B" | null =
+                  m.winnerTeamId != null && teamAId != null && String(m.winnerTeamId) === String(teamAId)
+                    ? "A"
+                    : m.winnerTeamId != null && teamBId != null && String(m.winnerTeamId) === String(teamBId)
+                      ? "B"
+                      : m.winnerName && m.winnerName === rawAName
+                        ? "A"
+                        : m.winnerName && m.winnerName === rawBName
+                          ? "B"
+                          : null;
+
                 return {
                   id: `M-${m.matchId}`,
-                  label: `${name} #${m.matchNumber || idx + 1}`,
+                  matchId: m.matchId,
+                  label: `${formatRoundStageLabel(name, m.groupName, group.stageKey)} #${m.matchNumber || idx + 1}`,
                   date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
                   time: isBye || !hasExplicit ? "—" : safeFormatDate(m.scheduledAt, "hh:mm a"),
                   p1,
                   p2,
                   venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
                   isBye,
+                  status: m.status,
+                  score1: m.scoreTeamA || undefined,
+                  score2: m.scoreTeamB || undefined,
+                  winnerSide,
+                  stageKey: group.stageKey,
+                  groupName: m.groupName || undefined,
+                  roundName: name,
                 };
               }),
             }));
@@ -495,6 +601,15 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
     };
   }, [bracketMatches]);
 
+  const bracketProgression = useMemo(() => {
+    return computeStageProgression(bracketMatches, { includeDrafts: Boolean(isAdmin) });
+  }, [bracketMatches, isAdmin]);
+
+  const visibleRounds = useMemo(() => {
+    if (selectedStageFilter === "ALL") return rounds;
+    return rounds.filter(r => r.stageKey === selectedStageFilter);
+  }, [rounds, selectedStageFilter]);
+
   return (
     <div className="space-y-4">
       {/* Dual Tournament & Event Selector */}
@@ -579,19 +694,50 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId, isAdmin }: {
         </div>
       ) : (
         <>
-          {rounds.map(round => (
-            <div key={round.name}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
-                <div className="flex-1 h-px bg-slate-200" />
+          {bracketProgression.stages.length > 0 && (
+            <StageProgressionBar
+              progression={bracketProgression}
+              title={activeTournamentConfig ? `${activeTournamentConfig.eventName || activeTournamentConfig.tournamentName} — Stage Progress` : "Stage Progress"}
+              selectedStage={selectedStageFilter}
+              onSelectStage={setSelectedStageFilter}
+            />
+          )}
+          {visibleRounds.map(round => {
+            const stageMeta = getStageMeta(round.stageKey);
+            return (
+              <div key={round.name}>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${stageMeta.badgeClass}`}>
+                    {round.name}
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400">
+                    {round.matches.length} {round.matches.length === 1 ? "match" : "matches"}
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {round.matches.map(match => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      onOpenMatch={(m) => {
+                        onOpenMatch?.({
+                          matchId: m.matchId,
+                          status: m.status,
+                          sport: activeTournamentConfig?.sportName || activeTournamentConfig?.eventName || "Tournament",
+                          team1: m.p1?.fullName || "TBD",
+                          team2: m.p2?.fullName || "TBD",
+                          roundName: m.roundName || round.name,
+                          tournamentName: activeTournamentConfig?.tournamentName,
+                          eventName: activeTournamentConfig?.eventName,
+                        });
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {round.matches.map(match => (
-                  <MatchCard key={match.id} match={match} />
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <div>
             <div className="flex items-center gap-3 mb-3">
               <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-wider">Results</span>
@@ -670,7 +816,7 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
       matchNum++;
     }
 
-    rounds.push({ name: roundName, matches });
+    rounds.push({ name: roundName, stageKey: getMatchStage({ roundName }), matches });
 
     currentRound = Array.from({ length: Math.ceil(currentRound.length / 2) }, (_, i) => ({
       initials: 'W',
@@ -721,6 +867,7 @@ export function SportsSchedule() {
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tabParam = searchParams.get('tab');
     if ((tabParam === 'published' || tabParam === 'schedule' || tabParam === 'fixtures') && isSportsAdminOnly) return "Published Schedules";
+    if (tabParam === 'brackets') return "Brackets";
     if (tabParam === 'setup' && isAdmin) return "Setup Schedule";
     if (tabParam === 'config' && isAdmin) return "Config";
     if (tabParam === 'manual' && isAdmin) return "Manual";
@@ -734,17 +881,12 @@ export function SportsSchedule() {
       setActiveTab("Overview");
     }
   }, [isSportsAdminOnly, activeTab]);
-  useEffect(() => {
-    if (!isSuperAdmin && activeTab === "Brackets") {
-      setActiveTab("Overview");
-    }
-  }, [isSuperAdmin, activeTab]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; winnerTeamId?: number; winnerName?: string; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; eventName?: string; roundName?: string; groupName?: string; stageKey?: TournamentStageKey; teamAId?: number; teamBId?: number; winnerTeamId?: number; winnerName?: string; name: string; sport: string; venue: string; date: string; time: string; scheduledAt?: string; publishedSchedule?: boolean; status: string; team1: string; team2: string; team1Flat?: string; team2Flat?: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -760,6 +902,7 @@ export function SportsSchedule() {
   const [fixtureSearchQuery, setFixtureSearchQuery] = useState("");
   const [fixtureSportFilter, setFixtureSportFilter] = useState("All");
   const [fixtureDateFilter, setFixtureDateFilter] = useState<string | null>(null);
+  const [fixtureStageFilter, setFixtureStageFilter] = useState<TournamentStageKey>("ALL");
 
   const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
   const [goLiveFeedVisibility, setGoLiveFeedVisibility] = useState<"inherit" | "show" | "hide">("inherit");
@@ -776,28 +919,28 @@ export function SportsSchedule() {
   const [scoreSummaryFixture, setScoreSummaryFixture] = useState<(typeof fixturesList)[number] | null>(null);
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
-  const [activeMatchFixture, setActiveMatchFixture] = useState<{ configId?: number; teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+  const [activeMatchFixture, setActiveMatchFixture] = useState<{ configId?: number; teamAId?: number; teamBId?: number; team1: string; team2: string; roundName?: string; tournamentName?: string; eventName?: string } | null>(null);
   const [rulesModalFixture, setRulesModalFixture] = useState<any | null>(null);
   const [emergencyModalFixture, setEmergencyModalFixture] = useState<any | null>(null);
 
-  const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+  const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string; roundName?: string; tournamentName?: string; eventName?: string }) => {
     if (!fixture.matchId) return;
     setActiveMatchSport(fixture.sport);
-    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2, roundName: fixture.roundName, tournamentName: fixture.tournamentName, eventName: fixture.eventName });
     setLiveViewMatchId(fixture.matchId);
   };
 
-  const openMatchDetail = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+  const openMatchDetail = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string; roundName?: string; tournamentName?: string; eventName?: string }) => {
     if (!fixture.matchId) return;
     setActiveMatchSport(fixture.sport);
-    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2, roundName: fixture.roundName, tournamentName: fixture.tournamentName, eventName: fixture.eventName });
     setViewingMatchId(fixture.matchId);
   };
 
-  const openLiveScoring = (fixture: { matchId?: number; configId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+  const openLiveScoring = (fixture: { matchId?: number; configId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string; roundName?: string; tournamentName?: string; eventName?: string }) => {
     if (!fixture.matchId) return;
     setActiveMatchSport(fixture.sport);
-    setActiveMatchFixture({ configId: fixture.configId, teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setActiveMatchFixture({ configId: fixture.configId, teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2, roundName: fixture.roundName, tournamentName: fixture.tournamentName, eventName: fixture.eventName });
     setLiveScoringMatchId(fixture.matchId);
   };
 
@@ -1382,16 +1525,66 @@ export function SportsSchedule() {
     if (fixtureDateFilter && !fixtureDates.includes(fixtureDateFilter)) setFixtureDateFilter(null);
   }, [fixtureDateFilter, fixtureDates]);
 
+  const overviewProgression = useMemo(() => {
+    return computeStageProgression(overviewFixtures, { includeDrafts: isAdmin });
+  }, [overviewFixtures, isAdmin]);
+
+  const eventStageSummaries = useMemo(() => {
+    const byConfig = new Map<number, typeof overviewFixtures>();
+    for (const f of overviewFixtures) {
+      if (!f.configId) continue;
+      if (!byConfig.has(f.configId)) byConfig.set(f.configId, []);
+      byConfig.get(f.configId)!.push(f);
+    }
+    return Array.from(byConfig.entries()).map(([configId, matches]) => {
+      const cfg = tournamentConfigs.find(c => c.id === configId);
+      const progression = computeStageProgression(matches, { includeDrafts: isAdmin });
+      return {
+        configId,
+        eventId: cfg?.eventId,
+        tournamentName: cfg?.tournamentName || matches[0]?.tournamentName || "Tournament",
+        eventName: cfg?.eventName || matches[0]?.eventName || matches[0]?.sport || "Event",
+        sportName: cfg?.sportName || matches[0]?.sport || "Sport",
+        progression,
+      };
+    });
+  }, [overviewFixtures, tournamentConfigs, isAdmin]);
+
+  const stageFilterPills = useMemo(() => {
+    const counts = new Map<TournamentStageKey, number>();
+    for (const f of overviewFixtures) {
+      const key = f.stageKey || getMatchStage(f);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    const pills: { key: TournamentStageKey; label: string; count: number }[] = [
+      { key: "ALL", label: "All Stages", count: overviewFixtures.length },
+    ];
+    for (const key of STAGE_ORDER) {
+      const count = counts.get(key) || 0;
+      if (count > 0) {
+        pills.push({ key, label: getStageMeta(key).label, count });
+      }
+    }
+    return pills;
+  }, [overviewFixtures]);
+
+  useEffect(() => {
+    if (fixtureStageFilter !== "ALL" && !stageFilterPills.some(p => p.key === fixtureStageFilter)) {
+      setFixtureStageFilter("ALL");
+    }
+  }, [fixtureStageFilter, stageFilterPills]);
+
   const scopedFixtures = useMemo(() => overviewFixtures.filter(f => {
-    const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
+    const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue} ${f.roundName || ""} ${f.groupName || ""}`.toLowerCase();
     const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
     const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
+    const matchesStage = fixtureStageFilter === "ALL" || (f.stageKey || getMatchStage(f)) === fixtureStageFilter;
     let matchesDate = true;
     if (fixtureDateFilter) {
       try { matchesDate = format(parseISO(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
     }
-    return matchesSearch && matchesSport && matchesDate;
-  }), [overviewFixtures, fixtureSearchQuery, fixtureSportFilter, fixtureDateFilter]);
+    return matchesSearch && matchesSport && matchesStage && matchesDate;
+  }), [overviewFixtures, fixtureSearchQuery, fixtureSportFilter, fixtureStageFilter, fixtureDateFilter]);
 
   const filteredFixtures = useMemo(() => (
     fixtureStatusFilter === "All"
@@ -1518,6 +1711,10 @@ export function SportsSchedule() {
                 matchId: m.matchId,
                 configId: cfg.id,
                 tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
+                eventName: cfg.eventName?.trim() || undefined,
+                roundName: m.roundName || m.round || undefined,
+                groupName: m.groupName || undefined,
+                stageKey: getMatchStage(m),
                 teamAId: m.teamAId ?? (typeof m.homeId === 'number' ? m.homeId : undefined) ?? m.teamA?.id,
                 teamBId: m.teamBId ?? (typeof m.awayId === 'number' ? m.awayId : undefined) ?? m.teamB?.id,
                 winnerTeamId: m.winnerTeamId ?? undefined,
@@ -1596,14 +1793,12 @@ export function SportsSchedule() {
           >
             <div className="nav-dot"></div>Leaderboard
           </button>
-          {isSuperAdmin && (
-            <button
-              className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
-              onClick={() => setActiveTab("Brackets")}
-            >
-              <div className="nav-dot"></div>Brackets
-            </button>
-          )}
+          <button
+            className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
+            onClick={() => setActiveTab("Brackets")}
+          >
+            <div className="nav-dot"></div>Brackets
+          </button>
         </div>
         {isAdmin && (
         <div className="nav-section">
@@ -1945,6 +2140,103 @@ export function SportsSchedule() {
             </div>
           </div>
 
+          {/* Event Stage Progression (Single Event Stepper OR Multi-Event Stage Tracker) */}
+          {eventStageSummaries.length === 1 && overviewProgression.stages.length > 0 ? (
+            <StageProgressionBar
+              progression={overviewProgression}
+              title={`${eventStageSummaries[0].eventName} — Stage Progress`}
+              onSelectStage={(stage) => {
+                setFixtureStageFilter(stage);
+                setFixtureStatusFilter("All");
+                setActiveTab("All Events");
+              }}
+              onViewBracket={() => {
+                setSelectedTournamentId(eventStageSummaries[0].configId);
+                setActiveTab("Brackets");
+              }}
+            />
+          ) : eventStageSummaries.length > 1 ? (
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <Layers className="h-3.5 w-3.5" />
+                  </div>
+                  <h3 className="m-0 text-xs sm:text-sm font-extrabold text-slate-900">
+                    Event Stage Progress
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("Brackets")}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+                >
+                  Open Brackets <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {eventStageSummaries.map((ev) => {
+                  const current = ev.progression.currentStage;
+                  return (
+                    <div
+                      key={ev.configId}
+                      onClick={() => {
+                        setSelectedTournamentId(ev.configId);
+                        if (ev.eventId) setSelectedSportsEventId(Number(ev.eventId));
+                        if (current) setFixtureStageFilter(current.key);
+                      }}
+                      className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 hover:border-indigo-200 hover:bg-indigo-50/30 transition cursor-pointer space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-xs font-bold text-slate-900">{ev.eventName}</div>
+                          <div className="truncate text-[10px] text-slate-500">
+                            {ev.tournamentName} · {ev.sportName}
+                          </div>
+                        </div>
+                        {current && (
+                          <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                            ev.progression.isTournamentCompleted
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : current.status === "LIVE"
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : current.badgeClass
+                          }`}>
+                            {current.status === "LIVE" && <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />}
+                            {ev.progression.headline}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
+                        {ev.progression.stages.map((st, idx) => (
+                          <div key={st.key} className="flex items-center gap-1 shrink-0">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${
+                                st.status === "COMPLETED"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : st.status === "LIVE"
+                                    ? "border-red-200 bg-red-50 text-red-700"
+                                    : current?.key === st.key
+                                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                                      : "border-slate-200 bg-white text-slate-400"
+                              }`}
+                            >
+                              {st.status === "COMPLETED" && <CheckCircle2 className="h-2.5 w-2.5" />}
+                              {st.shortLabel}
+                            </span>
+                            {idx < ev.progression.stages.length - 1 && (
+                              <ChevronRight className="h-2.5 w-2.5 text-slate-300" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {/* Two Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
             {/* Left Column: Live Matches & Navigation */}
@@ -1970,6 +2262,7 @@ export function SportsSchedule() {
                     overviewFixtures.filter(f => f.status === "LIVE").map((fixture) => {
                       const IconComponent = getSportIcon(fixture.sport);
                       const colors = getSportColor(fixture.sport);
+                      const stageMeta = getStageMeta(fixture.stageKey || getMatchStage(fixture));
                       return (
                         <div key={fixture.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl flex items-center justify-between active:scale-[0.98] transition-all duration-150">
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -1977,7 +2270,12 @@ export function SportsSchedule() {
                               <IconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </div>
                             <div className="text-left">
-                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{fixture.sport}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider m-0">{fixture.sport}</p>
+                                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.2 text-[9px] font-bold ${stageMeta.badgeClass}`}>
+                                  {formatRoundStageLabel(fixture.roundName, fixture.groupName, fixture.stageKey)}
+                                </span>
+                              </div>
                               <h4 className="text-sm font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
                               <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[160px] sm:max-w-[220px]">{fixture.venue}</p>
                             </div>
@@ -2015,6 +2313,7 @@ export function SportsSchedule() {
                     upcomingFixtures.map(fixture => {
                       const IconComponent = getSportIcon(fixture.sport);
                       const colors = getSportColor(fixture.sport);
+                      const stageMeta = getStageMeta(fixture.stageKey || getMatchStage(fixture));
                       return (
                         <div key={fixture.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2.5 sm:p-3.5 transition hover:border-amber-200 hover:bg-amber-50/40">
                           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
@@ -2022,7 +2321,12 @@ export function SportsSchedule() {
                               <IconComponent className="h-4 w-4" />
                             </div>
                             <div className="min-w-0 text-left">
-                              <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{fixture.sport}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{fixture.sport}</p>
+                                <span className={`inline-flex items-center rounded-full border px-1.5 py-0.2 text-[9px] font-bold ${stageMeta.badgeClass}`}>
+                                  {formatRoundStageLabel(fixture.roundName, fixture.groupName, fixture.stageKey)}
+                                </span>
+                              </div>
                               <h4 className="m-0 truncate text-xs font-bold text-slate-800">{fixture.team1} vs {fixture.team2}</h4>
                               <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.name}</p>
                               <p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{fixture.venue}</p>
@@ -2067,18 +2371,16 @@ export function SportsSchedule() {
                     <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Browse, search and configure overall match listings.</p>
                   </div>
 
-                  {isSuperAdmin && (
-                    <div
-                      onClick={() => setActiveTab("Brackets")}
-                      className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
-                    >
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
-                        <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
-                      </div>
-                      <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
+                  <div
+                    onClick={() => setActiveTab("Brackets")}
+                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
+                  >
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                      <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                  )}
+                    <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2109,14 +2411,18 @@ export function SportsSchedule() {
                       const score2 = comparableScore(score2Text);
                       const team1Leads = score1 != null && score2 != null && score1 > score2;
                       const team2Leads = score1 != null && score2 != null && score2 > score1;
+                      const stageMeta = getStageMeta(fixture.stageKey || getMatchStage(fixture));
                       return (
                         <div key={fixture.id} className="text-left space-y-1.5 sm:space-y-2 pb-2.5 sm:pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
-                          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                            <span className="flex items-center gap-1">
-                              <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" style={{ color: colors.color }} />
-                              {fixture.sport}
+                          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" style={{ color: colors.color }} />
+                              <span className="truncate">{fixture.sport}</span>
+                              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.2 text-[9px] font-bold normal-case tracking-normal shrink-0 ${stageMeta.badgeClass}`}>
+                                {formatRoundStageLabel(fixture.roundName, fixture.groupName, fixture.stageKey)}
+                              </span>
                             </span>
-                            <span>{fixture.date}</span>
+                            <span className="shrink-0">{fixture.date}</span>
                           </div>
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center justify-between">
@@ -2432,6 +2738,23 @@ export function SportsSchedule() {
             </div>
           </div>
 
+          {/* Stage Progression Bar (when viewing a specific event/tournament) */}
+          {overviewProgression.stages.length > 0 && (selectedTournamentId !== null || selectedSportsEventId !== null || eventStageSummaries.length === 1) && (
+            <StageProgressionBar
+              progression={overviewProgression}
+              title={eventStageSummaries.length === 1 ? `${eventStageSummaries[0].eventName} — Stage Progress` : "Tournament Stage Progress"}
+              selectedStage={fixtureStageFilter}
+              onSelectStage={setFixtureStageFilter}
+              onViewBracket={() => {
+                if (eventStageSummaries.length === 1) {
+                  setSelectedTournamentId(eventStageSummaries[0].configId);
+                }
+                setActiveTab("Brackets");
+              }}
+              compact
+            />
+          )}
+
           {/* Status Filter Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
             {["All", "LIVE", "SCHEDULED", "COMPLETED"].map(status => {
@@ -2458,6 +2781,37 @@ export function SportsSchedule() {
               );
             })}
           </div>
+
+          {/* Stage Filter Chips */}
+          {stageFilterPills.length > 2 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 shrink-0 mr-0.5">
+                <Layers className="w-3 h-3 text-indigo-500" />
+                Stage:
+              </span>
+              {stageFilterPills.map((pill) => {
+                const isSelected = fixtureStageFilter === pill.key;
+                const meta = pill.key === "ALL" ? null : getStageMeta(pill.key);
+                return (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={() => setFixtureStageFilter(pill.key)}
+                    className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap transition cursor-pointer ${
+                      isSelected
+                        ? (meta ? meta.activePillClass : "bg-indigo-600 text-white border-indigo-600 shadow-xs")
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{pill.label}</span>
+                    <span className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}>
+                      {pill.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Date Strip Navigation */}
           {fixtureDates.length > 1 && (
@@ -2542,15 +2896,26 @@ export function SportsSchedule() {
                   }}
                 >
                   <div>
-                    {/* Card Header: Sport badge, Venue and Status */}
+                    {/* Card Header: Sport badge, Stage badge, Venue and Status */}
                     <div className="flex items-start justify-between gap-2 mb-2.5">
-                      <span
-                        className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
-                        style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
-                      >
-                        <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                        {fixture.sport}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <span
+                          className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
+                          style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
+                        >
+                          <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                          {fixture.sport}
+                        </span>
+                        {(() => {
+                          const stageKey = fixture.stageKey || getMatchStage(fixture);
+                          const stageMeta = getStageMeta(stageKey);
+                          return (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${stageMeta.badgeClass}`}>
+                              {formatRoundStageLabel(fixture.roundName, fixture.groupName, stageKey)}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         {isLive && (
                           <span className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-bold animate-pulse border border-red-200">
@@ -3483,7 +3848,38 @@ export function SportsSchedule() {
       })()}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && isSuperAdmin && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} isAdmin={isSuperAdmin} />}
+      {activeTab === "Brackets" && (
+        <BracketView
+          eventId={eventId}
+          tournamentConfigs={tournamentConfigs}
+          initialConfigId={selectedTournamentId}
+          isAdmin={isAdmin}
+          onOpenMatch={(m) => {
+            const st = String(m.status || "").toUpperCase();
+            if (st === "LIVE" || st === "IN_PROGRESS") {
+              openLiveView({
+                matchId: m.matchId,
+                sport: m.sport || "Tournament",
+                team1: m.team1,
+                team2: m.team2,
+                roundName: m.roundName,
+                tournamentName: m.tournamentName,
+                eventName: m.eventName,
+              });
+            } else if (st === "COMPLETED") {
+              openMatchDetail({
+                matchId: m.matchId,
+                sport: m.sport || "Tournament",
+                team1: m.team1,
+                team2: m.team2,
+                roundName: m.roundName,
+                tournamentName: m.tournamentName,
+                eventName: m.eventName,
+              });
+            }
+          }}
+        />
+      )}
 
       {/* Config */}
       {activeTab === "Config" && (
@@ -3614,22 +4010,45 @@ export function SportsSchedule() {
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (
         activeIsCricket ? (
-          <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+          <MatchDetailView
+            matchId={viewingMatchId}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
+            onClose={() => setViewingMatchId(null)}
+          />
         ) : activeIsTimeSport ? (
           <RaceResultsView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
         ) : (
-          <GenericMatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+          <GenericMatchDetailView
+            matchId={viewingMatchId}
+            roundName={activeMatchFixture?.roundName}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
+            onClose={() => setViewingMatchId(null)}
+          />
         )
       )}
 
       {/* Live Match View (Spectator) */}
       {liveViewMatchId !== null && (
         activeIsCricket ? (
-          <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+          <LiveMatchView
+            matchId={liveViewMatchId}
+            roundName={activeMatchFixture?.roundName}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
+            onClose={() => setLiveViewMatchId(null)}
+          />
         ) : activeIsTimeSport ? (
           <RaceResultsView matchId={liveViewMatchId} live onClose={() => setLiveViewMatchId(null)} />
         ) : (
-          <GenericLiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+          <GenericLiveMatchView
+            matchId={liveViewMatchId}
+            roundName={activeMatchFixture?.roundName}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
+            onClose={() => setLiveViewMatchId(null)}
+          />
         )
       )}
 
@@ -3641,6 +4060,9 @@ export function SportsSchedule() {
             configId={activeMatchFixture?.configId}
             teamAName={activeMatchFixture?.team1}
             teamBName={activeMatchFixture?.team2}
+            roundName={activeMatchFixture?.roundName}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
             onClose={() => setLiveScoringMatchId(null)}
           />
         ) : activeIsTimeSport ? (
@@ -3653,6 +4075,9 @@ export function SportsSchedule() {
           <GenericLiveScoringPanel
             matchId={liveScoringMatchId}
             sportType={activeSportType}
+            roundName={activeMatchFixture?.roundName}
+            tournamentName={activeMatchFixture?.tournamentName}
+            eventName={activeMatchFixture?.eventName}
             onClose={() => setLiveScoringMatchId(null)}
             teamA={{ id: activeMatchFixture?.teamAId || 1, name: activeMatchFixture?.team1 || (isIndividualSport(activeSportType) ? "Player 1" : "Team A"), color: "#6366f1" }}
             teamB={{ id: activeMatchFixture?.teamBId || 2, name: activeMatchFixture?.team2 || (isIndividualSport(activeSportType) ? "Player 2" : "Team B"), color: "#f97316" }}
