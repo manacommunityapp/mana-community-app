@@ -65,6 +65,17 @@ export interface CreateGameRoomPayload {
   allowGuestPlayers?: boolean;
 }
 
+export interface KittyPartyJoinRequest {
+  id: number;
+  circleId: number;
+  userId: number;
+  fullName: string;
+  phone?: string;
+  requestMessage?: string;
+  status: string;
+  createdAt?: string;
+}
+
 export const kittyPartyService = {
   // Circles
   getMyCircles: async (): Promise<{ content: KittyPartyCircleSummary[] }> => {
@@ -90,6 +101,10 @@ export const kittyPartyService = {
 
   requestToJoin: async (circleId: number, message?: string): Promise<{ success: boolean; message: string }> => {
     return apiClient.post<{ success: boolean; message: string }>(`/v1/kitty-circles/${circleId}/join`, { requestMessage: message });
+  },
+
+  getPendingJoinRequests: async (circleId: number): Promise<KittyPartyJoinRequest[]> => {
+    return apiClient.get<KittyPartyJoinRequest[]>(`/v1/kitty-circles/${circleId}/join-requests`);
   },
 
   approveJoinRequest: async (circleId: number, requestId: number): Promise<{ success: boolean; message: string }> => {
@@ -139,10 +154,10 @@ export const kittyPartyService = {
     return apiClient.post<{ success: boolean; message: string }>(`/v1/kitty-ledger/contributions/${contributionId}/verify`, {});
   },
 
-  disbursePayout: async (cycleId: number, periodNumber: number, externalPayoutRef: string, payoutReceiptUrl?: string): Promise<{ success: boolean }> => {
+  disbursePayout: async (cycleId: number, periodNumber: number, externalPayoutRef?: string, payoutReceiptUrl?: string): Promise<{ success: boolean }> => {
     return apiClient.post<{ success: boolean }>(`/v1/kitty-ledger/cycles/${cycleId}/disburse`, {
       periodNumber,
-      externalPayoutRef,
+      externalPayoutRef: externalPayoutRef || `UTR-M${periodNumber}-${Date.now()}`,
       payoutReceiptUrl,
     });
   },

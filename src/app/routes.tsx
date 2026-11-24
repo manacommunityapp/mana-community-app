@@ -607,6 +607,7 @@ import { KittyPartyCircleDetails } from "./components/kitty/kittyPartyCircleDeta
 import { KittyPartyLedgerView } from "./components/kitty/kittyPartyLedgerView";
 import { KittyPartyHousieRoom } from "./components/kitty/kittyPartyHousieRoom";
 import { KittyPartyExpenseSplitView } from "./components/kitty/kittyPartyExpenseSplitView";
+import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
 
 function HealthSubRouteRedirect() {
   const { tab } = useParams();
@@ -1648,6 +1649,7 @@ export const router = createBrowserRouter([
       { path: "kitty-party/:id/ledger", element: <KittyPartyLedgerView /> },
       { path: "kitty-party/:id/housie", element: <KittyPartyHousieRoom /> },
       { path: "kitty-party/:id/expenses", element: <KittyPartyExpenseSplitView /> },
+      { path: "social", element: <SocialCirclesPage /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
