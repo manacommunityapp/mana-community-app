@@ -6,7 +6,7 @@ import {
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
   PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
-  Smartphone, Film, Gem
+  Smartphone, Film, Gem, Calculator
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -502,6 +502,7 @@ export function Layout() {
         { to: "/trips", icon: Compass, label: "Community Trips", menuKey: "trips" },
         { to: "/kitty-party", icon: Sparkles, label: "Kitty & Social Circles", badge: "New", menuKey: "kitty-party" },
         { to: "/social", icon: Users, label: "Social Circles", badge: "New", menuKey: "social-circles" },
+        { to: "/manakit", icon: Calculator, label: "ManaKit", badge: "Hot", menuKey: "manakit-tools" },
         { to: "/split", icon: PieChart, label: "Mana Split", badge: "New", menuKey: "split-bill" },
         { to: "/pets", icon: Heart, label: "Pet Registry", menuKey: "pets" },
         { to: "/polls", icon: Vote, label: "Polls", menuKey: "polls" },
@@ -619,6 +620,7 @@ export function Layout() {
     if (label === "Daily Basket") return isModuleEnabled("FOOD_OS");
     if (label === "Wellness Nutrition") return isModuleEnabled(["FOOD_OS", "HEALTH"]);
     if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
+    if (label === "ManaKit" || label === "MKit Tools") return true;
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
     if (label === "Jewellery & Try-On") return true;

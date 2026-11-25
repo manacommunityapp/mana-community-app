@@ -81,7 +81,18 @@ export function useSportsCricHeroesProfile(): UseSportsCricHeroesProfileResult {
     setLoading(true);
     setError(null);
     try {
-      const p = await sportsCricHeroesService.refreshProfile(playerId);
+      let p: CricHeroesPlayerProfile;
+      try {
+        await sportsCricHeroesService.refreshProfileAsync(playerId);
+        p = await sportsCricHeroesService.getProfile(playerId);
+        // If SQS executes asynchronously on a worker, pull the updated snapshot shortly after
+        setTimeout(() => {
+          sportsCricHeroesService.getProfile(playerId).then(setProfile).catch(() => {});
+          sportsCricHeroesService.getPlayerRating(playerId).then(setRating).catch(() => {});
+        }, 3500);
+      } catch {
+        p = await sportsCricHeroesService.refreshProfile(playerId);
+      }
       setProfile(p);
       const r = await sportsCricHeroesService.getPlayerRating(playerId);
       setRating(r);

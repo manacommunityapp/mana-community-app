@@ -109,10 +109,22 @@ export function SportsCricHeroesProfileCard({ playerId, playerName, compact = fa
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const p = await sportsCricHeroesService.refreshProfile(playerId);
+      let p: CricHeroesPlayerProfile;
+      try {
+        await sportsCricHeroesService.refreshProfileAsync(playerId);
+        p = await sportsCricHeroesService.getProfile(playerId);
+        setTimeout(() => {
+          sportsCricHeroesService.getProfile(playerId).then((latest) => {
+            setProfile(latest);
+            setRating(computeLocalRating(latest));
+          }).catch(() => {});
+        }, 3500);
+      } catch {
+        p = await sportsCricHeroesService.refreshProfile(playerId);
+      }
       setProfile(p);
       setRating(computeLocalRating(p));
-      toast.success("Profile stats refreshed");
+      toast.success("Profile stats refresh triggered");
     } catch (err: any) {
       toast.error(err?.message || "Refresh failed");
     } finally {

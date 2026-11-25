@@ -87,30 +87,43 @@ export function GenericLiveMatchView({
 
     fetchState(false);
 
-    const unsub = stompClient.subscribe(
-      `/topic/match/${matchId}/generic-state`,
-      (body) => {
-        if (!isMounted) return;
-        // Dynamically update match state without refreshing or re-mounting the modal
+    const handleIncoming = (body: any) => {
+      if (!isMounted || !body) return;
+      if (body.currentPeriod !== undefined || body.totalScoreA !== undefined) {
         setState(body as GenericMatchState);
-        setLastUpdated(new Date());
-        setError(null);
-        setLoading(false);
+      } else {
+        fetchState(false);
       }
+      setLastUpdated(new Date());
+      setError(null);
+      setLoading(false);
+    };
+
+    const unsubGeneric = stompClient.subscribe(
+      `/topic/match/${matchId}/generic-state`,
+      handleIncoming
+    );
+
+    const unsubLive = stompClient.subscribe(
+      `/topic/matches/${matchId}/live`,
+      handleIncoming
     );
 
     const unsubConnect = stompClient.onConnect(() => {
       if (isMounted) fetchState(false);
     });
 
-    // Background polling fallback only when WebSocket is disconnected
+    // Background polling fallback only when WebSocket is disconnected and document is visible
     reconnectTimer.current = setInterval(() => {
-      if (isMounted && !stompClient.connected) fetchState(false);
-    }, 5000);
+      if (isMounted && !stompClient.connected && document.visibilityState === "visible") {
+        fetchState(false);
+      }
+    }, 15000);
 
     return () => {
       isMounted = false;
-      unsub();
+      unsubGeneric();
+      unsubLive();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     };

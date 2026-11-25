@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Gavel,
   Zap,
@@ -26,6 +26,7 @@ import {
   type EventAuctionItemRequest,
   type EventResponse,
 } from "../../../services/events/eventService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { showError, showSuccess } from "../../../utils/ToastUtils";
 
 const CATEGORIES = [
@@ -107,7 +108,21 @@ export function EventsAuction() {
       .catch(() => {});
   }, []);
 
-  const loadData = () => {
+  const refreshQuietly = useCallback(() => {
+    Promise.all([
+      eventService.getAuctionItems(selectedEventId || undefined),
+      eventService.getRecentAuctionBids().catch(() => []),
+      eventService.getAuctionStats(selectedEventId || undefined).catch(() => null),
+    ])
+      .then(([fetchedItems, fetchedRecentBids, fetchedStats]) => {
+        setItems(fetchedItems || []);
+        setRecentBids(fetchedRecentBids || []);
+        setStats(fetchedStats);
+      })
+      .catch(() => {});
+  }, [selectedEventId]);
+
+  const loadData = useCallback(() => {
     setLoading(true);
     setError("");
 
@@ -125,28 +140,60 @@ export function EventsAuction() {
         setError(err?.message || "Failed to load live auction items from database.");
       })
       .finally(() => setLoading(false));
-  };
+  }, [selectedEventId]);
 
   useEffect(() => {
     loadData();
 
-    // Background polling every 8s for live real-time bidding updates without loading spinner flicker
+    // Background polling fallback only when WebSocket is disconnected and tab is visible
     const interval = setInterval(() => {
-      Promise.all([
-        eventService.getAuctionItems(selectedEventId || undefined),
-        eventService.getRecentAuctionBids().catch(() => []),
-        eventService.getAuctionStats(selectedEventId || undefined).catch(() => null),
-      ])
-        .then(([fetchedItems, fetchedRecentBids, fetchedStats]) => {
-          setItems(fetchedItems || []);
-          setRecentBids(fetchedRecentBids || []);
-          setStats(fetchedStats);
-        })
-        .catch(() => {});
-    }, 8000);
+      if (!stompClient.connected && (typeof document === "undefined" || document.visibilityState === "visible")) {
+        refreshQuietly();
+      }
+    }, 20000);
 
     return () => clearInterval(interval);
-  }, [selectedEventId]);
+  }, [loadData, refreshQuietly]);
+
+  // Real-time item bid/status updates via STOMP + Redis Pub/Sub
+  const itemIdsKey = useMemo(
+    () => items.map((i) => i.id).sort((a, b) => a - b).join(","),
+    [items]
+  );
+
+  useEffect(() => {
+    if (!itemIdsKey) return;
+    const ids = itemIdsKey.split(",").map(Number).filter((n) => !isNaN(n) && n > 0);
+    const unsubs = ids.map((itemId) =>
+      stompClient.subscribe(`/topic/auction/${itemId}`, (body: unknown) => {
+        const ev = body as {
+          auctionId?: number;
+          amount?: number;
+          bidderName?: string;
+          bidCount?: number;
+          status?: "UPCOMING" | "LIVE" | "CLOSED";
+        };
+        const targetId = ev?.auctionId ?? itemId;
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === targetId
+              ? {
+                  ...it,
+                  currentBid: ev?.amount ?? it.currentBid,
+                  leaderName: ev?.bidderName ?? it.leaderName,
+                  bidCount: ev?.bidCount ?? it.bidCount,
+                  status: ev?.status || it.status,
+                }
+              : it
+          )
+        );
+        refreshQuietly();
+      })
+    );
+    return () => {
+      unsubs.forEach((u) => u());
+    };
+  }, [itemIdsKey, refreshQuietly]);
 
   // Open Create Modal
   const openCreateModal = () => {

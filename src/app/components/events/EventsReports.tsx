@@ -480,7 +480,25 @@ ${dataRows}
       } else {
         if (format === "csv") {
           try {
-            const blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
+            let blob: Blob | null = null;
+            try {
+              const queued = await eventReportService.exportRegistrationReportCsvAsync(selectedEventId, category);
+              if (queued?.jobId) {
+                for (let attempt = 0; attempt < 8; attempt++) {
+                  try {
+                    blob = await eventReportService.downloadAsyncReport(queued.jobId);
+                    break;
+                  } catch {
+                    await new Promise((res) => setTimeout(res, Math.min(400 * (attempt + 1), 1500)));
+                  }
+                }
+              }
+            } catch {
+              // Fall back to direct synchronous CSV download when async queue is unavailable
+            }
+            if (!blob) {
+              blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
+            }
             triggerDownload(blob, `${base}.csv`);
             setSuccessMsg(`Exported ${title} CSV`);
           } catch (e: any) {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { stompClient } from "../../../services/chat/stompClient";
 import {
   iotService,
   type IoTSensor,
@@ -150,6 +151,15 @@ export default function IoTSensorDashboard() {
   }, [communityId, selectedSensor]);
 
   useEffect(() => { load(); }, [communityId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real-time IoT anomaly stream via STOMP + Redis Pub/Sub
+  useEffect(() => {
+    if (!communityId) return;
+    const unsub = stompClient.subscribe(`/topic/community/${communityId}/iot-feed`, () => {
+      iotService.getActiveAnomalies(communityId).then(setAnomalies).catch(() => {});
+    });
+    return unsub;
+  }, [communityId]);
 
   const handleSelectSensor = async (s: IoTSensor) => {
     setSelectedSensor(s);

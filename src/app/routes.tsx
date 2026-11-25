@@ -30,6 +30,9 @@ import DutyHandover from "./components/hrm/DutyHandover";
 import IntegrationSettings from "./components/hrm/IntegrationSettings";
 import ForecastDashboard from "./components/hrm/ForecastDashboard";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
+import { FaceAttendanceKiosk } from "./components/access/FaceAttendanceKiosk";
+import { ContractorWorkforceManagement } from "./components/hrm/ContractorWorkforceManagement";
+import { AiTimeGuardDashboard } from "./components/hrm/AiTimeGuardDashboard";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
 import { NotificationPreferenceCenter } from "./components/notification/NotificationPreferenceCenter";
@@ -82,6 +85,7 @@ import { KYCVerification } from "./components/commons/verification/KYCVerificati
 import { KycWizardPage } from "./components/kyc/KycWizardPage";
 import { ComplianceReportsPage } from "./components/kyc/ComplianceReportsPage";
 import { SocialCirclesPage } from "./components/social/SocialCirclesPage";
+import { MKitDashboard } from "./components/mkit/MKitDashboard";
 import { GroupOrdersPage } from "./components/marketplace/GroupOrdersPage";
 import { SmartDevicesPage } from "./components/ops/SmartDevicesPage";
 import CommunityWalletPage from "./components/finance/CommunityWalletPage";
@@ -731,6 +735,18 @@ export const router = createBrowserRouter([
   {
     path: "/terms",
     Component: TermsPage,
+  },
+  {
+    path: "/public/manakit",
+    Component: MKitDashboard,
+  },
+  {
+    path: "/public/mkit",
+    Component: MKitDashboard,
+  },
+  {
+    path: "/public/tools",
+    Component: MKitDashboard,
   },
   {
     path: "/",
@@ -1597,6 +1613,7 @@ export const router = createBrowserRouter([
       
       // ── Access & Biometric Turnstiles ───────────────────────────
       { path: "access/turnstiles", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><BiometricTurnstileMonitor /></PermissionGuard> },
+      { path: "access/kiosk", element: <FaceAttendanceKiosk /> },
       // ── Offline Sync & Queuing ──────────────────────────────────
       { path: "sync", element: <PermissionGuard><OfflineSyncManager /></PermissionGuard> },
       // ── IoT Sub-Metering & Telemetry ────────────────────────────
@@ -1843,6 +1860,9 @@ export const router = createBrowserRouter([
           { path: "reports", element: <HrmReportsPage /> },
           { path: "skill-passport",  element: <HrmSkillPassportPage /> },
           { path: "workforce-pool",  element: <HrmWorkforcePoolPage /> },
+          { path: "contractors",     element: <ContractorWorkforceManagement /> },
+          { path: "timeguard",       element: <AiTimeGuardDashboard /> },
+          { path: "kiosk",           element: <FaceAttendanceKiosk /> },
           { path: "job-board",       element: <HrmJobBoardPage /> },
           { path: "duty-handover",   element: <HrmDutyHandoverPage /> },
           { path: "integrations",    element: <HrmIntegrationsPage /> },
@@ -1892,6 +1912,11 @@ export const router = createBrowserRouter([
       { path: "services/track", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
       { path: "services/track/:id", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
       { path: "home-services/tracking/:id", element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><ServiceTechnicianTracker /></PermissionGuard> },
+      // ── ManaKit Everyday Tools ────────
+      { path: "manakit", element: <MKitDashboard /> },
+      { path: "mkit", element: <MKitDashboard /> },
+      { path: "tools", element: <MKitDashboard /> },
+      { path: "everyday-tools", element: <MKitDashboard /> },
       // ── Mobile Super-Set Harmonization Redirects ────────
       { path: "health/:tab", element: <HealthSubRouteRedirect /> },
       { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },

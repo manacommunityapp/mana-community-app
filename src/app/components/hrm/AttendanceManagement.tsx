@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { useHrmOrg } from "../../../contexts/HrmOrgContext";
 import {
   Clock,
@@ -10,6 +11,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
+  ScanFace,
+  ShieldAlert,
+  ListOrdered,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
@@ -31,6 +37,7 @@ import { hrmService } from "../../../services/hrm/hrmService";
 import { showError, showSuccess } from "../../../utils/ToastUtils";
 import type { AttendanceSummary, AttendanceCorrectionRequest } from "../../../types/hrm";
 import { format } from "date-fns";
+import { AiTimeGuardDashboard } from "./AiTimeGuardDashboard";
 
 interface AttendanceRow {
   id: number;
@@ -56,7 +63,9 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "destructive" | "ou
 };
 
 export function AttendanceManagement() {
+  const navigate = useNavigate();
   const { activeOrgId: orgId } = useHrmOrg();
+  const [viewTab, setViewTab] = useState<"roster" | "timeguard">("roster");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [rows, setRows] = useState<AttendanceRow[]>([]);
@@ -112,70 +121,183 @@ export function AttendanceManagement() {
     }
   }
 
+  const downloadBlob = (content: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8;" }));
+    a.download = filename;
+    a.click();
+  };
+
+  const handleExportPayroll = (formatType: string) => {
+    if (rows.length === 0) {
+      showError("No attendance rows to export for selected date.");
+      return;
+    }
+    if (formatType === "KEKA") {
+      const headers = "Employee Code,Attendance Date,First In,Last Out,Total Hours,Shift Code";
+      const csvRows = rows.map((r) =>
+        `"${r.employeeCode || r.employeeId}","${r.attendanceDate}","${r.firstCheckIn || ""}","${r.lastCheckOut || ""}","${(r.totalWorkMinutes / 60).toFixed(2)}","GEN"`
+      );
+      downloadBlob([headers, ...csvRows].join("\n"), `keka_attendance_${date}.csv`);
+      showSuccess("Exported Keka-formatted attendance CSV.");
+    } else if (formatType === "GREYTHR") {
+      const headers = "Emp_No,Swipe_Date,Swipe_Time,Direction,Door_Name";
+      const csvRows: string[] = [];
+      rows.forEach((r) => {
+        if (r.firstCheckIn) {
+          csvRows.push(`"${r.employeeCode || r.employeeId}","${r.attendanceDate}","${r.firstCheckIn}","IN","Main Gate Turnstile"`);
+        }
+        if (r.lastCheckOut) {
+          csvRows.push(`"${r.employeeCode || r.employeeId}","${r.attendanceDate}","${r.lastCheckOut}","OUT","Main Gate Turnstile"`);
+        }
+      });
+      downloadBlob([headers, ...csvRows].join("\n"), `greythr_swipes_${date}.csv`);
+      showSuccess("Exported greytHR swipe format CSV.");
+    } else if (formatType === "TALLY") {
+      const headers = "EmpId,AttendanceDate,PresentStatus,PayableHours,OvertimeMinutes";
+      const csvRows = rows.map((r) =>
+        `"${r.employeeCode || r.employeeId}","${r.attendanceDate}","${r.attendanceStatus}","${(r.totalWorkMinutes / 60).toFixed(2)}","${r.overtimeMinutes || 0}"`
+      );
+      downloadBlob([headers, ...csvRows].join("\n"), `tally_payroll_${date}.csv`);
+      showSuccess("Exported Tally/Darwinbox payroll CSV.");
+    } else if (formatType === "MUSTER_ROLL") {
+      const headers = "Sl No,Employee Code,Employee Name,Designation,Shift,In Time,Out Time,Total Hours,Overtime Hours,Status,Statutory Compliance";
+      const csvRows = rows.map((r, idx) =>
+        `"${idx + 1}","${r.employeeCode || r.employeeId}","${r.employeeName || 'Staff Member'}","${r.department || 'Operations'}","General (09:00-18:00)","${r.firstCheckIn || '-'}","${r.lastCheckOut || '-'}","${(r.totalWorkMinutes / 60).toFixed(2)}","${((r.overtimeMinutes || 0) / 60).toFixed(2)}","${r.attendanceStatus}","COMPLIANT"`
+      );
+      downloadBlob([headers, ...csvRows].join("\n"), `indian_muster_roll_form_d_${date}.csv`);
+      showSuccess("Exported Indian Statutory Muster Roll (Form D) CSV.");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Attendance</h1>
-          <p className="text-sm text-muted-foreground">Daily attendance report</p>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-2xl font-bold text-foreground">Attendance & TimeGuard</h1>
+            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-300">
+              AI Face Kiosk Integrated
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">Daily attendance logs, shift timings, and AI TimeGuard anomaly detection</p>
         </div>
-        <Input
-          id="attendance-date"
-          type="date"
-          value={date}
-          onChange={(e) => { setDate(e.target.value); setPage(0); }}
-          className="w-auto"
-        />
+
+        <div className="flex items-center space-x-2">
+          <Button
+            size="sm"
+            onClick={() => navigate("/access/kiosk")}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <ScanFace className="w-4 h-4 mr-1.5" />
+            Launch Face Kiosk Mode
+          </Button>
+
+          {viewTab === "roster" && (
+            <>
+              <Input
+                id="attendance-date"
+                type="date"
+                value={date}
+                onChange={(e) => { setDate(e.target.value); setPage(0); }}
+                className="w-auto h-9"
+              />
+              <Select onValueChange={handleExportPayroll}>
+                <SelectTrigger className="w-44 h-9 text-xs bg-background">
+                  <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+                  <SelectValue placeholder="Export Payroll" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="KEKA">Keka Format (.csv)</SelectItem>
+                  <SelectItem value="GREYTHR">greytHR Swipes (.csv)</SelectItem>
+                  <SelectItem value="TALLY">Tally / Darwinbox (.csv)</SelectItem>
+                  <SelectItem value="MUSTER_ROLL">Govt Form D Muster Roll (.csv)</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          )}
+        </div>
       </div>
 
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center">
-                <UserCheck className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{summary.totalPresent}</p>
-                <p className="text-xs text-muted-foreground">Present</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center">
-                <UserX className="h-5 w-5 text-red-500" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{summary.totalAbsent}</p>
-                <p className="text-xs text-muted-foreground">Absent</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
-                <CalendarOff className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{summary.totalLeave}</p>
-                <p className="text-xs text-muted-foreground">On Leave</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Timer className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-xl font-bold">{summary.totalHalfDay}</p>
-                <p className="text-xs text-muted-foreground">Half Day</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* View Switcher Tabs */}
+      <div className="flex border-b space-x-4 text-sm font-medium">
+        <button
+          onClick={() => setViewTab("roster")}
+          className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 ${
+            viewTab === "roster"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ListOrdered className="w-4 h-4" />
+          <span>Attendance Roster</span>
+        </button>
+
+        <button
+          onClick={() => setViewTab("timeguard")}
+          className={`pb-2 border-b-2 transition-colors flex items-center space-x-1.5 ${
+            viewTab === "timeguard"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4 text-purple-600" />
+          <span>AI TimeGuard (Fraud & Anomalies)</span>
+        </button>
+      </div>
+
+      {viewTab === "timeguard" ? (
+        <AiTimeGuardDashboard />
+      ) : (
+        <>
+          {summary && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-green-50 flex items-center justify-center">
+                    <UserCheck className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{summary.totalPresent}</p>
+                    <p className="text-xs text-muted-foreground">Present</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-red-50 flex items-center justify-center">
+                    <UserX className="h-5 w-5 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{summary.totalAbsent}</p>
+                    <p className="text-xs text-muted-foreground">Absent</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <CalendarOff className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{summary.totalLeave}</p>
+                    <p className="text-xs text-muted-foreground">On Leave</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Timer className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold">{summary.totalHalfDay}</p>
+                    <p className="text-xs text-muted-foreground">Half Day</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
       <Card>
         <CardContent className="pt-4">
@@ -272,6 +394,8 @@ export function AttendanceManagement() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       <Dialog open={correctOpen} onOpenChange={setCorrectOpen}>
         <DialogContent>

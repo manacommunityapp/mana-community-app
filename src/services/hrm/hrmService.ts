@@ -63,6 +63,10 @@ import type {
   HrTrendPoint,
   HrWorkforceMetrics,
   HrReportConfig,
+  ContractorAgency,
+  ContractorWorker,
+  ContractorBillingSummary,
+  AiTimeGuardAnomaly,
 } from "../../types/hrm";
 // LeaveApprovalStatus and LeaveSession are used via LeaveRequest above
 
@@ -652,5 +656,39 @@ export const hrmService = {
   },
   async exportReport(orgId: number, reportType: string): Promise<Blob> {
     return apiClient.get(`${BASE}/reports/${orgId}/export?reportType=${reportType}`, { responseType: "blob" });
+  },
+
+  // ── Contractor Workforce Management (CWMS) ──────────────────────────────────
+  async getContractorAgencies(orgId: number): Promise<ContractorAgency[]> {
+    return apiClient.get(`${BASE}/contractors/${orgId}/agencies`);
+  },
+  async createContractorAgency(orgId: number, data: Partial<ContractorAgency>): Promise<ContractorAgency> {
+    return apiClient.post(`${BASE}/contractors/${orgId}/agencies`, data);
+  },
+  async updateContractorAgency(orgId: number, agencyId: number, data: Partial<ContractorAgency>): Promise<ContractorAgency> {
+    return apiClient.put(`${BASE}/contractors/${orgId}/agencies/${agencyId}`, data);
+  },
+  async getContractorWorkers(orgId: number, agencyId?: number): Promise<ContractorWorker[]> {
+    const url = agencyId
+      ? `${BASE}/contractors/${orgId}/workers?agencyId=${agencyId}`
+      : `${BASE}/contractors/${orgId}/workers`;
+    return apiClient.get(url);
+  },
+  async createContractorWorker(orgId: number, data: Partial<ContractorWorker>): Promise<ContractorWorker> {
+    return apiClient.post(`${BASE}/contractors/${orgId}/workers`, data);
+  },
+  async getContractorBillingSummaries(orgId: number, month?: string): Promise<ContractorBillingSummary[]> {
+    const url = month
+      ? `${BASE}/contractors/${orgId}/billing?month=${encodeURIComponent(month)}`
+      : `${BASE}/contractors/${orgId}/billing`;
+    return apiClient.get(url);
+  },
+
+  // ── AI TimeGuard Anomaly Detection ──────────────────────────────────────────
+  async getAiTimeGuardAnomalies(orgId: number): Promise<AiTimeGuardAnomaly[]> {
+    return apiClient.get(`${BASE}/timeguard/${orgId}/anomalies`);
+  },
+  async resolveTimeGuardAnomaly(orgId: number, anomalyId: string, status: string, actionTaken?: string): Promise<void> {
+    return apiClient.post(`${BASE}/timeguard/${orgId}/anomalies/${anomalyId}/resolve`, { status, actionTaken });
   },
 };

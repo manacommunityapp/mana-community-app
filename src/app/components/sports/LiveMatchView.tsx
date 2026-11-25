@@ -55,6 +55,7 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
   const stateRef = useRef<LiveMatchStateData | null>(null);
   stateRef.current = state;
   const prevMatchIdRef = useRef<number>(matchId);
+  const lastSequenceRef = useRef<number>(0);
 
   const fetchState = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -79,31 +80,59 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
     // Only reset state and trigger full-screen loading on initial mount or when matchId changes
     if (prevMatchIdRef.current !== matchId) {
       prevMatchIdRef.current = matchId;
+      lastSequenceRef.current = 0;
       setState(null);
       setLoading(true);
     }
 
     fetchState(false);
 
-    const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
-      if (!isMounted) return;
-      setState(body as LiveMatchStateData);
+    const handleIncomingMessage = (body: any) => {
+      if (!isMounted || !body) return;
+
+      // Sequence ordering & deduplication
+      if (typeof body.sequence === "number") {
+        if (body.sequence <= lastSequenceRef.current) {
+          return; // Drop out-of-order or duplicate event
+        }
+        if (lastSequenceRef.current > 0 && body.sequence > lastSequenceRef.current + 1) {
+          // Packet gap detected — fetch fresh snapshot from cache/DB
+          fetchState(false);
+        }
+        lastSequenceRef.current = body.sequence;
+      }
+
+      // If payload is a full match state object
+      if (body.currentInnings !== undefined && body.teamAName !== undefined) {
+        setState(body as LiveMatchStateData);
+      } else if (body.score !== undefined) {
+        // Delta event received — update scores and refresh snapshot
+        fetchState(false);
+      }
+
       setLastUpdated(new Date());
       setError(null);
       setLoading(false);
-    });
+    };
+
+    // Subscribe to multi-instance live topic and legacy state topic
+    const unsubLive = stompClient.subscribe(`/topic/matches/${matchId}/live`, handleIncomingMessage);
+    const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, handleIncomingMessage);
 
     const unsubConnect = stompClient.onConnect(() => {
       if (isMounted) fetchState(false);
     });
 
-    // Fallback polling only when WebSocket is disconnected
+    // Fallback polling only when WebSocket is disconnected and document is active
     reconnectTimer.current = setInterval(() => {
-      if (isMounted && !stompClient.connected) fetchState(false);
-    }, 5000);
+      if (isMounted && !stompClient.connected && document.visibilityState === "visible") {
+        fetchState(false);
+      }
+    }, 15000);
 
     return () => {
       isMounted = false;
+      unsubLive();
       unsubState();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);

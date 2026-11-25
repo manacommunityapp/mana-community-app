@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ShoppingBasket, Plus, Users, Clock, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { groupOrderService, type GroupOrder, type MyGroupOrderEntry } from "../../../services/groupOrderService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { getStoredUser } from "../../../services/common/apiClient";
 
 const CATEGORIES = ["Groceries", "Dairy", "Produce", "Meat & Fish", "Bakery", "Snacks", "Household", "Other"] as const;
@@ -57,6 +58,30 @@ export function GroupOrdersPage() {
     Promise.all([fetchOpen(), groupOrderService.getMyJoined().then(setMyOrders).catch(() => {})])
       .finally(() => setLoading(false));
   }, [fetchOpen]);
+
+  // Real-time group-order status updates via STOMP + Redis Pub/Sub
+  useEffect(() => {
+    if (!communityId) return;
+    const unsub = stompClient.subscribe(`/topic/community/${communityId}/group-orders`, (body: unknown) => {
+      const ev = body as { groupOrderId?: number; status?: string; totalCommitted?: number; message?: string };
+      if (ev?.groupOrderId) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === ev.groupOrderId
+              ? {
+                  ...o,
+                  status: ev.status ?? o.status,
+                  totalCommitted: ev.totalCommitted ?? o.totalCommitted,
+                }
+              : o
+          )
+        );
+      } else {
+        fetchOpen();
+      }
+    });
+    return unsub;
+  }, [communityId, fetchOpen]);
 
   async function handleJoin() {
     if (!joinTarget) return;

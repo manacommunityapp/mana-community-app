@@ -633,7 +633,11 @@ export function NotificationBell() {
 
   useEffect(() => {
     fetchLiveNotifications();
-    const interval = setInterval(fetchLiveNotifications, 30000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchLiveNotifications();
+      }
+    }, 120_000); // 2 minutes background sweep fallback (real-time events trigger immediately via event listeners)
     return () => clearInterval(interval);
   }, [fetchLiveNotifications]);
 
