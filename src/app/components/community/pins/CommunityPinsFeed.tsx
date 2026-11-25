@@ -72,12 +72,24 @@ export function CommunityPinsFeed() {
   }, [loadPins]);
 
   const handleLike = async (pinId: number) => {
+    if (!user) {
+      toast.error("Please log in to like this pin");
+      return;
+    }
     try {
       const updated = await communityPinService.likePin(communityId, pinId);
       setPins((prev) => prev.map((p) => (p.id === pinId ? updated : p)));
     } catch {
       toast.error("Failed to like pin");
     }
+  };
+
+  const handleOpenCreateModal = () => {
+    if (!user) {
+      toast.error("Please log in to post a community pin");
+      return;
+    }
+    setCreateModalOpen(true);
   };
 
   const handleClosePin = async (pinId: number) => {
@@ -166,7 +178,7 @@ export function CommunityPinsFeed() {
         </div>
 
         <button
-          onClick={() => setCreateModalOpen(true)}
+          onClick={handleOpenCreateModal}
           className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
@@ -314,8 +326,8 @@ export function CommunityPinsFeed() {
 
       {/* New Pin Modal */}
       {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setCreateModalOpen(false)}
               className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white bg-slate-800/80 rounded-full"

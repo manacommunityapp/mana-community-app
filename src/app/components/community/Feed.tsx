@@ -79,6 +79,7 @@ import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
 import { LiveMatchesStrip } from "./feed/LiveMatchesStrip";
+import { CommunityPinsFeed } from "./pins/CommunityPinsFeed";
 import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
@@ -1398,6 +1399,8 @@ export function Feed() {
           <AlertTicker />
           {/* Live Now Strip: Top-of-page Live Sports Widget (NOT inside post stream) */}
           <LiveMatchesStrip />
+          {/* Community Pins: Ephemeral 24h Micro-Broadcasts */}
+          <CommunityPinsFeed />
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
