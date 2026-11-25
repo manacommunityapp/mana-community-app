@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "react-router";
 import {
   X,
@@ -18,7 +18,9 @@ import {
   WifiOff,
   Radio,
   Settings,
+  Share2,
 } from "lucide-react";
+import { StoryCardModal, type StoryCardData } from "../commons/StoryCardModal";
 import {
   tournamentService,
   type LiveMatchStateData,
@@ -50,6 +52,7 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("live");
   const [selectedInningsScorecard, setSelectedInningsScorecard] = useState<1 | 2>(1);
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
 
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef<LiveMatchStateData | null>(null);
@@ -196,6 +199,36 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
   const isTeamBBatted = !isTeamABattingFirst || state.currentInnings >= 2 || (teamBInn && (teamBInn.totalRuns > 0 || teamBInn.totalWickets > 0 || teamBInn.batters.length > 0));
 
   const isTeamABattingNow = (state.currentInnings === 1 && isTeamABattingFirst) || (state.currentInnings === 2 && !isTeamABattingFirst);
+
+  const storyCardData: StoryCardData | null = useMemo(() => {
+    if (!state) return null;
+    const isCompleted = state.status === "COMPLETED";
+    const team1Name = state.teamAName || "Team A";
+    const team2Name = state.teamBName || "Team B";
+    const team1Score = teamAInn ? `${teamAInn.totalRuns}/${teamAInn.totalWickets} (${teamAInn.totalOvers} ov)` : "Yet to bat";
+    const team2Score = teamBInn ? `${teamBInn.totalRuns}/${teamBInn.totalWickets} (${teamBInn.totalOvers} ov)` : "Yet to bat";
+
+    return {
+      type: "MATCH",
+      communityName: tournamentName || state.tournamentName || "Mana Sports",
+      category: "CRICKET MATCH",
+      title: `${team1Name} vs ${team2Name}`,
+      subtitle: [eventName || state.eventName, roundName || state.roundName, `${effectiveMaxOvers} Overs`].filter(Boolean).join(" • "),
+      statusBadge: isCompleted ? (state.resultNote || "MATCH CONCLUDED") : (state.status === "IN_PROGRESS" ? "LIVE SCORE" : "UPCOMING"),
+      badgeColor: isCompleted ? "#059669" : "#DC2626",
+      stats: [
+        { label: team1Name, value: team1Score },
+        { label: team2Name, value: team2Score },
+      ],
+      highlights: [
+        state.resultNote ? `Result: ${state.resultNote}` : (state.target ? `Target: ${state.target} runs` : "First Innings in progress"),
+        state.tossWinner ? `Toss: ${state.tossWinner} chose to ${state.tossDecision || "bat"}` : "",
+        state.currentBatsman1 ? `Striker: ${state.currentBatsman1.name} ${state.currentBatsman1.runs}(${state.currentBatsman1.balls})` : "",
+      ].filter(Boolean),
+      footerNote: "Mana Sports • Live Scorecard & Match Highlights",
+      accentColor: "#10B981",
+    };
+  }, [state, tournamentName, eventName, roundName, effectiveMaxOvers, teamAInn, teamBInn]);
   const isTeamBBattingNow = !isTeamABattingNow;
 
   const currentInn = state.currentInnings === 1 ? state.innings1 : state.innings2;
@@ -337,6 +370,15 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setStoryModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm transition"
+              title="Share as WhatsApp / Instagram Story Card"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Story Card</span>
+            </button>
+
             <button
               onClick={() => fetchState(true)}
               disabled={isRefreshing}
@@ -1225,6 +1267,12 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
           )}
         </div>
       </div>
+
+      <StoryCardModal
+        open={storyModalOpen}
+        onClose={() => setStoryModalOpen(false)}
+        data={storyCardData}
+      />
     </div>
   );
 }
