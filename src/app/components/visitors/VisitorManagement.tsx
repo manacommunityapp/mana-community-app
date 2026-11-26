@@ -2,10 +2,11 @@ import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
   Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
-  Trash2, QrCode, ShieldCheck, Share2
+  Trash2, QrCode, ShieldCheck, Share2, Zap
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa6";
 import { getBrandIconForText } from "../commons/BrandIcon";
+import { expressDeliveryService, type ExpressVerifyResult } from "../../../services/delivery/expressDeliveryService";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -570,6 +571,35 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   const [guardName, setGuardName] = useState("Guard Ravi");
   const [photoBlob, setPhotoBlob] = useState<string | null>(null);
 
+  // Express Entry Fast Verification state
+  const [expressResult, setExpressResult] = useState<ExpressVerifyResult | null>(null);
+  const [expressInput, setExpressInput] = useState("");
+  const [expressLoading, setExpressLoading] = useState(false);
+
+  const handleExpressClearance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expressInput.trim()) return;
+    setExpressLoading(true);
+    setExpressResult(null);
+    try {
+      const res = await expressDeliveryService.verifyEntry(expressInput, gate);
+      setExpressResult(res);
+      if (res.allowed) {
+        setExpressInput("");
+        onRefresh();
+      }
+    } catch {
+      setExpressResult({
+        allowed: false,
+        message: "Failed to verify express pass",
+        barrierAction: "HOLD",
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setExpressLoading(false);
+    }
+  };
+
   // Walk-in Registration states
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [walkInForm, setWalkInForm] = useState<VisitorPassRequest>({
@@ -751,6 +781,70 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               {verifyLoading ? "Checking..." : "Verify"}
             </button>
           </form>
+
+          {/* Express Entry Quick Clearance Strip */}
+          <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-emerald-500/10 border border-amber-200/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-600" />
+                  Express Entry API (Zomato · Swiggy · Blinkit · Zepto · Amazon)
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-500">Auto-Clearance Active</span>
+            </div>
+            <form onSubmit={handleExpressClearance} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Scan rider barcode or enter EXP-XXXX..."
+                value={expressInput}
+                onChange={e => setExpressInput(e.target.value)}
+                className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-amber-300"
+              />
+              <button
+                type="submit"
+                disabled={expressLoading || !expressInput.trim()}
+                className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs rounded-xl shadow cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {expressLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                1-Sec Clear
+              </button>
+            </form>
+
+            {expressResult && (
+              <div className={cn(
+                "mt-3 p-3 rounded-xl border flex items-center justify-between animate-in fade-in duration-200",
+                expressResult.allowed
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                  : "bg-red-50 border-red-300 text-red-900"
+              )}>
+                <div className="flex items-center gap-2">
+                  {expressResult.allowed ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                  )}
+                  <div>
+                    <div className="text-xs font-black flex items-center gap-1.5">
+                      {expressResult.partner && getBrandIconForText(expressResult.partner)}
+                      <span>{expressResult.message}</span>
+                    </div>
+                    {expressResult.riderName && (
+                      <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                        Rider: {expressResult.riderName} {expressResult.vehicleNumber ? `(${expressResult.vehicleNumber})` : ""} · Destination: {expressResult.flatNumber}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {expressResult.barrierAction === "OPEN_BOOM_BARRIER" && (
+                  <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-black rounded-lg shadow uppercase tracking-wider animate-bounce">
+                    Barrier Opened
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
           {verifyError && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
