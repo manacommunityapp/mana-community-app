@@ -489,6 +489,7 @@ import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboar
 import { SocietyErpDashboard } from "./components/finance/SocietyErpDashboard";
 import { IoTEdgeDashboard } from "./components/iot/IoTEdgeDashboard";
 import { AmenityBookingDashboard } from "./components/amenity/AmenityBookingDashboard";
+import { LldShowcaseDashboard } from "./components/lld/LldShowcaseDashboard";
 import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
 import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
@@ -1500,6 +1501,7 @@ export const router = createBrowserRouter([
       { path: "finance/society-erp", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><SocietyErpDashboard /></PermissionGuard> },
       { path: "iot/edge", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="IOT_MGMT"><IoTEdgeDashboard /></PermissionGuard> },
       { path: "amenity/booking", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="AMENITY_MGMT"><AmenityBookingDashboard /></PermissionGuard> },
+      { path: "lld/showcase", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><LldShowcaseDashboard /></PermissionGuard> },
       { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "pay", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} anyModules={["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"]}><ManaPayHub /></PermissionGuard> },
