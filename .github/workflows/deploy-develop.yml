@@ -43,9 +43,9 @@ jobs:
       - name: Upload Build Files
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
+          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
           username: ubuntu
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           source: "dist/*"
           target: "/tmp/frontend-dev"
           overwrite: true
@@ -56,9 +56,9 @@ jobs:
       - name: Deploy to Nginx
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
+          host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
           username: ubuntu
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           script: |
             sudo mkdir -p /var/www/mana-community-dev/assets
             sudo cp -r /tmp/frontend-dev/dist/* /var/www/mana-community-dev/
