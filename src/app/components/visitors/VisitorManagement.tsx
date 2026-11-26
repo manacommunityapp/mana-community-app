@@ -2,12 +2,13 @@ import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
   Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
-  Trash2, QrCode, ShieldCheck
+  Trash2, QrCode, ShieldCheck, Share2, MessageCircle
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ManaPayQrCode } from "../payments/unified/ManaPayQrCode";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
 import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, guestPassService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken, type GuestPass, type CreateGuestPassRequest, type GuestPassScanLog } from "../../../services/security/securityService";
 import { userService } from "../../../services/common/userService";
@@ -1516,11 +1517,24 @@ interface InvitationProps {
   onClose: () => void;
 }
 
+export function buildVisitorInvitationText(pass: Partial<VisitorPassResponse>): string {
+  const otpCode = pass.otpOnCreation || pass.otp || "—";
+  const passCode = pass.passCode || "";
+  return `*Mana Community Gate Pass*\n` +
+    `Guest: ${pass.visitorName || "Guest"}\n` +
+    `Flat: ${pass.flatNumber || "A-1004"}\n` +
+    `Pass Code: *${passCode}*\n` +
+    `Entry OTP: *${otpCode}*\n` +
+    `Valid for 12 hours from generation.\n\n` +
+    `Show this QR Code or OTP to the security guard at the gate for fast entry.`;
+}
+
 function InvitationModal({ pass, onClose }: InvitationProps) {
   const [copied, setCopied] = useState(false);
 
   const otpCode = pass.otpOnCreation || pass.otp || "—";
-  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${otpCode}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
+  const passCode = pass.passCode || "";
+  const invitationText = buildVisitorInvitationText(pass);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(invitationText);
@@ -1528,71 +1542,93 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(invitationText)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Mana Community Gate Pass",
+          text: invitationText,
+        });
+      } catch {
+        handleWhatsApp();
+      }
+    } else {
+      handleWhatsApp();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200 p-6 space-y-6">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200 p-6 space-y-5">
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h2 className="text-base font-extrabold text-slate-900 mt-3">Invitation Code Generated!</h2>
-          <p className="text-[11px] text-slate-400 font-semibold mt-1">Send these credentials to your guest to facilitate smooth entry.</p>
+          <h2 className="text-base font-extrabold text-slate-900 mt-2">Invitation Pass Ready!</h2>
+          <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Send these credentials to your guest to facilitate smooth gate entry.</p>
         </div>
 
-        {/* QR Code & OTP Card */}
-        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-5 text-center space-y-4">
-          <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry Credentials</div>
-          
-          {/* Simulated QR Code SVG */}
-          <div className="w-36 h-36 bg-white border border-slate-200 rounded-xl p-2 mx-auto flex items-center justify-center shadow-inner">
-            <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900">
-              {/* Simple stylized SVG QR Representation */}
-              <rect x="0" y="0" width="30" height="30" fill="currentColor" />
-              <rect x="5" y="5" width="20" height="20" fill="white" />
-              <rect x="10" y="10" width="10" height="10" fill="currentColor" />
-              
-              <rect x="70" y="0" width="30" height="30" fill="currentColor" />
-              <rect x="75" y="5" width="20" height="20" fill="white" />
-              <rect x="80" y="10" width="10" height="10" fill="currentColor" />
+        {/* QR Code & Credentials Card */}
+        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-center space-y-3">
+          <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Digital Gate Pass</div>
 
-              <rect x="0" y="70" width="30" height="30" fill="currentColor" />
-              <rect x="5" y="75" width="20" height="20" fill="white" />
-              <rect x="10" y="80" width="10" height="10" fill="currentColor" />
-
-              {/* Dots representation */}
-              <rect x="40" y="10" width="8" height="8" fill="currentColor" />
-              <rect x="55" y="20" width="8" height="8" fill="currentColor" />
-              <rect x="45" y="35" width="12" height="12" fill="currentColor" />
-              <rect x="15" y="50" width="8" height="8" fill="currentColor" />
-              <rect x="50" y="50" width="8" height="8" fill="currentColor" />
-              <rect x="70" y="45" width="12" height="8" fill="currentColor" />
-              <rect x="85" y="60" width="8" height="12" fill="currentColor" />
-              <rect x="40" y="75" width="8" height="8" fill="currentColor" />
-              <rect x="55" y="80" width="12" height="8" fill="currentColor" />
-            </svg>
+          {/* Real Dynamic QR Code Matrix */}
+          <div className="flex justify-center">
+            <ManaPayQrCode value={passCode || "MANA-PASS"} size={130} />
           </div>
 
-          <div className="border-t border-slate-200/80 pt-4">
+          {/* Passcode Pill */}
+          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3.5 py-1.5 shadow-xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pass Code</span>
+            <span className="text-xs font-black font-mono text-slate-900 tracking-wider">{passCode}</span>
+          </div>
+
+          {/* OTP Section */}
+          <div className="border-t border-slate-200/80 pt-2.5">
             <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry OTP (6-digits)</div>
-            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{otpCode}</div>
+            <div className="text-2xl font-black text-indigo-600 tracking-wider font-mono mt-0.5">{otpCode}</div>
           </div>
         </div>
 
-        {/* Copy / Direct Share Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={handleCopy}
-            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-1.5"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? "Copied!" : "Copy Details"}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all border border-slate-200"
-          >
-            Close
-          </button>
+        {/* Share Action Buttons */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={handleWhatsApp}
+              className="flex-1 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-1.5"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Share on WhatsApp
+            </button>
+            <button
+              onClick={handleNativeShare}
+              className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 cursor-pointer transition-all flex items-center justify-center"
+              title="Share pass"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopy}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Details"}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
