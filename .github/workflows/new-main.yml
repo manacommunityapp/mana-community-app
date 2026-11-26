@@ -43,7 +43,7 @@ jobs:
         with:
           host: ${{ secrets.DEV_LIGHTSAIL_HOST }}
           username: ubuntu
-          key: ${{ secretsDEV_LIGHTSAIL_SSH_KEY }}
+          key: ${{ secrets.DEV_LIGHTSAIL_SSH_KEY }}
           source: "dist/*"
           target: "/tmp/frontend"
           overwrite: true
