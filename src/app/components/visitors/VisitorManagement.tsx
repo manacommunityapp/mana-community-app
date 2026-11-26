@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "sonner";
 import { ManaPayQrCode } from "../payments/unified/ManaPayQrCode";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
 import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, guestPassService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken, type GuestPass, type CreateGuestPassRequest, type GuestPassScanLog } from "../../../services/security/securityService";
@@ -189,12 +190,26 @@ export function VisitorManagement() {
     return () => clearInterval(interval);
   }, [portal]);
 
-  // Resident Approvals
+  // Resident Approvals (handles distributed 409 CAS conflicts cleanly)
+  const handleDecisionConflict = (err: unknown) => {
+    const anyErr = err as { response?: { status?: number; data?: { detail?: string; message?: string } }; status?: number; message?: string };
+    const status = anyErr?.response?.status ?? anyErr?.status;
+    const msg = anyErr?.response?.data?.detail ?? anyErr?.response?.data?.message ?? anyErr?.message ?? "";
+    if (status === 409 || msg.includes("Cannot transition VisitorPass")) {
+      toast.info("Already decided by another household member. Syncing latest status.");
+    } else {
+      toast.error(msg || "Action could not be completed.");
+    }
+    fetchPortalData();
+  };
+
   const handleApprove = async (id: number) => {
     setActionLoading(id);
     try {
       await visitorService.approveWalkIn(id);
       fetchPortalData();
+    } catch (err) {
+      handleDecisionConflict(err);
     } finally {
       setActionLoading(null);
     }
@@ -205,6 +220,8 @@ export function VisitorManagement() {
     try {
       await visitorService.reject(id);
       fetchPortalData();
+    } catch (err) {
+      handleDecisionConflict(err);
     } finally {
       setActionLoading(null);
     }
