@@ -1,4 +1,5 @@
 import { apiClient } from "../common/apiClient";
+import { crashSafeQueue, type GuardWalEntry, type DrainSummary } from "./crashSafeQueue";
 
 export type SyncEntityType =
   | "VISITOR_PASS"
@@ -160,5 +161,71 @@ export const offlineSyncService = {
       this.setLastCheckpoint(res.latestChangeId);
     }
     return res;
+  },
+
+  /**
+   * Crash-Safe WAL Enqueue (IndexedDB autoIncrement `seqId` in browser).
+   */
+  async enqueueDurableMutation(
+    mutation: Omit<ClientMutationItem, "clientMutationId" | "clientTimestamp">
+  ): Promise<GuardWalEntry> {
+    return crashSafeQueue.enqueue(mutation);
+  },
+
+  /**
+   * Drains the IndexedDB WAL strictly in FIFO `seqId ASC` order under a Web Lock.
+   */
+  async pushDurableFifo(
+    userId: number,
+    communityId: number,
+    deviceId: string
+  ): Promise<DrainSummary> {
+    return crashSafeQueue.drainFifo(async (entry) => {
+      const payload: PushSyncBatchRequest = {
+        userId,
+        deviceId,
+        communityId,
+        clientAppVersion: "2.4.0-web-kiosk",
+        lastKnownChangeId: this.getLastCheckpoint(),
+        mutations: [
+          {
+            clientMutationId: entry.clientMutationId,
+            entityType: entry.entityType,
+            entityId: entry.entityId,
+            operation: entry.operation,
+            payloadJson: entry.payloadJson,
+            clientTimestamp: entry.clientTimestamp,
+            retryCount: entry.retryCount,
+          },
+        ],
+      };
+
+      try {
+        const res = await apiClient.post<PushSyncBatchResult>("/v1/sync/push", payload);
+        if (res?.newCheckpointChangeId) {
+          this.setLastCheckpoint(res.newCheckpointChangeId);
+        }
+        const ack = res?.acks?.[0];
+        if (!ack || ack.status === "APPLIED") {
+          return { outcome: "APPLIED" };
+        }
+        return {
+          outcome: "CONFLICT",
+          errorMessage: ack.message ?? `Conflict status: ${ack.status}`,
+        };
+      } catch (err: unknown) {
+        const httpStatus = (err as { response?: { status?: number } })?.response?.status;
+        if (httpStatus === 409 || httpStatus === 400 || httpStatus === 404 || httpStatus === 422) {
+          return {
+            outcome: "CONFLICT",
+            errorMessage: err instanceof Error ? err.message : `Rejected by server (HTTP ${httpStatus})`,
+          };
+        }
+        return {
+          outcome: "RETRYABLE_ERROR",
+          errorMessage: err instanceof Error ? err.message : "Network or server error",
+        };
+      }
+    });
   },
 };

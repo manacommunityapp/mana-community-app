@@ -601,7 +601,7 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
       const res = await expressDeliveryService.verifyEntry(code, gate);
       setExpressResult(res);
       if (typeof navigator !== "undefined" && navigator.onLine === false && res.allowed) {
-        offlineSyncService.enqueueMutation({
+        await offlineSyncService.enqueueDurableMutation({
           entityType: "EXPRESS_DELIVERY",
           operation: "UPDATE",
           payloadJson: JSON.stringify({ code, gate, barrierAction: res.barrierAction }),

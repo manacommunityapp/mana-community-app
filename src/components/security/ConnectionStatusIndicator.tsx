@@ -48,7 +48,11 @@ export function ConnectionStatusIndicator({ showWhenHealthy = false }: { showWhe
   const { state, networkType, reconnectAttempt, syncStatus, forceReconnect } = useWebSocketHealth();
   const config = MESSAGES[state] ?? MESSAGES.DISCONNECTED;
 
-  const isHealthy = state === 'CONNECTED' && syncStatus.pendingMutations === 0 && syncStatus.phase !== 'RECONCILING';
+  const isHealthy =
+    state === 'CONNECTED' &&
+    syncStatus.pendingMutations === 0 &&
+    syncStatus.conflictsCount === 0 &&
+    syncStatus.phase !== 'RECONCILING';
   if (isHealthy && !showWhenHealthy) return null;
 
   const netLabel =
@@ -86,6 +90,16 @@ export function ConnectionStatusIndicator({ showWhenHealthy = false }: { showWhe
         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-800 text-[10px]">
           <CloudUpload className="w-2.5 h-2.5" />
           {syncStatus.pendingMutations} queued
+        </span>
+      )}
+
+      {syncStatus.conflictsCount > 0 && (
+        <span
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-800 text-[10px]"
+          title="Conflicting offline mutations moved to Dead-Letter Queue for review"
+        >
+          <AlertTriangle className="w-2.5 h-2.5" />
+          {syncStatus.conflictsCount} DLQ conflict{syncStatus.conflictsCount > 1 ? 's' : ''}
         </span>
       )}
 

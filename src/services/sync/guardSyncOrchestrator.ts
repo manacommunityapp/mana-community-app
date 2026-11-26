@@ -1,11 +1,13 @@
 import { stompClient } from "../chat/stompClient";
 import { offlineSyncService, type SyncChangeItemDto } from "./offlineSyncService";
+import { crashSafeQueue } from "./crashSafeQueue";
 
 export type GuardSyncPhase = "IDLE" | "RECONCILING" | "SYNCED" | "OFFLINE_BUFFERED";
 
 export interface GuardSyncStatus {
   phase: GuardSyncPhase;
   pendingMutations: number;
+  conflictsCount: number;
   lastSyncedAt: string | null;
   lastAppliedCount: number;
   lastConflictCount: number;
@@ -20,9 +22,13 @@ class GuardSyncOrchestrator {
   private statusListeners = new Set<StatusListener>();
   private deltaListeners = new Set<DeltaListener>();
   private unsubConnect: (() => void) | null = null;
+  private unsubWal: (() => void) | null = null;
+  private walPendingCount = 0;
+  private walConflictsCount = 0;
   private status: GuardSyncStatus = {
     phase: "IDLE",
     pendingMutations: 0,
+    conflictsCount: 0,
     lastSyncedAt: null,
     lastAppliedCount: 0,
     lastConflictCount: 0,
@@ -32,7 +38,8 @@ class GuardSyncOrchestrator {
   getStatus(): GuardSyncStatus {
     return {
       ...this.status,
-      pendingMutations: offlineSyncService.getPendingQueue().length,
+      pendingMutations: offlineSyncService.getPendingQueue().length + this.walPendingCount,
+      conflictsCount: this.walConflictsCount,
     };
   }
 
@@ -46,11 +53,25 @@ class GuardSyncOrchestrator {
     return () => this.deltaListeners.delete(listener);
   }
 
+  private async refreshWalCounts(): Promise<void> {
+    try {
+      const [pending, conflicts] = await Promise.all([
+        crashSafeQueue.getPending(),
+        crashSafeQueue.getConflicts(),
+      ]);
+      this.walPendingCount = pending.length;
+      this.walConflictsCount = conflicts.length;
+    } catch {
+      // safe fallback
+    }
+  }
+
   private emit(partial: Partial<GuardSyncStatus>) {
     this.status = {
       ...this.status,
       ...partial,
-      pendingMutations: offlineSyncService.getPendingQueue().length,
+      pendingMutations: offlineSyncService.getPendingQueue().length + this.walPendingCount,
+      conflictsCount: this.walConflictsCount,
     };
     const snapshot = this.getStatus();
     this.statusListeners.forEach((l) => l(snapshot));
@@ -59,6 +80,7 @@ class GuardSyncOrchestrator {
   /**
    * Starts automatic 3-phase reconciliation whenever the WebSocket transitions
    * back to CONNECTED after a Wi-Fi/Cellular drop or browser online recovery.
+   * Immediately rehydrates any IN_FLIGHT entries left over from a prior crash.
    */
   start(userId: number, communityId: number, deviceId = "guard-tablet-web"): () => void {
     this.stop();
@@ -68,10 +90,26 @@ class GuardSyncOrchestrator {
     };
 
     this.unsubConnect = stompClient.onConnect(triggerSync);
+    this.unsubWal = crashSafeQueue.subscribe(() => {
+      void this.refreshWalCounts().then(() => {
+        const totalPending = this.getStatus().pendingMutations;
+        this.emit({
+          phase: this.reconciling
+            ? "RECONCILING"
+            : totalPending > 0
+              ? "OFFLINE_BUFFERED"
+              : stompClient.connected
+                ? "SYNCED"
+                : "IDLE",
+        });
+      });
+    });
 
-    // Refresh initial pending count
-    const pending = offlineSyncService.getPendingQueue().length;
-    this.emit({ phase: pending > 0 ? "OFFLINE_BUFFERED" : stompClient.connected ? "SYNCED" : "IDLE" });
+    // Crash recovery sweep + initial pending counts
+    void crashSafeQueue.rehydrateInFlight().then(() => this.refreshWalCounts()).then(() => {
+      const totalPending = this.getStatus().pendingMutations;
+      this.emit({ phase: totalPending > 0 ? "OFFLINE_BUFFERED" : stompClient.connected ? "SYNCED" : "IDLE" });
+    });
 
     return () => this.stop();
   }
@@ -79,11 +117,14 @@ class GuardSyncOrchestrator {
   stop() {
     this.unsubConnect?.();
     this.unsubConnect = null;
+    this.unsubWal?.();
+    this.unsubWal = null;
   }
 
   /**
    * Executes Phases 2 & 3 of the reconciliation protocol:
-   * - Push queued local mutations created while offline (`pushBatch`)
+   * - Drain IndexedDB WAL under Web Lock in strict FIFO `seqId` order
+   * - Drain any legacy localStorage queue entries (`pushBatch`)
    * - Pull server changes since `lastKnownChangeId` (`pullDelta`)
    * - Notify subscribers so the Guard UI reconciles smoothly
    */
@@ -101,11 +142,16 @@ class GuardSyncOrchestrator {
     let deltas: SyncChangeItemDto[] = [];
 
     try {
-      // Phase 2: Push buffered offline actions
+      // Phase 2A: Drain durable IndexedDB WAL in strict FIFO order
+      const walResult = await offlineSyncService.pushDurableFifo(userId, communityId, deviceId);
+      applied += walResult.applied;
+      conflicts += walResult.conflicts;
+
+      // Phase 2B: Push any legacy queued items
       const pushResult = await offlineSyncService.pushBatch(userId, communityId, deviceId);
       if (pushResult) {
-        applied = pushResult.appliedCount ?? 0;
-        conflicts = pushResult.conflictCount ?? 0;
+        applied += pushResult.appliedCount ?? 0;
+        conflicts += pushResult.conflictCount ?? 0;
       }
 
       // Phase 3: Pull delta stream since last checkpoint
@@ -116,7 +162,8 @@ class GuardSyncOrchestrator {
         this.deltaListeners.forEach((cb) => cb(deltas));
       }
 
-      const remaining = offlineSyncService.getPendingQueue().length;
+      await this.refreshWalCounts();
+      const remaining = offlineSyncService.getPendingQueue().length + this.walPendingCount;
       this.emit({
         phase: remaining > 0 ? "OFFLINE_BUFFERED" : "SYNCED",
         lastSyncedAt: new Date().toISOString(),
@@ -125,7 +172,8 @@ class GuardSyncOrchestrator {
         lastDeltaCount: deltas.length,
       });
     } catch {
-      const remaining = offlineSyncService.getPendingQueue().length;
+      await this.refreshWalCounts();
+      const remaining = offlineSyncService.getPendingQueue().length + this.walPendingCount;
       this.emit({
         phase: remaining > 0 ? "OFFLINE_BUFFERED" : "IDLE",
       });
