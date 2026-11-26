@@ -665,6 +665,11 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   });
   const [walkInSaving, setWalkInSaving] = useState(false);
   const [walkInError, setWalkInError] = useState("");
+  const walkInIdempotencyRef = useRef<string>(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `walkin_${Date.now()}`
+  );
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const walkInPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -760,9 +765,14 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
       const selectedRes = residents.find(r => r.id === Number(walkInForm.residentId));
       const payload = {
         ...walkInForm,
-        flatNumber: walkInForm.flatNumber || (selectedRes ? selectedRes.flatNo : "")
+        flatNumber: walkInForm.flatNumber || (selectedRes ? selectedRes.flatNo : ""),
+        idempotencyKey: walkInIdempotencyRef.current,
       };
       await visitorService.createWalkIn(payload);
+      walkInIdempotencyRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `walkin_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       setShowWalkInForm(false);
       setWalkInForm({
         visitorName: "",
