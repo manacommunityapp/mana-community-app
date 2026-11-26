@@ -530,6 +530,7 @@ import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
 import { DiscoverPage } from "./components/discover/DiscoverPage";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
+import { SocietyErpDashboard } from "./components/finance/SocietyErpDashboard";
 import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
 import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
@@ -1688,6 +1689,7 @@ export const router = createBrowserRouter([
       { path: "search", element: <DiscoverPage /> },
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
+      { path: "finance/society-erp", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><SocietyErpDashboard /></PermissionGuard> },
       { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "pay", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} anyModules={["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"]}><ManaPayHub /></PermissionGuard> },
