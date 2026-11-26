@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { stompClient, type WsState } from '../services/chat/stompClient';
+import { useState, useEffect, useCallback } from 'react';
+import { stompClient, type WsState, type NetworkType, type WsMetadata } from '../services/chat/stompClient';
+import { guardSyncOrchestrator, type GuardSyncStatus } from '../services/sync/guardSyncOrchestrator';
 
 export interface WsHealth {
   state: WsState;
@@ -7,20 +8,40 @@ export interface WsHealth {
   isReconnecting: boolean;
   isBlocked: boolean; // rate-limited or connection-limit
   isUnauthorized: boolean;
+  networkType: NetworkType;
+  reconnectAttempt: number;
+  lastConnectedAt: string | null;
+  syncStatus: GuardSyncStatus;
+  forceReconnect: () => void;
 }
 
 export function useWebSocketHealth(): WsHealth {
-  const [state, setState] = useState<WsState>(stompClient.state);
+  const [meta, setMeta] = useState<WsMetadata>(stompClient.metadata);
+  const [syncStatus, setSyncStatus] = useState<GuardSyncStatus>(guardSyncOrchestrator.getStatus());
 
   useEffect(() => {
-    return stompClient.onStateChange(setState);
+    const unsubMeta = stompClient.onMetaChange(setMeta);
+    const unsubSync = guardSyncOrchestrator.onStatusChange(setSyncStatus);
+    return () => {
+      unsubMeta();
+      unsubSync();
+    };
+  }, []);
+
+  const forceReconnect = useCallback(() => {
+    stompClient.forceReconnect();
   }, []);
 
   return {
-    state,
-    isConnected: state === 'CONNECTED',
-    isReconnecting: state === 'RECONNECTING',
-    isBlocked: state === 'RATE_LIMITED' || state === 'CONNECTION_LIMIT',
-    isUnauthorized: state === 'UNAUTHORIZED',
+    state: meta.state,
+    isConnected: meta.state === 'CONNECTED',
+    isReconnecting: meta.state === 'RECONNECTING',
+    isBlocked: meta.state === 'RATE_LIMITED' || meta.state === 'CONNECTION_LIMIT',
+    isUnauthorized: meta.state === 'UNAUTHORIZED',
+    networkType: meta.networkType,
+    reconnectAttempt: meta.reconnectAttempt,
+    lastConnectedAt: meta.lastConnectedAt,
+    syncStatus,
+    forceReconnect,
   };
 }

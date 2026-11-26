@@ -2,6 +2,7 @@ import { apiClient } from "../common/apiClient";
 
 export type SyncEntityType =
   | "VISITOR_PASS"
+  | "EXPRESS_DELIVERY"
   | "PARKING_ENTRY"
   | "SOS_TRIGGER"
   | "HELPDESK_TICKET"

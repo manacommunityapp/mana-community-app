@@ -7,6 +7,9 @@ import {
 import { FaWhatsapp } from "react-icons/fa6";
 import { getBrandIconForText } from "../commons/BrandIcon";
 import { expressDeliveryService, type ExpressVerifyResult } from "../../../services/delivery/expressDeliveryService";
+import { ConnectionStatusIndicator } from "../../../components/security/ConnectionStatusIndicator";
+import { guardSyncOrchestrator } from "../../../services/sync/guardSyncOrchestrator";
+import { offlineSyncService } from "../../../services/sync/offlineSyncService";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -576,14 +579,34 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   const [expressInput, setExpressInput] = useState("");
   const [expressLoading, setExpressLoading] = useState(false);
 
+  // Real-time Guard Tablet Sync Orchestration (Wi-Fi <-> Cellular reconciliation)
+  useEffect(() => {
+    const stopSync = guardSyncOrchestrator.start(1, 1, "guard-tablet-gate-1");
+    const unsubDelta = guardSyncOrchestrator.onDeltaReconciled(() => {
+      onRefresh();
+    });
+    return () => {
+      stopSync();
+      unsubDelta();
+    };
+  }, [onRefresh]);
+
   const handleExpressClearance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expressInput.trim()) return;
     setExpressLoading(true);
     setExpressResult(null);
     try {
-      const res = await expressDeliveryService.verifyEntry(expressInput, gate);
+      const code = expressInput.trim();
+      const res = await expressDeliveryService.verifyEntry(code, gate);
       setExpressResult(res);
+      if (typeof navigator !== "undefined" && navigator.onLine === false && res.allowed) {
+        offlineSyncService.enqueueMutation({
+          entityType: "EXPRESS_DELIVERY",
+          operation: "UPDATE",
+          payloadJson: JSON.stringify({ code, gate, barrierAction: res.barrierAction }),
+        });
+      }
       if (res.allowed) {
         setExpressInput("");
         onRefresh();
@@ -744,7 +767,8 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               <Key className="w-5 h-5 text-indigo-500" />
               Verify Visitor Pass (QR / OTP / Phone)
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <ConnectionStatusIndicator showWhenHealthy />
               <a
                 href="/guard/handover"
                 className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl border border-amber-200 cursor-pointer transition"
