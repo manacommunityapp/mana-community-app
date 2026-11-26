@@ -2,8 +2,10 @@ import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
   Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
-  Trash2, QrCode, ShieldCheck, Share2, MessageCircle
+  Trash2, QrCode, ShieldCheck, Share2
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
+import { getBrandIconForText } from "../commons/BrandIcon";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -476,7 +478,10 @@ function ResidentPortalView({
                       )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900">{pass.visitorName}</h4>
+                      <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                        {getBrandIconForText(pass.visitorName || pass.purpose)}
+                        <span>{pass.visitorName}</span>
+                      </h4>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500 font-semibold">
                         <span className={cn("px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase", passTypeColors[pass.passType as PassTypeKey] || "bg-slate-50 text-slate-700 border-slate-200")}>
                           {passTypeLabels[pass.passType as PassTypeKey] || pass.passType}
@@ -771,7 +776,10 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
                     {passTypeLabels[verifiedPass.passType as PassTypeKey] || verifiedPass.passType}
                   </span>
                   
-                  <h3 className="text-base font-black text-slate-900 mt-2">{verifiedPass.visitorName}</h3>
+                  <h3 className="text-base font-black text-slate-900 mt-2 flex items-center gap-1.5">
+                    {getBrandIconForText(verifiedPass.visitorName || verifiedPass.purpose, "w-4 h-4")}
+                    <span>{verifiedPass.visitorName}</span>
+                  </h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 text-xs font-semibold text-slate-600">
                     <div><span className="text-slate-400">Phone:</span> {verifiedPass.visitorPhone || "—"}</div>
                     <div><span className="text-slate-400">Vehicle:</span> {verifiedPass.vehicleNumber || "—"}</div>
@@ -1602,7 +1610,7 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
               onClick={handleWhatsApp}
               className="flex-1 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-1.5"
             >
-              <MessageCircle className="w-4 h-4" />
+              <FaWhatsapp className="w-4 h-4 text-base" />
               Share on WhatsApp
             </button>
             <button

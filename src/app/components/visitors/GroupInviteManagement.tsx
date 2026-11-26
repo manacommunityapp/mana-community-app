@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Search,
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
 import {
   visitorService,
   type GroupInvite,
@@ -104,6 +105,11 @@ export function GroupInviteManagement() {
     );
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 3000);
+  };
+
+  const handleWhatsAppShare = (invite: GroupInvite) => {
+    const text = `🎉 You are cordially invited to our community event: *${invite.title}*!\nDate: ${new Date(invite.eventDate).toLocaleDateString()}\nGate Pass Code: *${invite.passCode}*\nShow this code at the security gate for express entry.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -442,6 +448,13 @@ export function GroupInviteManagement() {
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
+                </button>
+                <button
+                  onClick={() => handleWhatsAppShare(invite)}
+                  className="p-2 rounded-xl bg-emerald-50 text-[#25D366] hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer flex items-center justify-center"
+                  title="Share invite on WhatsApp"
+                >
+                  <FaWhatsapp className="w-4 h-4" />
                 </button>
               </div>
             </div>
