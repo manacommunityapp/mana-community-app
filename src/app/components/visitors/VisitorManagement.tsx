@@ -10,6 +10,7 @@ import { expressDeliveryService, type ExpressVerifyResult } from "../../../servi
 import { ConnectionStatusIndicator } from "../../../components/security/ConnectionStatusIndicator";
 import { guardSyncOrchestrator } from "../../../services/sync/guardSyncOrchestrator";
 import { offlineSyncService } from "../../../services/sync/offlineSyncService";
+import { spentTokenJournal } from "../../../services/security/spentTokenJournal";
 import { useVirtualRows } from "../../../hooks/useVirtualRows";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
@@ -625,9 +626,23 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
     setExpressResult(null);
     try {
       const code = expressInput.trim();
+      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+      if (isOffline) {
+        const replayCheck = spentTokenJournal.consumeOnce({ jti: code, passCode: code, gate });
+        if (!replayCheck.allowed) {
+          setExpressResult({
+            allowed: false,
+            message: `Screenshot replay blocked: ${code} already entered at ${replayCheck.prior?.gate}`,
+            barrierAction: "HOLD",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      }
+
       const res = await expressDeliveryService.verifyEntry(code, gate);
       setExpressResult(res);
-      if (typeof navigator !== "undefined" && navigator.onLine === false && res.allowed) {
+      if (isOffline && res.allowed) {
         await offlineSyncService.enqueueDurableMutation({
           entityType: "EXPRESS_DELIVERY",
           operation: "UPDATE",
