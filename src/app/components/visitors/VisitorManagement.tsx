@@ -10,6 +10,7 @@ import { expressDeliveryService, type ExpressVerifyResult } from "../../../servi
 import { ConnectionStatusIndicator } from "../../../components/security/ConnectionStatusIndicator";
 import { guardSyncOrchestrator } from "../../../services/sync/guardSyncOrchestrator";
 import { offlineSyncService } from "../../../services/sync/offlineSyncService";
+import { useVirtualRows } from "../../../hooks/useVirtualRows";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
@@ -579,6 +580,15 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   const [expressInput, setExpressInput] = useState("");
   const [expressLoading, setExpressLoading] = useState(false);
 
+  // Windowed virtualization for Guard Today's Log list (caps mounted DOM rows)
+  const {
+    containerRef: logScrollRef,
+    onScroll: handleLogScroll,
+    visibleItems: visibleTodaysPasses,
+    topSpacerHeight: logTopSpacer,
+    bottomSpacerHeight: logBottomSpacer,
+  } = useVirtualRows(todaysPasses, { rowHeight: 68, viewportHeight: 500, overscan: 6 });
+
   // Real-time Guard Tablet Sync Orchestration (Wi-Fi <-> Cellular reconciliation)
   useEffect(() => {
     const stopSync = guardSyncOrchestrator.start(1, 1, "guard-tablet-gate-1");
@@ -1055,9 +1065,18 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               No visits logged today.
             </div>
           ) : (
-            <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-              {todaysPasses.map(p => (
-                <div key={p.id} className="p-3 bg-slate-50 border border-slate-150 rounded-xl flex justify-between gap-3 text-xs">
+            <div
+              ref={logScrollRef}
+              onScroll={handleLogScroll}
+              className="space-y-3 overflow-y-auto pr-1 flex-1"
+            >
+              {logTopSpacer > 0 && <div aria-hidden="true" style={{ height: logTopSpacer }} />}
+              {visibleTodaysPasses.map(p => (
+                <div
+                  key={p.id}
+                  style={{ contentVisibility: "auto", containIntrinsicSize: "68px" }}
+                  className="p-3 bg-slate-50 border border-slate-150 rounded-xl flex justify-between gap-3 text-xs"
+                >
                   <div>
                     <h4 className="font-extrabold text-slate-900 truncate max-w-[120px]">{p.visitorName}</h4>
                     <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Flat {p.flatNumber}</span>
@@ -1072,6 +1091,7 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
                   </div>
                 </div>
               ))}
+              {logBottomSpacer > 0 && <div aria-hidden="true" style={{ height: logBottomSpacer }} />}
             </div>
           )}
         </div>
@@ -1934,6 +1954,21 @@ function VisitorVehiclePassesTab() {
     try { await visitorVehiclePassService.revokePass(id); load(); } catch { alert("Failed to revoke."); }
   };
 
+  const {
+    containerRef: vehicleScrollRef,
+    onScroll: handleVehicleScroll,
+    visibleItems: visibleVehiclePasses,
+    topSpacerHeight: vehicleTopSpacer,
+    bottomSpacerHeight: vehicleBottomSpacer,
+  } = useVirtualRows(passes, { rowHeight: 46, viewportHeight: 480, overscan: 6 });
+
+  const handleVehicleTableClick = (e: React.MouseEvent<HTMLTableSectionElement>) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-revoke-id]");
+    if (!btn) return;
+    const passId = Number(btn.dataset.revokeId);
+    if (Number.isFinite(passId)) void handleRevoke(passId);
+  };
+
   const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
 
   return (
@@ -1976,7 +2011,11 @@ function VisitorVehiclePassesTab() {
 
       {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
         passes.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No vehicle passes issued.</div> : (
-          <div className="overflow-x-auto">
+          <div
+            ref={vehicleScrollRef}
+            onScroll={handleVehicleScroll}
+            className="overflow-x-auto max-h-[480px] overflow-y-auto"
+          >
             <table className="w-full text-sm">
               <thead><tr className="bg-slate-50 text-left">
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
@@ -1986,18 +2025,43 @@ function VisitorVehiclePassesTab() {
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
               </tr></thead>
-              <tbody>{passes.map(p => (
-                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
-                  <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
-                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
-                  <td className="px-3 py-2.5">
-                    {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
-                  </td>
-                </tr>
-              ))}</tbody>
+              <tbody onClick={handleVehicleTableClick}>
+                {vehicleTopSpacer > 0 && (
+                  <tr aria-hidden="true" style={{ height: vehicleTopSpacer }}>
+                    <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+                {visibleVehiclePasses.map(p => (
+                  <tr
+                    key={p.id}
+                    style={{ height: 46, contentVisibility: "auto", containIntrinsicSize: "46px" }}
+                    className="border-t border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
+                    <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
+                    <td className="px-3 py-2.5">
+                      {p.status === "ACTIVE" && (
+                        <button
+                          type="button"
+                          data-revoke-id={p.id}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
+                          title="Revoke"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {vehicleBottomSpacer > 0 && (
+                  <tr aria-hidden="true" style={{ height: vehicleBottomSpacer }}>
+                    <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
         )
