@@ -47,6 +47,7 @@ import KioskPage from "../pages/voucher/KioskPage";
 import { StatutoryTaxEnginePage } from "../pages/accounting/StatutoryTaxEnginePage";
 import { AuditTallySyncPage } from "../pages/accounting/AuditTallySyncPage";
 import { FinOpsDashboardPage } from "../pages/finops/FinOpsDashboardPage";
+import { VernacularVoiceConsolePage } from "../pages/localization/VernacularVoiceConsolePage";
 
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
@@ -1795,6 +1796,8 @@ export const router = createBrowserRouter([
       },
       // ── Cloud FinOps & Cost-Aware Telecom Router ───────────────
       { path: "finops", element: <FinOpsDashboardPage /> },
+      // ── Vernacular OTA Localization & Voice Gate Entry ─────────
+      { path: "localization", element: <VernacularVoiceConsolePage /> },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "khatabook", element: <KhataBook /> },
