@@ -40,6 +40,13 @@ import { AnprGateLiveMonitor } from "./components/parking/AnprGateLiveMonitor";
 import { EvChargingManagement } from "./components/parking/EvChargingManagement";
 import { SchoolBusView } from "./components/mobility/SchoolBusView";
 import { CarpoolHubView } from "./components/mobility/CarpoolHubView";
+import { CampaignDashboardPage } from "../pages/adtech/CampaignDashboardPage";
+import { AdAnalyticsPage } from "../pages/adtech/AdAnalyticsPage";
+import { VouchersPage } from "../pages/voucher/VouchersPage";
+import KioskPage from "../pages/voucher/KioskPage";
+import { StatutoryTaxEnginePage } from "../pages/accounting/StatutoryTaxEnginePage";
+import { AuditTallySyncPage } from "../pages/accounting/AuditTallySyncPage";
+import { FinOpsDashboardPage } from "../pages/finops/FinOpsDashboardPage";
 
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
@@ -1760,6 +1767,34 @@ export const router = createBrowserRouter([
           { path: "admin", element: <PermissionGuard adminOnly requiredModule="COMMUNITY_OFFERS"><CommerceAdminHub /></PermissionGuard> },
         ],
       },
+      // ── AdTech: Brand Campaigns & Resident Ad Serving ──────────────
+      {
+        path: "adtech",
+        children: [
+          { index: true, element: <CampaignDashboardPage /> },
+          { path: "campaigns", element: <CampaignDashboardPage /> },
+          { path: "campaigns/:campaignId/analytics", element: <AdAnalyticsPage /> },
+        ],
+      },
+      // ── Sample Vouchers & Kiosk Redemption ──────────────
+      {
+        path: "vouchers",
+        children: [
+          { index: true, element: <VouchersPage /> },
+          { path: "kiosk", element: <KioskPage /> },
+        ],
+      },
+      // ── Statutory Accounting, GST/TDS Rule Engine & Tally Sync ──
+      {
+        path: "accounting",
+        children: [
+          { index: true, element: <StatutoryTaxEnginePage /> },
+          { path: "tax-engine", element: <StatutoryTaxEnginePage /> },
+          { path: "tally-audit", element: <AuditTallySyncPage /> },
+        ],
+      },
+      // ── Cloud FinOps & Cost-Aware Telecom Router ───────────────
+      { path: "finops", element: <FinOpsDashboardPage /> },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "khatabook", element: <KhataBook /> },
