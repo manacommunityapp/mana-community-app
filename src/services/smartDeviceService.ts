@@ -29,6 +29,19 @@ export interface VisitorOtp {
   visitorName: string;
 }
 
+export interface OfflineTimeBoundPin {
+  otpId: number;
+  deviceId: number;
+  pinCode: string;
+  visitorName: string;
+  slotEpochStart: number;
+  slotDurationBuckets: number;
+  singleUse: boolean;
+  validFrom: string;
+  validUntil: string;
+  derivationMode: string;
+}
+
 export const smartDeviceService = {
   getDevices(communityId: number, type?: SmartDeviceType): Promise<SmartDevice[]> {
     const params = type ? `?communityId=${communityId}&type=${type}` : `?communityId=${communityId}`;
@@ -44,6 +57,22 @@ export const smartDeviceService = {
       visitorName,
       validMinutes,
     });
+  },
+
+  async issueOfflineTimeBoundPin(
+    deviceId: number,
+    visitorName: string,
+    validFromIso: string,
+    validUntilIso: string,
+    singleUse = true
+  ): Promise<OfflineTimeBoundPin> {
+    const res = await apiClient.post<any>(`/devices/${deviceId}/offline-pin`, {
+      visitorName,
+      validFrom: validFromIso,
+      validUntil: validUntilIso,
+      singleUse,
+    });
+    return res?.data ?? res;
   },
 
   registerDevice(data: Partial<SmartDevice> & { communityId: number }): Promise<SmartDevice> {

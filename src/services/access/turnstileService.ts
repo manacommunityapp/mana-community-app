@@ -226,4 +226,23 @@ export const turnstileService = {
 
     return { synced, failed };
   },
+
+  async getBiometricDeltasSince(communityId: number, sinceVersion = 0): Promise<any[]> {
+    return apiClient.get<any[]>(`/v1/access/turnstiles/deltas/${communityId}?sinceVersion=${sinceVersion}`);
+  },
+
+  async revokeBiometricKillSwitch(userId: number, reason?: string): Promise<any> {
+    return apiClient.post<any>(`/v1/access/turnstiles/revoke/${userId}`, { reason });
+  },
+
+  async evaluateApbSwipe(payload: {
+    communityId?: number;
+    zoneId?: string;
+    credentialId: string;
+    direction?: "ENTRY" | "EXIT";
+    turnstileId?: string;
+    irPersonsDetected?: number;
+  }): Promise<any> {
+    return apiClient.post<any>("/v1/access/turnstiles/apb-swipe", payload);
+  },
 };
