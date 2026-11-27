@@ -640,7 +640,22 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
         }
       }
 
-      const res = await expressDeliveryService.verifyEntry(code, gate);
+      let res: ExpressVerifyResult;
+      if (expressDeliveryService.isBatchManifestCode(code)) {
+        const batchRes = await expressDeliveryService.verifyBatchManifest(code, gate);
+        res = {
+          allowed: batchRes.allowed,
+          message: batchRes.message,
+          partner: batchRes.partner,
+          riderName: batchRes.riderName,
+          vehicleNumber: batchRes.vehicleNumber,
+          status: batchRes.status,
+          barrierAction: batchRes.barrierAction === "HOLD" ? "HOLD" : "OPEN_BOOM_BARRIER",
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        res = await expressDeliveryService.verifyEntry(code, gate);
+      }
       setExpressResult(res);
       if (isOffline && res.allowed) {
         await offlineSyncService.enqueueDurableMutation({

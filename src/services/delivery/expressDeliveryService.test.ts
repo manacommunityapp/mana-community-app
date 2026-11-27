@@ -70,4 +70,46 @@ describe("expressDeliveryService (Web Express Entry Partner Suite)", () => {
     expect(pref.autoApproveBlinkit).toBe(true);
     expect(pref.defaultLeaveAtGate).toBe(false);
   });
+
+  it("verifies EXP-B batch manifest in 1 tap and reconciles RTO exit", async () => {
+    expect(expressDeliveryService.isBatchManifestCode("EXP-B-4410")).toBe(true);
+
+    (apiClient.post as any).mockResolvedValueOnce({
+      data: {
+        success: true,
+        allowed: true,
+        manifestCode: "EXP-B-4410",
+        status: "CHECKED_IN",
+        totalPackages: 18,
+        distinctFlats: 15,
+        barrierAction: "OPEN_BOOM_BARRIER",
+        message: "1-TAP BATCH CLEARANCE",
+      },
+    });
+
+    const verifyRes = await expressDeliveryService.verifyBatchManifest("EXP-B-4410", "GATE_1");
+    expect(verifyRes.allowed).toBe(true);
+    expect(verifyRes.totalPackages).toBe(18);
+
+    (apiClient.post as any).mockResolvedValueOnce({
+      data: {
+        success: true,
+        allowed: true,
+        manifestCode: "EXP-B-4410",
+        status: "RTO_CARRIED_OUT",
+        deliveredPackages: 15,
+        pendingPackages: 3,
+        barrierAction: "OPEN_EXIT_BARRIER",
+        message: "Exit reconciled",
+      },
+    });
+
+    const exitRes = await expressDeliveryService.reconcileBatchExit({
+      manifestCode: "EXP-B-4410",
+      gateId: "GATE_OUT",
+      undeliveredOrderIds: ["AMZ-16", "AMZ-17", "AMZ-18"],
+    });
+    expect(exitRes.status).toBe("RTO_CARRIED_OUT");
+    expect(exitRes.pendingPackages).toBe(3);
+  });
 });
