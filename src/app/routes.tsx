@@ -495,6 +495,8 @@ import { ParkingEvDashboard } from "./components/parking/ParkingEvDashboard";
 import { DsaShowcaseDashboard } from "./components/dsa/DsaShowcaseDashboard";
 import { VendorProcurementDashboard } from "./components/procurement/VendorProcurementDashboard";
 import { ArchitectureShowcaseDashboard } from "./components/architecture/ArchitectureShowcaseDashboard";
+import TenancyWorkflowDashboard from "./components/tenancy/TenancyWorkflowDashboard";
+import MobileEngineeringDashboard from "./components/mobile/MobileEngineeringDashboard";
 import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
 import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
@@ -1512,6 +1514,8 @@ export const router = createBrowserRouter([
       { path: "dsa/showcase", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><DsaShowcaseDashboard /></PermissionGuard> },
       { path: "vendor/procurement", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><VendorProcurementDashboard /></PermissionGuard> },
       { path: "architecture/showcase", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><ArchitectureShowcaseDashboard /></PermissionGuard> },
+      { path: "tenancy/workflows", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><TenancyWorkflowDashboard /></PermissionGuard> },
+      { path: "mobile/engineering", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN"><MobileEngineeringDashboard /></PermissionGuard> },
       { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
       { path: "pay", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} anyModules={["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"]}><ManaPayHub /></PermissionGuard> },
