@@ -135,6 +135,32 @@ export const homeServicesService = {
   createPlan: (data: Partial<HsRecurringPlan>) => apiClient.post<HsRecurringPlan>(`${BASE}/plans`, data),
   pausePlan: (id: number) => apiClient.put<HsRecurringPlan>(`${BASE}/plans/${id}/pause`, {}),
   cancelPlan: (id: number) => apiClient.delete<HsRecurringPlan>(`${BASE}/plans/${id}`),
+  upsertMorningOverride: (planId: number, deliveryDate: string, overrideQty: number, paused = false) =>
+    apiClient.put<any>(`${BASE}/plans/${planId}/override`, { deliveryDate, overrideQty, paused }),
+  freezeMorningManifest: (vendorId: number, deliveryDate?: string) =>
+    apiClient.post<any>(`${BASE}/plans/manifest/${vendorId}`, deliveryDate ? { deliveryDate } : {}),
+  settleMorningDelivery: (instanceId: number, delivered: boolean, failureReason?: string) =>
+    apiClient.post<any>(`${BASE}/plans/deliveries/${instanceId}/settle`, { delivered, failureReason }),
+  quoteDynamicSlot: (payload: { basePrice: number; isWeekend: boolean; zoneUtilizationPct: number; sameCommunityCluster: boolean }) =>
+    apiClient.post<any>(`${BASE}/bookings/quote-dynamic`, payload),
+  holdSlot: (slotId: number, holdToken: string) =>
+    apiClient.post<any>(`${BASE}/bookings/slots/${slotId}/hold`, { holdToken }),
+  confirmHeldSlot: (slotId: number, payload: { holdToken: string; flatNumber: string; category: string; quotedPrice: number }) =>
+    apiClient.post<any>(`${BASE}/bookings/slots/${slotId}/confirm`, payload),
+  initiateSplitOrder: (payload: {
+    orderRef: string;
+    bookingId?: number;
+    vendorId: number;
+    grossAmount: number;
+    pointsUsed: number;
+    couponCode?: string;
+    couponDiscount: number;
+    upiAmount: number;
+  }) => apiClient.post<any>(`${BASE}/payouts/multi-tender/initiate`, payload),
+  completeSplitOrder: (orderRef: string, jobCompleted = true) =>
+    apiClient.post<any>(`${BASE}/payouts/multi-tender/${encodeURIComponent(orderRef)}/complete`, { jobCompleted }),
+  compensateSplitOrder: (orderRef: string, reason = 'UPI_TIMEOUT') =>
+    apiClient.post<any>(`${BASE}/payouts/multi-tender/${encodeURIComponent(orderRef)}/compensate`, { reason }),
 };
 
 export default homeServicesService;
