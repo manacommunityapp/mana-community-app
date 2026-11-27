@@ -1,32 +1,67 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from "react";
 import { toast } from "sonner";
 import { StatCard } from "../ledgerShared";
 import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
+import { useVirtualRows } from "../../../../hooks/useVirtualRows";
+
+interface InvoiceRow {
+  id: string;
+  date: string;
+  customer: string;
+  due: string;
+  amount: number;
+  formattedAmount: string;
+  status: string;
+  searchText: string;
+}
 
 export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd = true }: { tab: "invoices" | "refunds"; setTab: (t: "invoices" | "refunds") => void; onNewInvoice: (type: "credit" | "cash") => void; onImportClick: () => void; canAdd?: boolean }) {
   const isInvoices = tab === "invoices";
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [invoices, setInvoices] = useState<Array<{ id: string; date: string; customer: string; due: string; amount: number; status: string }>>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredQuery = useDeferredValue(searchQuery.trim().toLowerCase());
 
   useEffect(() => {
     (async () => {
       try {
         const docs = await ledgerFinanceService.getDocuments("INVOICE");
-        setInvoices(docs.map((d) => ({
-          id: d.code || `#${d.id}`,
-          date: d.docDate || "",
-          customer: d.customerName || "—",
-          due: d.dueDate || "",
-          amount: d.grandTotal ?? 0,
-          status: d.status || "Unpaid",
-        })));
+        setInvoices(docs.map((d) => {
+          const id = d.code || `#${d.id}`;
+          const customer = d.customerName || "—";
+          const amount = d.grandTotal ?? 0;
+          const status = d.status || "Unpaid";
+          return {
+            id,
+            date: d.docDate || "",
+            customer,
+            due: d.dueDate || "",
+            amount,
+            formattedAmount: `₹${amount.toFixed(2)}`,
+            status,
+            searchText: `${id} ${customer} ${status}`.toLowerCase(),
+          };
+        }));
       } catch {
         toast.error("Failed to load invoices.");
       }
     })();
   }, []);
+
+  const filteredInvoices = useMemo(() => {
+    if (!deferredQuery) return invoices;
+    return invoices.filter((inv) => inv.searchText.includes(deferredQuery));
+  }, [invoices, deferredQuery]);
+
+  const {
+    containerRef: tableContainerRef,
+    onScroll: handleTableScroll,
+    visibleItems: visibleInvoices,
+    topSpacerHeight,
+    bottomSpacerHeight,
+  } = useVirtualRows(filteredInvoices, { rowHeight: 48, viewportHeight: 480, overscan: 8 });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -188,13 +223,23 @@ export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd 
       </div>
 
       <div className="card table-card">
-        <div className="card-head"><h2>{isInvoices ? "All Invoices" : "Refund Vouchers"}</h2><span className="tag">{isInvoices ? invoices.length : 0} results</span></div>
+        <div className="card-head"><h2>{isInvoices ? "All Invoices" : "Refund Vouchers"}</h2><span className="tag">{isInvoices ? filteredInvoices.length : 0} results</span></div>
         <div className="search-row">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
-          <input type="text" placeholder={isInvoices ? "Search invoice no. or customer..." : "Search refunds..."} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={isInvoices ? "Search invoice no. or customer..." : "Search refunds..."}
+          />
         </div>
         <div className="card-body">
-          <div className="table-scroll">
+          <div
+            ref={tableContainerRef}
+            onScroll={handleTableScroll}
+            className="table-scroll"
+            style={{ maxHeight: 480, overflowY: "auto" }}
+          >
             <table className="data">
               <thead>
                 <tr>
@@ -205,18 +250,33 @@ export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd 
                 </tr>
               </thead>
               <tbody>
-                {isInvoices && invoices.length > 0 ? (
-                  invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td style={{ fontWeight: 600, color: "var(--ink)" }}>{inv.id}</td>
-                      <td>{inv.date}</td>
-                      <td>{inv.customer}</td>
-                      <td>{inv.due}</td>
-                      <td className="amount">₹{inv.amount.toFixed(2)}</td>
-                      <td>{inv.status}</td>
-                      <td></td>
-                    </tr>
-                  ))
+                {isInvoices && filteredInvoices.length > 0 ? (
+                  <>
+                    {topSpacerHeight > 0 && (
+                      <tr aria-hidden="true" style={{ height: topSpacerHeight }}>
+                        <td colSpan={7} style={{ padding: 0, border: 0 }} />
+                      </tr>
+                    )}
+                    {visibleInvoices.map((inv) => (
+                      <tr
+                        key={inv.id}
+                        style={{ height: 48, contentVisibility: "auto", containIntrinsicSize: "48px" }}
+                      >
+                        <td style={{ fontWeight: 600, color: "var(--ink)" }}>{inv.id}</td>
+                        <td>{inv.date}</td>
+                        <td>{inv.customer}</td>
+                        <td>{inv.due}</td>
+                        <td className="amount">{inv.formattedAmount}</td>
+                        <td>{inv.status}</td>
+                        <td></td>
+                      </tr>
+                    ))}
+                    {bottomSpacerHeight > 0 && (
+                      <tr aria-hidden="true" style={{ height: bottomSpacerHeight }}>
+                        <td colSpan={7} style={{ padding: 0, border: 0 }} />
+                      </tr>
+                    )}
+                  </>
                 ) : (
                   <tr className="empty-table-row">
                     <td colSpan={7}>

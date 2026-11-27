@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   ShoppingCart, Clock, CheckCircle, Truck, XCircle, ChefHat,
-  Package, Star, RotateCcw, Ban, AlertCircle
+  Package, Star, RotateCcw, Ban, AlertCircle, Sparkles, Copy, X
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -12,6 +13,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "../ui/input";
 import { foodOrderService } from "../../../services/food/foodOrderService";
 import type { FoodOrder, FoodOrderRating } from "../../../types/food";
+import { WorkflowTransitionPanel } from "../workflow/WorkflowTransitionPanel";
+import {
+  automationService,
+  type KitchenPrepDelayAuditResponse
+} from "../../../services/automation/automationService";
 
 const statusSteps = ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -45,6 +51,29 @@ export function FoodOrders() {
   const [isError, setIsError] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isRating, setIsRating] = useState(false);
+  const [isAuditingDelay, setIsAuditingDelay] = useState(false);
+  const [delayAuditResult, setDelayAuditResult] = useState<KitchenPrepDelayAuditResponse | null>(null);
+  const [showDelayModal, setShowDelayModal] = useState(false);
+
+  const handleAuditKitchenDelay = async (order: FoodOrder) => {
+    setIsAuditingDelay(true);
+    try {
+      const res = await automationService.auditKitchenPrepDelay({
+        orderId: String(order.id),
+        restaurantName: order.providerName || "Kitchen",
+        items: order.items?.map(it => ({ name: it.itemName, quantity: it.quantity, prepComplexity: "MEDIUM" })),
+        activeKitchenQueueCount: 8,
+        riderArrivalEtaMinutes: 12
+      });
+      setDelayAuditResult(res);
+      setShowDelayModal(true);
+      toast.success("AI Kitchen status analyzed!");
+    } catch {
+      toast.error("Failed to check kitchen prep status.");
+    } finally {
+      setIsAuditingDelay(false);
+    }
+  };
 
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
@@ -195,6 +224,17 @@ export function FoodOrders() {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
+            {isActive && (
+              <Button
+                variant="outline" size="sm"
+                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800"
+                onClick={() => handleAuditKitchenDelay(order)}
+                disabled={isAuditingDelay}
+              >
+                <Sparkles className={`w-3 h-3 mr-1 ${isAuditingDelay ? "animate-spin text-indigo-500" : "text-indigo-600"}`} />
+                AI Kitchen Status
+              </Button>
+            )}
             {canCancel && (
               <Button
                 variant="outline" size="sm"
@@ -218,6 +258,21 @@ export function FoodOrders() {
                 <RotateCcw className="w-3 h-3 mr-1" /> Reorder
               </Button>
             )}
+          </div>
+
+          {/* Workflow status transitions */}
+          <div className="mt-4">
+            <WorkflowTransitionPanel
+              workflowId="ORDER"
+              entityId={String(order.id)}
+              currentStatus={order.status}
+              onStatusChanged={(s) =>
+                setOrders((prev) =>
+                  prev.map((x) => (x.id === order.id ? { ...x, status: s as typeof order.status } : x))
+                )
+              }
+              compact
+            />
           </div>
         </CardContent>
       </Card>
@@ -307,6 +362,98 @@ export function FoodOrders() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── AI Kitchen Delay Sentinel Modal ─────────────────────────────── */}
+      {showDelayModal && delayAuditResult && (
+        <Dialog open={showDelayModal} onOpenChange={setShowDelayModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <ChefHat className="w-4 h-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base flex items-center gap-2">
+                    Kitchen Prep Sentinel
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                      Live Queue AI
+                    </span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {delayAuditResult.restaurantName} • Order #{delayAuditResult.orderId}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Status Card */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-500">Kitchen Status</span>
+                <div className="text-sm font-bold flex items-center gap-1.5 mt-0.5">
+                  <span className={`w-2 h-2 rounded-full ${delayAuditResult.kitchenStatus === "ON_TRACK" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`} />
+                  {delayAuditResult.kitchenStatus.replace(/_/g, " ")}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-bold text-slate-500">Expected Delivery</span>
+                <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  {delayAuditResult.revisedEta}
+                  {delayAuditResult.delayMinutes > 0 && (
+                    <span className="text-xs text-amber-600 ml-1 font-normal">(+{delayAuditResult.delayMinutes}m)</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottleneck Analysis */}
+            <div className="space-y-1.5 text-xs">
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Throughput Assessment:</span>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-[#262644] p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                {delayAuditResult.bottleneckReason}
+              </p>
+            </div>
+
+            {/* Mitigations */}
+            {delayAuditResult.mitigationActions?.length > 0 && (
+              <div className="space-y-1.5 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Mitigation In Progress:</span>
+                <div className="space-y-1">
+                  {delayAuditResult.mitigationActions.map((act, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      {act}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Resident Reassurance Message */}
+            <div className="space-y-1 text-xs">
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Live Status Update:</span>
+              <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/40 text-[11px] text-slate-700 dark:text-slate-300 font-mono">
+                {delayAuditResult.customerUpdateMessage}
+              </div>
+            </div>
+
+            <DialogFooter className="flex items-center justify-between sm:justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(delayAuditResult.customerUpdateMessage);
+                  toast.success("Status update copied!");
+                }}
+              >
+                <Copy className="w-3.5 h-3.5 mr-1" /> Copy Update
+              </Button>
+              <Button size="sm" onClick={() => setShowDelayModal(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

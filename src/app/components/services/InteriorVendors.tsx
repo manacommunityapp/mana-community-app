@@ -56,7 +56,7 @@ export function InteriorVendors() {
     event.preventDefault();
     if (!buying) return;
     try {
-      const request = {
+      const request: any = {
         channel: "MARKETPLACE",
         sellerId: buying.sellerId,
         sellerType: buying.sellerType,
@@ -64,7 +64,7 @@ export function InteriorVendors() {
         fulfillmentType: "DELIVERY",
         deliveryAddress: deliveryAddress.trim(),
         items: [{ sku: buying.sku, title: buying.title, unitPrice: buying.discountPrice ?? buying.basePrice, quantity, thumbnailUrl: buying.thumbnailUrl }],
-      } as const;
+      };
       const projectId = Number(searchParams.get("projectId"));
       const order = projectId > 0
         ? await interiorsService.checkoutProjectMaterials(projectId, request)

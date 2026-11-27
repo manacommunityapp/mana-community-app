@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import {
   Truck, Star, Users, Calendar, IndianRupee, ChefHat,
   Send, Clock, CheckCircle2, AlertCircle, FileText,
-  ArrowRight, Phone, UtensilsCrossed
+  ArrowRight, Phone, UtensilsCrossed, Sparkles, Copy, X
 } from "lucide-react";
+import { toast } from "react-toastify";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -13,9 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { foodCateringService } from "../../../services/food/foodCateringService";
 import type { Caterer, CateringRequest, CateringRequestDto } from "../../../types/food";
+import {
+  automationService,
+  type CateringPortionOptimizeResponse
+} from "../../../services/automation/automationService";
 
 function formatPrice(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
@@ -52,6 +57,33 @@ export function CateringPlatform() {
   const [venue, setVenue] = useState<string>("");
   const [menuPreferences, setMenuPreferences] = useState<string>("");
   const [dietaryRequirements, setDietaryRequirements] = useState<string>("");
+  const [isOptimizingPortions, setIsOptimizingPortions] = useState(false);
+  const [portionResult, setPortionResult] = useState<CateringPortionOptimizeResponse | null>(null);
+  const [showPortionModal, setShowPortionModal] = useState(false);
+
+  const handleOptimizePortions = async () => {
+    setIsOptimizingPortions(true);
+    try {
+      const res = await automationService.optimizeCateringPortions({
+        eventTitle: `${occasionType.replace(/_/g, " ")} Celebration`,
+        totalGuests: guestCount || 60,
+        occasionType,
+        dietarySplit: {
+          vegCount: Math.round((guestCount || 60) * 0.7),
+          nonVegCount: Math.round((guestCount || 60) * 0.3),
+          jainCount: Math.round((guestCount || 60) * 0.1)
+        },
+        servingStyle: "BUFFET"
+      });
+      setPortionResult(res);
+      setShowPortionModal(true);
+      toast.success("AI Catering portions & waste plan calculated!");
+    } catch {
+      toast.error("Failed to calculate portion optimization.");
+    } finally {
+      setIsOptimizingPortions(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -136,9 +168,20 @@ export function CateringPlatform() {
           <h1 className="text-xl font-bold">Catering Platform</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Find caterers and manage event catering</p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700 text-white gap-2" onClick={() => setQuoteFormOpen(true)}>
-          <Send className="w-4 h-4" /> Request Quote
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800 gap-1.5"
+            onClick={() => handleOptimizePortions()}
+            disabled={isOptimizingPortions}
+          >
+            <Sparkles className={`w-4 h-4 ${isOptimizingPortions ? "animate-spin text-indigo-500" : "text-indigo-600"}`} />
+            AI Portion Optimizer
+          </Button>
+          <Button className="bg-orange-600 hover:bg-orange-700 text-white gap-2" onClick={() => setQuoteFormOpen(true)}>
+            <Send className="w-4 h-4" /> Request Quote
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -386,6 +429,109 @@ export function CateringPlatform() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── AI Catering Portion & Waste Optimizer Modal ────────────────────── */}
+      {showPortionModal && portionResult && (
+        <Dialog open={showPortionModal} onOpenChange={setShowPortionModal}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                  <UtensilsCrossed className="w-4 h-4" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base flex items-center gap-2">
+                    Catering Portion & Waste Optimizer
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                      Zero Waste AI
+                    </span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    {portionResult.eventTitle} • {portionResult.totalGuests} Guests
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Dietary Split Card */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800">
+                <span className="text-[10px] font-bold text-emerald-600">Vegetarian</span>
+                <p className="text-base font-bold text-emerald-800 dark:text-emerald-200 mt-0.5">{portionResult.dietarySplit.vegCount}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-800">
+                <span className="text-[10px] font-bold text-rose-600">Non-Veg</span>
+                <p className="text-base font-bold text-rose-800 dark:text-rose-200 mt-0.5">{portionResult.dietarySplit.nonVegCount}</p>
+              </div>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-800">
+                <span className="text-[10px] font-bold text-amber-600">Jain / Satvik</span>
+                <p className="text-base font-bold text-amber-800 dark:text-amber-200 mt-0.5">{portionResult.dietarySplit.jainCount}</p>
+              </div>
+            </div>
+
+            {/* Portions Table */}
+            <div className="space-y-1.5 text-xs">
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Optimized Production Schedule:</span>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {portionResult.optimizedPortions?.map((item, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-xs">{item.item}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {item.perHeadGrams ? `${item.perHeadGrams}g per plate` : `${item.perHeadPcs} pcs per guest`}
+                      </p>
+                    </div>
+                    <span className="font-black text-sm text-indigo-600 dark:text-indigo-400">
+                      {item.totalKg ? `${item.totalKg} kg` : `${item.totalPcs} pcs`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Financial Estimates */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold">Estimated Cost/Plate</span>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">₹{portionResult.estimatedCostPerHead}</p>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold">Recommended Buffer</span>
+                <p className="text-sm font-bold text-emerald-600">+{portionResult.recommendedBufferPercentage}%</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-500 font-bold">Est. Total Budget</span>
+                <p className="text-sm font-black text-orange-600">₹{portionResult.totalEstimatedBudget.toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Waste Mitigation Advice */}
+            <div className="space-y-1 text-xs">
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Food Waste Elimination Protocol:</span>
+              <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed">
+                {portionResult.foodWasteMitigationTips}
+              </div>
+            </div>
+
+            <DialogFooter className="flex items-center justify-between sm:justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const schedule = portionResult.optimizedPortions.map(p => `${p.item}: ${p.totalKg ? p.totalKg + 'kg' : p.totalPcs + 'pcs'}`).join("\n");
+                  navigator.clipboard.writeText(`CATERING PORTION PLAN\nEvent: ${portionResult.eventTitle}\nGuests: ${portionResult.totalGuests}\n\nSchedule:\n${schedule}\n\nWaste Protocol: ${portionResult.foodWasteMitigationTips}`);
+                  toast.success("Catering plan copied to clipboard!");
+                }}
+              >
+                <Copy className="w-3.5 h-3.5 mr-1" /> Copy Plan
+              </Button>
+              <Button size="sm" onClick={() => setShowPortionModal(false)}>
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

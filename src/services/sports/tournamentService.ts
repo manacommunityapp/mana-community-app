@@ -932,6 +932,11 @@ export const tournamentService = {
     return apiClient.get<LiveMatchStateData>(`/tournament/match/${matchId}/live`);
   },
 
+  /** GET /api/tournament/match/{matchId}/events?afterSequence={seq} — missed live scoring events */
+  async getMissedEvents(matchId: number, afterSequence: number = 0): Promise<any[]> {
+    return apiClient.get<any[]>(`/tournament/match/${matchId}/events?afterSequence=${afterSequence}`);
+  },
+
   /** POST /api/tournament/match/{matchId}/ball — record a ball (REST fallback) */
   async recordBall(matchId: number, data: BallEventRequestData): Promise<BallEventData> {
     return apiClient.post<BallEventData>(`/tournament/match/${matchId}/ball`, data);

@@ -326,10 +326,10 @@ export const reviewService = {
 
 export const orderService = {
   async getMyOrders(page = 0, size = 10): Promise<PaginatedResponse<OrderResponse>> {
-    return apiClient.get<PaginatedResponse<OrderResponse>>(`/marketplace/orders/mine?page=${page}&size=${size}`);
+    return apiClient.get<PaginatedResponse<OrderResponse>>(`/marketplace/orders/purchases?page=${page}&size=${size}`);
   },
   async getSellerOrders(page = 0, size = 10): Promise<PaginatedResponse<OrderResponse>> {
-    return apiClient.get<PaginatedResponse<OrderResponse>>(`/marketplace/orders/selling?page=${page}&size=${size}`);
+    return apiClient.get<PaginatedResponse<OrderResponse>>(`/marketplace/orders/sales?page=${page}&size=${size}`);
   },
   async getById(id: number): Promise<OrderResponse> {
     return apiClient.get<OrderResponse>(`/marketplace/orders/${id}`);

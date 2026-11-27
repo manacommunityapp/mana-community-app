@@ -222,6 +222,33 @@ export const KittyPartyLedgerView: React.FC = () => {
     }
   };
 
+  const handleVerifyContribution = async (contributionId: number) => {
+    try {
+      setIsSubmitting(true);
+      await kittyPartyService.verifyContribution(contributionId);
+      setFeedback("Contribution verified and recorded in audit trail!");
+      loadData();
+    } catch (err: any) {
+      setFeedback(err?.message || "Failed to verify contribution");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDisbursePayout = async (periodNumber: number) => {
+    if (!cycle?.id) return;
+    try {
+      setIsSubmitting(true);
+      await kittyPartyService.disbursePayout(cycle.id, periodNumber);
+      setFeedback(`Month #${periodNumber} payout marked as DISBURSED!`);
+      loadData();
+    } catch (err: any) {
+      setFeedback(err?.message || "Failed to record payout disbursement");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-gray-400">Loading Kitty Ledger...</div>;
   }
@@ -535,7 +562,7 @@ export const KittyPartyLedgerView: React.FC = () => {
                 >
                   <div className="text-[10px] font-bold text-gray-400 uppercase">Month #{rot.periodNumber}</div>
                   <div className="text-xs font-bold text-gray-800 mt-1 truncate">{rot.beneficiaryName}</div>
-                  <div className="mt-2 flex items-center justify-center gap-1">
+                  <div className="mt-2 flex flex-col items-center justify-center gap-1.5">
                     <span
                       className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${
                         rot.rotationStatus === "DISBURSED"
@@ -547,6 +574,16 @@ export const KittyPartyLedgerView: React.FC = () => {
                     >
                       {rot.rotationStatus}
                     </span>
+                    {rot.rotationStatus !== "DISBURSED" && hasPermission(currentUserRole, "VERIFY_CONTRIBUTION") && (
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleDisbursePayout(rot.periodNumber)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                      >
+                        💸 Disburse
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -624,7 +661,22 @@ export const KittyPartyLedgerView: React.FC = () => {
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 text-gray-500">{c.verifiedByName || "—"}</td>
+                        <td className="py-2.5 text-gray-500">
+                          {c.verifiedByName ? (
+                            <span>{c.verifiedByName}</span>
+                          ) : c.paymentStatus === "PAID" && hasPermission(currentUserRole, "VERIFY_CONTRIBUTION") ? (
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() => handleVerifyContribution(c.id)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-sm"
+                            >
+                              ✓ Verify
+                            </button>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}

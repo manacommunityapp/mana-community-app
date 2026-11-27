@@ -3,6 +3,7 @@ import type { PaymentOrderStatus } from "../../../services/payments/unifiedPayme
 interface Props {
   status: PaymentOrderStatus | "PAID" | "UNPAID" | "FREE" | string;
   className?: string;
+  size?: "sm" | "md" | "lg" | string;
 }
 
 const CONFIG: Record<string, { label: string; className: string }> = {

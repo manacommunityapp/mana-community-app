@@ -160,7 +160,7 @@ export function MyListings() {
         </div>
 
         <button
-          onClick={() => navigate("/marketplace")}
+          onClick={() => navigate("/marketplace/sell")}
           className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20"
         >
           + Post New Item

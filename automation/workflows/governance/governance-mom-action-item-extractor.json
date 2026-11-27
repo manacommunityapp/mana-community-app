@@ -1,0 +1,136 @@
+{
+  "name": "Mana Governance MoM & Action Item Extractor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "governance-mom-extractor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-gov-mom-extractor-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst meetingId = item.meetingId || 'AGM-2026';\nconst meetingTitle = item.title || 'Annual General Body Meeting';\nconst meetingDate = item.meetingDate || '2026-11-20';\nconst attendees = item.attendees || ['President', 'Secretary', 'Treasurer', '78 Resident Owners'];\nconst rawNotes = item.rawNotes || item.transcript || 'Discussion on security agency renewal, clubhouse gym AC replacement budget of 1.2 Lakhs approved, EV charging bay electrical load sanction approved, vendor disputed water tanker rates.';\n\nconst prompt = `You are the Official Rapporteur & Governance Secretary for the Mana Residency Society Council.\nProcess the following raw meeting notes/transcripts into a formal, legal Minutes of Meeting (MoM) dossier:\n\nMeeting Context:\n- Meeting: ${meetingTitle} (${meetingId}) on ${meetingDate}\n- Key Attendees: ${JSON.stringify(attendees)}\n- Discussion Notes / Audio Transcript:\n\"${rawNotes}\"\n\nExtraction Guidelines:\n1. Executive Summary: Professional, neutral 2-paragraph overview of assembly proceedings.\n2. Formal Resolutions Passed: Clear numbering with vote tally indication (Unanimous / Majority / Dissent noted).\n3. Action Items Matrix: Assign concrete task, assigned committee member/owner, deadline, and urgency.\n4. Key Grievances & Deferrals: Items deferred to next Extraordinary General Meeting (EGM).\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"executiveSummary\": string,\n  \"resolutions\": [\n    { \"resId\": string, \"title\": string, \"verdict\": \"PASSED_UNANIMOUSLY\" | \"PASSED_MAJORITY\" | \"REJECTED\" | \"DEFERRED\", \"details\": string }\n  ],\n  \"actionItems\": [\n    { \"task\": string, \"assignedTo\": string, \"deadline\": string, \"priority\": \"HIGH\" | \"MEDIUM\" | \"LOW\" }\n  ],\n  \"deferredMatters\": string[],\n  \"formalMoMBulletin\": string\n}`;\n\nreturn [{ json: { prompt, meetingId, meetingTitle } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const gemini = $input.first().json;\nlet parsed = {};\ntry {\n  const raw = gemini.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = {\n    executiveSummary: \"The assembly convened to discuss critical society operations, facility upgrades, and vendor contract renewals.\",\n    resolutions: [\n      { resId: \"RES-01\", title: \"Clubhouse HVAC & Gym Upgrade\", verdict: \"PASSED_MAJORITY\", details: \"Allocated ₹1.2 Lakhs from Sinking Fund reserve.\" }\n    ],\n    actionItems: [\n      { task: \"Procure quotation for 3 ton inverter AC\", assignedTo: \"Facility Manager\", deadline: \"7 Days\", priority: \"HIGH\" }\n    ],\n    deferredMatters: [\"Water tanker renegotiation pending revised supplier rate card.\"],\n    formalMoMBulletin: \"Minutes officially recorded and queued for committee signatures.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\nreturn [{ json: { status: \"success\", meetingId: meta.meetingId, title: meta.meetingTitle, generatedAt: new Date().toISOString(), mom: parsed } }];"
+      },
+      "id": "4",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

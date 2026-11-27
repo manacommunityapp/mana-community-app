@@ -30,6 +30,8 @@ import {
   ArrowLeftRight,
   Link2,
   BarChart2,
+  ScanFace,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { HrmOrgProvider, useHrmOrg } from "../../../contexts/HrmOrgContext";
@@ -38,6 +40,9 @@ const NAV_ITEMS: { to: string; icon: React.ElementType; label: string; end?: boo
   { to: "/hrm",            icon: LayoutDashboard, label: "Dashboard",   end: true },
   { to: "/hrm/employees",  icon: Users,           label: "Employees" },
   { to: "/hrm/attendance", icon: Clock,           label: "Attendance" },
+  { to: "/hrm/timeguard",  icon: ShieldAlert,     label: "AI TimeGuard" },
+  { to: "/hrm/contractors",icon: Building2,       label: "Contractors (CWMS)" },
+  { to: "/access/kiosk",   icon: ScanFace,        label: "Face Kiosk Mode" },
   { to: "/hrm/leaves",     icon: CalendarDays,    label: "Leaves" },
   { to: "/hrm/shifts",       icon: Timer,           label: "Shifts" },
   { to: "/hrm/recruitment",  icon: Briefcase,       label: "Recruitment" },

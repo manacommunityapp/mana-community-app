@@ -6,7 +6,7 @@ import {
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
   PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
-  Smartphone, Film, Gem
+  Smartphone, Film, Gem, Calculator
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -120,17 +120,7 @@ function UserProfileMenu({
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
             className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] transition-all shrink-0 group-hover:ring-2 group-hover:ring-[#00D09C]/30"
-            onError={(e) => {
-              const currentSrc = e.currentTarget.src;
-              if (currentSrc && !currentSrc.includes("/api/files/")) {
-                const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
-                if (s3Match) {
-                  e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
-                  return;
-                }
-              }
-              setImgError(true);
-            }}
+            onExhausted={() => setImgError(true)}
           />
         ) : (
           <div className="h-6.5 w-6.5 rounded-lg flex items-center justify-center text-white text-[10px] font-black bg-[#00D09C] shadow-xs group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0">
@@ -511,6 +501,8 @@ export function Layout() {
         { to: "/movies", icon: Film, label: "Movie Night", badge: "Cinema", menuKey: "movies" },
         { to: "/trips", icon: Compass, label: "Community Trips", menuKey: "trips" },
         { to: "/kitty-party", icon: Sparkles, label: "Kitty & Social Circles", badge: "New", menuKey: "kitty-party" },
+        { to: "/social", icon: Users, label: "Social Circles", badge: "New", menuKey: "social-circles" },
+        { to: "/manakit", icon: Calculator, label: "ManaKit", badge: "Hot", menuKey: "manakit-tools" },
         { to: "/split", icon: PieChart, label: "Mana Split", badge: "New", menuKey: "split-bill" },
         { to: "/pets", icon: Heart, label: "Pet Registry", menuKey: "pets" },
         { to: "/polls", icon: Vote, label: "Polls", menuKey: "polls" },
@@ -624,9 +616,11 @@ export function Layout() {
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
     if (label === "Food & Dining") return isModuleEnabled("FOOD_OS");
     if (label === "Fresh Kitchen") return isModuleEnabled("FOOD_OS");
+    if (label === "Fresh") return isModuleEnabled("FOOD_OS");
     if (label === "Daily Basket") return isModuleEnabled("FOOD_OS");
     if (label === "Wellness Nutrition") return isModuleEnabled(["FOOD_OS", "HEALTH"]);
     if (label === "Kitty & Social Circles") return isModuleEnabled("KITTY_PARTY");
+    if (label === "ManaKit" || label === "MKit Tools") return true;
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
     if (label === "Jewellery & Try-On") return true;

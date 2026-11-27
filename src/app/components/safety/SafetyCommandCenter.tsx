@@ -17,10 +17,20 @@ import {
   Camera,
   ArrowRight,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { safetyService } from '../../../services/safety/safetyService';
 import { CommunityTrustAndSafetyDashboard } from './CommunityTrustAndSafetyDashboard';
+import {
+  automationService,
+  type SafetyEmergencySOSResponse,
+  type SafetyVisitorScreeningResponse,
+  type SafetyANPRParkingResponse,
+  type SafetyStaffKYCAttendanceResponse,
+  type SafetyIoTHardwareSentinelResponse,
+} from '../../../services/automation/automationService';
+
 import type {
   DashboardSummary,
   VisitorPass,
@@ -35,6 +45,136 @@ import type {
 } from '../../../types/safety';
 
 export function SafetyCommandCenter() {
+  // AI Automation States & Handlers
+  const [isAuditingVisitor, setIsAuditingVisitor] = useState(false);
+  const [visitorAuditResult, setVisitorAuditResult] = useState<SafetyVisitorScreeningResponse | null>(null);
+  const [showVisitorAuditModal, setShowVisitorAuditModal] = useState(false);
+
+  const [isEnforcingAnpr, setIsEnforcingAnpr] = useState(false);
+  const [anprAuditResult, setAnprAuditResult] = useState<SafetyANPRParkingResponse | null>(null);
+  const [showAnprAuditModal, setShowAnprAuditModal] = useState(false);
+
+  const [isAuditingStaff, setIsAuditingStaff] = useState(false);
+  const [staffAuditResult, setStaffAuditResult] = useState<SafetyStaffKYCAttendanceResponse | null>(null);
+  const [showStaffAuditModal, setShowStaffAuditModal] = useState(false);
+
+  const [isDiagnosingHardware, setIsDiagnosingHardware] = useState(false);
+  const [hardwareDiagResult, setHardwareDiagResult] = useState<SafetyIoTHardwareSentinelResponse | null>(null);
+  const [showHardwareDiagModal, setShowHardwareDiagModal] = useState(false);
+
+  const [isDispatchingSos, setIsDispatchingSos] = useState(false);
+  const [sosResult, setSosResult] = useState<SafetyEmergencySOSResponse | null>(null);
+  const [showAiSosModal, setShowAiSosModal] = useState(false);
+
+  const handleScreenVisitorAudit = async () => {
+    try {
+      setIsAuditingVisitor(true);
+      const res = await automationService.screenVisitorAndAuditOverstay({
+        visitorName: 'Rajesh Verma (Courier)',
+        visitorType: 'DELIVERY',
+        flatNumber: 'B-604',
+        tower: 'Tower B',
+        checkInTime: new Date(Date.now() - 110 * 60000).toISOString(),
+        currentDurationMinutes: 110,
+        maxPermittedMinutes: 45,
+        hostApproved: true,
+      });
+      setVisitorAuditResult(res);
+      setShowVisitorAuditModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Visitor screening audit failed');
+    } finally {
+      setIsAuditingVisitor(false);
+    }
+  };
+
+  const handleAnprParkingEnforce = async () => {
+    try {
+      setIsEnforcingAnpr(true);
+      const res = await automationService.enforceANPRAndParking({
+        licensePlate: 'KA03NB8841',
+        vehicleType: 'FOUR_WHEELER',
+        detectedSlot: 'B1-EV-02',
+        assignedSlot: 'B2-C104',
+        isBlacklisted: false,
+        priorViolationsCount: 1,
+      });
+      setAnprAuditResult(res);
+      setShowAnprAuditModal(true);
+    } catch (err: any) {
+      alert(err.message || 'ANPR parking audit failed');
+    } finally {
+      setIsEnforcingAnpr(false);
+    }
+  };
+
+  const handleStaffKycAudit = async () => {
+    try {
+      setIsAuditingStaff(true);
+      const res = await automationService.auditStaffKYCAndAttendance({
+        staffId: 'STF-MAID-092',
+        staffName: 'Lakshmi Devi',
+        serviceType: 'HOUSEKEEPING',
+        phone: '+91 98451 22394',
+        kycStatus: 'VERIFIED',
+        policeVerificationDate: '2025-08-14',
+        checkInTimestamp: new Date().toISOString(),
+        authorizedWorkingHours: '08:00 AM - 06:00 PM',
+        associatedFlats: ['Tower A - 302', 'Tower A - 404', 'Tower B - 101'],
+      });
+      setStaffAuditResult(res);
+      setShowStaffAuditModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Staff KYC audit failed');
+    } finally {
+      setIsAuditingStaff(false);
+    }
+  };
+
+  const handleHardwareDiagnostics = async () => {
+    try {
+      setIsDiagnosingHardware(true);
+      const res = await automationService.diagnoseIoTHardwareAndTamper({
+        deviceId: 'DEV-BOOM-GATE1',
+        deviceType: 'BOOM_BARRIER',
+        location: 'Main Ingress Gate 1',
+        consecutiveMissedHeartbeats: 2,
+        lensTamperDetected: false,
+        rssiSignalDbm: -72,
+        batteryLevelPercent: 92,
+      });
+      setHardwareDiagResult(res);
+      setShowHardwareDiagModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Hardware diagnostic failed');
+    } finally {
+      setIsDiagnosingHardware(false);
+    }
+  };
+
+  const handleDispatchAiSos = async () => {
+    try {
+      setIsDispatchingSos(true);
+      const res = await automationService.dispatchSafetyEmergencySOS({
+        title: 'Emergency Alarm: Lift B2 Trapped Alarm Triggered',
+        category: 'SOS_PANIC',
+        severity: 'CRITICAL',
+        flatNumber: 'Common Facility',
+        tower: 'Tower B',
+        location: 'Tower B Passenger Elevator #2',
+        description: 'Passenger emergency alarm activated at Tower B basement level. Resident button held down for 15+ seconds.',
+        reportedByName: 'Central Telemetry Sensor',
+      });
+      setSosResult(res);
+      setShowAiSosModal(true);
+      setShowSosModal(false);
+    } catch (err: any) {
+      alert(err.message || 'AI SOS dispatch failed');
+    } finally {
+      setIsDispatchingSos(false);
+    }
+  };
+
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'trust-hub' | 'visitors' | 'vehicles' | 'deliveries' | 'staff' | 'incidents' | 'hardware'>('overview');
 
@@ -1026,6 +1166,14 @@ export function SafetyCommandCenter() {
             </p>
 
             <div className="space-y-3 mb-6">
+              <button
+                onClick={handleDispatchAiSos}
+                disabled={isDispatchingSos}
+                className="w-full py-3 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white font-bold rounded-xl text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isDispatchingSos ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-rose-200" />}
+                🚨 AI Incident Runbook & Emergency Dispatch
+              </button>
               <button
                 onClick={() => {
                   alert('AMBULANCE INGRESS ACTIVATED. All gate barriers opened.');

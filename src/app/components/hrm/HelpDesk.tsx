@@ -23,7 +23,7 @@ export default function HelpDesk({ orgId, isHrAdmin }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [showResolve, setShowResolve] = useState<number | null>(null);
   const [resolution, setResolution] = useState("");
-  const [form, setForm] = useState({ subject: "", description: "", category: "GENERAL", priority: "MEDIUM" });
+  const [form, setForm] = useState({ subject: "", description: "", category: "GENERAL" as any, priority: "MEDIUM" as any });
 
   const { data: myTickets } = useQuery({
     queryKey: ["my-tickets", orgId],
@@ -42,7 +42,7 @@ export default function HelpDesk({ orgId, isHrAdmin }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-tickets"] });
       setShowForm(false);
-      setForm({ subject: "", description: "", category: "GENERAL", priority: "MEDIUM" });
+      setForm({ subject: "", description: "", category: "GENERAL" as any, priority: "MEDIUM" as any });
     },
   });
 

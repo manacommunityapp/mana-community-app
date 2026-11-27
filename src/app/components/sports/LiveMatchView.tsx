@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link } from "react-router";
 import {
   X,
   Loader2,
@@ -13,7 +14,13 @@ import {
   Clock,
   Shield,
   ChevronRight,
+  Wifi,
+  WifiOff,
+  Radio,
+  Settings,
+  Share2,
 } from "lucide-react";
+import { StoryCardModal, type StoryCardData } from "../commons/StoryCardModal";
 import {
   tournamentService,
   type LiveMatchStateData,
@@ -45,11 +52,13 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("live");
   const [selectedInningsScorecard, setSelectedInningsScorecard] = useState<1 | 2>(1);
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
 
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef<LiveMatchStateData | null>(null);
   stateRef.current = state;
   const prevMatchIdRef = useRef<number>(matchId);
+  const lastSequenceRef = useRef<number>(0);
 
   const fetchState = useCallback(async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -74,31 +83,59 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
     // Only reset state and trigger full-screen loading on initial mount or when matchId changes
     if (prevMatchIdRef.current !== matchId) {
       prevMatchIdRef.current = matchId;
+      lastSequenceRef.current = 0;
       setState(null);
       setLoading(true);
     }
 
     fetchState(false);
 
-    const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
-      if (!isMounted) return;
-      setState(body as LiveMatchStateData);
+    const handleIncomingMessage = (body: any) => {
+      if (!isMounted || !body) return;
+
+      // Sequence ordering & deduplication
+      if (typeof body.sequence === "number") {
+        if (body.sequence <= lastSequenceRef.current) {
+          return; // Drop out-of-order or duplicate event
+        }
+        if (lastSequenceRef.current > 0 && body.sequence > lastSequenceRef.current + 1) {
+          // Packet gap detected — fetch fresh snapshot from cache/DB
+          fetchState(false);
+        }
+        lastSequenceRef.current = body.sequence;
+      }
+
+      // If payload is a full match state object
+      if (body.currentInnings !== undefined && body.teamAName !== undefined) {
+        setState(body as LiveMatchStateData);
+      } else if (body.score !== undefined) {
+        // Delta event received — update scores and refresh snapshot
+        fetchState(false);
+      }
+
       setLastUpdated(new Date());
       setError(null);
       setLoading(false);
-    });
+    };
+
+    // Subscribe to multi-instance live topic and legacy state topic
+    const unsubLive = stompClient.subscribe(`/topic/matches/${matchId}/live`, handleIncomingMessage);
+    const unsubState = stompClient.subscribe(`/topic/match/${matchId}/state`, handleIncomingMessage);
 
     const unsubConnect = stompClient.onConnect(() => {
       if (isMounted) fetchState(false);
     });
 
-    // Fallback polling only when WebSocket is disconnected
+    // Fallback polling only when WebSocket is disconnected and document is active
     reconnectTimer.current = setInterval(() => {
-      if (isMounted && !stompClient.connected) fetchState(false);
-    }, 5000);
+      if (isMounted && !stompClient.connected && document.visibilityState === "visible") {
+        fetchState(false);
+      }
+    }, 15000);
 
     return () => {
       isMounted = false;
+      unsubLive();
       unsubState();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
@@ -162,6 +199,36 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
   const isTeamBBatted = !isTeamABattingFirst || state.currentInnings >= 2 || (teamBInn && (teamBInn.totalRuns > 0 || teamBInn.totalWickets > 0 || teamBInn.batters.length > 0));
 
   const isTeamABattingNow = (state.currentInnings === 1 && isTeamABattingFirst) || (state.currentInnings === 2 && !isTeamABattingFirst);
+
+  const storyCardData: StoryCardData | null = useMemo(() => {
+    if (!state) return null;
+    const isCompleted = state.status === "COMPLETED";
+    const team1Name = state.teamAName || "Team A";
+    const team2Name = state.teamBName || "Team B";
+    const team1Score = teamAInn ? `${teamAInn.totalRuns}/${teamAInn.totalWickets} (${teamAInn.totalOvers} ov)` : "Yet to bat";
+    const team2Score = teamBInn ? `${teamBInn.totalRuns}/${teamBInn.totalWickets} (${teamBInn.totalOvers} ov)` : "Yet to bat";
+
+    return {
+      type: "MATCH",
+      communityName: tournamentName || state.tournamentName || "Mana Sports",
+      category: "CRICKET MATCH",
+      title: `${team1Name} vs ${team2Name}`,
+      subtitle: [eventName || state.eventName, roundName || state.roundName, `${effectiveMaxOvers} Overs`].filter(Boolean).join(" • "),
+      statusBadge: isCompleted ? (state.resultNote || "MATCH CONCLUDED") : (state.status === "IN_PROGRESS" ? "LIVE SCORE" : "UPCOMING"),
+      badgeColor: isCompleted ? "#059669" : "#DC2626",
+      stats: [
+        { label: team1Name, value: team1Score },
+        { label: team2Name, value: team2Score },
+      ],
+      highlights: [
+        state.resultNote ? `Result: ${state.resultNote}` : (state.target ? `Target: ${state.target} runs` : "First Innings in progress"),
+        state.tossWinner ? `Toss: ${state.tossWinner} chose to ${state.tossDecision || "bat"}` : "",
+        state.currentBatsman1 ? `Striker: ${state.currentBatsman1.name} ${state.currentBatsman1.runs}(${state.currentBatsman1.balls})` : "",
+      ].filter(Boolean),
+      footerNote: "Mana Sports • Live Scorecard & Match Highlights",
+      accentColor: "#10B981",
+    };
+  }, [state, tournamentName, eventName, roundName, effectiveMaxOvers, teamAInn, teamBInn]);
   const isTeamBBattingNow = !isTeamABattingNow;
 
   const currentInn = state.currentInnings === 1 ? state.innings1 : state.innings2;
@@ -304,6 +371,15 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
 
           <div className="flex items-center gap-1 sm:gap-2">
             <button
+              onClick={() => setStoryModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm transition"
+              title="Share as WhatsApp / Instagram Story Card"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Story Card</span>
+            </button>
+
+            <button
               onClick={() => fetchState(true)}
               disabled={isRefreshing}
               className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
@@ -326,6 +402,27 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
               title="Close Scorecard"
             >
               <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Link
+              to={`/sports/match/${matchId}/stream`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-black transition"
+              title="Watch live stream"
+            >
+              <Radio className="w-3 h-3" /> Watch Live
+            </Link>
+            <Link
+              to={`/sports/match/${matchId}/stream/manage`}
+              onClick={(e) => e.stopPropagation()}
+              className="p-1 hover:bg-white/10 rounded-lg transition text-white/60 hover:text-white"
+              title="Manage stream"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </Link>
+            <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
           </div>
         </div>
@@ -1170,6 +1267,12 @@ export function LiveMatchView({ matchId, maxOvers, roundName, tournamentName, ev
           )}
         </div>
       </div>
+
+      <StoryCardModal
+        open={storyModalOpen}
+        onClose={() => setStoryModalOpen(false)}
+        data={storyCardData}
+      />
     </div>
   );
 }

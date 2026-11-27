@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router";
 import {
   CalendarDays,
   Clock,
@@ -10,6 +11,8 @@ import {
   MessageCircle,
   Star,
   Send,
+  Navigation,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { HomeServiceBooking, BookingStatus } from "../../../types/homeServices";
@@ -148,6 +151,13 @@ export function MyHomeServiceBookings() {
 
                 {b.status === "CONFIRMED" && (
                   <>
+                    <Link
+                      to={`/services/track/${b.id}`}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-blue-200 animate-pulse" />
+                      Track Live &amp; OTP
+                    </Link>
                     <button
                       onClick={() => setSelectedBookingForAttendance(b)}
                       className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground font-bold shadow-xs hover:opacity-95 cursor-pointer"

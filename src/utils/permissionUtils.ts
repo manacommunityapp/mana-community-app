@@ -1,4 +1,5 @@
 import { getStoredUser, type StoredUser } from "../services/common/apiClient";
+import { safeStorage, STORAGE_KEYS } from "./storage";
 import {
   VIEW_FEED,
   VIEW_NOTICES,
@@ -105,6 +106,55 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
   { pathPrefix: "/privacy/admin", module: "ADMIN_HUB", anyPermissions: [VIEW_ADMIN] },
 ];
 
+/**
+ * Reads role names out of the signed access token in storage.
+ *
+ * SECURITY: decoding a JWT client-side is NOT verification. The value of doing
+ * it is that a user cannot change their roles without forging a signature the
+ * Spring Boot backend verifies, whereas the `mana_user` localStorage blob can be
+ * rewritten from the DevTools console in one line. Returns null when there is no
+ * token (or it is unreadable), in which case the caller-supplied user object is
+ * used as-is — requests without a token are rejected by the server anyway.
+ */
+function getTokenRoles(): string[] | null {
+  // Non-browser contexts (unit tests, SSR) have no storage at all.
+  if (typeof localStorage === "undefined") return null;
+  const token = safeStorage.getItem(STORAGE_KEYS.TOKEN);
+  if (!token) return null;
+  try {
+    const base64 = token.split(".")[1];
+    if (!base64) return null;
+    const claims = JSON.parse(atob(base64.replace(/-/g, "+").replace(/_/g, "/"))) as Record<string, unknown>;
+    const roles = new Set<string>();
+    for (const key of ["roles", "role", "authorities", "scope", "scp"]) {
+      const value = claims[key];
+      const list = Array.isArray(value)
+        ? value.map((r) => String(r))
+        : typeof value === "string"
+          ? value.split(/[,\s]+/)
+          : [];
+      for (const raw of list) {
+        const normalized = raw.trim().toUpperCase().replace(/^ROLE_/, "");
+        if (normalized) roles.add(normalized);
+      }
+    }
+    return Array.from(roles);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns the identity used for authorization decisions: the caller-supplied
+ * record with its roles replaced by the access token's claims whenever a token
+ * is present, so a hand-edited `mana_user` blob cannot grant SUPER_ADMIN.
+ */
+function resolveAuthorizationIdentity(user: StoredUser): StoredUser {
+  const tokenRoles = getTokenRoles();
+  if (!tokenRoles) return user;
+  return { ...user, role: tokenRoles.join(","), roles: tokenRoles };
+}
+
 export function isUserSuperAdmin(user?: StoredUser | null): boolean {
   if (!user) return false;
   const roleSet = new Set<string>(
@@ -118,7 +168,12 @@ export function isUserSuperAdmin(user?: StoredUser | null): boolean {
 export function canAccessModule(user: StoredUser | null | undefined, moduleKey: string): boolean {
   if (!user) return false;
   if (isUserSuperAdmin(user)) return true;
-  if (!user.enabledModules) return true;
+  // `enabledModules` is undefined until /users/me resolves. Treating that as
+  // "allowed" opened every module gate in the window right after login, so an
+  // unloaded list now denies. AuthContext coerces the loaded value to an array
+  // (empty included), which is why "not loaded" and "loaded and empty" can be
+  // told apart here.
+  if (!Array.isArray(user.enabledModules)) return false;
   return user.enabledModules.includes(moduleKey);
 }
 
@@ -181,7 +236,10 @@ export function canAccessEndpoint(
     return { allowed: false, reason: "UNAUTHENTICATED", message: "User is not logged in." };
   }
 
-  if (isUserSuperAdmin(user)) {
+  // Roles come from the signed token, never from the writable `mana_user` blob.
+  const identity = resolveAuthorizationIdentity(user);
+
+  if (isUserSuperAdmin(identity)) {
     return { allowed: true };
   }
 

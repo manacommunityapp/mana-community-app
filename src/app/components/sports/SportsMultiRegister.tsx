@@ -24,6 +24,7 @@ import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./spon
 import { inferGender, checkCategoryEligibility as checkDashboardEligibility } from "./SportsRegister";
 import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
 import { formatFlatLabel } from "../../../utils/sportsValidationUtils";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -2494,6 +2495,13 @@ export function SportsMultiRegister() {
       return;
     }
 
+    analyticsService.track("sports_registration_started", {
+      eventId: ev.eventId,
+      categoryId: selectedCategory.id,
+      matchTypes: formatsToRegister,
+      regType,
+    });
+
     try {
       const createdRegs: any[] = [];
       for (const fmt of formatsToRegister) {
@@ -2541,6 +2549,14 @@ export function SportsMultiRegister() {
         }
       }
 
+      analyticsService.track("sports_registration_completed", {
+        eventId: ev.eventId,
+        categoryId: selectedCategory.id,
+        matchTypes: formatsToRegister,
+        regType,
+        registeredCount: createdRegs.length,
+      });
+
       const formatText = formatsToRegister.length > 1
         ? ` (${formatsToRegister.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})`
         : "";
@@ -2563,6 +2579,12 @@ export function SportsMultiRegister() {
       }));
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || err?.message || `Failed to register for ${ev.name}`;
+      analyticsService.track("sports_registration_failed", {
+        eventId: ev.eventId,
+        categoryId: selectedCategory?.id,
+        reason: errMsg,
+        regType,
+      });
       setEventErrors(prev => ({ ...prev, [eventId]: errMsg }));
       toast.error(errMsg);
     } finally {
@@ -2784,6 +2806,12 @@ export function SportsMultiRegister() {
     let failedCount = 0;
     const submissionErrors: Record<number, string> = {};
 
+    analyticsService.track("sports_registration_started", {
+      selectedCount: selectedEvents.length,
+      regType,
+      isBatch: true,
+    });
+
     for (const ev of selectedEvents) {
       const catId = ev.categoryId || categories[0]?.id || 1;
       const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
@@ -2841,6 +2869,16 @@ export function SportsMultiRegister() {
 
     const nominatedCount = selectedEvents.filter(e => e.captainNomination).length;
     if (successCount > 0 && failedCount === 0) {
+      analyticsService.track("sports_multi_registration_completed", {
+        successCount,
+        nominatedCount,
+        regType,
+      });
+      analyticsService.track("sports_registration_completed", {
+        registeredCount: successCount,
+        isBatch: true,
+        regType,
+      });
       toast.success(`Successfully registered for ${successCount} sport${successCount > 1 ? "s" : ""}!`);
       if (nominatedCount > 0 && !selectedCommunityResident && regType === "self") {
         toast.info(`Captain nomination recorded for ${nominatedCount} event${nominatedCount > 1 ? "s" : ""}.`);
@@ -2848,8 +2886,19 @@ export function SportsMultiRegister() {
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       navigate("/sports");
     } else if (successCount > 0 && failedCount > 0) {
+      analyticsService.track("sports_registration_completed", {
+        registeredCount: successCount,
+        failedCount,
+        isBatch: true,
+        regType,
+      });
       toast.warning(`Registered for ${successCount} event(s), but ${failedCount} failed. Please check errors.`);
     } else if (failedCount > 0) {
+      analyticsService.track("sports_registration_failed", {
+        failedCount,
+        isBatch: true,
+        regType,
+      });
       toast.error("Failed to register. Please review the errors below.");
     }
   };

@@ -39,7 +39,71 @@ export default defineConfig(({ mode }) => {
       },
     },
     optimizeDeps: {
-      include: ['@tanstack/react-query'],
+      include: [
+        '@tanstack/react-query',
+        '@mui/material',
+        '@emotion/react',
+        '@emotion/styled',
+        '@mui/icons-material/AccountBalance',
+        '@mui/icons-material/Add',
+        '@mui/icons-material/AdminPanelSettings',
+        '@mui/icons-material/Apartment',
+        '@mui/icons-material/ArrowBack',
+        '@mui/icons-material/ArrowForward',
+        '@mui/icons-material/Assessment',
+        '@mui/icons-material/AssignmentInd',
+        '@mui/icons-material/AttachMoney',
+        '@mui/icons-material/Autorenew',
+        '@mui/icons-material/BarChart',
+        '@mui/icons-material/Bathtub',
+        '@mui/icons-material/Bed',
+        '@mui/icons-material/Build',
+        '@mui/icons-material/Business',
+        '@mui/icons-material/Call',
+        '@mui/icons-material/Campaign',
+        '@mui/icons-material/Cancel',
+        '@mui/icons-material/CheckCircle',
+        '@mui/icons-material/Close',
+        '@mui/icons-material/ContentCopy',
+        '@mui/icons-material/Delete',
+        '@mui/icons-material/Description',
+        '@mui/icons-material/Edit',
+        '@mui/icons-material/EditOutlined',
+        '@mui/icons-material/Email',
+        '@mui/icons-material/EmojiEvents',
+        '@mui/icons-material/FileDownload',
+        '@mui/icons-material/History',
+        '@mui/icons-material/Home',
+        '@mui/icons-material/HomeWork',
+        '@mui/icons-material/Image',
+        '@mui/icons-material/Label',
+        '@mui/icons-material/Link',
+        '@mui/icons-material/MoveUp',
+        '@mui/icons-material/OpenInNew',
+        '@mui/icons-material/People',
+        '@mui/icons-material/Person',
+        '@mui/icons-material/PersonPin',
+        '@mui/icons-material/Phone',
+        '@mui/icons-material/PhoneDisabled',
+        '@mui/icons-material/PhoneMissed',
+        '@mui/icons-material/PictureAsPdf',
+        '@mui/icons-material/PlayArrow',
+        '@mui/icons-material/Receipt',
+        '@mui/icons-material/Search',
+        '@mui/icons-material/Security',
+        '@mui/icons-material/SmartToy',
+        '@mui/icons-material/Sms',
+        '@mui/icons-material/SquareFoot',
+        '@mui/icons-material/Storefront',
+        '@mui/icons-material/TableChart',
+        '@mui/icons-material/Timeline',
+        '@mui/icons-material/TrendingUp',
+        '@mui/icons-material/UploadFile',
+        '@mui/icons-material/VerifiedUser',
+        '@mui/icons-material/Warning',
+        '@mui/icons-material/WarningAmber',
+        '@mui/icons-material/WhatsApp',
+      ],
     },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion),
@@ -67,6 +131,33 @@ export default defineConfig(({ mode }) => {
         },
       },
     ],
+    build: {
+      chunkSizeWarningLimit: 1200,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+                return 'vendor-react';
+              }
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('@mui') || id.includes('@emotion') || id.includes('lucide-react') || id.includes('@tabler')) {
+                return 'vendor-ui';
+              }
+              if (id.includes('sweetalert2') || id.includes('papaparse') || id.includes('date-fns') || id.includes('axios')) {
+                return 'vendor-utils';
+              }
+              if (id.includes('@tanstack')) {
+                return 'vendor-query';
+              }
+              return 'vendor-misc';
+            }
+          },
+        },
+      },
+    },
     server: {
       headers: {
         'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:; object-src 'none'; base-uri 'self'; form-action 'self';",

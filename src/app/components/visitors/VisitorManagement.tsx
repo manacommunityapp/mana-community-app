@@ -2,12 +2,22 @@ import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
   Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
-  Trash2, QrCode
+  Trash2, QrCode, ShieldCheck, Share2, Zap
 } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa6";
+import { getBrandIconForText } from "../commons/BrandIcon";
+import { expressDeliveryService, type ExpressVerifyResult } from "../../../services/delivery/expressDeliveryService";
+import { ConnectionStatusIndicator } from "../../../components/security/ConnectionStatusIndicator";
+import { guardSyncOrchestrator } from "../../../services/sync/guardSyncOrchestrator";
+import { offlineSyncService } from "../../../services/sync/offlineSyncService";
+import { spentTokenJournal } from "../../../services/security/spentTokenJournal";
+import { useVirtualRows } from "../../../hooks/useVirtualRows";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "sonner";
+import { ManaPayQrCode } from "../payments/unified/ManaPayQrCode";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
 import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, guestPassService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken, type GuestPass, type CreateGuestPassRequest, type GuestPassScanLog } from "../../../services/security/securityService";
 import { userService } from "../../../services/common/userService";
@@ -181,12 +191,26 @@ export function VisitorManagement() {
     return () => clearInterval(interval);
   }, [portal]);
 
-  // Resident Approvals
+  // Resident Approvals (handles distributed 409 CAS conflicts cleanly)
+  const handleDecisionConflict = (err: unknown) => {
+    const anyErr = err as { response?: { status?: number; data?: { detail?: string; message?: string } }; status?: number; message?: string };
+    const status = anyErr?.response?.status ?? anyErr?.status;
+    const msg = anyErr?.response?.data?.detail ?? anyErr?.response?.data?.message ?? anyErr?.message ?? "";
+    if (status === 409 || msg.includes("Cannot transition VisitorPass")) {
+      toast.info("Already decided by another household member. Syncing latest status.");
+    } else {
+      toast.error(msg || "Action could not be completed.");
+    }
+    fetchPortalData();
+  };
+
   const handleApprove = async (id: number) => {
     setActionLoading(id);
     try {
       await visitorService.approveWalkIn(id);
       fetchPortalData();
+    } catch (err) {
+      handleDecisionConflict(err);
     } finally {
       setActionLoading(null);
     }
@@ -197,6 +221,8 @@ export function VisitorManagement() {
     try {
       await visitorService.reject(id);
       fetchPortalData();
+    } catch (err) {
+      handleDecisionConflict(err);
     } finally {
       setActionLoading(null);
     }
@@ -475,7 +501,10 @@ function ResidentPortalView({
                       )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900">{pass.visitorName}</h4>
+                      <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                        {getBrandIconForText(pass.visitorName || pass.purpose)}
+                        <span>{pass.visitorName}</span>
+                      </h4>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500 font-semibold">
                         <span className={cn("px-2 py-0.5 rounded-full border text-[9px] font-bold uppercase", passTypeColors[pass.passType as PassTypeKey] || "bg-slate-50 text-slate-700 border-slate-200")}>
                           {passTypeLabels[pass.passType as PassTypeKey] || pass.passType}
@@ -564,6 +593,93 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   const [guardName, setGuardName] = useState("Guard Ravi");
   const [photoBlob, setPhotoBlob] = useState<string | null>(null);
 
+  // Express Entry Fast Verification state
+  const [expressResult, setExpressResult] = useState<ExpressVerifyResult | null>(null);
+  const [expressInput, setExpressInput] = useState("");
+  const [expressLoading, setExpressLoading] = useState(false);
+
+  // Windowed virtualization for Guard Today's Log list (caps mounted DOM rows)
+  const {
+    containerRef: logScrollRef,
+    onScroll: handleLogScroll,
+    visibleItems: visibleTodaysPasses,
+    topSpacerHeight: logTopSpacer,
+    bottomSpacerHeight: logBottomSpacer,
+  } = useVirtualRows(todaysPasses, { rowHeight: 68, viewportHeight: 500, overscan: 6 });
+
+  // Real-time Guard Tablet Sync Orchestration (Wi-Fi <-> Cellular reconciliation)
+  useEffect(() => {
+    const stopSync = guardSyncOrchestrator.start(1, 1, "guard-tablet-gate-1");
+    const unsubDelta = guardSyncOrchestrator.onDeltaReconciled(() => {
+      onRefresh();
+    });
+    return () => {
+      stopSync();
+      unsubDelta();
+    };
+  }, [onRefresh]);
+
+  const handleExpressClearance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expressInput.trim()) return;
+    setExpressLoading(true);
+    setExpressResult(null);
+    try {
+      const code = expressInput.trim();
+      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+      if (isOffline) {
+        const replayCheck = spentTokenJournal.consumeOnce({ jti: code, passCode: code, gate });
+        if (!replayCheck.allowed) {
+          setExpressResult({
+            allowed: false,
+            message: `Screenshot replay blocked: ${code} already entered at ${replayCheck.prior?.gate}`,
+            barrierAction: "HOLD",
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      }
+
+      let res: ExpressVerifyResult;
+      if (expressDeliveryService.isBatchManifestCode(code)) {
+        const batchRes = await expressDeliveryService.verifyBatchManifest(code, gate);
+        res = {
+          allowed: batchRes.allowed,
+          message: batchRes.message,
+          partner: batchRes.partner,
+          riderName: batchRes.riderName,
+          vehicleNumber: batchRes.vehicleNumber,
+          status: batchRes.status,
+          barrierAction: batchRes.barrierAction === "HOLD" ? "HOLD" : "OPEN_BOOM_BARRIER",
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        res = await expressDeliveryService.verifyEntry(code, gate);
+      }
+      setExpressResult(res);
+      if (isOffline && res.allowed) {
+        await offlineSyncService.enqueueDurableMutation({
+          entityType: "EXPRESS_DELIVERY",
+          operation: "UPDATE",
+          payloadJson: JSON.stringify({ code, gate, barrierAction: res.barrierAction }),
+        });
+      }
+      if (res.allowed) {
+        setExpressInput("");
+        onRefresh();
+      }
+    } catch {
+      setExpressResult({
+        allowed: false,
+        message: "Failed to verify express pass",
+        barrierAction: "HOLD",
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setExpressLoading(false);
+    }
+  };
+
   // Walk-in Registration states
   const [showWalkInForm, setShowWalkInForm] = useState(false);
   const [walkInForm, setWalkInForm] = useState<VisitorPassRequest>({
@@ -579,6 +695,11 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
   });
   const [walkInSaving, setWalkInSaving] = useState(false);
   const [walkInError, setWalkInError] = useState("");
+  const walkInIdempotencyRef = useRef<string>(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `walkin_${Date.now()}`
+  );
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const walkInPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -674,9 +795,14 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
       const selectedRes = residents.find(r => r.id === Number(walkInForm.residentId));
       const payload = {
         ...walkInForm,
-        flatNumber: walkInForm.flatNumber || (selectedRes ? selectedRes.flatNo : "")
+        flatNumber: walkInForm.flatNumber || (selectedRes ? selectedRes.flatNo : ""),
+        idempotencyKey: walkInIdempotencyRef.current,
       };
       await visitorService.createWalkIn(payload);
+      walkInIdempotencyRef.current =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `walkin_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       setShowWalkInForm(false);
       setWalkInForm({
         visitorName: "",
@@ -708,13 +834,23 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               <Key className="w-5 h-5 text-indigo-500" />
               Verify Visitor Pass (QR / OTP / Phone)
             </h2>
-            <button
-              onClick={() => setShowWalkInForm(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Register Walk-In
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <ConnectionStatusIndicator showWhenHealthy />
+              <a
+                href="/guard/handover"
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl border border-amber-200 cursor-pointer transition"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-600" />
+                Shift Handover
+              </a>
+              <button
+                onClick={() => setShowWalkInForm(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-950 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Register Walk-In
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleVerify} className="flex gap-2">
@@ -736,6 +872,70 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               {verifyLoading ? "Checking..." : "Verify"}
             </button>
           </form>
+
+          {/* Express Entry Quick Clearance Strip */}
+          <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-emerald-500/10 border border-amber-200/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-600" />
+                  Express Entry API (Zomato · Swiggy · Blinkit · Zepto · Amazon)
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-slate-500">Auto-Clearance Active</span>
+            </div>
+            <form onSubmit={handleExpressClearance} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Scan rider barcode or enter EXP-XXXX..."
+                value={expressInput}
+                onChange={e => setExpressInput(e.target.value)}
+                className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-amber-300"
+              />
+              <button
+                type="submit"
+                disabled={expressLoading || !expressInput.trim()}
+                className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs rounded-xl shadow cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {expressLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                1-Sec Clear
+              </button>
+            </form>
+
+            {expressResult && (
+              <div className={cn(
+                "mt-3 p-3 rounded-xl border flex items-center justify-between animate-in fade-in duration-200",
+                expressResult.allowed
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                  : "bg-red-50 border-red-300 text-red-900"
+              )}>
+                <div className="flex items-center gap-2">
+                  {expressResult.allowed ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                  )}
+                  <div>
+                    <div className="text-xs font-black flex items-center gap-1.5">
+                      {expressResult.partner && getBrandIconForText(expressResult.partner)}
+                      <span>{expressResult.message}</span>
+                    </div>
+                    {expressResult.riderName && (
+                      <div className="text-[11px] font-semibold text-slate-600 mt-0.5">
+                        Rider: {expressResult.riderName} {expressResult.vehicleNumber ? `(${expressResult.vehicleNumber})` : ""} · Destination: {expressResult.flatNumber}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {expressResult.barrierAction === "OPEN_BOOM_BARRIER" && (
+                  <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-black rounded-lg shadow uppercase tracking-wider animate-bounce">
+                    Barrier Opened
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
           {verifyError && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center gap-2">
@@ -761,7 +961,10 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
                     {passTypeLabels[verifiedPass.passType as PassTypeKey] || verifiedPass.passType}
                   </span>
                   
-                  <h3 className="text-base font-black text-slate-900 mt-2">{verifiedPass.visitorName}</h3>
+                  <h3 className="text-base font-black text-slate-900 mt-2 flex items-center gap-1.5">
+                    {getBrandIconForText(verifiedPass.visitorName || verifiedPass.purpose, "w-4 h-4")}
+                    <span>{verifiedPass.visitorName}</span>
+                  </h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 text-xs font-semibold text-slate-600">
                     <div><span className="text-slate-400">Phone:</span> {verifiedPass.visitorPhone || "—"}</div>
                     <div><span className="text-slate-400">Vehicle:</span> {verifiedPass.vehicleNumber || "—"}</div>
@@ -919,9 +1122,18 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
               No visits logged today.
             </div>
           ) : (
-            <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-              {todaysPasses.map(p => (
-                <div key={p.id} className="p-3 bg-slate-50 border border-slate-150 rounded-xl flex justify-between gap-3 text-xs">
+            <div
+              ref={logScrollRef}
+              onScroll={handleLogScroll}
+              className="space-y-3 overflow-y-auto pr-1 flex-1"
+            >
+              {logTopSpacer > 0 && <div aria-hidden="true" style={{ height: logTopSpacer }} />}
+              {visibleTodaysPasses.map(p => (
+                <div
+                  key={p.id}
+                  style={{ contentVisibility: "auto", containIntrinsicSize: "68px" }}
+                  className="p-3 bg-slate-50 border border-slate-150 rounded-xl flex justify-between gap-3 text-xs"
+                >
                   <div>
                     <h4 className="font-extrabold text-slate-900 truncate max-w-[120px]">{p.visitorName}</h4>
                     <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Flat {p.flatNumber}</span>
@@ -936,6 +1148,7 @@ function GuardPortalView({ todaysPasses, residents, loading, onRefresh }: GuardP
                   </div>
                 </div>
               ))}
+              {logBottomSpacer > 0 && <div aria-hidden="true" style={{ height: logBottomSpacer }} />}
             </div>
           )}
         </div>
@@ -1507,10 +1720,24 @@ interface InvitationProps {
   onClose: () => void;
 }
 
+export function buildVisitorInvitationText(pass: Partial<VisitorPassResponse>): string {
+  const otpCode = pass.otpOnCreation || pass.otp || "—";
+  const passCode = pass.passCode || "";
+  return `*Mana Community Gate Pass*\n` +
+    `Guest: ${pass.visitorName || "Guest"}\n` +
+    `Flat: ${pass.flatNumber || "A-1004"}\n` +
+    `Pass Code: *${passCode}*\n` +
+    `Entry OTP: *${otpCode}*\n` +
+    `Valid for 12 hours from generation.\n\n` +
+    `Show this QR Code or OTP to the security guard at the gate for fast entry.`;
+}
+
 function InvitationModal({ pass, onClose }: InvitationProps) {
   const [copied, setCopied] = useState(false);
 
-  const invitationText = `Hello ${pass.visitorName},\n\nYou are invited to Flat ${pass.flatNumber || "A-1004"}.\nShow this OTP/QR code at the entrance for verification.\n\nOTP: ${pass.otp}\nValid till: 12 hours from generation.\n\nHosted by: ${pass.residentName}`;
+  const otpCode = pass.otpOnCreation || pass.otp || "—";
+  const passCode = pass.passCode || "";
+  const invitationText = buildVisitorInvitationText(pass);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(invitationText);
@@ -1518,71 +1745,93 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleWhatsApp = () => {
+    const url = `https://wa.me/?text=${encodeURIComponent(invitationText)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Mana Community Gate Pass",
+          text: invitationText,
+        });
+      } catch {
+        handleWhatsApp();
+      }
+    } else {
+      handleWhatsApp();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200 p-6 space-y-6">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200 p-6 space-y-5">
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600">
             <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h2 className="text-base font-extrabold text-slate-900 mt-3">Invitation Code Generated!</h2>
-          <p className="text-[11px] text-slate-400 font-semibold mt-1">Send these credentials to your guest to facilitate smooth entry.</p>
+          <h2 className="text-base font-extrabold text-slate-900 mt-2">Invitation Pass Ready!</h2>
+          <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Send these credentials to your guest to facilitate smooth gate entry.</p>
         </div>
 
-        {/* QR Code & OTP Card */}
-        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-5 text-center space-y-4">
-          <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry Credentials</div>
-          
-          {/* Simulated QR Code SVG */}
-          <div className="w-36 h-36 bg-white border border-slate-200 rounded-xl p-2 mx-auto flex items-center justify-center shadow-inner">
-            <svg viewBox="0 0 100 100" className="w-full h-full text-slate-900">
-              {/* Simple stylized SVG QR Representation */}
-              <rect x="0" y="0" width="30" height="30" fill="currentColor" />
-              <rect x="5" y="5" width="20" height="20" fill="white" />
-              <rect x="10" y="10" width="10" height="10" fill="currentColor" />
-              
-              <rect x="70" y="0" width="30" height="30" fill="currentColor" />
-              <rect x="75" y="5" width="20" height="20" fill="white" />
-              <rect x="80" y="10" width="10" height="10" fill="currentColor" />
+        {/* QR Code & Credentials Card */}
+        <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-center space-y-3">
+          <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Digital Gate Pass</div>
 
-              <rect x="0" y="70" width="30" height="30" fill="currentColor" />
-              <rect x="5" y="75" width="20" height="20" fill="white" />
-              <rect x="10" y="80" width="10" height="10" fill="currentColor" />
-
-              {/* Dots representation */}
-              <rect x="40" y="10" width="8" height="8" fill="currentColor" />
-              <rect x="55" y="20" width="8" height="8" fill="currentColor" />
-              <rect x="45" y="35" width="12" height="12" fill="currentColor" />
-              <rect x="15" y="50" width="8" height="8" fill="currentColor" />
-              <rect x="50" y="50" width="8" height="8" fill="currentColor" />
-              <rect x="70" y="45" width="12" height="8" fill="currentColor" />
-              <rect x="85" y="60" width="8" height="12" fill="currentColor" />
-              <rect x="40" y="75" width="8" height="8" fill="currentColor" />
-              <rect x="55" y="80" width="12" height="8" fill="currentColor" />
-            </svg>
+          {/* Real Dynamic QR Code Matrix */}
+          <div className="flex justify-center">
+            <ManaPayQrCode value={passCode || "MANA-PASS"} size={130} />
           </div>
 
-          <div className="border-t border-slate-200/80 pt-4">
+          {/* Passcode Pill */}
+          <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-3.5 py-1.5 shadow-xs">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pass Code</span>
+            <span className="text-xs font-black font-mono text-slate-900 tracking-wider">{passCode}</span>
+          </div>
+
+          {/* OTP Section */}
+          <div className="border-t border-slate-200/80 pt-2.5">
             <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest">Entry OTP (6-digits)</div>
-            <div className="text-3xl font-black text-indigo-600 tracking-wider font-mono mt-1">{pass.otp}</div>
+            <div className="text-2xl font-black text-indigo-600 tracking-wider font-mono mt-0.5">{otpCode}</div>
           </div>
         </div>
 
-        {/* Copy / Direct Share Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={handleCopy}
-            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-1.5"
-          >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            {copied ? "Copied!" : "Copy Details"}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all border border-slate-200"
-          >
-            Close
-          </button>
+        {/* Share Action Buttons */}
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <button
+              onClick={handleWhatsApp}
+              className="flex-1 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white font-bold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center justify-center gap-1.5"
+            >
+              <FaWhatsapp className="w-4 h-4 text-base" />
+              Share on WhatsApp
+            </button>
+            <button
+              onClick={handleNativeShare}
+              className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 cursor-pointer transition-all flex items-center justify-center"
+              title="Share pass"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopy}
+              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Details"}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1762,6 +2011,21 @@ function VisitorVehiclePassesTab() {
     try { await visitorVehiclePassService.revokePass(id); load(); } catch { alert("Failed to revoke."); }
   };
 
+  const {
+    containerRef: vehicleScrollRef,
+    onScroll: handleVehicleScroll,
+    visibleItems: visibleVehiclePasses,
+    topSpacerHeight: vehicleTopSpacer,
+    bottomSpacerHeight: vehicleBottomSpacer,
+  } = useVirtualRows(passes, { rowHeight: 46, viewportHeight: 480, overscan: 6 });
+
+  const handleVehicleTableClick = (e: React.MouseEvent<HTMLTableSectionElement>) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-revoke-id]");
+    if (!btn) return;
+    const passId = Number(btn.dataset.revokeId);
+    if (Number.isFinite(passId)) void handleRevoke(passId);
+  };
+
   const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
 
   return (
@@ -1804,7 +2068,11 @@ function VisitorVehiclePassesTab() {
 
       {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
         passes.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No vehicle passes issued.</div> : (
-          <div className="overflow-x-auto">
+          <div
+            ref={vehicleScrollRef}
+            onScroll={handleVehicleScroll}
+            className="overflow-x-auto max-h-[480px] overflow-y-auto"
+          >
             <table className="w-full text-sm">
               <thead><tr className="bg-slate-50 text-left">
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
@@ -1814,18 +2082,43 @@ function VisitorVehiclePassesTab() {
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
                 <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
               </tr></thead>
-              <tbody>{passes.map(p => (
-                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
-                  <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
-                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
-                  <td className="px-3 py-2.5">
-                    {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
-                  </td>
-                </tr>
-              ))}</tbody>
+              <tbody onClick={handleVehicleTableClick}>
+                {vehicleTopSpacer > 0 && (
+                  <tr aria-hidden="true" style={{ height: vehicleTopSpacer }}>
+                    <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+                {visibleVehiclePasses.map(p => (
+                  <tr
+                    key={p.id}
+                    style={{ height: 46, contentVisibility: "auto", containIntrinsicSize: "46px" }}
+                    className="border-t border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
+                    <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
+                    <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
+                    <td className="px-3 py-2.5">
+                      {p.status === "ACTIVE" && (
+                        <button
+                          type="button"
+                          data-revoke-id={p.id}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
+                          title="Revoke"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {vehicleBottomSpacer > 0 && (
+                  <tr aria-hidden="true" style={{ height: vehicleBottomSpacer }}>
+                    <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
         )

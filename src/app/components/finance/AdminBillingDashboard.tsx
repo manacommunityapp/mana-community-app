@@ -9,6 +9,16 @@ import { communityFinanceService } from "../../../services/finance/communityFina
 import type { MaintenanceBill, ChargeRule, MaintenancePlan, GeneralLedgerTransaction, TrialBalanceItem, FinanceSummary, PenaltyConfig } from "../../../services/finance/communityFinanceService";
 import { useAuth } from "../../../contexts/AuthContext";
 
+/** Shown while a panel's data has not loaded yet (or failed to load). */
+function PanelPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="bg-white dark:bg-[#1E1E36] p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
+      <RefreshCw className="w-5 h-5 mx-auto text-slate-400 animate-spin" />
+      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-3">{label}</p>
+    </div>
+  );
+}
+
 export function AdminBillingDashboard() {
   const { user } = useAuth();
   const communityId = user?.communityId as number;
@@ -122,7 +132,10 @@ export function AdminBillingDashboard() {
       </div>
 
       {/* ── TAB 1: Financial Overview ────────────────────────────────────────── */}
-      {activeTab === "overview" && (
+      {activeTab === "overview" && !summary && (
+        <PanelPlaceholder label="Loading financial overview…" />
+      )}
+      {activeTab === "overview" && summary && (
         <div className="space-y-6">
           {/* Key Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -131,8 +144,8 @@ export function AdminBillingDashboard() {
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total Billed & Due</span>
                 <div className="p-2 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40"><DollarSign className="w-4 h-4" /></div>
               </div>
-              <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">₹{summary.totalDue.toLocaleString("en-IN")}</div>
-              <div className="text-[11px] text-slate-400 mt-1">{summary.activeFlats} Active Billing Units</div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-2">₹{(summary?.totalDue ?? 0).toLocaleString("en-IN")}</div>
+              <div className="text-[11px] text-slate-400 mt-1">{(summary?.activeFlats ?? 0)} Active Billing Units</div>
             </div>
 
             <div className="bg-white dark:bg-[#1E1E36] p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -140,8 +153,8 @@ export function AdminBillingDashboard() {
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total Collected</span>
                 <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"><CheckCircle2 className="w-4 h-4" /></div>
               </div>
-              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">₹{summary.totalCollected.toLocaleString("en-IN")}</div>
-              <div className="text-[11px] text-emerald-500 mt-1 font-bold">{summary.collectionPercent}% Collection Efficiency</div>
+              <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2">₹{(summary?.totalCollected ?? 0).toLocaleString("en-IN")}</div>
+              <div className="text-[11px] text-emerald-500 mt-1 font-bold">{(summary?.collectionPercent ?? 0)}% Collection Efficiency</div>
             </div>
 
             <div className="bg-white dark:bg-[#1E1E36] p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -149,8 +162,8 @@ export function AdminBillingDashboard() {
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Overdue Balances</span>
                 <div className="p-2 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/40"><AlertTriangle className="w-4 h-4" /></div>
               </div>
-              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-2">₹{summary.totalOverdue.toLocaleString("en-IN")}</div>
-              <div className="text-[11px] text-rose-500 mt-1">{summary.overdueFlats} Flats Past Grace Period</div>
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-2">₹{(summary?.totalOverdue ?? 0).toLocaleString("en-IN")}</div>
+              <div className="text-[11px] text-rose-500 mt-1">{(summary?.overdueFlats ?? 0)} Flats Past Grace Period</div>
             </div>
 
             <div className="bg-white dark:bg-[#1E1E36] p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -167,7 +180,7 @@ export function AdminBillingDashboard() {
           <div className="bg-white dark:bg-[#1E1E36] p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Tower-Wise Collection Progress</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {summary.towerPerformance.map(t => (
+              {(summary?.towerPerformance ?? []).map(t => (
                 <div key={t.tower} className="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{t.tower}</span>
@@ -241,9 +254,15 @@ export function AdminBillingDashboard() {
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
                   <ShieldCheck className="w-4 h-4" /> Late Fee & Penalty Configuration
                 </div>
-                <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
-                  Grace Period: <strong>{penaltyConfig.gracePeriodDays} days</strong> | Rate: <strong>{penaltyConfig.penaltyValue}% per month</strong> | Max Cap: <strong>₹{penaltyConfig.maxPenaltyCap}</strong>
-                </div>
+                {penaltyConfig ? (
+                  <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                    Grace Period: <strong>{penaltyConfig.gracePeriodDays} days</strong> | Rate: <strong>{penaltyConfig.penaltyValue}% per month</strong> | Max Cap: <strong>₹{penaltyConfig.maxPenaltyCap}</strong>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-1">
+                    Penalty configuration unavailable — not yet loaded for this community.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -403,7 +422,10 @@ export function AdminBillingDashboard() {
       )}
 
       {/* ── TAB 5: Aging Analysis ────────────────────────────────────────────── */}
-      {activeTab === "aging" && (
+      {activeTab === "aging" && !summary && (
+        <PanelPlaceholder label="Loading aging analysis…" />
+      )}
+      {activeTab === "aging" && summary && (
         <div className="bg-white dark:bg-[#1E1E36] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Outstanding Receivables Aging Buckets</h3>
@@ -411,7 +433,7 @@ export function AdminBillingDashboard() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {summary.agingBuckets.map(b => (
+            {(summary?.agingBuckets ?? []).map(b => (
               <div key={b.period} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40">
                 <div className="text-xs font-bold text-slate-700 dark:text-slate-300">{b.period}</div>
                 <div className="text-xl font-black text-slate-900 dark:text-white mt-2">₹{b.amount.toLocaleString("en-IN")}</div>

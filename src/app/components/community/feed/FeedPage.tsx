@@ -4,6 +4,7 @@ import { useInfiniteFeed } from "../../../hooks/useInfiniteFeed";
 import { FeedCard } from "./FeedCard";
 import { SkeletonCard } from "./SkeletonCard";
 import { LiveMatchesStrip } from "./LiveMatchesStrip";
+import { CommunityPinsFeed } from "../pins/CommunityPinsFeed";
 import { feedService } from "../../../../services/community/feedService";
 import { RefreshCw, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 
@@ -50,6 +51,9 @@ export function FeedPage() {
 
         {/* ── Live Now Strip: Top-of-page Live Sports Widget (NOT inside post stream) ── */}
         <LiveMatchesStrip />
+
+        {/* ── Community Pins: Ephemeral 24h Micro-Broadcasts ── */}
+        <CommunityPinsFeed />
 
         {/* ── Dashboard Stats Panel ───────────────────────────────────────── */}
         <section aria-label="Community Dashboard Statistics">

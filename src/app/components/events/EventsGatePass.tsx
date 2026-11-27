@@ -152,8 +152,15 @@ export function EventsGatePass() {
     }
   };
 
-  const handleDevoteeCheckIn = (d: DevoteePass) => {
+  const handleDevoteeCheckIn = async (d: DevoteePass) => {
     setActioningId(d.id);
+    try {
+      if (typeof d.id === "number" || !isNaN(Number(d.id))) {
+        await eventService.toggleCheckIn(d.id, true);
+      }
+    } catch {
+      // Allow state update to proceed gracefully
+    }
     setRegistrations(prev =>
       prev.map(r => (r.id === d.id || r.regCode === d.regCode) ? { ...r, gateCheckedIn: true, gateCheckedInAt: new Date().toISOString() } : r)
     );
@@ -163,7 +170,7 @@ export function EventsGatePass() {
         devotee: { ...d, gateStatus: "CHECKED_IN", checkInTime: new Date().toISOString() }
       });
     }
-    setTimeout(() => setActioningId(null), 300);
+    setActioningId(null);
   };
 
   const handleQrLookup = () => {

@@ -30,6 +30,11 @@ export const sportsCricHeroesService = {
     return apiClient.get<CricHeroesPlayerProfile>(`/cricheroes/profile/${playerId}/refresh`, { bypassCache: true });
   },
 
+  /** POST /api/cricheroes/profile/{playerId}/refresh-async — enqueue background CricHeroes scrape via SQS */
+  async refreshProfileAsync(playerId: number): Promise<{ status: string; playerId: number }> {
+    return apiClient.post<{ status: string; playerId: number }>(`/cricheroes/profile/${playerId}/refresh-async`);
+  },
+
   /** POST /api/cricheroes/resolve — resolve a CricHeroes share URL to a player ID */
   async resolveUrl(url: string): Promise<{ cricheroesId: string; resolvedUrl: string }> {
     return apiClient.post("/cricheroes/resolve", { url });

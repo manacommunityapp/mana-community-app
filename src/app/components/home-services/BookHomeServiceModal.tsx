@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { HomeServiceWorker, PricingModel, DayOfWeek } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
+import { analyticsService } from "../../../services/analytics/analyticsService";
 
 interface BookHomeServiceModalProps {
   worker: HomeServiceWorker;
@@ -94,9 +95,11 @@ export function BookHomeServiceModal({ worker, onClose, onSuccess }: BookHomeSer
         tower,
         notes,
       });
+      analyticsService.track("booking_created", { module: "home_services", bookingType });
 
       onSuccess();
     } catch (err: any) {
+      analyticsService.track("booking_failed", { module: "home_services" });
       setErrorMsg(err.message || "Failed to submit booking request.");
     } finally {
       setSubmitting(false);

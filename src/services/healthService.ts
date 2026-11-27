@@ -2736,6 +2736,15 @@ export const healthService = {
     return all.filter(a => a.doctorId === doctorId || !doctorId);
   },
 
+  async getMyAppointments(): Promise<HealthAppointmentDto[]> {
+    return loadStored<HealthAppointmentDto[]>("mana_health_appointments_provider", SEED_APPOINTMENTS);
+  },
+
+  async getAppointmentById(id: string): Promise<HealthAppointmentDto | undefined> {
+    const all = await this.getMyAppointments();
+    return all.find(a => a.id === id);
+  },
+
   async updateAppointmentStatus(
     appointmentId: string,
     newStatus: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED",

@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 import { authService } from "../../../../services/common/authService";
 import { otpService } from "../../../../services/common/otpService";
+import { useRateLimitHandler } from "../../../../hooks/useRateLimitHandler";
+import { RateLimitBanner } from "../../../../components/security/RateLimitBanner";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 
@@ -44,6 +46,8 @@ export function ForgotPassword() {
   // OTP Input refs for autofocus
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  const { rateLimitState, handleError: handleRateLimit, isLimited } = useRateLimitHandler();
+
   // Resend OTP countdown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -57,6 +61,41 @@ export function ForgotPassword() {
   const isValidEmail = (val: string): boolean => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
   };
+
+  // Handle magic links / reset tokens via URL query parameters and scrub URL immediately
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      const codeParam = params.get("code") || params.get("otp");
+      let shouldAdvance = false;
+
+      if (emailParam && isValidEmail(emailParam)) {
+        setEmail(emailParam.trim().toLowerCase());
+        shouldAdvance = true;
+      }
+
+      if (codeParam) {
+        const sanitized = codeParam.replace(/\D/g, "").slice(0, 6);
+        if (sanitized.length === 6) {
+          setOtpDigits(sanitized.split(""));
+          shouldAdvance = true;
+        }
+      }
+
+      if (shouldAdvance) {
+        setStep(2);
+      }
+
+      // Security: Scrub parameters from browser URL & history immediately
+      // Prevents token leakage via Referer headers, browser history, or shoulder-surfing
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {
+      // Safe fallback if window is unavailable
+    }
+  }, []);
 
   // Step 1: Send OTP to Email
   const handleSendOtp = async (e?: React.FormEvent) => {
@@ -99,6 +138,7 @@ export function ForgotPassword() {
         inputRefs.current[0]?.focus();
       }, 150);
     } catch (err: any) {
+      if (handleRateLimit(err)) return;
       const message = err instanceof Error ? err.message : "Unable to send verification code. Please try again.";
       toast.error(message);
     } finally {
@@ -181,6 +221,7 @@ export function ForgotPassword() {
       toast.success(res?.message || "Password updated successfully!");
       setStep(3);
     } catch (err: any) {
+      if (handleRateLimit(err)) return;
       const message = err instanceof Error ? err.message : "Password reset failed. Please check the code and try again.";
       toast.error(message);
     } finally {
@@ -249,9 +290,17 @@ export function ForgotPassword() {
                 </p>
               </div>
 
+              {rateLimitState && (
+                <RateLimitBanner
+                  secondsRemaining={rateLimitState.secondsRemaining}
+                  type={rateLimitState.type}
+                  initialSeconds={rateLimitState.secondsRemaining}
+                />
+              )}
+
               <button
                 type="submit"
-                disabled={isSendingOtp || !email.trim()}
+                disabled={isSendingOtp || !email.trim() || isLimited}
                 className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-lg shadow-primary/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer border-none text-sm"
               >
                 {isSendingOtp ? (
@@ -429,10 +478,18 @@ export function ForgotPassword() {
               </div>
 
               {/* Submit Button */}
+              {rateLimitState && (
+                <RateLimitBanner
+                  secondsRemaining={rateLimitState.secondsRemaining}
+                  type={rateLimitState.type}
+                  initialSeconds={rateLimitState.secondsRemaining}
+                />
+              )}
               <button
                 type="submit"
                 disabled={
                   isResettingPassword ||
+                  isLimited ||
                   otpDigits.join("").length !== 6 ||
                   !newPassword ||
                   newPassword !== confirmPassword ||

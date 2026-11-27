@@ -3,6 +3,7 @@ import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, is
 import { isTeamSport } from "./utils/sportsConstants";
 import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
+import type { FamilyMember } from "../../../services/common/familyService";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
   const currentUserName = "Sandeep Kamarapu";

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
 import {
   Landmark, Calendar, Vote, FileCheck, FolderLock, Users,
-  CheckCircle2, AlertCircle, Plus, Shield, Search, Bell, Sparkles, TrendingUp
+  CheckCircle2, AlertCircle, Plus, Shield, Search, Bell, Sparkles, TrendingUp,
+  Stamp
 } from "lucide-react";
 
 const GOVERNANCE_TABS = [
@@ -13,6 +14,7 @@ const GOVERNANCE_TABS = [
   { to: "resolutions", icon: CheckCircle2,label: "Resolutions & Actions" },
   { to: "vault",       icon: FolderLock,  label: "Digital Records Vault" },
   { to: "committee",   icon: Users,       label: "Committee & Elections" },
+  { to: "noc",         icon: Stamp,       label: "NOC Requests" },
 ];
 
 export function GovernanceLayout() {

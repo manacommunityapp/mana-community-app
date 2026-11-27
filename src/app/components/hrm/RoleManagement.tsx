@@ -32,7 +32,7 @@ export default function RoleManagement({ orgId }: Props) {
     ]).then(([r, e]) => {
       if (r.status === "fulfilled") setRoles(r.value);
       if (e.status === "fulfilled") {
-        const list = (e.value as unknown as { content?: HrEmployeeListItem[] }).content ?? (e.value as HrEmployeeListItem[]);
+        const list = (e.value as unknown as { content?: HrEmployeeListItem[] }).content ?? (e.value as unknown as HrEmployeeListItem[]);
         setEmployees(list);
       }
     }).finally(() => setLoading(false));

@@ -1223,4 +1223,5 @@ export const eventService = {
     const qs = eventId ? `?eventId=${eventId}` : "";
     return apiClient.get<EventAuctionStatsResponse>(`/events/auction-items/stats${qs}`);
   },
+
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   ScanFace,
   UserCheck,
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export const BiometricTurnstileMonitor: React.FC<Props> = ({ communityId = 1 }) => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [turnstiles, setTurnstiles] = useState<BiometricTurnstileDto[]>([]);
   const [logs, setLogs] = useState<BiometricAccessLogDto[]>([]);
@@ -203,6 +205,13 @@ export const BiometricTurnstileMonitor: React.FC<Props> = ({ communityId = 1 }) 
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate("/access/kiosk")}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl text-sm transition-colors shadow-sm"
+          >
+            <ScanFace className="w-4 h-4" />
+            Launch Tablet Kiosk
+          </button>
           <button
             onClick={() => setShowEnrollModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-sm"

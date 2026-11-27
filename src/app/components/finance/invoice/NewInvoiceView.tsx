@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { type LineItem, Field } from "../ledgerShared";
 import { ledgerFinanceService, type FinanceDocument, type LedgerCustomer } from "../../../../services/finance/ledgerFinanceService";
+import { useDraftAutosave } from "../../../../hooks/useDraftAutosave";
 
 export function NewInvoiceView(props: {
   invoiceType: "credit" | "cash";
@@ -117,6 +118,68 @@ export function NewInvoiceView(props: {
     return { subtotal, discount: totalDiscount, tax: totalTax, grand, lineTotals };
   }, [lines, taxInclusive, otherChargeAmount]);
 
+  const draftBaseline = useMemo(
+    () => ({
+      customerName: "",
+      invoiceDate: "2026-07-03",
+      dueDate: "2026-07-10",
+      orderReference: "",
+      placeOfSupply: "",
+      customerNotes: "",
+      termsAndConditions: "",
+      otherChargeAmount: 0,
+      cashCustomerName: "Cash invoice",
+      linesCount: 0,
+    }),
+    []
+  );
+
+  const currentDraftValue = useMemo(
+    () => ({
+      customerName,
+      invoiceDate,
+      dueDate,
+      orderReference,
+      placeOfSupply,
+      customerNotes,
+      termsAndConditions,
+      otherChargeAmount,
+      cashCustomerName,
+      linesCount: lines.length,
+    }),
+    [customerName, invoiceDate, dueDate, orderReference, placeOfSupply, customerNotes, termsAndConditions, otherChargeAmount, cashCustomerName, lines.length]
+  );
+
+  const {
+    restorableDraft,
+    lastAutosavedAt,
+    changedFields,
+    isDirty,
+    dismissRestorableDraft,
+    clearDraft,
+  } = useDraftAutosave({
+    draftKey: `erp_invoice_${invoiceType}`,
+    value: currentDraftValue,
+    baseline: draftBaseline,
+    debounceMs: 800,
+  });
+
+  const handleRestoreDraft = () => {
+    if (!restorableDraft) return;
+    const d = restorableDraft.data;
+    if (typeof d.customerName === "string") setCustomerName(d.customerName);
+    if (typeof d.invoiceDate === "string") setInvoiceDate(d.invoiceDate);
+    if (typeof d.dueDate === "string") setDueDate(d.dueDate);
+    if (typeof d.orderReference === "string") setOrderReference(d.orderReference);
+    if (typeof d.placeOfSupply === "string") setPlaceOfSupply(d.placeOfSupply);
+    if (typeof d.customerNotes === "string") setCustomerNotes(d.customerNotes);
+    if (typeof d.termsAndConditions === "string") setTermsAndConditions(d.termsAndConditions);
+    if (typeof d.otherChargeAmount === "number") setOtherChargeAmount(d.otherChargeAmount);
+    if (typeof d.cashCustomerName === "string") setCashCustomerName(d.cashCustomerName);
+    dismissRestorableDraft();
+    toast.success("Restored unsaved invoice draft.");
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -156,6 +219,7 @@ export function NewInvoiceView(props: {
     };
     try {
       const saved = await ledgerFinanceService.createDocument(payload);
+      clearDraft();
       toast.success(`Invoice ${saved.code ?? ""} saved successfully!`);
     } catch {
       toast.error("Failed to save invoice.");
@@ -216,7 +280,30 @@ export function NewInvoiceView(props: {
           <h1>{invoiceType === "credit" ? "New Invoice (Credit)" : "New Cash Invoice"}</h1>
           <p className="masthead-desc">Create a new {invoiceType === "credit" ? "credit invoice" : "cash invoice"} for your customer</p>
         </div>
+        {isDirty && (
+          <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+            {changedFields.length} modified · {lastAutosavedAt ? `Draft saved ${new Date(lastAutosavedAt).toLocaleTimeString()}` : "Autosaving…"}
+          </div>
+        )}
       </div>
+
+      {restorableDraft && (
+        <div
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px", marginBottom: 14, borderRadius: 10,
+            background: "#FFFBEB", border: "1px solid #FDE68A", fontSize: 13,
+          }}
+        >
+          <span>
+            Unsaved invoice draft from <strong>{new Date(restorableDraft.updatedAt).toLocaleTimeString()}</strong> found.
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn btn-outline" onClick={handleRestoreDraft}>Restore Draft</button>
+            <button type="button" className="btn btn-ghost" onClick={dismissRestorableDraft}>Discard</button>
+          </div>
+        </div>
+      )}
 
       <div className="form-card">
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 20 }}>

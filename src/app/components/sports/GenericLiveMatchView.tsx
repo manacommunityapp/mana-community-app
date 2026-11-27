@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   X,
   Loader2,
@@ -10,7 +10,9 @@ import {
   Activity,
   Clock,
   Info,
+  Share2,
 } from "lucide-react";
+import { StoryCardModal, type StoryCardData } from "../commons/StoryCardModal";
 import {
   tournamentService,
   type GenericMatchState,
@@ -53,6 +55,7 @@ export function GenericLiveMatchView({
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [storyModalOpen, setStoryModalOpen] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef<GenericMatchState | null>(null);
   stateRef.current = state;
@@ -87,30 +90,43 @@ export function GenericLiveMatchView({
 
     fetchState(false);
 
-    const unsub = stompClient.subscribe(
-      `/topic/match/${matchId}/generic-state`,
-      (body) => {
-        if (!isMounted) return;
-        // Dynamically update match state without refreshing or re-mounting the modal
+    const handleIncoming = (body: any) => {
+      if (!isMounted || !body) return;
+      if (body.currentPeriod !== undefined || body.totalScoreA !== undefined) {
         setState(body as GenericMatchState);
-        setLastUpdated(new Date());
-        setError(null);
-        setLoading(false);
+      } else {
+        fetchState(false);
       }
+      setLastUpdated(new Date());
+      setError(null);
+      setLoading(false);
+    };
+
+    const unsubGeneric = stompClient.subscribe(
+      `/topic/match/${matchId}/generic-state`,
+      handleIncoming
+    );
+
+    const unsubLive = stompClient.subscribe(
+      `/topic/matches/${matchId}/live`,
+      handleIncoming
     );
 
     const unsubConnect = stompClient.onConnect(() => {
       if (isMounted) fetchState(false);
     });
 
-    // Background polling fallback only when WebSocket is disconnected
+    // Background polling fallback only when WebSocket is disconnected and document is visible
     reconnectTimer.current = setInterval(() => {
-      if (isMounted && !stompClient.connected) fetchState(false);
-    }, 5000);
+      if (isMounted && !stompClient.connected && document.visibilityState === "visible") {
+        fetchState(false);
+      }
+    }, 15000);
 
     return () => {
       isMounted = false;
-      unsub();
+      unsubGeneric();
+      unsubLive();
       unsubConnect();
       if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     };
@@ -166,6 +182,35 @@ export function GenericLiveMatchView({
   const currentPeriodLabel =
     periodLabels[state.currentPeriod - 1] || `Period ${state.currentPeriod}`;
   const isCompleted = state.status === "COMPLETED";
+
+  const storyCardData: StoryCardData | null = useMemo(() => {
+    if (!state) return null;
+    const isFinished = state.status === "COMPLETED";
+    const team1Name = state.teamAName || "Team A";
+    const team2Name = state.teamBName || "Team B";
+    const scoreA = `${state.scoreA ?? 0}${state.setsWonA !== undefined ? ` (${state.setsWonA} sets)` : ""}`;
+    const scoreB = `${state.scoreB ?? 0}${state.setsWonB !== undefined ? ` (${state.setsWonB} sets)` : ""}`;
+
+    return {
+      type: "MATCH",
+      communityName: tournamentName || state.tournamentName || "Mana Sports",
+      category: `${(state.sport || sportType || "SPORTS").toUpperCase()} MATCH`,
+      title: `${team1Name} vs ${team2Name}`,
+      subtitle: [eventName || state.eventName, roundName || state.roundName].filter(Boolean).join(" • "),
+      statusBadge: isFinished ? (state.resultNote || "MATCH CONCLUDED") : (state.status === "IN_PROGRESS" ? "LIVE SCORE" : "UPCOMING"),
+      badgeColor: isFinished ? "#059669" : "#6366F1",
+      stats: [
+        { label: team1Name, value: scoreA },
+        { label: team2Name, value: scoreB },
+      ],
+      highlights: [
+        state.resultNote ? `Result: ${state.resultNote}` : `Current Period: ${currentPeriodLabel}`,
+        state.matchFormat ? `Format: ${state.matchFormat}` : "",
+      ].filter(Boolean),
+      footerNote: "Mana Sports • Live Scorecard & Highlights",
+      accentColor: "#6366F1",
+    };
+  }, [state, tournamentName, eventName, roundName, sportType, currentPeriodLabel]);
 
   // Check whether individual periods/sets are completed according to sport rules
   const checkSetWon = (
@@ -298,6 +343,15 @@ export function GenericLiveMatchView({
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              onClick={() => setStoryModalOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-sm transition"
+              title="Share as WhatsApp / Instagram Story Card"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Story Card</span>
+            </button>
+
             <button
               onClick={() => fetchState(true)}
               disabled={isRefreshing}
@@ -635,6 +689,12 @@ export function GenericLiveMatchView({
           </div>
         </div>
       </div>
+
+      <StoryCardModal
+        open={storyModalOpen}
+        onClose={() => setStoryModalOpen(false)}
+        data={storyCardData}
+      />
     </div>
   );
 }

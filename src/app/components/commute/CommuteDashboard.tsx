@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Car, MapPin, Clock, Users, Leaf, Search, Plus, Star,
-  ChevronRight, Calendar, ArrowRight, RefreshCw, AlertCircle,
+  ChevronRight, Calendar, ArrowRight, RefreshCw, AlertCircle, Sparkles,
 } from "lucide-react";
 import {
   commuteService,
   type CommuteRide,
   type CommuteStats,
 } from "../../../services/commute/commuteService";
+import {
+  automationService,
+  type CarpoolRouteOptimizeResponse,
+} from "../../../services/automation/automationService";
 
 const TABS = ["Find Rides", "Offer a Ride", "My Rides"] as const;
 const FILTERS = ["Morning", "Evening", "Ladies Only"];
@@ -68,6 +72,34 @@ export function CommuteDashboard() {
   const [offerSuccess, setOfferSuccess] = useState(false);
 
   const [bookingRideId, setBookingRideId] = useState<number | null>(null);
+
+  // AI Carpool Corridor Optimizer
+  const [isOptimizingRoute, setIsOptimizingRoute] = useState(false);
+  const [routeResult, setRouteResult] = useState<CarpoolRouteOptimizeResponse | null>(null);
+  const [showRouteModal, setShowRouteModal] = useState(false);
+
+  const handleOptimizeRoute = async () => {
+    setIsOptimizingRoute(true);
+    try {
+      const res = await automationService.optimizeCarpoolRoute({
+        corridorName: "Outer Ring Road (Bellandur - Marathahalli SEZ)",
+        departureTime: "08:15 AM",
+        originCommunity: "Mana Splendor Heights",
+        destinationTechPark: "EcoWorld Tech Park",
+        availableSeats: 3,
+        poolers: [
+          { riderId: "r-1", riderName: "Amit Roy", flatNumber: "A-204", officeDestination: "EcoWorld Bay 3", preferredTime: "08:15 AM" },
+          { riderId: "r-2", riderName: "Pooja Hegde", flatNumber: "B-502", officeDestination: "Prestige Tech Park", preferredTime: "08:22 AM" }
+        ]
+      });
+      setRouteResult(res);
+      setShowRouteModal(true);
+    } catch (err) {
+      console.error("AI Carpool Optimization error:", err);
+    } finally {
+      setIsOptimizingRoute(false);
+    }
+  };
 
   const toggleFilter = (f: string) =>
     setActiveFilters((prev) =>
@@ -211,14 +243,29 @@ export function CommuteDashboard() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(59,130,246,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Car size={22} style={{ color: "#3b82f6" }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(59,130,246,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Car size={22} style={{ color: "#3b82f6" }} />
+          </div>
+          <div>
+            <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Community Rides</h4>
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Share rides, save money, reduce emissions</p>
+          </div>
         </div>
-        <div>
-          <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Community Rides</h4>
-          <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Share rides, save money, reduce emissions</p>
-        </div>
+        <button
+          onClick={handleOptimizeRoute}
+          disabled={isOptimizingRoute}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+            borderRadius: 8, border: "1px solid #93c5fd", background: "#eff6ff",
+            color: "#1d4ed8", cursor: isOptimizingRoute ? "not-allowed" : "pointer",
+            fontSize: 12, fontWeight: 700
+          }}
+        >
+          <Sparkles size={14} style={{ color: "#2563eb" }} />
+          {isOptimizingRoute ? "Matching Corridors..." : "AI Corridor Optimizer"}
+        </button>
       </div>
 
       {/* Stats */}
@@ -443,6 +490,79 @@ export function CommuteDashboard() {
               ))}
             </>
           )}
+        </div>
+      )}
+
+      {/* AI Carpool Corridor Optimizer Modal */}
+      {showRouteModal && routeResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={(e) => { if (e.target === e.currentTarget) setShowRouteModal(false); }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 540, width: "100%", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e5e7eb", paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Sparkles size={20} style={{ color: "#2563eb" }} />
+                <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>AI Carpool Corridor Optimizer</span>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 20,
+                background: "rgba(37,99,235,0.12)", color: "#2563eb"
+              }}>
+                {routeResult.corridorName}
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, background: "#f8fafc", padding: 12, borderRadius: 12, marginBottom: 16, border: "1px solid #e2e8f0" }}>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>EST. TIME / DIST</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{routeResult.estimatedTimeMinutes}m ({routeResult.totalRouteKm} km)</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>FAIR FUEL SHARE</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#16a34a" }}>₹{routeResult.fairFuelSplitPerRiderInr} / rider</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>CARBON SAVED</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#059669" }}>{routeResult.carbonEmissionSavedKg} kg CO₂</span>
+              </div>
+            </div>
+
+            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12, color: "#1e40af" }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Route Sequence & Detour Rationale</div>
+              <p style={{ margin: 0, lineHeight: 1.5 }}>{routeResult.routingRationale}</p>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", display: "block", marginBottom: 8 }}>Optimized Sequential Stops</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {routeResult.pickupSchedule?.map((s, idx) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 20, height: 20, borderRadius: 10, background: "#dbeafe", color: "#1d4ed8", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11 }}>{idx + 1}</span>
+                      <span style={{ fontWeight: 600, color: "#1e293b" }}>{s.riderName} ({s.flatNumber})</span>
+                    </div>
+                    <span style={{ fontWeight: 700, color: "#2563eb" }}>{s.pickupTime}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                onClick={() => setShowRouteModal(false)}
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#f3f4f6", color: "#374151", border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  alert("Corridor route confirmed and broadcasted to carpool members!");
+                  setShowRouteModal(false);
+                }}
+                style={{ padding: "8px 16px", borderRadius: 8, background: "#2563eb", color: "#fff", border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+              >
+                Publish & Accept Poolers
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

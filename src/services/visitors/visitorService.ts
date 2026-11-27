@@ -20,6 +20,7 @@ export interface VisitorPassResponse {
 
   // New fields
   otp?: string;
+  otpOnCreation?: string;
   otpExpiresAt?: string | null;
   gateIn?: string | null;
   gateOut?: string | null;
@@ -43,6 +44,7 @@ export interface VisitorPassRequest {
   gate?: string;
   guard?: string;
   visitorPhoto?: string;
+  idempotencyKey?: string;
 }
 
 export interface VisitorAuditLog {
@@ -100,7 +102,15 @@ export const visitorService = {
   },
 
   async createWalkIn(data: VisitorPassRequest): Promise<VisitorPassResponse> {
-    return apiClient.post<VisitorPassResponse>("/visitors/walk-in", data);
+    const idempotencyKey =
+      data.idempotencyKey ||
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `walkin_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
+    return apiClient.post<VisitorPassResponse>("/visitors/walk-in", {
+      ...data,
+      idempotencyKey,
+    });
   },
 
   async approveWalkIn(id: number): Promise<VisitorPassResponse> {

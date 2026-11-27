@@ -75,5 +75,31 @@ export const eventReportService = {
     }
     return response.blob();
   },
+
+  /** POST /api/events/{eventId}/report/registrations/export-async — queue heavy CSV export via SQS */
+  async exportRegistrationReportCsvAsync(
+    eventId: number,
+    category: string = "all"
+  ): Promise<{ status: string; jobId: string; eventId: number }> {
+    return apiClient.post<{ status: string; jobId: string; eventId: number }>(
+      `/events/${eventId}/report/registrations/export-async?category=${encodeURIComponent(category)}`
+    );
+  },
+
+  /** GET /api/events/reports/jobs/{jobId} — download cached async CSV export when ready */
+  async downloadAsyncReport(jobId: string): Promise<Blob> {
+    const token = getToken();
+    const communityId = getStoredUser()?.communityId;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (communityId) headers["X-Community-Id"] = String(communityId);
+
+    const response = await fetch(`/api/events/reports/jobs/${encodeURIComponent(jobId)}`, { headers });
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("Session expired. Please refresh the page and try again.");
+      throw new Error(`Report not ready or failed: ${response.statusText}`);
+    }
+    return response.blob();
+  },
 };
 

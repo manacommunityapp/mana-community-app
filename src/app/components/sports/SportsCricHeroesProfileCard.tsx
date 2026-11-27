@@ -9,6 +9,17 @@ import type {
   RecentInning,
 } from "../../../types/sportsCricheroes";
 import { TIER_CONFIG, BADGE_CONFIG } from "../../../types/sportsCricheroes";
+import { sanitizeHref, isSafeRedirectUrl } from "../../../utils/sanitize";
+
+/**
+ * Accepts only absolute http(s) URLs. Relative paths are rejected here because a
+ * CricHeroes profile link is always an external absolute URL.
+ */
+function isHttpUrl(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/")) return false;
+  return isSafeRedirectUrl(trimmed);
+}
 
 interface SportsCricHeroesProfileCardProps {
   playerId: number;
@@ -44,6 +55,12 @@ export function SportsCricHeroesProfileCard({ playerId, playerName, compact = fa
 
   const handlePreview = async () => {
     if (!linkUrl.trim()) return;
+    // Reject dangerous schemes (javascript:, data:, ...) before the value can be
+    // persisted and later rendered into an <a href>.
+    if (!isHttpUrl(linkUrl)) {
+      toast.error("Enter a valid http(s) CricHeroes profile URL");
+      return;
+    }
     setLoading(true);
     try {
       const p = await sportsCricHeroesService.previewProfile(linkUrl.trim());
@@ -57,6 +74,10 @@ export function SportsCricHeroesProfileCard({ playerId, playerName, compact = fa
 
   const handleLink = async () => {
     if (!linkUrl.trim()) return;
+    if (!isHttpUrl(linkUrl)) {
+      toast.error("Enter a valid http(s) CricHeroes profile URL");
+      return;
+    }
     setLoading(true);
     try {
       const result = await sportsCricHeroesService.linkProfile({ playerId, cricHeroesUrl: linkUrl.trim() });
@@ -88,10 +109,22 @@ export function SportsCricHeroesProfileCard({ playerId, playerName, compact = fa
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const p = await sportsCricHeroesService.refreshProfile(playerId);
+      let p: CricHeroesPlayerProfile;
+      try {
+        await sportsCricHeroesService.refreshProfileAsync(playerId);
+        p = await sportsCricHeroesService.getProfile(playerId);
+        setTimeout(() => {
+          sportsCricHeroesService.getProfile(playerId).then((latest) => {
+            setProfile(latest);
+            setRating(computeLocalRating(latest));
+          }).catch(() => {});
+        }, 3500);
+      } catch {
+        p = await sportsCricHeroesService.refreshProfile(playerId);
+      }
       setProfile(p);
       setRating(computeLocalRating(p));
-      toast.success("Profile stats refreshed");
+      toast.success("Profile stats refresh triggered");
     } catch (err: any) {
       toast.error(err?.message || "Refresh failed");
     } finally {
@@ -222,7 +255,7 @@ export function SportsCricHeroesProfileCard({ playerId, playerName, compact = fa
             </span>
           )}
           {profile.shareUrl && (
-            <a href={profile.shareUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--muted)', display: 'flex' }} title="View on CricHeroes">
+            <a href={sanitizeHref(profile.shareUrl)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--muted)', display: 'flex' }} title="View on CricHeroes">
               <ExternalLink size={14} />
             </a>
           )}

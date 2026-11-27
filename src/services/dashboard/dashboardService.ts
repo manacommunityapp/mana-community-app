@@ -7,6 +7,8 @@ export interface AdminDashboardStats {
   totalRolesCount: number;
   totalCommunitiesCount: number;
   activeVisitorsCount: number;
+  expectedVisitorsTodayCount?: number;
+  facilityUtilizationPercent?: number | null;
   openTicketsCount: number;
   inProgressTicketsCount: number;
   activeVendorsCount: number;
@@ -16,6 +18,21 @@ export interface AdminDashboardStats {
   pendingContentReportsCount: number;
   activeEventsCount: number;
   activeNoticesCount: number;
+  residentCount?: number;
+  ownerCount?: number;
+  tenantCount?: number;
+  outstandingInvoiceCount?: number;
+  outstandingDuesAmount?: number;
+  maintenanceCollectedThisMonthAmount?: number;
+  slaBreachedTicketsCount?: number;
+  eventAttendanceCount?: number;
+  monthlyFacilityBookingsCount?: number;
+  activeVendorContractsCount?: number;
+  contractsExpiringWithin30DaysCount?: number;
+  monthlyApprovedExpenseAmount?: number;
+  currentFinancialYearBudgetAmount?: number;
+  currentFinancialYearSpentAmount?: number;
+  communityPostsLast30DaysCount?: number;
   recentActivities: RecentActivityItem[];
 }
 

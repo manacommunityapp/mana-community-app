@@ -12,6 +12,7 @@ import { escapeHtml } from '../../../utils/sanitize';
 
 
 import { sportsService } from '../../../services/sports/sportsService';
+import { automationService } from '../../../services/automation/automationService';
 import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from '../../../services/sports/tournamentService';
 import type { Venue, EventRegistration, SportsEvent } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
@@ -332,6 +333,7 @@ export function computePlayoffRoundMatches(
     roundDates,
     roundTimes,
     roundDurations,
+    roundModes = {},
     globalDuration,
     breakMins,
     breaks = [],
@@ -406,6 +408,8 @@ export function computePlayoffRoundMatches(
     const roundStart = absoluteMinute(fallbackDate, configuredStart);
     const roundDurationStr = roundDurations[representative.round];
     const duration = roundDurationStr ? (parseInt(roundDurationStr, 10) || 30) : (globalDuration || 30);
+    const isSequentialRound = roundModes[representative.round] === 'sequential';
+    let sequentialRoundCursor = roundStart;
     const isAutomaticAdvance = (match: PlayoffMatchDraft) =>
       isByeParticipant(match.home) || isByeParticipant(match.away) ||
       match.status === 'AUTO_ADVANCED' || match.status === 'BYE';
@@ -463,7 +467,8 @@ export function computePlayoffRoundMatches(
         const participantKeys = getParticipantKeys(match);
         const participantReadyAt = participantKeys.reduce((readyAt, key) =>
           Math.max(readyAt, participantAvailableAt.get(key) ?? roundStart), roundStart);
-        const readyAt = Math.max(roundStart, feederReadyAt, participantReadyAt);
+        const baseReadyAt = Math.max(roundStart, feederReadyAt, participantReadyAt);
+        const readyAt = isSequentialRound ? Math.max(baseReadyAt, sequentialRoundCursor) : baseReadyAt;
         const venueKey = String(match.venueId ?? '');
         const courtPool = venueCourtPools.get(venueKey) || [];
 
@@ -484,7 +489,9 @@ export function computePlayoffRoundMatches(
         const venueKey = String(match.venueId ?? '');
         const courtId = (venueCourtPools.get(venueKey) || [])[0] || 'unassigned:0';
         const courtKey = `${venueKey}:${courtId}`;
-        const start = placeAfterBreaks(Math.max(roundStart, courtAvailableAt.get(courtKey) ?? roundStart), duration);
+        const baseReadyAt = roundStart;
+        const readyAt = isSequentialRound ? Math.max(baseReadyAt, sequentialRoundCursor) : baseReadyAt;
+        const start = placeAfterBreaks(Math.max(readyAt, courtAvailableAt.get(courtKey) ?? roundStart), duration);
         bestPlacement = { match, courtId, courtKey, start, participantKeys: getParticipantKeys(match), pendingIndex: 0 };
       }
 
@@ -495,6 +502,9 @@ export function computePlayoffRoundMatches(
       scheduledEndByMatch.set(match.id, start + duration);
       courtAvailableAt.set(courtKey, start + duration + breakMins);
       participantKeys.forEach(key => participantAvailableAt.set(key, start + duration));
+      if (isSequentialRound) {
+        sequentialRoundCursor = start + duration + breakMins;
+      }
       pending.splice(bestPlacement.pendingIndex, 1);
     }
   }
@@ -2199,6 +2209,16 @@ export function SetupSchedule({
       const numParticipants = Number(participants) || 8;
       const allParts = buildParticipantList(numParticipants);
       setAllParticipantOptions(allParts);
+
+      // Trigger AI Fixture Scheduler automation telemetry in background
+      automationService.generateTournamentSchedule({
+        tournamentName: selectedTournamentFilter || 'Mana Tournament',
+        sport: selectedSportFilter || 'SPORTS',
+        format: isKnockoutOnly ? 'KNOCKOUT' : isRoundRobin ? 'ROUND_ROBIN' : 'LEAGUE',
+        teams: allParts.map(p => p.name || `Team ${p.id}`),
+        venues: venues.map(v => v.name),
+        startDate: new Date().toISOString().split('T')[0],
+      }).catch(() => {});
 
       if (isKnockoutOnly) {
         setMatchOverrides({});

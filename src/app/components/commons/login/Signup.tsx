@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { analyticsService } from "../../../../services/analytics/analyticsService";
 import { useForm } from "react-hook-form";
 import {
   ShieldCheck,
@@ -531,6 +532,9 @@ export function Signup() {
   const signupOtpInputRef = useRef<HTMLInputElement>(null);
 
   const { register: registerUser } = useAuth();
+  useEffect(() => {
+    analyticsService.track("signup_started");
+  }, []);
   const navigate = useNavigate();
 
   const {
@@ -924,6 +928,7 @@ export function Signup() {
         captchaToken: captchaToken || undefined,
       } as any);
 
+      analyticsService.track("signup_completed", { userType: data.userType || "Owner" });
       toast.success("Account created! Welcome to the community.");
       setStep(3);
     } catch (err) {

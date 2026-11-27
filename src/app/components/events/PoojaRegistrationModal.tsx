@@ -918,7 +918,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         eventTimeDisplay: selectedSlotDisplayTime,
         venue: venueName,
         bookingFee: numericFee,
-        paymentStatus: numericFee === 0 ? "FREE" : "PAID",
+        paymentStatus: numericFee === 0 ? "FREE" : (paymentMode === "CASH" ? "PENDING" : "PAID"),
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",

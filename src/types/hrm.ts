@@ -2,6 +2,7 @@ export interface HrOrganization {
   id: number;
   communityId: number;
   organizationName: string;
+  name?: string;
   organizationType: string;
   gstNumber?: string;
   registrationNumber?: string;
@@ -198,6 +199,7 @@ export interface HrDashboardData {
 
 export interface HrEmployeeDocument {
   id: number;
+  employeeId?: number;
   documentType: string;
   documentName: string;
   fileUrl: string;
@@ -1048,3 +1050,90 @@ export interface MwForecastSummary {
   projections: MwForecastProjection[];
   gapByModule: Record<string, number>;
 }
+
+// ── Contractor Workforce Management (CWMS) ──────────────────────────────────
+export type ComplianceStatus = "COMPLIANT" | "NEEDS_REVIEW" | "EXPIRED_DOCS";
+
+export interface ContractorAgency {
+  id: number;
+  organizationId: number;
+  agencyName: string;
+  agencyCode: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  gstNumber?: string;
+  panNumber?: string;
+  contractStartDate: string;
+  contractEndDate: string;
+  billingRatePerHour?: number;
+  activeHeadcount: number;
+  maxHeadcountQuota: number;
+  allocatedGates: string[];
+  serviceCategories: string[];
+  complianceStatus: ComplianceStatus;
+  isActive: boolean;
+  notes?: string;
+}
+
+export type ContractorWorkerStatus = "ACTIVE" | "ON_DUTY" | "OFF_DUTY" | "BLACKLISTED";
+
+export interface ContractorWorker {
+  id: number;
+  agencyId: number;
+  agencyName: string;
+  workerCode: string;
+  fullName: string;
+  phone: string;
+  category: string;
+  deployedSite: string;
+  shiftName: string;
+  kycVerified: boolean;
+  dpdpConsentSigned: boolean;
+  safetyTrainingPassed: boolean;
+  faceEnrolled: boolean;
+  status: ContractorWorkerStatus;
+  lastPunchTime?: string;
+  avatarUrl?: string;
+}
+
+export interface ContractorBillingSummary {
+  agencyId: number;
+  agencyName: string;
+  billingPeriod: string;
+  totalClaimedHours: number;
+  verifiedBiometricHours: number;
+  discrepancyHours: number;
+  hourlyRate: number;
+  netApprovedAmount: number;
+  flaggedDiscrepanciesCount: number;
+  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "RECONCILED";
+}
+
+// ── AI TimeGuard Anomaly Detection ──────────────────────────────────────────
+export type AnomalySeverity = "CRITICAL" | "WARNING" | "INFO";
+export type AnomalyType =
+  | "BUDDY_PUNCH_SUSPECTED"
+  | "GEO_JUMP"
+  | "OFF_SHIFT_ATTEMPT"
+  | "RAPID_CONSECUTIVE_PUNCH"
+  | "FACE_LIVENESS_FAILED"
+  | "AGENCY_QUOTA_EXCEEDED";
+
+export type AnomalyStatus = "FLAGGED" | "INVESTIGATING" | "APPROVED_EXCEPTION" | "DISMISSED";
+
+export interface AiTimeGuardAnomaly {
+  id: string;
+  type: AnomalyType;
+  severity: AnomalySeverity;
+  personName: string;
+  personRole: string;
+  agencyName?: string;
+  timestamp: string;
+  gateLocation: string;
+  confidenceScore?: number;
+  description: string;
+  status: AnomalyStatus;
+  actionTaken?: string;
+}
+

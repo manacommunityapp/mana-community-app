@@ -8,7 +8,10 @@ export type ManaPayDomain =
   | 'MARKETPLACE_ORDER'
   | 'TRIP_BOOKING'
   | 'MANA_HEALTH'
-  | 'WALLET_TOPUP';
+  | 'WALLET_TOPUP'
+  | 'AMENITY_BOOKING'
+  | 'FOOD_ORDER'
+  | 'HEALTH_BOOKING';
 
 export type ManaPaymentRail =
   | 'UPI_INTENT'
@@ -44,7 +47,7 @@ export interface ManaPayItemLine {
 }
 
 export interface CreateManaPaymentIntentRequest {
-  idempotencyKey: string;
+  idempotencyKey?: string;
   domain: ManaPayDomain;
   orderReferenceId: string;
   title: string;
@@ -92,12 +95,16 @@ export interface ConfirmManaPaymentRequest {
 
 export interface ManaDigitalReceipt {
   receiptNumber: string;
+  title?: string;
+  currency?: string;
+  paidAt?: string;
+  qrVerificationPayload?: string;
   receiptDate: string;
   transactionNumber: string;
   orderReferenceId: string;
   domain: ManaPayDomain;
   status: ManaPaymentStatus;
-  payerName: string;
+  payerName?: string;
   payerUnit?: string;
   payerPhone?: string;
   paymentRail: ManaPaymentRail;
@@ -130,7 +137,7 @@ export interface ManaPaymentRecord {
   createdAt: string;
   paidAt?: string;
   payerId?: string;
-  payerName: string;
+  payerName?: string;
   payerUnit?: string;
   vendorId?: string;
   vendorName?: string;

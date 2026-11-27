@@ -518,12 +518,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       return true;
     }
 
-    // 5. Initial boot grace period while user data is synchronizing
-    if (user && !user.enabledModules && !user.permissions) {
-      return true;
-    }
-
-    // 6. Community module enablement validation
+    // 5. Community module enablement validation
     if (!enabledModules || enabledModules.length === 0) {
       return false;
     }

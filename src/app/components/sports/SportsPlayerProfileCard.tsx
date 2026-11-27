@@ -9,6 +9,7 @@ import type { AuctionPlayer, AuctionTeam, PlayerCategory } from "../../../types/
 import type { CricHeroesPlayerProfile } from "../../../types/sportsCricheroes";
 import { TIER_CONFIG, BADGE_CONFIG } from "../../../types/sportsCricheroes";
 import { computeLocalRating } from "../../../hooks/useSportsCricHeroesProfile";
+import { sanitizeHref } from "../../../utils/sanitize";
 
 interface SportsPlayerProfileCardProps {
   player: AuctionPlayer;
@@ -152,7 +153,7 @@ export function SportsPlayerProfileCard({
             {kycVerified && <span title="KYC Verified" style={{ display: "inline-flex" }}><Shield size={12} style={{ color: "#22c55e" }} /></span>}
             {player.verifiedAt && <span title="Stats Verified" style={{ display: "inline-flex" }}><CheckCircle size={11} style={{ color: "#22c55e" }} /></span>}
             {player.cricHeroesUrl && (
-              <a href={player.cricHeroesUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", color: "var(--gold)" }}>
+              <a href={sanitizeHref(player.cricHeroesUrl)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", color: "var(--gold)" }}>
                 <ExternalLink size={11} />
               </a>
             )}

@@ -1,0 +1,151 @@
+{
+  "name": "Mana Community - DG Generator Fuel Anomaly & Maintenance Predictor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "infra-generator-fuel-anomaly",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-infra-generator-fuel-anomaly"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\nconst prompt = \"You are an autonomous AI engineering specialist for Mana Community smart infrastructure. You analyze diesel generator run hours, fuel dip measurements, refill invoices, and burn rates (liters/hour). Detect diesel pilferage, sensor leakage, and calculate 250-hour B-Check service maintenance countdowns.\\n\\nAnalyze the input payload securely:\\n__DATA__\\n\\nRespond strictly with valid JSON conforming to this schema:\\n{\\n  \\\"generatorId\\\": \\\"DG-500KVA-01\\\",\\n  \\\"anomalySeverity\\\": \\\"NORMAL\\\",\\n  \\\"fuelConsumptionLitersPerHour\\\": 28.4,\\n  \\\"expectedBurnRateRange\\\": \\\"25 - 32 L/hr\\\",\\n  \\\"theftOrLeakageRisk\\\": \\\"LOW\\\",\\n  \\\"hoursRemainingToBCheck\\\": 42.5,\\n  \\\"projectedBCheckDate\\\": \\\"2026-12-14\\\",\\n  \\\"alerts\\\": [],\\n  \\\"maintenanceDirectives\\\": [\\n    \\\"Check lube oil clarity and change primary fuel filter at 250h threshold\\\",\\n    \\\"Inspect radiator coolant level and belt tension\\\"\\n  ]\\n}\\n\\nRules:\\n- anomalySeverity must be one of: \\\"NORMAL\\\", \\\"SUSPECTED_PILFERAGE\\\", \\\"SENSOR_ANOMALY\\\", \\\"CRITICAL_OVERCONSUMPTION\\\".\\n- Return pure JSON only, no markdown wrapping, no extra keys.\";\nreturn [{ json: { prompt: prompt.replace(\"__DATA__\", JSON.stringify(item, null, 2)), originalInput: item } }];"
+      },
+      "id": "code-prep",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{$env.GOOGLE_GEMINI_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": {{JSON.stringify($json.prompt)}}\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\",\n    \"temperature\": 0.2\n  }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-gemini",
+      "name": "Gemini 3.5 Flash Lite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $input.first().json;\ntry {\n  const text = inputData.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (!text) throw new Error(\"No Gemini output text\");\n  const parsed = JSON.parse(text);\n  return [{ json: { status: \"success\", auditedAt: new Date().toISOString(), ...parsed } }];\n} catch (e) {\n  return [{ json: { status: \"fallback\", error: e.message, auditedAt: new Date().toISOString(), ...{\"generatorId\":\"DG-500KVA-01\",\"anomalySeverity\":\"NORMAL\",\"fuelConsumptionLitersPerHour\":28.4,\"expectedBurnRateRange\":\"25 - 32 L/hr\",\"theftOrLeakageRisk\":\"LOW\",\"hoursRemainingToBCheck\":42.5,\"projectedBCheckDate\":\"2026-12-14\",\"alerts\":[],\"maintenanceDirectives\":[\"Check lube oil clarity and change primary fuel filter at 250h threshold\",\"Inspect radiator coolant level and belt tension\"]} } }];\n}"
+      },
+      "id": "code-parse",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini 3.5 Flash Lite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 3.5 Flash Lite": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Output": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

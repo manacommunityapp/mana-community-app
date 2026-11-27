@@ -29,6 +29,7 @@ import { sportsService } from "../../../../services/sports/sportsService";
 import { familyService } from "../../../../services/common/familyService";
 import type { FamilyMemberSlim } from "../../../../services/common/familyService";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
+import { AuthenticatedImage } from "../../commons/AuthenticatedImage";
 import { formatFlatLabel } from "../../../../utils/sportsValidationUtils";
 
 const calculateAge = (dobString?: string): number | null => {
@@ -451,13 +452,10 @@ export function AddPlayerModal({
                               {/* Avatar with fallback initials */}
                               <div className="relative h-9 w-9 rounded-full overflow-hidden border border-[#2a3a5c] group-hover:border-[#f97316]/50 transition-colors flex-shrink-0 bg-[#141c2e] flex items-center justify-center shadow-xs">
                                 {friend.avatarUrl || friend.profilePicUrl ? (
-                                  <img
+                                  <AuthenticatedImage
                                     src={resolveImageUrl(friend.avatarUrl || friend.profilePicUrl)}
                                     className="w-full h-full object-cover"
                                     alt={friend.fullName}
-                                    onError={(e) => {
-                                      (e.target as HTMLElement).style.display = "none";
-                                    }}
                                   />
                                 ) : null}
                                 <span className="text-[10px] font-bold text-[#94a3b8] uppercase select-none">

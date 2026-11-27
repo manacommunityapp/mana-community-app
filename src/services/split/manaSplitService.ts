@@ -688,6 +688,14 @@ export const manaSplitService = {
     return col;
   },
 
+  // ── Payment History ──
+  getPayments(groupId?: string): SplitPaymentRecord[] {
+    const store = loadStore();
+    return groupId
+      ? store.payments.filter(p => p.groupId === groupId)
+      : store.payments;
+  },
+
   // ── User Summary & Aggregates ──
   getUserOverview() {
     const store = loadStore();

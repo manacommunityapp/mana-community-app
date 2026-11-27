@@ -34,6 +34,20 @@ export interface PollRequest {
   options: string[];
 }
 
+export interface FlatVotingEligibility {
+  eligible: boolean;
+  reasonCode: string;
+  message: string;
+  flatId: number;
+  flatLabel?: string;
+  residentType?: string;
+  weightApplied: number;
+  votingMode: string;
+  overdueInvoiceCount: number;
+  overdueAmount: number;
+  oldestOverdueDate?: string;
+}
+
 export const pollService = {
   async getActivePolls(): Promise<PollResponse[]> {
     return apiClient.get<PollResponse[]>("/polls");
@@ -55,8 +69,12 @@ export const pollService = {
     return apiClient.post<PollResponse>("/polls", data);
   },
 
-  async vote(id: number, optionIds: number[]): Promise<PollResponse> {
-    return apiClient.post<PollResponse>(`/polls/${id}/vote`, { optionIds });
+  async vote(id: number, optionIds: number[], flatId?: number): Promise<PollResponse> {
+    return apiClient.post<PollResponse>(`/polls/${id}/vote`, flatId != null ? { optionIds, flatId } : { optionIds });
+  },
+
+  async checkFlatEligibility(id: number, flatId: number): Promise<FlatVotingEligibility> {
+    return apiClient.get<FlatVotingEligibility>(`/polls/${id}/eligibility?flatId=${flatId}`);
   },
 
   async deletePoll(id: number): Promise<void> {
