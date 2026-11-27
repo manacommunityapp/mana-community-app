@@ -85,6 +85,54 @@ function unwrapOne(res: any): any {
   return res?.data ?? res;
 }
 
+export function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
+  let result = 1n;
+  let b = ((base % mod) + mod) % mod;
+  let e = exp;
+  while (e > 0n) {
+    if (e & 1n) result = (result * b) % mod;
+    e >>= 1n;
+    b = (b * b) % mod;
+  }
+  return result;
+}
+
+export function modInverse(a: bigint, m: bigint): bigint {
+  let [oldR, r] = [((a % m) + m) % m, m];
+  let [oldS, s] = [1n, 0n];
+  while (r !== 0n) {
+    const q = oldR / r;
+    [oldR, r] = [r, oldR - q * r];
+    [oldS, s] = [s, oldS - q * s];
+  }
+  if (oldR !== 1n) throw new Error("Blinding factor is not coprime to RSA modulus");
+  return ((oldS % m) + m) % m;
+}
+
+export function blindMessageHex(
+  messageHex: string,
+  blindingFactorHex: string,
+  publicExponentHex: string,
+  modulusHex: string
+): string {
+  const m = BigInt("0x" + messageHex);
+  const r = BigInt("0x" + blindingFactorHex);
+  const e = BigInt("0x" + publicExponentHex);
+  const n = BigInt("0x" + modulusHex);
+  return ((m * modPow(r, e, n)) % n).toString(16);
+}
+
+export function unblindSignatureHex(
+  blindSignatureHex: string,
+  blindingFactorHex: string,
+  modulusHex: string
+): string {
+  const sPrime = BigInt("0x" + blindSignatureHex);
+  const r = BigInt("0x" + blindingFactorHex);
+  const n = BigInt("0x" + modulusHex);
+  return ((sPrime * modInverse(r, n)) % n).toString(16);
+}
+
 // ── Service ────────────────────────────────────────────────────────────────
 
 export const governanceService = {
@@ -141,5 +189,72 @@ export const governanceService = {
     } catch {
       return [];
     }
+  },
+
+  // Tamper-Evident Secret Ballot
+  async getElectionPublicKey(electionId: number): Promise<{ electionId: number; modulusHex: string; publicExponentHex: string }> {
+    const res = await apiClient.get<any>(`/governance/elections/${electionId}/public-key`);
+    return unwrapOne(res);
+  },
+
+  async requestBlindToken(electionId: number, flatId: number, blindedMessageHex: string): Promise<any> {
+    const res = await apiClient.post<any>(`/governance/elections/${electionId}/blind-token`, {
+      flatId,
+      blindedMessageHex,
+    });
+    return unwrapOne(res);
+  },
+
+  async castSecretBallot(
+    electionId: number,
+    nominationId: number,
+    tokenHex: string,
+    unblindedSignatureHex: string
+  ): Promise<{ accepted: boolean; receiptCode: string; ballotHash: string }> {
+    const res = await apiClient.post<any>(`/governance/elections/${electionId}/secret-ballot`, {
+      nominationId,
+      tokenHex,
+      unblindedSignatureHex,
+    });
+    return unwrapOne(res);
+  },
+
+  async auditElectionBallots(electionId: number, receiptCode?: string): Promise<any> {
+    const qs = receiptCode ? `?receiptCode=${encodeURIComponent(receiptCode)}` : "";
+    const res = await apiClient.get<any>(`/governance/elections/${electionId}/audit${qs}`);
+    return unwrapOne(res);
+  },
+
+  // Live Hybrid AGM Quorum & Proxy Tracking
+  async registerAgmProxy(meetingId: number, flatId: number, proxyHolderUserId: number): Promise<any> {
+    return apiClient.post<any>(`/governance/meetings/${meetingId}/register-proxy`, {
+      flatId,
+      proxyHolderUserId,
+    });
+  },
+
+  async checkInAgm(
+    meetingId: number,
+    flatId: number,
+    attendeeRole: "OWNER" | "CO_OWNER" | "PROXY" = "OWNER",
+    attendanceMode: "IN_PERSON_QR" | "ONLINE_WS" = "IN_PERSON_QR"
+  ): Promise<any> {
+    return apiClient.post<any>(`/governance/meetings/${meetingId}/checkin`, {
+      flatId,
+      attendeeRole,
+      attendanceMode,
+    });
+  },
+
+  async revokeAgmProxy(meetingId: number, flatId: number): Promise<any> {
+    return apiClient.post<any>(`/governance/meetings/${meetingId}/revoke-proxy`, { flatId });
+  },
+
+  async getLiveAgmQuorum(meetingId: number): Promise<any> {
+    return apiClient.get<any>(`/governance/meetings/${meetingId}/quorum`);
+  },
+
+  async openResolutionVoting(resolutionId: number, meetingId: number): Promise<any> {
+    return apiClient.post<any>(`/governance/resolutions/${resolutionId}/open-voting`, { meetingId });
   },
 };
