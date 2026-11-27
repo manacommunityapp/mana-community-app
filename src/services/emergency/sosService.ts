@@ -89,5 +89,43 @@ export const sosService = {
 
   async executeLockdown(data: GateLockdownRequest): Promise<void> {
     return apiClient.post<void>("/emergency/lockdown", data);
-  }
+  },
+
+  encodeCompactSosFrame(params: {
+    communityId: number;
+    residentId: number;
+    towerBlock: string;
+    locationCode: string;
+    typeCode: string;
+    epochSec?: number;
+    idempotencyKey: string;
+  }): string {
+    const ts = params.epochSec ?? Math.floor(Date.now() / 1000);
+    return `SOS1|${params.communityId}|${params.residentId}|${params.towerBlock}|${params.locationCode}|${params.typeCode}|${ts}|${params.idempotencyKey}`;
+  },
+
+  async triggerCompactSos(
+    rawFrame: string,
+    ingestChannel: "COMPACT_2G" | "SMS_FALLBACK" = "COMPACT_2G",
+    nearestGuardId?: number
+  ): Promise<any> {
+    return apiClient.post<any>("/emergency/sos/compact", { rawFrame, ingestChannel, nearestGuardId });
+  },
+
+  async broadcastTowerEvacuation(payload: {
+    towerBlock: string;
+    emergencyType: string;
+    message: string;
+    assemblyPoint?: string;
+  }): Promise<any> {
+    return apiClient.post<any>("/emergency/evacuation/broadcast", payload);
+  },
+
+  async getEvacuationMuster(broadcastId: number): Promise<any> {
+    return apiClient.get<any>(`/emergency/evacuation/${broadcastId}/muster`);
+  },
+
+  async markEvacueeSafe(entryId: number): Promise<any> {
+    return apiClient.post<any>(`/emergency/evacuation/muster/${entryId}/safe`, {});
+  },
 };
