@@ -29,6 +29,7 @@ export interface TicketResponse {
   resolutionNotes?: string | null;
   resolutionProofUrl?: string | null;
   resolutionCode?: string | null;
+  attachments?: string | null;
   reopenCount?: number;
   isEscalated?: boolean;
   escalationLevel?: number;
@@ -47,6 +48,7 @@ export interface TicketRequest {
   description?: string;
   category?: string;
   priority?: string;
+  attachments?: string;
 }
 
 export interface AiClassificationRequest {

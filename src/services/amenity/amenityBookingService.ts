@@ -48,6 +48,8 @@ export interface CancelResult {
   success: boolean;
   message: string;
   cancelledReference?: string;
+  promotedWaitlistResidentId?: number | null;
+  promotedWaitlistPosition?: number | null;
 }
 
 export interface BookingWaitlistEntry {

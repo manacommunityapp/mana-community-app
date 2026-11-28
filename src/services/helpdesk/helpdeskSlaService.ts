@@ -24,6 +24,7 @@ export interface HelpdeskTicket {
   assignedTechnicianId?: number | null;
   resolvedAt?: string | null;
   resolutionNotes?: string;
+  attachmentUrls?: string;
   createdAt?: string;
   updatedAt?: string;
 }
