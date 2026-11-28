@@ -48,6 +48,8 @@ import { StatutoryTaxEnginePage } from "../pages/accounting/StatutoryTaxEnginePa
 import { AuditTallySyncPage } from "../pages/accounting/AuditTallySyncPage";
 import { FinOpsDashboardPage } from "../pages/finops/FinOpsDashboardPage";
 import { VernacularVoiceConsolePage } from "../pages/localization/VernacularVoiceConsolePage";
+import { ClubhouseConsolePage } from "../pages/clubhouse/ClubhouseConsolePage";
+import { AuditForensicsPage } from "../pages/forensics/AuditForensicsPage";
 
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
@@ -1802,6 +1804,10 @@ export const router = createBrowserRouter([
       { path: "finops", element: <FinOpsDashboardPage /> },
       // ── Vernacular OTA Localization & Voice Gate Entry ─────────
       { path: "localization", element: <VernacularVoiceConsolePage /> },
+      // ── Clubhouse Café POS & Pool Guest Passes ─────────────────
+      { path: "clubhouse", element: <ClubhouseConsolePage /> },
+      // ── Audit Forensics, Event Sourcing & Time-Travel ──────────
+      { path: "forensics", element: <AuditForensicsPage /> },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "khatabook", element: <KhataBook /> },
